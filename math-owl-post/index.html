@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0a2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="דואר החשבון">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="icon" href="../icon-192.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../lib/fonts.css">
+<title>הדוויג – דואר החשבון הקסום</title>
+<style>
+  /* The big equation lives in a floating parchment letter at the top-centre. Digits are kept
+     LTR inside the RTL page so "3 + 4 = ?" reads in the natural maths direction. */
+  .mq-panel{position:fixed;top:calc(96px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9;
+    background:linear-gradient(#fff7e6,#f1e0b4);border:5px solid #ffd76a;border-radius:24px;
+    padding:8px 30px;box-shadow:0 8px 24px rgba(0,0,0,.45);color:#2a1c3a;max-width:92vw;display:none}
+  .mq-eq{direction:ltr;font-size:min(13vw,76px);font-weight:bold;line-height:1.15;letter-spacing:2px;
+    font-variant-numeric:tabular-nums;white-space:nowrap;text-align:center}
+  .mq-eq .q{display:inline-block;min-width:.7em;color:#b8860b}
+  .mq-eq .a{display:inline-block;min-width:.7em;color:#1f9e3c;animation:mqPop .4s}
+  @keyframes mqPop{0%{transform:scale(.4)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+  .mq-streak{position:fixed;top:calc(198px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9;
+    font-size:34px;font-weight:bold;color:#ffd76a;text-shadow:0 2px 0 #000,0 0 14px rgba(255,120,40,.7);display:none}
+
+  /* friendly mode picker — four big buttons + an easy/normal toggle */
+  .mq-picker{position:fixed;inset:0;z-index:25;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,rgba(30,20,80,.45),rgba(5,3,25,.86));color:#fff;text-align:center;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .mq-picker h2{font-size:min(8.5vw,54px);color:#ffd76a;text-shadow:0 3px 0 #7a3b00,0 0 24px rgba(255,200,80,.5);margin:0 10px 20px}
+  .mq-modes{display:flex;flex-wrap:wrap;gap:22px;justify-content:center;max-width:740px;padding:0 16px}
+  .mq-mode{width:150px;height:150px;border-radius:28px;border:5px solid #ffd76a;background:rgba(40,25,90,.82);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;
+    font-size:66px;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.45);touch-action:manipulation;transition:transform .12s}
+  .mq-mode:hover,.mq-mode:focus{transform:scale(1.06) rotate(-1deg)}
+  .mq-mode:active{transform:scale(.93)}
+  .mq-mode .lbl{font-size:27px;font-weight:bold;color:#ffd76a}
+  .mq-diff{margin-top:28px;display:flex;gap:16px}
+  .mq-diff button{font-family:inherit;font-size:28px;font-weight:bold;padding:12px 30px;border-radius:40px;border:4px solid #ffd76a;
+    background:rgba(40,25,90,.7);color:#fff;cursor:pointer;touch-action:manipulation}
+  .mq-diff button.sel{background:#ffd76a;color:#3a2000}
+</style>
+</head>
+<body>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/common.js"></script>
+<script>
+(() => {
+  const { rand, clamp, lerp } = HP;
+  const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1)); // inclusive random int
+
+  const { renderer, scene, camera } = HP.setup({ fogColor: 0x1d1640, fogNear: 70, fogFar: 220, fov: 50, onResize: fitCamera });
+  const sky = HP.makeSky(scene, { moonPos: new THREE.Vector3(-70, 55, -300), bottom: 0x9a5a7a, mid: 0x2b1d6b, stars: 1300 });
+  const fx = new HP.Particles(scene, 900);
+  const input = HP.input();
+
+  /* ---- scene: a grassy clearing with a row of magical owl-post mailboxes, castle behind ---- */
+  const castle = HP.makeCastle();
+  castle.position.set(0, -34, -180);
+  castle.scale.setScalar(2.4);
+  scene.add(castle);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x24324a, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0;
+  scene.add(ground);
+  // a soft lantern-lit path leading to the boxes
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(10, 120), new THREE.MeshStandardMaterial({ color: 0x3a2f55, roughness: 1 }));
+  path.rotation.x = -Math.PI / 2;
+  path.position.set(0, 0.02, 30);
+  scene.add(path);
+  // floating candles for atmosphere
+  const candles = [];
+  for (let i = 0; i < 10; i++) {
+    const c = new THREE.Group();
+    const wax = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, rand(0.8, 1.5), 8), new THREE.MeshStandardMaterial({ color: 0xfff3dc, emissive: 0x3a3020 }));
+    c.add(wax);
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xffb347, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    flame.scale.set(1.2, 1.8, 1);
+    flame.position.y = 0.9;
+    c.add(flame);
+    c.position.set(rand(-26, 26), rand(7, 13), rand(-14, 6));
+    c.userData = { p: rand(0, 6), y: c.position.y, flame };
+    scene.add(c);
+    candles.push(c);
+  }
+
+  /* ---- mailboxes: little wooden owl-post boxes on posts, each with a big number plate ---- */
+  const MAX_BOXES = 4, spacing = 4.4;
+  const S = 256;
+  function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function plateTex(val, mode) {
+    return HP.canvasTex(S, (g) => {
+      const bg = mode === 'dim' ? '#6a6472' : (mode === 'correct' ? '#d8ffdf' : '#fff6e2');
+      g.fillStyle = '#3a2a16'; roundRect(g, 6, 6, S - 12, S - 12, 30); g.fill();
+      g.fillStyle = bg; roundRect(g, 16, 16, S - 32, S - 32, 24); g.fill();
+      g.lineWidth = 10; g.strokeStyle = mode === 'correct' ? '#2fb24a' : '#ffcf5a'; roundRect(g, 16, 16, S - 32, S - 32, 24); g.stroke();
+      g.fillStyle = mode === 'dim' ? '#39333f' : '#2a1c3a';
+      g.font = '900 150px Rubik, Arial, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(String(val), S / 2, S / 2 + 10);
+    });
+  }
+  function makeMailbox() {
+    const g = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6b4428, roughness: 0.9 });
+    const woodDark = new THREE.MeshStandardMaterial({ color: 0x472c16, roughness: 0.9 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x7a2d2d, roughness: 0.85 });
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 3.0, 10), woodDark);
+    post.position.y = 1.5; g.add(post);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 1.5), wood);
+    body.position.y = 4.25; g.add(body);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.05, 1.1, 4), roofMat);
+    roof.rotation.y = Math.PI / 4; roof.position.y = 6.05; g.add(roof);
+    // mail slot
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.22, 0.1), new THREE.MeshBasicMaterial({ color: 0x140d08 }));
+    slot.position.set(0, 5.1, 0.76); g.add(slot);
+    // number plate
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 1.7), new THREE.MeshBasicMaterial({ transparent: true }));
+    plate.position.set(0, 4.05, 0.77); g.add(plate);
+    // little red flag on the side
+    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 6), woodDark);
+    flagPole.position.set(1.3, 5.1, 0); g.add(flagPole);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshStandardMaterial({ color: 0xd43a3a, side: THREE.DoubleSide }));
+    flag.position.set(1.72, 5.4, 0); g.add(flag);
+    // highlight glow (hint) + win glow
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0x8cff9e, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(6, 6, 1); glow.position.set(0, 4.2, 0.9); g.add(glow);
+    scene.add(g);
+    return { group: g, plate, glow, flag, value: 0, correct: false, active: false, dim: false, hi: false, shake: 0, baseX: 0 };
+  }
+  const boxes = Array.from({ length: MAX_BOXES }, makeMailbox);
+  function setPlate(b, val, mode) {
+    const old = b.plate.material.map;
+    b.plate.material.map = plateTex(val, mode || 'normal');
+    b.plate.material.opacity = mode === 'dim' ? 0.5 : 1;
+    b.plate.material.needsUpdate = true;
+    if (old) old.dispose();
+  }
+
+  /* ---- delivery owl (Hedwig) carrying a glowing letter ---- */
+  const owl = HP.makeOwl('hedwig');
+  owl.scale.setScalar(1.05);
+  const perchPos = new THREE.Vector3(0, 8.2, 2.6);
+  owl.position.copy(perchPos);
+  owl.userData.state = 'perch';
+  owl.userData.wiggle = 0;
+  scene.add(owl);
+  const letter = HP.makeLetter();
+  letter.scale.setScalar(0.9);
+  scene.add(letter);
+  let letterState = 'hidden'; // hold | drop | hidden
+  letter.visible = false;
+
+  /* ---- cameo friends who cheer: Harry, Ron, Hermione (+ Hagrid on big streaks) ---- */
+  const guests = [
+    { who: 'harry', x: -7.2 }, { who: 'ron', x: -2.4 }, { who: 'hermione', x: 2.4 }, { who: 'hagrid', x: 7.6 },
+  ].map((gd) => {
+    const c = HP.makeChibi(gd.who);
+    c.position.set(gd.x, 0, 5.4);
+    const sc = gd.who === 'hagrid' ? 1.0 : 1.1;
+    c.scale.setScalar(sc);
+    scene.add(c);
+    return HP.makeCameo(c, { scale: sc });
+  });
+
+  /* ---- UI (home / mute / score pill / banner / start screen) ---- */
+  let score = 0, streak = 0, best = +(localStorage.getItem('mathOwlBest') || 0);
+  const ui = HP.ui({
+    title: 'דואר החשבון הקסום', icon: '⭐', hint: '➕ ➖ ✖️',
+    onStart() { HP.sfx.hoot(); picker.style.display = 'flex'; }, // first show the friendly mode picker
+  });
+
+  // equation panel + streak chip
+  const panel = document.createElement('div');
+  panel.className = 'mq-panel';
+  panel.innerHTML = '<div class="mq-eq" dir="ltr" id="mqEq"></div>';
+  document.body.appendChild(panel);
+  const eq = panel.querySelector('#mqEq');
+  const streakEl = document.createElement('div');
+  streakEl.className = 'mq-streak';
+  document.body.appendChild(streakEl);
+
+  // mode picker
+  const picker = document.createElement('div');
+  picker.className = 'mq-picker';
+  picker.innerHTML = `
+    <h2>איך נלמד היום?</h2>
+    <div class="mq-modes">
+      <div class="mq-mode" id="mode-add" role="button" tabindex="0">➕<span class="lbl">חיבור</span></div>
+      <div class="mq-mode" id="mode-sub" role="button" tabindex="0">➖<span class="lbl">חיסור</span></div>
+      <div class="mq-mode" id="mode-mul" role="button" tabindex="0">✖️<span class="lbl">כפל</span></div>
+      <div class="mq-mode" id="mode-mix" role="button" tabindex="0">🎲<span class="lbl">מעורב</span></div>
+    </div>
+    <div class="mq-diff">
+      <button id="diff-easy" class="sel">🙂 קל</button>
+      <button id="diff-norm">😎 רגיל</button>
+    </div>`;
+  document.body.appendChild(picker);
+  let diff = 'easy', currentOp = 'add';
+  const easyBtn = picker.querySelector('#diff-easy'), normBtn = picker.querySelector('#diff-norm');
+  easyBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); diff = 'easy'; easyBtn.classList.add('sel'); normBtn.classList.remove('sel'); HP.sfx.pop(); });
+  normBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); diff = 'norm'; normBtn.classList.add('sel'); easyBtn.classList.remove('sel'); HP.sfx.pop(); });
+  const opOf = { 'mode-add': 'add', 'mode-sub': 'sub', 'mode-mul': 'mul', 'mode-mix': 'mix' };
+  Object.keys(opOf).forEach((id) => {
+    const el = picker.querySelector('#' + id);
+    el.addEventListener('pointerdown', (e) => { e.stopPropagation(); begin(opOf[id]); });
+  });
+
+  /* ---- game state ---- */
+  let q = null;             // {a,b,sym,op,answer}
+  let asking = false, busy = false, playing = false;
+  let helpLevel = 0;        // within-question hints (grows on each wrong answer)
+  let easeLevel = 0;        // adaptive: 0..2, grows if the kid keeps erring, shrinks on a streak
+  let nextDelay = 550;      // pause after a correct answer before the next question
+
+  function begin(op) {
+    currentOp = op;
+    picker.style.display = 'none';
+    playing = true;
+    score = 0; streak = 0; easeLevel = 0;
+    ui.setScore(0);
+    HP.sfx.whoosh(); HP.sfx.music(true);
+    setStreakChip();
+    newQuestion();
+    busy = false;
+  }
+
+  function genQuestion() {
+    let op = currentOp === 'mix' ? ['add', 'sub', 'mul'][ri(0, 2)] : currentOp;
+    const easy = diff === 'easy' || easeLevel >= 2;
+    let a, b, sym, answer;
+    if (op === 'add') {
+      const max = easy ? 10 : 20;
+      a = ri(1, max - 1); b = ri(1, max - a); answer = a + b; sym = '+';
+    } else if (op === 'sub') {
+      const max = easy ? 10 : 20;
+      a = ri(2, max); b = ri(1, a); answer = a - b; sym = '−'; // proper minus sign
+    } else {
+      const tables = easy ? [2, 5, 10] : [2, 3, 4, 5, 10];
+      const f = tables[ri(0, tables.length - 1)], other = ri(1, easy ? 5 : 10);
+      if (Math.random() < 0.5) { a = f; b = other; } else { a = other; b = f; }
+      answer = a * b; sym = '×'; // multiplication sign
+    }
+    return { a, b, sym, op, answer };
+  }
+
+  function distractors(answer, op, n) {
+    const set = new Set([answer]); const out = [];
+    const near = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 10, -10];
+    const push = (d) => { if (d >= 0 && d <= 120 && !set.has(d)) { set.add(d); out.push(d); } };
+    let guard = 0;
+    while (out.length < n && guard++ < 300) push(answer + near[ri(0, (op === 'mul' ? 5 : near.length) - 1)]);
+    let k = 1; // guaranteed fill
+    while (out.length < n && k <= 60) { push(answer + k); push(answer - k); k++; }
+    return out.slice(0, n);
+  }
+
+  function optionCount() {
+    const base = diff === 'easy' ? 3 : 4;
+    return clamp(base - easeLevel, 2, MAX_BOXES);
+  }
+
+  function layoutBoxes() {
+    const count = optionCount();
+    const vals = distractors(q.answer, q.op, count - 1).concat(q.answer).sort(() => Math.random() - 0.5);
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (i < count) {
+        b.active = true; b.group.visible = true;
+        b.value = vals[i]; b.correct = vals[i] === q.answer;
+        b.dim = false; b.hi = false; b.shake = 0; b.glow.material.opacity = 0;
+        setPlate(b, b.value, 'normal');
+        b.baseX = (i - (count - 1) / 2) * spacing;
+        b.group.position.set(b.baseX, 0, 0);
+      } else { b.active = false; b.group.visible = false; }
+    }
+    fitCamera();
+  }
+
+  function updatePanel(reveal) {
+    const ans = reveal ? `<b class="a">${q.answer}</b>` : '<b class="q">?</b>';
+    eq.innerHTML = `${q.a} ${q.sym} ${q.b} = ${ans}`;
+    panel.style.display = 'block';
+  }
+  function setStreakChip() {
+    if (streak >= 2) { streakEl.textContent = `🔥 ×${streak}`; streakEl.style.display = 'block'; }
+    else streakEl.style.display = 'none';
+  }
+
+  function newQuestion() {
+    q = genQuestion();
+    helpLevel = 0;
+    layoutBoxes();
+    updatePanel(false);
+    letter.visible = true; letterState = 'hold'; letter.scale.setScalar(0.9);
+    asking = true;
+  }
+
+  function applyHints() {
+    if (helpLevel >= 1) { // fade out one wrong choice so there are fewer to pick from
+      const cand = boxes.filter((b) => b.active && !b.correct && !b.dim);
+      if (cand.length > 1) { const d = cand[ri(0, cand.length - 1)]; d.dim = true; setPlate(d, d.value, 'dim'); }
+    }
+    if (helpLevel >= 2) { const c = boxes.find((b) => b.active && b.correct); if (c) c.hi = true; }
+  }
+
+  /* ---- pick a mailbox: owl flies the letter there ---- */
+  function chooseBox(i) {
+    const b = boxes[i];
+    if (!b || !b.active || b.dim || busy || !asking || !playing) return;
+    busy = true; asking = false;
+    HP.sfx.pop();
+    owl.userData.state = 'fly';
+    owl.userData.path = { t: 0, phase: 'go', from: owl.position.clone(), to: new THREE.Vector3(b.baseX, 5.8, 2.0), box: b, correct: b.value === q.answer, handled: false };
+    owl.userData.kind === 'pig' ? HP.sfx.tweet() : HP.sfx.hoot();
+  }
+
+  function onCorrect(box) {
+    score++; streak++;
+    if (streak > best) { best = streak; localStorage.setItem('mathOwlBest', best); }
+    ui.setScore(score); setStreakChip();
+    HP.sfx.chime(); HP.sfx.sparkle();
+    fx.burst(new THREE.Vector3(box.baseX, 5.2, 1.0), [0xffd34d, 0xffffff, 0xff9ad5, 0x8cff9e], 30, 6, 0.7);
+    setPlate(box, box.value, 'correct'); box.glow.material.opacity = 1;
+    updatePanel(true);
+    if (streak > 0 && streak % 3 === 0 && easeLevel > 0) easeLevel--; // reward: ramp difficulty back up
+    const milestone = streak > 0 && streak % 5 === 0;
+    if (milestone) { bigCelebrate(); nextDelay = 1500; }
+    else {
+      nextDelay = 600;
+      guests[ri(0, 2)].pop(1.6);
+      if (streak >= 3 && streak % 3 === 0) { ui.banner('רצף! 🔥'); HP.cheer(['יופי!', 'אלוף!', 'כל הכבוד!']); }
+    }
+  }
+
+  function onWrong(box) {
+    streak = 0; setStreakChip();
+    HP.sfx.soft();
+    owl.userData.wiggle = 1;
+    box.shake = 0.5;
+    helpLevel++;
+    easeLevel = Math.min(2, easeLevel + 1);
+    applyHints();
+  }
+
+  function bigCelebrate() {
+    HP.sfx.fanfare(); HP.cheer();
+    ui.banner('כל הכבוד! 🦉');
+    guests.forEach((g, i) => setTimeout(() => g.pop(2.8), i * 150));
+    fx.fireworks(new THREE.Vector3(0, 6.5, 0), 11, 7);
+  }
+
+  function updateOwl(dt, t) {
+    const u = owl.userData, p = u.path;
+    if (u.state === 'perch') {
+      owl.position.lerp(perchPos, dt * 3);
+      owl.rotation.set(0, Math.sin(t * 0.5) * 0.18, 0);
+      // peek toward the hinted/correct box while waiting
+      const look = boxes.find((b) => b.active && b.hi) || null;
+      u.head.rotation.y = look ? clamp((look.baseX - owl.position.x) * 0.06, -0.6, 0.6) : Math.sin(t * 0.7) * 0.35;
+      if (u.wiggle > 0) { u.wiggle -= dt; u.head.rotation.z = Math.sin(u.wiggle * 20) * 0.32; } else u.head.rotation.z = 0;
+      HP.animateOwl(owl, dt, t, 0, 2);
+      return;
+    }
+    HP.animateOwl(owl, dt, t, 1, u.kind === 'pig' ? 6 : 3.2);
+    p.t += dt;
+    if (p.phase === 'go') {
+      const k = Math.min(1, p.t / 0.75), e = k * k * (3 - 2 * k);
+      owl.position.lerpVectors(p.from, p.to, e);
+      owl.position.y += Math.sin(k * Math.PI) * 1.2;
+      owl.rotation.x = 0.3 * (1 - k);
+      if (k >= 1) { p.phase = p.correct ? 'drop' : 'bump'; p.t = 0; if (!p.correct) onWrong(p.box); }
+    } else if (p.phase === 'drop') {
+      if (!p.handled) { p.handled = true; onCorrect(p.box); letterState = 'drop'; }
+      letter.position.lerp(new THREE.Vector3(p.box.baseX, 5.05, 0.85), dt * 8);
+      letter.scale.lerp(new THREE.Vector3(0.04, 0.04, 0.04), dt * 6);
+      if (p.t > 0.6) { letter.visible = false; letterState = 'hidden'; p.phase = 'back'; p.t = 0; p.from = owl.position.clone(); }
+    } else if (p.phase === 'bump') {
+      if (p.t > 0.5) { p.phase = 'back'; p.t = 0; p.from = owl.position.clone(); }
+    } else if (p.phase === 'back') {
+      const k = Math.min(1, p.t / 0.8);
+      owl.position.lerpVectors(p.from, perchPos, k * (2 - k));
+      owl.rotation.x = 0;
+      if (k >= 1) {
+        u.state = 'perch';
+        if (p.correct) setTimeout(() => { newQuestion(); busy = false; }, nextDelay);
+        else { asking = true; busy = false; }
+      }
+    }
+  }
+
+  /* ---- input: tap a mailbox, or arrow-cursor + Enter/Space ---- */
+  let cursor = 0, keyboardUsed = false;
+  const ray = new THREE.Raycaster();
+  window.addEventListener('pointerdown', (e) => {
+    if (!ui.started() || picker.style.display === 'flex' || !input.pointer || !asking || busy) return;
+    ray.setFromCamera({ x: input.pointer.x, y: input.pointer.y }, camera);
+    const pick = boxes.filter((b) => b.active && !b.dim);
+    const hit = ray.intersectObjects(pick.map((b) => b.group), true)[0];
+    if (hit) {
+      let g = hit.object; while (g.parent && !boxes.some((b) => b.group === g)) g = g.parent;
+      const i = boxes.findIndex((b) => b.group === g);
+      if (i >= 0) { cursor = i; chooseBox(i); }
+    }
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!ui.started() || picker.style.display === 'flex' || !asking || busy) return;
+    const act = boxes.filter((b) => b.active && !b.dim);
+    if (!act.length) return;
+    if (e.key === 'ArrowRight' || e.key === 'd') { keyboardUsed = true; cursor = (cursor + 1) % boxes.length; HP.sfx.flip(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'a') { keyboardUsed = true; cursor = (cursor + boxes.length - 1) % boxes.length; HP.sfx.flip(); }
+    else if (e.key === 'Enter' || e.key === ' ') {
+      let i = cursor;
+      if (!boxes[i] || !boxes[i].active || boxes[i].dim) i = boxes.findIndex((b) => b.active && !b.dim);
+      if (i >= 0) chooseBox(i);
+    }
+  });
+
+  /* ---- camera framing (keeps the whole row + owl visible in any orientation) ---- */
+  function fitCamera() {
+    const count = Math.max(2, boxes.filter((b) => b.active).length || optionCount());
+    const spanW = (count - 1) * spacing + 3.2;
+    const spanH = 11;
+    const aspect = window.innerWidth / window.innerHeight;
+    const vfov = (camera.fov * Math.PI) / 180;
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
+    const dist = Math.max((spanW * 0.5) / Math.tan(hfov / 2), (spanH * 0.5) / Math.tan(vfov / 2)) * 1.08;
+    camera.position.set(0, 4.6, dist + 4);
+    camera.lookAt(0, 3.9, 0);
+  }
+  fitCamera();
+
+  /* ---- main loop ---- */
+  const clock = new THREE.Clock();
+  let t = 0;
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    t += dt;
+    sky.update(t);
+    boxes.forEach((b) => {
+      if (!b.active) return;
+      b.group.position.x = b.baseX + (b.shake > 0 ? Math.sin(b.shake * 55) * 0.18 : 0);
+      if (b.shake > 0) b.shake -= dt;
+      const want = b.hi ? (0.55 + 0.4 * Math.sin(t * 6)) : (b.glow.material.opacity > 0.01 && !b.hi ? b.glow.material.opacity : 0);
+      b.glow.material.opacity = b.hi ? want : lerp(b.glow.material.opacity, b.correct ? b.glow.material.opacity : 0, dt * 3) * 0.98;
+      if (b.hi) { const s = 6 + Math.sin(t * 6) * 0.6; b.glow.scale.set(s, s, 1); }
+      b.flag.rotation.z = Math.sin(t * 3 + b.baseX) * 0.2;
+    });
+    if (letterState === 'hold' && letter.visible) {
+      letter.position.copy(owl.position).add(new THREE.Vector3(0, -1.4, 0.5));
+      letter.rotation.z = Math.sin(t * 2) * 0.12;
+    }
+    updateOwl(dt, t);
+    guests.forEach((g) => g.update(dt, t));
+    candles.forEach((c) => { c.position.y = c.userData.y + Math.sin(t + c.userData.p) * 0.4; c.userData.flame.material.opacity = 0.7 + 0.3 * Math.sin(t * 13 + c.userData.p); });
+    fx.update(dt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  frame();
+
+  /* ---- test / debug hooks ---- */
+  window.__game = {
+    get score() { return score; }, get streak() { return streak; }, get best() { return best; },
+    get question() { return q; }, get asking() { return asking; }, get playing() { return playing; },
+    get boxes() { return boxes.filter((b) => b.active).map((b) => ({ value: b.value, correct: b.correct, dim: b.dim, x: b.baseX })); },
+    begin, camera, owl,
+    answerCorrect() { const i = boxes.findIndex((b) => b.active && b.correct && !b.dim); if (i >= 0) chooseBox(i); },
+    answerWrong() { const i = boxes.findIndex((b) => b.active && !b.correct && !b.dim); if (i >= 0) chooseBox(i); },
+    tapValue(v) { const i = boxes.findIndex((b) => b.active && b.value === v); if (i >= 0) chooseBox(i); },
+    popGuests() { guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 150)); },
+    celebrate: bigCelebrate,
+  };
+})();
+</script>
+</body>
+</html>
