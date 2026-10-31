@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -7,11 +7,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Sky Post">
+<meta name="apple-mobile-web-app-title" content="דואר השמיים">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="icon" href="../icon-192.png">
 <link rel="manifest" href="../manifest.webmanifest">
-<title>Hedwig's Sky Post</title>
+<link rel="stylesheet" href="../lib/fonts.css">
+<title>הדוויג – דואר השמיים</title>
 </head>
 <body>
 <script src="../lib/three.min.js"></script>
@@ -30,7 +31,7 @@
   const input = HP.input();
   let score = 0, playing = false;
   const ui = HP.ui({
-    title: "Hedwig's Sky Post", icon: '💌', hint: '⬆️ ⬇️ ⬅️ ➡️ &nbsp; 👆',
+    title: 'הדוויג – דואר השמיים', icon: '💌', hint: '⬆️ ⬇️ ⬅️ ➡️ &nbsp; 👆',
     onStart() { playing = true; HP.sfx.hoot(); HP.sfx.music(true); },
   });
 
@@ -71,6 +72,32 @@
   scene.add(owl);
   const vel = new THREE.Vector2();
   let tumble = 0, loop = 0, boost = 0;
+
+  /* Hagrid waves from his little hut at the castle edge; Harry & Ron pop in to cheer */
+  const hut = new THREE.Group();
+  const hutWall = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.5, 3.2, 14), new THREE.MeshStandardMaterial({ color: 0x6b5336, roughness: 1 }));
+  hutWall.position.y = 1.6; hut.add(hutWall);
+  const hutRoof = new THREE.Mesh(new THREE.ConeGeometry(3.1, 2.4, 14), new THREE.MeshStandardMaterial({ color: 0x3a2e1c, roughness: 1 }));
+  hutRoof.position.y = 4.4; hut.add(hutRoof);
+  const hutDoor = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 0.2), new THREE.MeshStandardMaterial({ color: 0x2a2012 }));
+  hutDoor.position.set(0, 0.9, 2.3); hut.add(hutDoor);
+  const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 1.4, 8), new THREE.MeshStandardMaterial({ color: 0x4a3a28 }));
+  chimney.position.set(1.2, 4.6, 0); hut.add(chimney);
+  hut.position.set(12.5, -5, -8);
+  hut.scale.setScalar(1.1);
+  scene.add(hut);
+
+  const hagrid = HP.makeChibi('hagrid');
+  hagrid.scale.setScalar(1.25);
+  hagrid.position.set(8.5, -5, -3);
+  hagrid.rotation.y = -0.55; // turned toward Hedwig's flight lane
+  scene.add(hagrid);
+
+  // cameo friends who pop up on the ground to cheer every 10 letters
+  const guests = [
+    (() => { const c = HP.makeChibi('harry'); c.position.set(-9, -4, -3); c.rotation.y = 0.5; scene.add(c); return HP.makeCameo(c, { scale: 1.15 }); })(),
+    (() => { const c = HP.makeChibi('ron'); c.position.set(-6.5, -4.2, -4); c.rotation.y = 0.3; scene.add(c); return HP.makeCameo(c, { scale: 1.1 }); })(),
+  ];
 
   /* collectibles + obstacles */
   const items = [];
@@ -207,6 +234,11 @@
       }
       if (it.position.x < -22) { scene.remove(it); items.splice(i, 1); }
     }
+    // Hagrid waves from his hut (harder while you're flying), guests cheer when popped
+    HP.animateChibi(hagrid, dt, t, playing ? 0.9 : 0.5);
+    hagrid.userData.head.rotation.y = -0.55 + clamp((owl.position.x - hagrid.position.x) * 0.03, -0.5, 0.5);
+    guests.forEach((gst) => gst.update(dt, t));
+
     fx.update(dt);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
@@ -215,7 +247,9 @@
     HP.sfx.fanfare();
     HP.sfx.hoot();
     loop = 1.2;
-    ui.banner('🎉🦉🎉');
+    ui.banner('כל הכבוד! 🦉');
+    HP.cheer();
+    guests.forEach((gst, i) => setTimeout(() => gst.pop(3.5), i * 200));
     fx.fireworks(new THREE.Vector3(2, 7, -4), 9, 6);
     speed = Math.min(speed + 0.6, 11);
     HP.sfx.resetChime();

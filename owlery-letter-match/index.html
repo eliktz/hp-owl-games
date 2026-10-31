@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -7,11 +7,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Letter Match">
+<meta name="apple-mobile-web-app-title" content="התאמת מכתבים">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="icon" href="../icon-192.png">
 <link rel="manifest" href="../manifest.webmanifest">
-<title>Owlery Letter Match</title>
+<link rel="stylesheet" href="../lib/fonts.css">
+<title>בית הינשופים – התאמת מכתבים</title>
 </head>
 <body>
 <script src="../lib/three.min.js"></script>
@@ -25,7 +26,7 @@
   const input = HP.input();
   let matches = 0, playing = false;
   const ui = HP.ui({
-    title: 'Owlery Letter Match', icon: '💌', hint: '👆 💌 💌',
+    title: 'בית הינשופים – התאמת מכתבים', icon: '💌', hint: '👆 💌 💌',
     onStart() { playing = true; HP.sfx.hoot(); HP.sfx.music(true); },
   });
 
@@ -90,6 +91,11 @@
   const perches = [new THREE.Vector3(-4.5, 7.4, -9), new THREE.Vector3(4.5, 6.9, -9)];
   owls[0].scale.setScalar(1.1); owls[1].scale.setScalar(0.7);
   owls.forEach((o, i) => { o.position.copy(perches[i]); scene.add(o); o.userData.state = 'perch'; o.userData.wiggle = 0; });
+
+  /* Harry, Hermione & Ron stand at the back of the table and cheer when a level is finished */
+  const guests = [
+    { who: 'harry', x: -7 }, { who: 'hermione', x: 0 }, { who: 'ron', x: 7 },
+  ].map((g) => { const c = HP.makeChibi(g.who); c.position.set(g.x, 0, -6.2); c.scale.setScalar(0.95); scene.add(c); return HP.makeCameo(c, { scale: 0.95 }); });
 
   /* ---- card faces drawn with canvas (no fonts / no reading needed) ---- */
   const S = 256;
@@ -290,7 +296,9 @@
       checkLevelDone.pending = true;
       setTimeout(() => {
         HP.sfx.fanfare();
-        ui.banner('🎉🦉🎉');
+        ui.banner('כל הכבוד! 🦉');
+        HP.cheer();
+        guests.forEach((gst, i) => setTimeout(() => gst.pop(2.6), i * 180));
         fx.fireworks(new THREE.Vector3(0, 6, -4), 10, 8);
         setTimeout(() => { level = level + 1 >= LEVELS.length ? LEVELS.length - 1 : level + 1; deal(); checkLevelDone.pending = false; }, 2600);
       }, 300);
@@ -339,13 +347,14 @@
     ring.material.opacity = keyboardUsed && cur && !cur.userData.done ? 0.6 + 0.3 * Math.sin(t * 6) : 0;
     if (cur) ring.position.set(cur.userData.home.x, 0.05, cur.userData.home.z);
     owls.forEach((o, i) => updateOwl(o, i, dt, t));
+    guests.forEach((gst) => gst.update(dt, t));
     candles.forEach((c) => { c.position.y = c.userData.y + Math.sin(t + c.userData.p) * 0.4; c.userData.flame.material.opacity = 0.75 + 0.25 * Math.sin(t * 13 + c.userData.p); });
     fx.update(dt);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
   deal();
-  window.__game = { get matches() { return matches; }, cards, flip, camera, get level() { return level; } };
+  window.__game = { get matches() { return matches; }, cards, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
   frame();
 })();
 </script>

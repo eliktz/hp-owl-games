@@ -1,7 +1,9 @@
 {
-  "name": "Owl Post Games",
-  "short_name": "Owl Post",
-  "description": "Three cozy Harry-Potter-themed owl games for little wizards.",
+  "name": "משחקי דואר הינשופים",
+  "short_name": "דואר ינשופים",
+  "description": "שלושה משחקי ינשופים נעימים לקוסמים קטנים.",
+  "lang": "he",
+  "dir": "rtl",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",
