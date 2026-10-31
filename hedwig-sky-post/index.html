@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Hedwig's Sky Post</title>
+</head>
+<body>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/common.js"></script>
+<script>
+(() => {
+  const { rand, clamp, lerp } = HP;
+  const { renderer, scene, camera } = HP.setup({ fogColor: 0x2a1d63, fogNear: 30, fogFar: 120, fov: 50, onResize: fitCam });
+  function fitCam() { const a = window.innerWidth / window.innerHeight; camera.position.set(0, 4, 24 * Math.max(1, 1.45 / a)); camera.lookAt(0, 4.2, 0); }
+  fitCam();
+  camera.lookAt(0, 4.2, 0);
+  const sky = HP.makeSky(scene, { moonPos: new THREE.Vector3(-90, 90, -300) });
+  const fx = new HP.Particles(scene, 900);
+  const input = HP.input();
+  let score = 0, playing = false;
+  const ui = HP.ui({
+    title: "Hedwig's Sky Post", icon: '💌', hint: '⬆️ ⬇️ ⬅️ ➡️ &nbsp; 👆',
+    onStart() { playing = true; HP.sfx.hoot(); HP.sfx.music(true); },
+  });
+
+  /* ground + lake + trees (scrolling) */
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 200), new THREE.MeshStandardMaterial({ color: 0x0f2a22, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -5;
+  scene.add(ground);
+  const lake = new THREE.Mesh(new THREE.CircleGeometry(30, 40), new THREE.MeshStandardMaterial({ color: 0x2c3f8a, roughness: 0.2, metalness: 0.4, emissive: 0x101a40 }));
+  lake.rotation.x = -Math.PI / 2;
+  lake.scale.set(2.2, 0.5, 1);
+  lake.position.set(0, -4.95, -45);
+  scene.add(lake);
+  const scrollers = []; // decorative things that wrap around
+  const treeM = new THREE.MeshStandardMaterial({ color: 0x0e2a1c, roughness: 1 });
+  for (let i = 0; i < 40; i++) {
+    const t = new THREE.Mesh(new THREE.ConeGeometry(rand(0.8, 1.6), rand(3, 6), 7), treeM);
+    t.position.set(rand(-60, 60), -3, rand(-25, -6));
+    scene.add(t);
+    scrollers.push({ o: t, speed: 0.7, span: 120 });
+  }
+  const castle = HP.makeCastle();
+  castle.position.set(10, -4, -60);
+  castle.scale.setScalar(1.6);
+  scene.add(castle);
+  scrollers.push({ o: castle, speed: 0.08, span: 140 });
+  for (let i = 0; i < 12; i++) {
+    const c = HP.makeCloud(rand(2, 4), 0.55);
+    c.position.set(rand(-70, 70), rand(8, 22), rand(-80, -30));
+    scene.add(c);
+    scrollers.push({ o: c, speed: rand(0.15, 0.3), span: 150 });
+  }
+
+  /* Hedwig */
+  const owl = HP.makeOwl('hedwig');
+  owl.scale.setScalar(0.95);
+  owl.position.set(-5, 3, 0);
+  scene.add(owl);
+  const vel = new THREE.Vector2();
+  let tumble = 0, loop = 0, boost = 0;
+
+  /* collectibles + obstacles */
+  const items = [];
+  function spawnLetter(x) {
+    const l = HP.makeLetter();
+    l.position.set(x, rand(-1, 9), 0);
+    l.userData = { type: 'letter', phase: rand(0, 6) };
+    scene.add(l);
+    items.push(l);
+  }
+  function spawnStar(x) {
+    const s = new THREE.Group();
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.35 : 0.85;
+      i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.25, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 2 }), new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0x8a5a00, metalness: 0.4, roughness: 0.3 }));
+    m.position.z = -0.12;
+    s.add(m);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xfff09a, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(4, 4, 1);
+    s.add(glow);
+    s.position.set(x, rand(0, 8), 0);
+    s.userData = { type: 'star', phase: rand(0, 6) };
+    scene.add(s);
+    items.push(s);
+  }
+  function spawnCloud(x) {
+    const c = HP.makeCloud(rand(1.0, 1.4), 0.92);
+    c.position.set(x, rand(0, 8), 0);
+    c.userData.type = 'cloud';
+    scene.add(c);
+    items.push(c);
+  }
+  let spawnTimer = 0, nextSpawn = 0;
+  function spawn() {
+    const r = Math.random();
+    const x = 18;
+    if (r < 0.55) {
+      // a little arc of letters is fun to swoop through
+      if (Math.random() < 0.35) { const y0 = rand(1, 7); for (let i = 0; i < 3; i++) { spawnLetter(x + i * 2.2); items[items.length - 1].position.y = y0 + Math.sin(i * 1.2) * 1.2; } }
+      else spawnLetter(x);
+    } else if (r < 0.75) spawnStar(x);
+    else spawnCloud(x);
+  }
+  for (let i = 0; i < 4; i++) spawnLetter(2 + i * 4);
+
+  const clock = new THREE.Clock();
+  let t = 0, speed = 6.5;
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    t += dt;
+    sky.update(t);
+    const worldSpeed = playing ? speed : 3;
+
+    // controls
+    if (playing) {
+      const ax = input.axis();
+      let target = null;
+      if (ax.any) {
+        vel.x = lerp(vel.x, ax.x * 9, dt * 6);
+        vel.y = lerp(vel.y, ax.y * 9, dt * 6);
+      } else if (input.pointer) {
+        target = HP.pointerToPlane(camera, input.pointer, 0);
+        vel.x = lerp(vel.x, clamp((target.x - owl.position.x) * 3, -12, 12), dt * 6);
+        vel.y = lerp(vel.y, clamp((target.y - owl.position.y) * 3, -12, 12), dt * 6);
+      } else {
+        vel.multiplyScalar(1 - dt * 3);
+      }
+      owl.position.x = clamp(owl.position.x + vel.x * dt, -11, 7);
+      owl.position.y = clamp(owl.position.y + vel.y * dt, -1.5, 10);
+    } else {
+      owl.position.y = 3 + Math.sin(t * 1.5) * 1.2;
+      owl.position.x = -2 + Math.sin(t * 0.7) * 2;
+    }
+    // orientation: face right (3/4 toward camera), bank with motion
+    owl.rotation.y = Math.PI / 2 - 0.85;
+    owl.rotation.z = -vel.y * 0.035;
+    owl.rotation.x = 0.15;
+    if (tumble > 0) { tumble -= dt; owl.rotation.x += (1 - tumble / 0.7) * Math.PI * 2; }
+    if (loop > 0) { loop -= dt; owl.rotation.z += (1 - loop / 1.2) * Math.PI * 2; }
+    HP.animateOwl(owl, dt, t, 1, 2.2 + Math.abs(vel.y) * 0.08);
+    // sparkle trail
+    const tail = owl.position.clone().add(new THREE.Vector3(-1.3, 0, 0));
+    if (Math.random() < (boost > 0 ? 1 : 0.45)) fx.trail(tail, boost > 0 ? [0xff7a7a, 0xffd34d, 0x8cff9e, 0x7cf0ff, 0xc59bff][Math.floor(t * 20) % 5] : 0xfff2b0, boost > 0 ? 0.9 : 0.5);
+    if (boost > 0) boost -= dt;
+
+    // world
+    for (const s of scrollers) {
+      s.o.position.x -= worldSpeed * s.speed * dt;
+      if (s.o.position.x < -s.span / 2) s.o.position.x += s.span;
+    }
+    if (playing) {
+      spawnTimer += dt;
+      if (spawnTimer > nextSpawn) { spawnTimer = 0; nextSpawn = rand(0.7, 1.3) * (6.5 / speed); spawn(); }
+    }
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i], u = it.userData;
+      it.position.x -= worldSpeed * dt;
+      if (u.type === 'letter') { it.rotation.y = Math.sin(t * 2 + u.phase) * 0.5; it.position.y += Math.sin(t * 2.5 + u.phase) * 0.01; }
+      if (u.type === 'star') it.rotation.y += dt * 3;
+      if (u.popping) {
+        u.popping -= dt;
+        it.scale.multiplyScalar(1 + dt * 4);
+        it.traverse((o) => { if (o.material) { o.material.transparent = true; o.material.opacity = Math.max(0, u.popping * 2); } });
+        if (u.popping <= 0) { scene.remove(it); items.splice(i, 1); }
+        continue;
+      }
+      const dx = it.position.x - owl.position.x, dy = it.position.y - owl.position.y;
+      const d = Math.hypot(dx, dy);
+      if (playing && u.type !== 'cloud' && d < 1.9) {
+        if (u.type === 'letter') {
+          score++;
+          ui.setScore(score);
+          HP.sfx.chime();
+          fx.burst(it.position, [0xffe2a0, 0xffffff, 0xff9ad5], 22, 5, 0.6);
+          if (score % 10 === 0) celebrate();
+        } else {
+          HP.sfx.sparkle(); HP.sfx.chime();
+          boost = 5;
+          fx.burst(it.position, [0xffd34d, 0xfff7c0], 40, 8, 0.8);
+        }
+        scene.remove(it); items.splice(i, 1);
+        continue;
+      }
+      if (playing && u.type === 'cloud' && d < 2.0 && !u.hit) {
+        u.hit = true; u.popping = 0.5;
+        tumble = 0.7;
+        vel.x = -6;
+        HP.sfx.poof();
+        fx.burst(it.position, [0xffffff, 0xe0dcff], 30, 6, 1.0, 1.0, 0);
+        continue;
+      }
+      if (it.position.x < -22) { scene.remove(it); items.splice(i, 1); }
+    }
+    fx.update(dt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  function celebrate() {
+    HP.sfx.fanfare();
+    HP.sfx.hoot();
+    loop = 1.2;
+    ui.banner('🎉🦉🎉');
+    fx.fireworks(new THREE.Vector3(2, 7, -4), 9, 6);
+    speed = Math.min(speed + 0.6, 11);
+    HP.sfx.resetChime();
+  }
+  // test hooks
+  window.__game = { get score() { return score; }, owl, items, celebrate };
+  frame();
+})();
+</script>
+</body>
+</html>

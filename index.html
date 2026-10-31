@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Owl Post Games</title>
+<style>
+  html,body{margin:0;min-height:100%;font-family:'Trebuchet MS','Comic Sans MS',system-ui,sans-serif;color:#fff;background:radial-gradient(ellipse at 50% 120%,#ff9a6b 0%,#6b2d7a 30%,#2b1d6b 55%,#0b0a2e 100%) fixed}
+  #stars{position:fixed;inset:0;pointer-events:none}
+  h1{text-align:center;font-size:min(10vw,64px);color:#ffd76a;text-shadow:0 4px 0 #7a3b00,0 0 30px rgba(255,200,80,.6);margin:28px 10px 6px}
+  .sub{text-align:center;font-size:42px;margin-bottom:18px}
+  .grid{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;padding:10px 20px 40px;position:relative}
+  a.card{display:flex;flex-direction:column;align-items:center;width:280px;padding:22px 16px;border-radius:28px;background:rgba(40,25,90,.75);border:5px solid #ffd76a;text-decoration:none;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.45);transition:transform .15s}
+  a.card:hover,a.card:focus{transform:scale(1.06) rotate(-1deg)}
+  a.card:active{transform:scale(.96)}
+  .thumb{width:100%;border-radius:18px;border:3px solid rgba(255,215,106,.6)}
+  .big{font-size:96px;line-height:1.1}
+  .name{font-size:28px;font-weight:bold;color:#ffd76a;margin-top:8px;text-align:center}
+  .how{font-size:34px;margin-top:8px}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<h1>🦉 Owl Post Games 🦉</h1>
+<div class="sub">💌 ✨ 🏰</div>
+<div class="grid">
+  <a class="card" href="hedwig-sky-post/index.html"><img class="thumb" src="thumbs/hedwig.jpg" alt=""><div class="name">Hedwig's Sky Post</div><div class="how">⬆️⬇️ 👆</div></a>
+  <a class="card" href="pig-sparkle-catch/index.html"><img class="thumb" src="thumbs/pig.jpg" alt=""><div class="name">Pigwidgeon's Snitch Chase</div><div class="how">👆 ⬅️➡️</div></a>
+  <a class="card" href="owlery-letter-match/index.html"><img class="thumb" src="thumbs/owlery.jpg" alt=""><div class="name">Owlery Letter Match</div><div class="how">👆 💌💌</div></a>
+</div>
+<script>
+  const c = document.getElementById('stars'), g = c.getContext('2d');
+  const st = Array.from({ length: 160 }, () => ({ x: Math.random(), y: Math.random() * 0.8, r: Math.random() * 1.8 + 0.4, p: Math.random() * 6 }));
+  function draw(t) {
+    c.width = innerWidth; c.height = innerHeight;
+    st.forEach((s) => { g.globalAlpha = 0.5 + 0.5 * Math.sin(t / 500 + s.p); g.fillStyle = '#fff6d0'; g.beginPath(); g.arc(s.x * c.width, s.y * c.height, s.r, 0, 7); g.fill(); });
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+</script>
+</body>
+</html>

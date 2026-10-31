@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pigwidgeon's Snitch Chase</title>
+</head>
+<body>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/common.js"></script>
+<script>
+(() => {
+  const { rand, clamp, lerp } = HP;
+  const { renderer, scene, camera } = HP.setup({ fogColor: 0x231a5a, fogNear: 40, fogFar: 140, fov: 50, onResize: fitCam });
+  function fitCam() { const a = window.innerWidth / window.innerHeight; camera.position.set(0, 5, 24 * Math.max(1, 1.45 / a)); camera.lookAt(0, 4.5, 0); }
+  fitCam();
+  camera.lookAt(0, 4.5, 0);
+  const sky = HP.makeSky(scene, { moonPos: new THREE.Vector3(80, 100, -300), bottom: 0xff8fa0 });
+  const fx = new HP.Particles(scene, 900);
+  const input = HP.input();
+  let score = 0, playing = false;
+  const ui = HP.ui({
+    title: "Pigwidgeon's Snitch Chase", icon: '✨', hint: '👆 &nbsp; ⬆️ ⬇️ ⬅️ ➡️',
+    onStart() { playing = true; HP.sfx.tweet(); HP.sfx.music(true); },
+  });
+
+  /* courtyard: grass, low stone wall, lanterns, castle behind */
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(300, 200), new THREE.MeshStandardMaterial({ color: 0x173d2a, roughness: 1 }));
+  grass.rotation.x = -Math.PI / 2;
+  grass.position.y = -3;
+  scene.add(grass);
+  const castle = HP.makeCastle();
+  castle.position.set(0, -3, -45);
+  castle.scale.setScalar(1.5);
+  scene.add(castle);
+  const wallM = new THREE.MeshStandardMaterial({ color: 0x4a4370, roughness: 1 });
+  for (let i = -8; i <= 8; i++) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.6, 1.2), wallM);
+    b.position.set(i * 2.2, -2.2, -8);
+    scene.add(b);
+    if (i % 2 === 0) {
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 1.2), wallM);
+      top.position.set(i * 2.2, -1.0, -8);
+      scene.add(top);
+    }
+  }
+  const lanterns = [];
+  [-13, -5, 5, 13].forEach((x) => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 4), new THREE.MeshStandardMaterial({ color: 0x2a2440 }));
+    post.position.set(x, -1, -5);
+    scene.add(post);
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffd27a }));
+    lamp.position.set(x, 1.2, -5);
+    scene.add(lamp);
+    const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xffb347, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+    g.scale.set(5, 5, 1);
+    g.position.copy(lamp.position);
+    scene.add(g);
+    lanterns.push(g);
+  });
+  // floating fireflies for atmosphere
+  const fireflies = [];
+  for (let i = 0; i < 30; i++) {
+    const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xcfff8a, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+    f.scale.setScalar(0.5);
+    f.position.set(rand(-20, 20), rand(-2, 12), rand(-10, 4));
+    f.userData.p = rand(0, 6);
+    scene.add(f);
+    fireflies.push(f);
+  }
+
+  /* Hedwig watches from a perch (tap her for a hoot!) */
+  const perch = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5), new THREE.MeshStandardMaterial({ color: 0x6b4a2b }));
+  perch.rotation.z = Math.PI / 2;
+  perch.position.set(-12.5, 9.2, -3);
+  scene.add(perch);
+  const hedwig = HP.makeOwl('hedwig');
+  hedwig.scale.setScalar(0.9);
+  hedwig.position.set(-12.5, 10.4, -3);
+  hedwig.rotation.y = 0.5;
+  scene.add(hedwig);
+  let hedwigHop = 0;
+
+  /* Pigwidgeon */
+  const pig = HP.makeOwl('pig');
+  pig.scale.setScalar(0.75);
+  pig.position.set(0, 4, 0);
+  scene.add(pig);
+  const pv = new THREE.Vector3();
+  const target = new THREE.Vector3(0, 4, 0);
+  let spin = 0, idle = 0, jitterT = 0;
+  const jitter = new THREE.Vector3();
+
+  /* snitches */
+  const snitches = [];
+  let wanted = 3;
+  function addSnitch() {
+    const s = HP.makeSnitch();
+    s.position.set(rand(-12, 12), rand(0, 10), 0);
+    s.userData.seed = rand(0, 100);
+    s.userData.home = s.position.clone();
+    s.userData.in = 0;
+    s.scale.setScalar(0.01);
+    scene.add(s);
+    snitches.push(s);
+  }
+  for (let i = 0; i < wanted; i++) addSnitch();
+
+  const ray = new THREE.Raycaster();
+  window.addEventListener('pointerdown', (e) => {
+    if (!ui.started()) return;
+    // tap Hedwig to hear her hoot
+    ray.setFromCamera({ x: input.pointer.x, y: input.pointer.y }, camera);
+    if (ray.intersectObject(hedwig, true).length) { HP.sfx.hoot(); hedwigHop = 0.5; fx.burst(hedwig.position, [0xffffff, 0xcfe4ff], 15, 4, 0.5); return; }
+    HP.sfx.whoosh();
+  });
+
+  const clock = new THREE.Clock();
+  let t = 0;
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    t += dt;
+    sky.update(t);
+    const bounds = { x: 14, yMin: -1.5, yMax: 11.5 };
+
+    // where should Pig go?
+    const ax = input.axis();
+    if (playing && ax.any) {
+      target.x += ax.x * 12 * dt; target.y += ax.y * 12 * dt; idle = 0;
+    } else if (playing && input.pointer && (input.down || idle < 0.1)) {
+      const p = HP.pointerToPlane(camera, input.pointer, 0);
+      target.set(p.x, p.y, 0);
+      if (input.down) idle = 0;
+    }
+    idle += dt;
+    if (!playing || idle > 4) {
+      // helper mode: Pig zooms off on his own towards the nearest snitch
+      let best = null, bd = 1e9;
+      for (const s of snitches) { const d = s.position.distanceTo(pig.position); if (d < bd) { bd = d; best = s; } }
+      if (best) target.lerp(best.position, dt * (playing ? 0.8 : 0.5));
+    }
+    target.x = clamp(target.x, -bounds.x, bounds.x);
+    target.y = clamp(target.y, bounds.yMin, bounds.yMax);
+    // hyperactive springy movement: under-damped spring + zig-zag jitter
+    jitterT -= dt;
+    if (jitterT < 0) { jitterT = rand(0.15, 0.4); jitter.set(rand(-1, 1), rand(-1, 1), 0).multiplyScalar(1.4); }
+    const to = target.clone().add(jitter).sub(pig.position);
+    pv.addScaledVector(to, dt * 28);
+    pv.multiplyScalar(1 - dt * 3.2);
+    pig.position.addScaledVector(pv, dt);
+    pig.position.z = Math.sin(t * 3) * 0.6;
+    // face direction of travel, keep face visible
+    pig.rotation.y = lerp(pig.rotation.y, clamp(pv.x * 0.08, -1.1, 1.1), dt * 8);
+    pig.rotation.z = lerp(pig.rotation.z, clamp(-pv.x * 0.04, -0.6, 0.6), dt * 8);
+    pig.rotation.x = 0;
+    if (spin > 0) { spin -= dt; pig.rotation.y += (1 - spin / 0.8) * Math.PI * 4; }
+    if (Math.random() < dt * 0.25 && playing && spin <= 0) { spin = 0.8; HP.sfx.tweet(); } // random happy spins
+    HP.animateOwl(pig, dt, t, 1, 6 + pv.length() * 0.2);
+    if (Math.random() < 0.6) fx.trail(pig.position.clone().add(new THREE.Vector3(0, -0.2, -0.3)), 0xffe9a0, 0.35);
+
+    // Hedwig idle
+    HP.animateOwl(hedwig, dt, t, hedwigHop > 0 ? 1 : 0, 3);
+    if (hedwigHop > 0) { hedwigHop -= dt; hedwig.position.y = 10.4 + Math.sin((hedwigHop / 0.5) * Math.PI) * 0.8; }
+    hedwig.userData.head.rotation.y = clamp((pig.position.x - hedwig.position.x) * 0.05, -0.8, 0.8);
+
+    // snitches wander in gentle loops
+    for (let i = snitches.length - 1; i >= 0; i--) {
+      const s = snitches[i], u = s.userData;
+      HP.animateSnitch(s, t);
+      if (u.caught) {
+        u.caught -= dt;
+        s.position.lerp(pig.position, dt * 8);
+        s.scale.multiplyScalar(1 - dt * 4);
+        if (u.caught <= 0) { scene.remove(s); snitches.splice(i, 1); }
+        continue;
+      }
+      u.in = Math.min(1, u.in + dt * 2);
+      s.scale.setScalar(u.in * 1.25);
+      const k = u.seed;
+      s.position.x = u.home.x + Math.sin(t * 0.7 + k) * 3 + Math.sin(t * 1.9 + k * 2) * 1;
+      s.position.y = u.home.y + Math.cos(t * 0.9 + k) * 2 + Math.sin(t * 2.3 + k) * 0.6;
+      u.home.x = clamp(u.home.x + Math.sin(t * 0.3 + k) * dt * 2, -10, 10);
+      // later levels: snitches scoot away a little when Pig gets close
+      const d = s.position.distanceTo(pig.position);
+      if (score >= 10 && d < 4) u.home.add(s.position.clone().sub(pig.position).setZ(0).normalize().multiplyScalar(dt * 2.5));
+      u.home.y = clamp(u.home.y, 0.5, 9.5);
+      if (Math.random() < 0.15) fx.trail(s.position, 0xffd34d, 0.3);
+      if (playing && d < 1.7) {
+        u.caught = 0.25;
+        score++;
+        ui.setScore(score);
+        HP.sfx.chime(); HP.sfx.sparkle();
+        fx.burst(s.position, [0xffd34d, 0xffffff, 0xffef9a], 35, 7, 0.7);
+        if (score % 5 === 0) party();
+        setTimeout(addSnitch, 700);
+      }
+    }
+    while (snitches.filter((s) => !s.userData.caught).length < wanted && Math.random() < 0.02) addSnitch();
+
+    fireflies.forEach((f) => { f.position.y += Math.sin(t + f.userData.p) * 0.01; f.material.opacity = 0.4 + 0.4 * Math.sin(t * 3 + f.userData.p); });
+    lanterns.forEach((l, i) => l.material.opacity = 0.6 + 0.1 * Math.sin(t * 7 + i));
+    fx.update(dt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  function party() {
+    spin = 1.2;
+    HP.sfx.fanfare();
+    setTimeout(() => HP.sfx.hoot(), 400);
+    hedwigHop = 0.5;
+    ui.banner('🎉✨🦉✨🎉');
+    fx.fireworks(new THREE.Vector3(0, 6, -3), 10, 7);
+    wanted = Math.min(wanted + 1, 6);
+    HP.sfx.resetChime();
+  }
+  window.__game = { get score() { return score; }, pig, snitches, party };
+  frame();
+})();
+</script>
+</body>
+</html>
