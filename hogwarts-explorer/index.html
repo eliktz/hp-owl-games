@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0a2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="טיול בהוגוורטס">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="icon" href="../icon-192.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../lib/fonts.css">
+<title>הוגוורטס – טיול קסום</title>
+<style>
+  /* HUD stays quiet glass-and-gold so the little diorama world is the hero. */
+  #inv{position:fixed;top:calc(96px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    padding:5px 18px;border-radius:30px;background:rgba(40,25,90,.7);border:3px solid #ffd76a;color:#fff;
+    font-size:28px;font-weight:bold;z-index:10;display:flex;gap:8px;align-items:center;text-shadow:0 2px 0 #000}
+  #inv .pop{animation:hpPop .35s}
+  /* big round action buttons, bottom-right (left half is the joystick zone) */
+  .gamebtn{position:fixed;width:88px;height:88px;border-radius:50%;border:4px solid #ffd76a;
+    background:rgba(40,25,90,.72);color:#fff;font-size:44px;display:flex;align-items:center;justify-content:center;
+    z-index:11;box-shadow:0 4px 14px rgba(0,0,0,.4);touch-action:none;-webkit-tap-highlight-color:transparent}
+  .gamebtn:active{transform:scale(.9)}
+  #flyBtn{right:calc(120px + env(safe-area-inset-right));bottom:calc(36px + env(safe-area-inset-bottom));
+    background:radial-gradient(circle at 50% 35%,rgba(120,90,200,.9),rgba(40,25,90,.8))}
+  #jumpBtn{right:calc(22px + env(safe-area-inset-right));bottom:calc(36px + env(safe-area-inset-bottom))}
+  #badgeBtn{left:calc(14px + env(safe-area-inset-left));top:calc(96px + env(safe-area-inset-top));
+    width:72px;height:72px;font-size:34px}
+  /* dynamic virtual joystick — a soft ring that blooms under the thumb */
+  #joy{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;
+    border:4px solid rgba(255,215,106,.75);background:radial-gradient(circle,rgba(60,40,120,.35),rgba(40,25,90,.15));
+    z-index:9;pointer-events:none;opacity:0;transition:opacity .12s}
+  #joy.on{opacity:1}
+  #joyKnob{position:fixed;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%,#ffe9a8,#ffb020);border:3px solid #fff;
+    box-shadow:0 0 18px rgba(255,210,90,.8);z-index:9;pointer-events:none;opacity:0;transition:opacity .12s}
+  #joyKnob.on{opacity:1}
+  /* speech bubble that pops over a friend when you walk up */
+  #bubble{position:fixed;transform:translate(-50%,-100%);padding:12px 18px;border-radius:22px;
+    background:rgba(40,25,90,.9);border:4px solid #ffd76a;color:#fff;font-size:30px;font-weight:bold;
+    text-align:center;z-index:12;pointer-events:none;opacity:0;transition:opacity .15s;max-width:62vw;
+    text-shadow:0 2px 0 #000;line-height:1.25}
+  #bubble.on{opacity:1}
+  #bubble::after{content:'';position:absolute;left:50%;bottom:-18px;transform:translateX(-50%);
+    border:12px solid transparent;border-top-color:#ffd76a}
+  /* stickers / badges collection screen */
+  #badges{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,rgba(30,20,80,.55),rgba(5,3,25,.85))}
+  #badges.on{display:flex}
+  .bpanel{background:rgba(40,25,90,.9);border:5px solid #ffd76a;border-radius:28px;padding:22px 20px 26px;
+    max-width:min(92vw,560px);box-shadow:0 10px 40px rgba(0,0,0,.6)}
+  .btitle{text-align:center;color:#ffd76a;font-size:40px;font-weight:bold;margin:0 0 16px;
+    text-shadow:0 3px 0 #7a3b00}
+  .bgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .badge{aspect-ratio:1;border-radius:20px;border:4px solid rgba(255,215,106,.4);background:rgba(20,12,50,.6);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    font-size:min(14vw,58px);filter:grayscale(1) brightness(.45);transition:all .25s}
+  .badge .bn{font-size:20px;color:#cbbce8}
+  .badge.got{filter:none;border-color:#ffd76a;background:rgba(80,55,150,.55);
+    box-shadow:0 0 22px rgba(255,210,90,.5)}
+  .badge.got .bn{color:#ffe9a8}
+  .bclose{display:block;margin:20px auto 0;padding:10px 40px;border-radius:40px;border:4px solid #fff;
+    background:linear-gradient(#ffe48a,#ffb020);color:#7a3b00;font-size:32px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/common.js"></script>
+<script>
+(() => {
+  const { rand, clamp, lerp } = HP;
+  const { renderer, scene, camera } = HP.setup({ fogColor: 0x2a2a66, fogNear: 64, fogFar: 172, fov: 58 });
+  renderer.setClearColor(0x0b0a2e, 1);
+  camera.far = 620; camera.updateProjectionMatrix();
+
+  // reuse the setup lights so the day→dusk cycle can tint them
+  let hemi, sun, warm;
+  scene.traverse((o) => {
+    if (o.isHemisphereLight) hemi = o;
+    else if (o.isDirectionalLight) sun = o;
+    else if (o.isPointLight) warm = o;
+  });
+  sun.position.set(-60, 90, 40);
+
+  const sky = HP.makeSky(scene, { stars: 700, moonPos: new THREE.Vector3(120, 120, -260) });
+  const fx = new HP.Particles(scene, 700);
+
+  /* ---------------- procedural ground ---------------- */
+  // analytic height field — reused for walking so there's no per-frame raycast.
+  // rolling hills everywhere, eased flat over the play areas so landmarks sit level.
+  const FLAT = [{ x: 0, z: -42, r: 46 }, { x: -72, z: 6, r: 30 }, { x: 44, z: 66, r: 32 }, { x: 60, z: 22, r: 16 }, { x: -34, z: -16, r: 14 }];
+  function flatK(x, z) {
+    let k = 1;
+    for (const f of FLAT) k = Math.min(k, clamp((Math.hypot(x - f.x, z - f.z) - f.r) / 24, 0, 1));
+    return k;
+  }
+  function terrainH(x, z) {
+    const roll = Math.sin(x * 0.045) * Math.cos(z * 0.05) * 3.4 + Math.sin((x + z) * 0.07 + 1.3) * 1.7;
+    return roll * flatK(x, z);
+  }
+  const SEG = 84, SIZE = 460;
+  const gGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+  gGeo.rotateX(-Math.PI / 2);
+  const gp = gGeo.attributes.position;
+  const gcol = new Float32Array(gp.count * 3);
+  const cLow = new THREE.Color(0x2c5531), cHigh = new THREE.Color(0x4a7a3e), cPath = new THREE.Color(0x6b6a4a);
+  const tmpC = new THREE.Color();
+  for (let i = 0; i < gp.count; i++) {
+    const x = gp.getX(i), z = gp.getZ(i), h = terrainH(x, z);
+    gp.setY(i, h);
+    const t = clamp(h / 5 + 0.5 + (Math.sin(x * 0.4) * Math.cos(z * 0.4)) * 0.12, 0, 1);
+    tmpC.copy(cLow).lerp(cHigh, t);
+    // warm dirt path leading from courtyard toward the camera-start
+    if (Math.abs(x) < 4 && z > -42 && z < 10) tmpC.lerp(cPath, 0.6);
+    gcol[i * 3] = tmpC.r; gcol[i * 3 + 1] = tmpC.g; gcol[i * 3 + 2] = tmpC.b;
+  }
+  gGeo.setAttribute('color', new THREE.BufferAttribute(gcol, 3));
+  gGeo.computeVertexNormals();
+  const ground = new THREE.Mesh(gGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 }));
+  scene.add(ground);
+
+  /* ---------------- lake (glowing animated surface) ---------------- */
+  const lakeMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: false,
+    uniforms: { t: { value: 0 }, cA: { value: new THREE.Color(0x123a7a) }, cB: { value: new THREE.Color(0x74e6ff) } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+    fragmentShader: 'uniform float t; uniform vec3 cA; uniform vec3 cB; varying vec2 vUv; void main(){ vec2 p=vUv*2.0-1.0; float r=length(p); float w=sin(p.x*13.0+t*1.4)*0.5+sin(p.y*10.0-t*1.1)*0.5+sin((p.x+p.y)*7.0+t*0.7)*0.4; float glow=smoothstep(1.0,0.1,r); vec3 c=mix(cA,cB,clamp(0.3+0.22*w+0.3*glow,0.0,1.0)); float a=glow*0.92; gl_FragColor=vec4(c,a);} ',
+  });
+  const lake = new THREE.Mesh(new THREE.CircleGeometry(30, 56), lakeMat);
+  lake.rotation.x = -Math.PI / 2;
+  lake.scale.set(1.5, 1, 1.15);
+  lake.position.set(-72, 0.15, 6);
+  scene.add(lake);
+  // soft shoreline glow
+  const lakeGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0x9fe8ff, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+  lakeGlow.scale.set(90, 90, 1); lakeGlow.position.set(-72, 2, 6); scene.add(lakeGlow);
+
+  /* ---------------- castle + bridge + courtyard ---------------- */
+  const castle = HP.makeCastle();
+  castle.scale.setScalar(2.1);
+  castle.position.set(0, terrainH(0, -92) + 2, -92);
+  scene.add(castle);
+
+  const stoneM = new THREE.MeshStandardMaterial({ color: 0x5b5578, roughness: 1 });
+  const stoneDark = new THREE.MeshStandardMaterial({ color: 0x413c5e, roughness: 1 });
+  // stone bridge over the dip between courtyard and castle rise
+  const bridge = new THREE.Group();
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(9, 1, 34), stoneM);
+  deck.position.set(0, 1.2, -68); bridge.add(deck);
+  for (let s = -1; s <= 1; s += 2) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 34), stoneDark);
+    rail.position.set(s * 4.1, 2.4, -68); bridge.add(rail);
+  }
+  for (let i = -2; i <= 2; i++) { // support arches below
+    const a = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.7, 8, 16, Math.PI), stoneDark);
+    a.position.set(0, 0.6, -68 + i * 7); a.scale.set(1.4, 1, 1); bridge.add(a);
+  }
+  scene.add(bridge);
+
+  // walkable courtyard: a round stone floor ringed by low walls, arches + floating candles
+  const courtY = 0.08;
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(24, 40), new THREE.MeshStandardMaterial({ color: 0x6d6683, roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, courtY, -42); scene.add(floor);
+  const ringN = 20;
+  for (let i = 0; i < ringN; i++) {
+    const a = (i / ringN) * Math.PI * 2;
+    if (Math.abs(a - Math.PI / 2) < 0.5) continue; // leave an opening toward the path
+    const x = Math.cos(a) * 24, z = -42 + Math.sin(a) * 24;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(1.4, rand(1.6, 2.4), 1.4), i % 2 ? stoneM : stoneDark);
+    post.position.set(x, 1 + post.geometry.parameters.height / 2 - 0.2, z);
+    post.rotation.y = a; scene.add(post);
+  }
+  // four arches around the courtyard
+  for (let k = 0; k < 4; k++) {
+    const a = k * Math.PI / 2 + Math.PI / 4;
+    const arch = new THREE.Group();
+    [-1, 1].forEach((s) => { const col = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 5.2, 10), stoneM); col.position.set(s * 2.4, 2.6, 0); arch.add(col); });
+    const top = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.5, 8, 14, Math.PI), stoneM);
+    top.position.y = 5.2; arch.add(top);
+    arch.position.set(Math.cos(a) * 21, courtY, -42 + Math.sin(a) * 21);
+    arch.rotation.y = -a; scene.add(arch);
+  }
+
+  // floating candles over the courtyard (instanced wax + glowing flames)
+  const NC = 26;
+  const candleGeo = new THREE.CylinderGeometry(0.09, 0.11, 0.7, 7);
+  const candleMesh = new THREE.InstancedMesh(candleGeo, new THREE.MeshStandardMaterial({ color: 0xfff2d6, roughness: 0.8, emissive: 0x3a2f18 }), NC);
+  scene.add(candleMesh);
+  const candles = [];
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < NC; i++) {
+    const a = rand(0, Math.PI * 2), r = rand(3, 20);
+    const base = new THREE.Vector3(Math.cos(a) * r, rand(5, 11), -42 + Math.sin(a) * r * 0.9);
+    candles.push({ base, ph: rand(0, 6) });
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xffd27a, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+    flame.scale.setScalar(1.2); scene.add(flame);
+    candles[i].flame = flame;
+  }
+
+  /* ---------------- Hagrid's hut (+ chimney smoke) ---------------- */
+  const hut = new THREE.Group();
+  const hutPos = new THREE.Vector3(60, 0, 22);
+  hut.position.copy(hutPos); hut.position.y = terrainH(hutPos.x, hutPos.z);
+  const hutBody = new THREE.Mesh(new THREE.CylinderGeometry(4, 4.4, 4, 16), new THREE.MeshStandardMaterial({ color: 0x8a6b4a, roughness: 1 }));
+  hutBody.position.y = 2; hut.add(hutBody);
+  const thatch = new THREE.Mesh(new THREE.ConeGeometry(5.6, 4, 16), new THREE.MeshStandardMaterial({ color: 0x6e4a2a, roughness: 1 }));
+  thatch.position.y = 6; hut.add(thatch);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.6, 0.3), new THREE.MeshStandardMaterial({ color: 0x3a2414, roughness: 1 }));
+  door.position.set(0, 1.3, 4.3); hut.add(door);
+  [-1, 1].forEach((s) => { const w = new THREE.Mesh(new THREE.CircleGeometry(0.7, 16), new THREE.MeshBasicMaterial({ color: 0xffc85a, fog: false })); w.position.set(s * 2.3, 2.4, 4.0); hut.add(w); });
+  const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.4, 0.9), new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 1 }));
+  chimney.position.set(2.2, 6.6, 0); hut.add(chimney);
+  scene.add(hut);
+  const smokeTop = new THREE.Vector3(hut.position.x + 2.2, hut.position.y + 8, hut.position.z);
+  const smoke = [];
+  for (let i = 0; i < 12; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xd9d2e8, transparent: true, opacity: 0, depthWrite: false }));
+    s.userData.life = 0; scene.add(s); smoke.push(s);
+  }
+  let smokeT = 0;
+
+  /* ---------------- Quidditch pitch ---------------- */
+  const pitch = new THREE.Group();
+  const pPos = new THREE.Vector3(44, 0, 66);
+  pitch.position.set(pPos.x, terrainH(pPos.x, pPos.z) + 0.05, pPos.z);
+  const oval = new THREE.Mesh(new THREE.CircleGeometry(20, 40), new THREE.MeshStandardMaterial({ color: 0x2f6b39, roughness: 1 }));
+  oval.rotation.x = -Math.PI / 2; oval.scale.set(1.25, 1, 0.9); pitch.add(oval);
+  const hoopM = new THREE.MeshStandardMaterial({ color: 0xe6b422, metalness: 0.5, roughness: 0.3, emissive: 0x3a2a00 });
+  const poleM = new THREE.MeshStandardMaterial({ color: 0xcfc2a0, roughness: 0.9 });
+  [-1, 1].forEach((side) => {
+    [[0, 9], [1, 11], [2, 9]].forEach(([i, hgt], j) => {
+      const x = side * 20, z = (j - 1) * 6;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, hgt, 10), poleM);
+      pole.position.set(x, hgt / 2, z); pitch.add(pole);
+      const hoop = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.22, 10, 22), hoopM);
+      hoop.position.set(x, hgt + 1.5, z); hoop.rotation.y = Math.PI / 2; pitch.add(hoop);
+    });
+  });
+  scene.add(pitch);
+
+  /* ---------------- friendly forest edge + fireflies ---------------- */
+  const treeTrunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.35, 0.5, 3, 6), new THREE.MeshStandardMaterial({ color: 0x4a3222, roughness: 1 }), 90);
+  const treeTop = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ roughness: 1 }), 90);
+  scene.add(treeTrunk, treeTop);
+  let ti = 0;
+  const treeGreens = [0x3a6b32, 0x468040, 0x5a8f3e, 0x3f7a4a];
+  function plantTree(x, z, s) {
+    const y = terrainH(x, z);
+    dummy.position.set(x, y + 1.5 * s, z); dummy.scale.setScalar(s); dummy.rotation.set(0, rand(0, 6), 0); dummy.updateMatrix();
+    treeTrunk.setMatrixAt(ti, dummy.matrix);
+    dummy.position.set(x, y + 3.6 * s, z); dummy.scale.set(1.9 * s, 2.3 * s, 1.9 * s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
+    treeTop.setMatrixAt(ti, dummy.matrix);
+    treeTop.setColorAt(ti, tmpC.set(treeGreens[ti % treeGreens.length]));
+    ti++;
+  }
+  // a soft arc of woods behind + around the grounds (never fully enclosing — friendly, not dark)
+  for (let i = 0; i < 70; i++) {
+    const a = rand(0, Math.PI * 2), r = rand(92, 135);
+    const x = Math.cos(a) * r, z = Math.sin(a) * r * 0.85 - 10;
+    if (ti >= 90) break;
+    plantTree(x, z, rand(0.9, 1.7));
+  }
+  // a little cluster near the forest edge to the back-left
+  for (let i = 0; i < 18 && ti < 90; i++) plantTree(rand(-70, -30), rand(-80, -60), rand(0.8, 1.4));
+  treeTrunk.instanceMatrix.needsUpdate = true; treeTop.instanceMatrix.needsUpdate = true;
+  if (treeTop.instanceColor) treeTop.instanceColor.needsUpdate = true;
+
+  // fireflies drifting at the forest edge (additive points, thinned by the perf scaler)
+  const FF = 90;
+  const ffPos = new Float32Array(FF * 3), ffSeed = [];
+  for (let i = 0; i < FF; i++) {
+    const a = rand(0, Math.PI * 2), r = rand(60, 110);
+    ffPos[i * 3] = Math.cos(a) * r; ffPos[i * 3 + 1] = terrainH(Math.cos(a) * r, Math.sin(a) * r) + rand(1, 6); ffPos[i * 3 + 2] = Math.sin(a) * r * 0.85 - 10;
+    ffSeed.push({ x: ffPos[i * 3], y: ffPos[i * 3 + 1], z: ffPos[i * 3 + 2], p: rand(0, 6) });
+  }
+  const ffGeo = new THREE.BufferGeometry();
+  ffGeo.setAttribute('position', new THREE.BufferAttribute(ffPos, 3));
+  const fireflies = new THREE.Points(ffGeo, new THREE.PointsMaterial({ size: 1.6, map: HP.glowTex, color: 0xdfff8a, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
+  scene.add(fireflies);
+
+  /* ---------------- greenhouse ---------------- */
+  const gh = new THREE.Group();
+  const ghPos = new THREE.Vector3(-34, 0, -16);
+  gh.position.set(ghPos.x, terrainH(ghPos.x, ghPos.z), ghPos.z);
+  const glassM = new THREE.MeshStandardMaterial({ color: 0xbfe8df, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.32, side: THREE.DoubleSide });
+  const ghBox = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 6), glassM); ghBox.position.y = 2.5; gh.add(ghBox);
+  const ghRoof = new THREE.Mesh(new THREE.ConeGeometry(6.2, 3, 4), glassM); ghRoof.rotation.y = Math.PI / 4; ghRoof.position.y = 6.5; gh.add(ghRoof);
+  const frameM = new THREE.MeshStandardMaterial({ color: 0x5a7a4a, roughness: 0.8 });
+  for (const sx of [-4, 4]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 5, 0.25), frameM); b.position.set(sx, 2.5, 3); gh.add(b); const b2 = b.clone(); b2.position.z = -3; gh.add(b2); }
+  const plantCols = [0x8cff9e, 0xff9ad5, 0xffe08a, 0x9fd0ff];
+  for (let i = 0; i < 6; i++) {
+    const p = new THREE.Mesh(new THREE.SphereGeometry(rand(0.4, 0.7), 10, 8), new THREE.MeshStandardMaterial({ color: plantCols[i % 4], emissive: plantCols[i % 4], emissiveIntensity: 0.6, roughness: 0.6 }));
+    p.position.set(rand(-3, 3), rand(0.6, 2.5), rand(-2, 2)); gh.add(p);
+  }
+  scene.add(gh);
+
+  /* ---------------- player (chibi young wizard) + Hedwig ---------------- */
+  const player = HP.makeChibi('player');
+  player.scale.setScalar(1.15);
+  const pp = new THREE.Vector3(0, 0, -8); // start on the path just outside the courtyard
+  pp.y = terrainH(pp.x, pp.z);
+  player.position.copy(pp);
+  scene.add(player);
+  let vy = 0, grounded = true, facing = 0;
+
+  const hedwig = HP.makeOwl('hedwig');
+  hedwig.scale.setScalar(0.85);
+  hedwig.visible = false;
+  scene.add(hedwig);
+
+  /* ---------------- collectibles: snitches + chocolate frogs ---------------- */
+  function makeFrog() {
+    const g = new THREE.Group();
+    const m = new THREE.MeshStandardMaterial({ color: 0x4f3222, roughness: 0.6, emissive: 0x2a1a0e }); // chocolate
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 12), m); body.scale.set(1, 0.8, 1.1); g.add(body);
+    [-1, 1].forEach((s) => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), new THREE.MeshStandardMaterial({ color: 0xfff6d8 })); e.position.set(s * 0.16, 0.32, 0.12); g.add(e); const pu = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshStandardMaterial({ color: 0x1a1420 })); pu.position.set(s * 0.16, 0.34, 0.22); g.add(pu); });
+    [-1, 1].forEach((s) => { const leg = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), m); leg.scale.set(0.8, 0.4, 1.1); leg.position.set(s * 0.34, -0.18, -0.1); g.add(leg); });
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xffcf6a, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(2, 2, 1); g.add(glow);
+    return g;
+  }
+  const items = []; // {o, type:'snitch'|'frog', base, ph}
+  function scatter(type, n) {
+    for (let i = 0; i < n; i++) {
+      let x, z, tries = 0;
+      do { const a = rand(0, Math.PI * 2), r = rand(10, 95); x = Math.cos(a) * r; z = Math.sin(a) * r * 0.85 - 15; tries++; }
+      while (tries < 8 && Math.hypot(x, z + 92) < 26); // keep off the castle hill
+      const o = type === 'snitch' ? HP.makeSnitch() : makeFrog();
+      o.scale.setScalar(type === 'snitch' ? 0.9 : 1.1);
+      const base = new THREE.Vector3(x, terrainH(x, z) + (type === 'snitch' ? 1.6 : 0.5), z);
+      o.position.copy(base);
+      scene.add(o);
+      items.push({ o, type, base, ph: rand(0, 6), hop: 0 });
+    }
+  }
+  scatter('snitch', 12);
+  scatter('frog', 12);
+
+  /* ---------------- NPC friends + gentle "bring me X" quests ---------------- */
+  const inv = { snitch: 0, frog: 0 };
+  const collected = { snitch: 0, frog: 0 };
+  const earned = new Set();
+  const BADGES = [
+    { id: 'harry', e: '🦁', n: 'הארי' },
+    { id: 'ron', e: '🧹', n: 'רון' },
+    { id: 'hermione', e: '🌿', n: 'הרמיוני' },
+    { id: 'hagrid', e: '🔑', n: 'האגריד' },
+    { id: 'snitch', e: '✨', n: 'אספן' },
+    { id: 'frog', e: '🐸', n: 'צפרדעים' },
+  ];
+  function iconTex(type, have, need, done) {
+    return HP.canvasTex(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      g.font = '74px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(done ? '🎉' : (type === 'snitch' ? '✨' : '🐸'), s / 2, s * 0.38);
+      g.font = 'bold 40px sans-serif'; g.fillStyle = done ? '#9effa0' : '#ffd76a';
+      g.strokeStyle = '#000'; g.lineWidth = 6;
+      const label = done ? '✓' : have + '/' + need;
+      g.strokeText(label, s / 2, s * 0.82); g.fillText(label, s / 2, s * 0.82);
+    });
+  }
+  const NPCS = [
+    { who: 'harry', pos: [7, -40], type: 'snitch', need: 2, line: "מצאת סניץ'? תביא לי שניים!", badge: 'harry' },
+    { who: 'ron', pos: [40, 50], type: 'snitch', need: 3, line: "בא לי לשחק! תביא לי סניצ'ים", badge: 'ron' },
+    { who: 'hermione', pos: [-30, -12], type: 'frog', need: 2, line: 'אפשר כמה צפרדעי שוקולד?', badge: 'hermione' },
+    { who: 'hagrid', pos: [55, 20], type: 'frog', need: 3, line: 'החברים שלי רעבים, עוזר לי?', badge: 'hagrid' },
+  ];
+  NPCS.forEach((n) => {
+    const c = HP.makeChibi(n.who);
+    c.scale.setScalar(n.who === 'hagrid' ? 1.15 : 1.25);
+    c.position.set(n.pos[0], terrainH(n.pos[0], n.pos[1]), n.pos[1]);
+    c.rotation.y = Math.atan2(0 - n.pos[0], -20 - n.pos[1]); // roughly face the courtyard
+    scene.add(c);
+    n.chibi = c; n.done = false; n.wave = 0;
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: iconTex(n.type, 0, n.need, false), transparent: true, depthWrite: false }));
+    spr.scale.set(2.4, 2.4, 1);
+    spr.position.set(n.pos[0], c.position.y + (n.who === 'hagrid' ? 5.2 : 4.4), n.pos[1]);
+    scene.add(spr); n.icon = spr;
+  });
+  function refreshIcon(n) {
+    n.icon.material.map.dispose();
+    n.icon.material.map = iconTex(n.type, Math.min(inv[n.type], n.need), n.need, n.done);
+    n.icon.material.needsUpdate = true;
+  }
+
+  /* ---------------- HUD ---------------- */
+  let playing = false;
+  const ui = HP.ui({
+    title: 'הוגוורטס – טיול קסום', icon: '🎖️', hint: '🕹️ לזוז &nbsp; 🦉 לעוף &nbsp; ⬆️ לקפוץ',
+    onStart() { playing = true; HP.sfx.hoot(); HP.sfx.music(true); },
+  });
+  const invEl = document.createElement('div');
+  invEl.id = 'inv';
+  invEl.innerHTML = '<span>✨</span><span id="invS">0</span><span>🐸</span><span id="invF">0</span>';
+  document.body.appendChild(invEl);
+  const invS = invEl.querySelector('#invS'), invF = invEl.querySelector('#invF');
+  function bump(el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  function updInv() { invS.textContent = inv.snitch; invF.textContent = inv.frog; }
+
+  // buttons
+  function mkBtn(id, label) { const b = document.createElement('div'); b.className = 'gamebtn'; b.id = id; b.textContent = label; document.body.appendChild(b); return b; }
+  const flyBtn = mkBtn('flyBtn', '🦉');
+  const jumpBtn = mkBtn('jumpBtn', '⬆️');
+  const badgeBtn = document.createElement('div'); badgeBtn.className = 'gamebtn'; badgeBtn.id = 'badgeBtn'; badgeBtn.textContent = '🎖️'; document.body.appendChild(badgeBtn);
+
+  // badges / stickers screen
+  const badgesEl = document.createElement('div'); badgesEl.id = 'badges';
+  badgesEl.innerHTML = '<div class="bpanel"><div class="btitle">אוסף המדבקות שלי</div><div class="bgrid" id="bgrid"></div><button class="bclose" id="bclose">סגור</button></div>';
+  document.body.appendChild(badgesEl);
+  const bgrid = badgesEl.querySelector('#bgrid');
+  function renderBadges() {
+    bgrid.innerHTML = '';
+    BADGES.forEach((b) => {
+      const d = document.createElement('div');
+      d.className = 'badge' + (earned.has(b.id) ? ' got' : '');
+      d.innerHTML = (earned.has(b.id) ? b.e : '🔒') + '<div class="bn">' + b.n + '</div>';
+      bgrid.appendChild(d);
+    });
+  }
+  let badgesOpen = false;
+  function openBadges() { renderBadges(); badgesEl.classList.add('on'); badgesOpen = true; HP.sfx.flip(); }
+  function closeBadges() { badgesEl.classList.remove('on'); badgesOpen = false; HP.sfx.pop(); }
+  badgeBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); openBadges(); });
+  badgesEl.querySelector('#bclose').addEventListener('pointerdown', (e) => { e.stopPropagation(); closeBadges(); });
+  badgesEl.addEventListener('pointerdown', (e) => { if (e.target === badgesEl) closeBadges(); });
+
+  const bubble = document.createElement('div'); bubble.id = 'bubble'; document.body.appendChild(bubble);
+
+  function award(id) {
+    if (earned.has(id)) return;
+    earned.add(id);
+    ui.setScore(earned.size);
+    const b = BADGES.find((x) => x.id === id);
+    ui.banner((b ? b.e : '🎖️') + ' מדבקה!');
+    HP.sfx.fanfare();
+  }
+
+  /* ---------------- controls ---------------- */
+  const keys = {};
+  window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; if (e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault(); if (e.key.toLowerCase() === 'f') toggleFly(); if (e.key === ' ') doJump(); });
+  window.addEventListener('keyup', (e) => (keys[e.key.toLowerCase()] = false));
+
+  const joyBase = document.createElement('div'); joyBase.id = 'joy'; document.body.appendChild(joyBase);
+  const joyKnob = document.createElement('div'); joyKnob.id = 'joyKnob'; document.body.appendChild(joyKnob);
+  const joy = { id: null, bx: 0, by: 0, x: 0, y: 0 };
+  const look = { id: null, px: 0, py: 0 };
+  let camYaw = 0, camPitch = 0.42, camDist = 10;
+
+  function onDown(e) {
+    if (!ui.started() || badgesOpen) return;
+    const left = e.clientX < window.innerWidth * 0.5;
+    if (e.pointerType === 'touch' && left && joy.id === null) {
+      joy.id = e.pointerId; joy.bx = e.clientX; joy.by = e.clientY; joy.x = 0; joy.y = 0;
+      joyBase.style.left = e.clientX + 'px'; joyBase.style.top = e.clientY + 'px'; joyBase.classList.add('on');
+      joyKnob.style.left = e.clientX + 'px'; joyKnob.style.top = e.clientY + 'px'; joyKnob.classList.add('on');
+    } else if (look.id === null) {
+      look.id = e.pointerId; look.px = e.clientX; look.py = e.clientY;
+    }
+  }
+  function onMove(e) {
+    if (e.pointerId === joy.id) {
+      const dx = e.clientX - joy.bx, dy = e.clientY - joy.by, R = 55;
+      const len = Math.hypot(dx, dy) || 1, cl = Math.min(len, R);
+      const nx = dx / len, ny = dy / len;
+      joy.x = nx * (cl / R); joy.y = ny * (cl / R);
+      joyKnob.style.left = (joy.bx + nx * cl) + 'px'; joyKnob.style.top = (joy.by + ny * cl) + 'px';
+    }
+    if (e.pointerId === look.id) {
+      camYaw -= (e.clientX - look.px) * 0.005;
+      camPitch = clamp(camPitch - (e.clientY - look.py) * 0.005, 0.14, 1.15);
+      look.px = e.clientX; look.py = e.clientY;
+    }
+  }
+  function onUp(e) {
+    if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; joyBase.classList.remove('on'); joyKnob.classList.remove('on'); }
+    if (e.pointerId === look.id) look.id = null;
+  }
+  window.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+
+  function moveAxis() {
+    let x = joy.x, y = -joy.y; // screen-down is backward
+    if (keys['a'] || keys['arrowleft']) x -= 1;
+    if (keys['d'] || keys['arrowright']) x += 1;
+    if (keys['w'] || keys['arrowup']) y += 1;
+    if (keys['s'] || keys['arrowdown']) y -= 1;
+    const l = Math.hypot(x, y);
+    if (l > 1) { x /= l; y /= l; }
+    return { x, y, l: Math.min(l, 1) };
+  }
+
+  // mode: 'walk' | 'fly' | 'landing'
+  let mode = 'walk';
+  function doJump() { if (mode === 'walk' && grounded && ui.started()) { vy = 8.5; grounded = false; HP.sfx.boing(); } }
+  function toggleFly() {
+    if (!ui.started()) return;
+    if (mode === 'walk') { mode = 'fly'; hedwig.visible = true; HP.sfx.whoosh(); HP.sfx.hoot(); flyY = player.position.y + 2; }
+    else if (mode === 'fly') { mode = 'landing'; }
+  }
+  jumpBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); doJump(); });
+  flyBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); toggleFly(); });
+  let flyY = 0, climbHold = false;
+  jumpBtn.addEventListener('pointerdown', () => (climbHold = true));
+  jumpBtn.addEventListener('pointerup', () => (climbHold = false));
+  jumpBtn.addEventListener('pointercancel', () => (climbHold = false));
+  jumpBtn.addEventListener('pointerleave', () => (climbHold = false));
+
+  /* ---------------- day → dusk cycle ---------------- */
+  const DAY = { top: new THREE.Color(0x2f6fc0), mid: new THREE.Color(0x8fc2ea), bot: new THREE.Color(0xfff0cf), fog: new THREE.Color(0xbcd3ea), hemi: new THREE.Color(0xdfe9ff), sun: new THREE.Color(0xfff3d6) };
+  const DUSK = { top: new THREE.Color(0x1a1550), mid: new THREE.Color(0x6a357f), bot: new THREE.Color(0xff8a52), fog: new THREE.Color(0x3a2a6a), hemi: new THREE.Color(0x8a6fb0), sun: new THREE.Color(0xff9a52) };
+  const skyU = sky.sky.material.uniforms;
+  function cycle(t) {
+    const dusk = 0.5 - 0.5 * Math.cos(t * (Math.PI * 2 / 90)); // 0 day → 1 dusk, ~90s round trip
+    skyU.top.value.copy(DAY.top).lerp(DUSK.top, dusk);
+    skyU.mid.value.copy(DAY.mid).lerp(DUSK.mid, dusk);
+    skyU.bot.value.copy(DAY.bot).lerp(DUSK.bot, dusk);
+    scene.fog.color.copy(DAY.fog).lerp(DUSK.fog, dusk);
+    renderer.setClearColor(scene.fog.color, 1);
+    hemi.color.copy(DAY.hemi).lerp(DUSK.hemi, dusk); hemi.intensity = lerp(1.35, 0.8, dusk);
+    sun.color.copy(DAY.sun).lerp(DUSK.sun, dusk); sun.intensity = lerp(1.1, 0.6, dusk);
+    warm.intensity = lerp(0.3, 0.9, dusk);
+    sky.stars.material.opacity = lerp(0.05, 1, dusk);
+    sky.moon.children[0].material.opacity = 1;
+    return dusk;
+  }
+
+  /* ---------------- camera follow ---------------- */
+  const camTarget = new THREE.Vector3(), camWant = new THREE.Vector3();
+  function updateCamera(dt) {
+    const headY = player.position.y + (mode === 'walk' ? 2.0 : 2.6);
+    camTarget.set(player.position.x, headY, player.position.z);
+    const dist = mode === 'walk' ? camDist : camDist + 4;
+    const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
+    camWant.set(
+      player.position.x + Math.sin(camYaw) * cp * dist,
+      headY + sp * dist + 2.2,
+      player.position.z + Math.cos(camYaw) * cp * dist
+    );
+    const minY = terrainH(camWant.x, camWant.z) + 2.0;
+    if (camWant.y < minY) camWant.y = minY;
+    camera.position.lerp(camWant, 1 - Math.pow(0.0015, dt));
+    camera.lookAt(camTarget);
+  }
+
+  /* ---------------- ambience: occasional hoots over the music box ---------------- */
+  let hootT = rand(4, 9);
+
+  /* ---------------- main loop ---------------- */
+  const clock = new THREE.Clock();
+  let t = 0;
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    t += dt;
+    sky.update(t);
+    const dusk = cycle(t);
+    lakeMat.uniforms.t.value = t;
+
+    const ax = moveAxis();
+    // camera-relative movement on the ground plane
+    const fwd = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
+    const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+    const move = new THREE.Vector3().addScaledVector(fwd, ax.y).addScaledVector(right, ax.x);
+    const moving = move.lengthSq() > 0.001;
+    if (moving) { move.normalize(); facing = Math.atan2(move.x, move.z); }
+
+    if (mode === 'walk') {
+      const spd = 11;
+      if (playing && moving) {
+        player.position.x += move.x * spd * dt * ax.l;
+        player.position.z += move.z * spd * dt * ax.l;
+      }
+      // keep inside the grounds
+      const r = Math.hypot(player.position.x, player.position.z + 15);
+      if (r > 112) { const k = 112 / r; player.position.x *= k; player.position.z = (player.position.z + 15) * k - 15; }
+      const gy = terrainH(player.position.x, player.position.z);
+      if (!grounded) { vy -= 20 * dt; player.position.y += vy * dt; if (player.position.y <= gy) { player.position.y = gy; vy = 0; grounded = true; HP.sfx.soft(); } }
+      else player.position.y = gy;
+      HP.animateChibi(player, dt, t, 0);
+      player.rotation.y = lerp(player.rotation.y, facing, 1 - Math.pow(0.002, dt));
+      player.userData.root.position.y = (grounded ? Math.abs(Math.sin(t * 9)) * 0.08 * (moving ? 1 : 0) : 0);
+      hedwig.visible = false;
+    } else {
+      // flying with Hedwig: horizontal steer + climb/glide, never crashes
+      const spd = 17;
+      if (mode === 'fly' && playing && moving) { player.position.x += move.x * spd * dt * ax.l; player.position.z += move.z * spd * dt * ax.l; }
+      const gy = terrainH(player.position.x, player.position.z);
+      if (mode === 'fly') {
+        const climbing = climbHold || keys[' '];
+        flyY += ((climbing ? 1 : -0.5) * 9) * dt;
+        flyY = clamp(flyY, gy + 6, 48);
+      } else { flyY -= 10 * dt; } // landing descent
+      player.position.y = flyY;
+      const r = Math.hypot(player.position.x, player.position.z + 15);
+      if (r > 120) { const k = 120 / r; player.position.x *= k; player.position.z = (player.position.z + 15) * k - 15; }
+      // Hedwig carries the player just below/behind
+      hedwig.visible = true;
+      hedwig.position.set(player.position.x, player.position.y - 1.1, player.position.z);
+      hedwig.rotation.y = lerp(hedwig.rotation.y, facing, 1 - Math.pow(0.01, dt));
+      HP.animateOwl(hedwig, dt, t, 1, 3.2);
+      player.rotation.y = lerp(player.rotation.y, facing, 1 - Math.pow(0.01, dt));
+      player.userData.root.position.y = Math.sin(t * 3) * 0.08;
+      HP.animateChibi(player, dt, t, 0);
+      if (mode === 'landing' && player.position.y <= gy + 0.15) { mode = 'walk'; grounded = true; vy = 0; player.position.y = gy; HP.sfx.soft(); }
+      if (Math.random() < 0.5) fx.trail(player.position.clone().add(new THREE.Vector3(0, -0.8, 0)), 0xffe9a0, 0.3);
+    }
+
+    // candles bob + glow brighter at dusk
+    for (let i = 0; i < NC; i++) {
+      const c = candles[i], y = c.base.y + Math.sin(t * 1.3 + c.ph) * 0.4;
+      dummy.position.set(c.base.x, y, c.base.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+      candleMesh.setMatrixAt(i, dummy.matrix);
+      c.flame.position.set(c.base.x, y + 0.5, c.base.z);
+      c.flame.material.opacity = (0.5 + 0.4 * dusk) * (0.8 + 0.2 * Math.sin(t * 9 + c.ph));
+      c.flame.scale.setScalar(1 + 0.15 * Math.sin(t * 11 + c.ph));
+    }
+    candleMesh.instanceMatrix.needsUpdate = true;
+
+    // chimney smoke
+    smokeT -= dt;
+    if (smokeT <= 0) { smokeT = 0.35; const s = smoke.find((x) => x.userData.life <= 0); if (s) { s.userData.life = 1; s.position.copy(smokeTop); s.userData.vx = rand(-0.2, 0.2); } }
+    smoke.forEach((s) => {
+      if (s.userData.life <= 0) { s.material.opacity = 0; return; }
+      s.userData.life -= dt * 0.35;
+      s.position.y += dt * 2.2; s.position.x += (s.userData.vx || 0) * dt + Math.sin(t + s.id) * 0.004;
+      const k = s.userData.life;
+      s.scale.setScalar(lerp(1.2, 5, 1 - k));
+      s.material.opacity = Math.max(0, Math.sin(k * Math.PI)) * 0.4;
+    });
+
+    // fireflies drift + twinkle (thin out if FPS drops)
+    const ffShow = Math.round(FF * HP.perf.quality);
+    const ffp = fireflies.geometry.attributes.position;
+    for (let i = 0; i < FF; i++) {
+      const sd = ffSeed[i];
+      ffp.setXYZ(i, sd.x + Math.sin(t * 0.6 + sd.p) * 2.5, sd.y + Math.sin(t * 1.1 + sd.p) * 1.2, sd.z + Math.cos(t * 0.7 + sd.p) * 2.5);
+    }
+    ffp.needsUpdate = true;
+    fireflies.geometry.setDrawRange(0, ffShow);
+    fireflies.material.opacity = 0.35 + 0.55 * dusk;
+
+    // collectibles: bob, spin, and get picked up on contact
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i], o = it.o;
+      if (it.taken) { o.position.lerp(player.position, dt * 8); o.scale.multiplyScalar(1 - dt * 5); it.taken -= dt; if (it.taken <= 0) { scene.remove(o); items.splice(i, 1); } continue; }
+      if (it.type === 'snitch') { HP.animateSnitch(o, t); o.position.y = it.base.y + Math.sin(t * 1.6 + it.ph) * 0.4; o.rotation.y += dt * 0.6; }
+      else { it.hop = (it.hop || 0) - dt; if (it.hop <= 0 && Math.random() < 0.01) it.hop = 0.5; o.position.y = it.base.y + (it.hop > 0 ? Math.sin((it.hop / 0.5) * Math.PI) * 0.8 : 0) + Math.sin(t + it.ph) * 0.05; o.rotation.y = Math.sin(t * 0.6 + it.ph) * 0.5; }
+      if (Math.random() < 0.08) fx.trail(o.position, it.type === 'snitch' ? 0xffd34d : 0xffcf6a, 0.25);
+      if (playing && o.position.distanceTo(player.position) < 2.4) {
+        it.taken = 0.25; inv[it.type]++; collected[it.type]++; updInv(); bump(it.type === 'snitch' ? invS : invF);
+        HP.sfx.chime(); HP.sfx.sparkle();
+        fx.burst(o.position, it.type === 'snitch' ? [0xffd34d, 0xffffff, 0xffef9a] : [0xffcf6a, 0xd59a5a, 0xfff0c0], 26, 6, 0.6);
+        if (collected.snitch >= 6) award('snitch');
+        if (collected.frog >= 6) award('frog');
+      }
+    }
+
+    // NPC friends: idle, face you when near, speech bubble + deliver quests
+    let nearest = null, nd = 1e9;
+    NPCS.forEach((n) => {
+      const c = n.chibi;
+      const d = Math.hypot(player.position.x - n.pos[0], player.position.z - n.pos[1]);
+      if (n.wave > 0) { n.wave -= dt; HP.animateChibi(c, dt, t, 1); }
+      else { HP.animateChibi(c, dt, t, 0); c.rotation.y = d < 12 ? Math.atan2(player.position.x - n.pos[0], player.position.z - n.pos[1]) : c.rotation.y; }
+      n.icon.material.rotation = 0;
+      if (d < nd) { nd = d; nearest = n; }
+      // deliver when you walk up carrying enough
+      if (!n.done && d < 5 && inv[n.type] >= n.need) {
+        n.done = true; inv[n.type] -= n.need; updInv(); refreshIcon(n);
+        n.wave = 3; award(n.badge); HP.cheer();
+        fx.fireworks(new THREE.Vector3(n.pos[0], c.position.y + 4, n.pos[1]), 6, 5);
+      }
+    });
+    // bubble over the nearest friend within range
+    if (playing && nearest && nd < 9) {
+      const head = new THREE.Vector3(nearest.pos[0], nearest.chibi.position.y + (nearest.who === 'hagrid' ? 4.6 : 3.9), nearest.pos[1]);
+      const v = head.project(camera);
+      if (v.z < 1) {
+        bubble.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + 'px';
+        bubble.style.top = (-v.y * 0.5 + 0.5) * window.innerHeight + 'px';
+        const need = nearest.need, have = Math.min(inv[nearest.type], need);
+        const ico = nearest.type === 'snitch' ? '✨' : '🐸';
+        bubble.innerHTML = nearest.done ? 'תודה רבה! 🎉' : nearest.line + '<br>' + ico.repeat(need) + ' (' + have + '/' + need + ')';
+        bubble.classList.add('on');
+      } else bubble.classList.remove('on');
+    } else bubble.classList.remove('on');
+
+    // ambience
+    hootT -= dt;
+    if (hootT <= 0 && playing) { hootT = rand(7, 14); HP.sfx.hoot(Math.random() < 0.4); }
+
+    updateCamera(dt);
+    fx.update(dt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  window.__game = {
+    get score() { return earned.size; },
+    player, hedwig, camera, items, NPCS, inv, collected, earned,
+    get mode() { return mode; },
+    toggleFly, openBadges,
+  };
+  frame();
+})();
+</script>
+</body>
+</html>

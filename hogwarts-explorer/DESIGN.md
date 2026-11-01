@@ -1,0 +1,64 @@
+# 🏰 Hogwarts Explorer — Design
+
+A gentle, open-world third-person wander around a storybook Hogwarts, for a 7-year-old.
+No winning, no losing, no scary bits — just explore, collect sparkly things, say hi to
+friends, and fly with Hedwig. Fifth game in the Owl Post set; same house style and tech.
+
+## Feel & art direction
+The four existing games share one look, and that *is* the brand — I keep it rather than
+invent a new one: deep night-to-dusk gradient skies, gold (`#ffd76a`) rimmed dark-violet
+(`rgba(40,25,90,.75)`) glass panels, chunky emoji, the `Rubik` Hebrew face, everything
+low-poly and hand-built from three.js primitives (no downloaded art/sound). The one place
+I spend boldness: the **world itself** reads as a tiny diorama you can walk inside — warm
+floating candles, a glowing lake, fireflies at the forest edge, chimney smoke over
+Hagrid's hut. The HUD stays quiet so the world is the hero.
+
+## World (one connected ground, fog-bounded)
+- **Castle** on a low rise to the north: towers, a **great-hall** block, a **stone bridge**
+  over a dip, and a **walkable courtyard** ringed by low walls, arches and floating candles.
+- **Grounds**: procedural rolling terrain (analytic height field — also used for walking,
+  so no per-frame raycast), flattened into a central play area so landmarks sit level.
+- **Lake** to the west with a softly animated glowing surface.
+- **Hagrid's hut** (round, thatched cone roof) to the east with a chimney puffing smoke.
+- **Quidditch pitch**: an oval with six hoops.
+- **Forest edge** (friendly, not dark) along the back with instanced trees + drifting fireflies.
+- **Greenhouse**: a glass box with glowing plants near the courtyard.
+- **Day→dusk cycle**: sky, fog and light colours ease back and forth between warm daylight
+  and golden dusk (~90 s round trip); stars and candles fade up as it gets dark.
+
+## Player & camera
+- A **chibi young wizard** (purple robe, gold trim, pointed hat) — reuses `HP.makeChibi`
+  with a new `player` palette so he's clearly not one of the four NPCs.
+- **Third-person** follow camera with smooth orbit.
+- **Walk** on the terrain; **jump** with a forgiving arc.
+- **Fly**: a big button summons **Hedwig** (`HP.makeOwl`); the wizard rides and steers in
+  gentle short hops — hold Up to climb, release to glide down. Tap again to land. No crashes.
+
+## Controls (touch-first, desktop too)
+- **Touch**: dynamic **virtual joystick** (left half — ring appears under the thumb) to move;
+  **drag-to-look** (right half) to orbit; big buttons for 🦉 fly and ⬆️ jump/climb.
+- **Desktop**: WASD/arrows to move, mouse-drag to look, Space to jump, F to fly.
+
+## Gentle quests (almost no text)
+- **Collect** glowing golden **snitches** ✨ and **chocolate frogs** 🐸 scattered around;
+  walking into one chimes, sparkles, and bumps the counter.
+- **NPCs** Harry / Ron / Hermione / Hagrid stand around the grounds. Walk up → a **speech
+  bubble** with one short Hebrew line + icons asks you to *bring N of X*. A floating icon
+  over their head shows the request + progress. Bring enough → they cheer and you earn a
+  **sticker/badge**.
+- **Badges screen**: a 🎖️ button opens a grid of stickers — earned ones in colour, the rest
+  gently locked. That's the only "progress" surface; no menus of text.
+
+## Performance (iPad is the target)
+Capped DPR 2 (via `HP.setup`), fog to bound draw distance, **instanced** trees/candles,
+fireflies as additive `Points`, **no shadow maps**, low-poly everything, and the shared
+`HP.perf` auto-scaler thins fireflies/particles and view distance if FPS dips.
+
+## Audio
+Procedural WebAudio only: `HP.sfx.music` music-box bed + occasional owl hoots and a soft
+wind pad, collect chimes, a whoosh on take-off. The existing 🔇 button mutes everything.
+
+## Testing
+Playwright headless with swiftshader, iPad Pro 11 **portrait + landscape**: assert no
+console errors and that a simulated **touch-drag on the joystick actually moves the player**,
+then capture screenshots and iterate on the look.

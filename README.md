@@ -1,6 +1,6 @@
 # 🦉 Owl Post Games
 
-Three little Harry-Potter-themed browser games starring Hedwig and Pigwidgeon, made for a 7-year-old.
+Five little Harry-Potter-themed browser games starring Hedwig and Pigwidgeon, made for a 7-year-old.
 Everything (owls, castle, letters, snitches, sounds) is drawn in code with three.js primitives and WebAudio, so there are no downloaded art or sound files.
 
 Open `index.html` in a browser (works offline, no build step). three.js r149 is vendored in `lib/`.
@@ -10,6 +10,8 @@ Open `index.html` in a browser (works offline, no build step). three.js r149 is 
 | **Hedwig's Sky Post** | Fly Hedwig over Hogwarts at night collecting letters 💌 and magic stars ⭐ (rainbow trail!). Bumping a cloud just makes her do a silly somersault. Every 10 letters → fireworks. | Arrow keys / WASD, or move the mouse / drag a finger. |
 | **Pigwidgeon's Snitch Chase** | Hyperactive little Pig zooms (and overshoots) wherever you point to catch golden snitches. Every 5 → party. If you stop, Pig chases them on his own. Tap Hedwig on her perch for a hoot. | Tap/click/drag, or arrow keys / WASD. |
 | **Owlery Letter Match** | Memory game with picture cards (lightning bolt, wand, snitch, hat...). Match a pair and Hedwig or Pig swoops down to deliver the letters. Levels grow from 6 to 16 cards. | Tap/click cards, or arrows + Enter/Space. |
+| **Hedwig's Magic Maths** | Hedwig delivers each sum to the right mailbox. Pick a mode (add / subtract / multiply / mixed) and difficulty, then tap the correct answer. Streaks summon cheering friends. | Tap/click the mailbox, Hebrew RTL. |
+| **Hogwarts – a Magical Trip** | A gentle open-world wander around a storybook Hogwarts: walk a chibi wizard around the castle, courtyard, lake, Hagrid's hut, Quidditch pitch and forest; collect snitches ✨ and chocolate frogs 🐸; do simple "bring me X" errands for Harry/Ron/Hermione/Hagrid; ride Hedwig for short flights; earn stickers. Day→dusk sky, no fail states. | Virtual joystick + drag-to-look on touch; WASD + mouse, Space = jump, F = fly on desktop. |
 
 There's no losing in any game. 🔊 button mutes, 🏰 goes back to the menu.
 
