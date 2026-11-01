@@ -79,7 +79,6 @@
       let near = null, nd = 1e9;
       for (const n of npcs) {
         const c = n.chibi;
-        if (n.cam) n.cam.update ? n.cam.update(dt) : 0;
         const d = Math.hypot(player.position.x - n.pos[0], player.position.z - n.pos[1]);
         if (n.wave > 0) { n.wave -= dt; HP.animateChibi(c, dt, t, 1); }
         else { HP.animateChibi(c, dt, t, 0); if (d < 10) c.rotation.y = Math.atan2(player.position.x - n.pos[0], player.position.z - n.pos[1]); }
