@@ -11,9 +11,9 @@
     const sources = [];                 // {pos, color, pri, flame, flicker}
     const POOL = opts.pool || 5;        // real point-lights (plus one hemi below)
     const pool = [];
-    const hemi = new T.HemisphereLight(0x6a6496, 0x2a2436, 1.35);
+    const hemi = new T.HemisphereLight(0x5e5888, 0x262232, 1.15);
     scene.add(hemi);
-    const fill = new T.AmbientLight(0x3a3450, 0.5); scene.add(fill); // soft floor-level fill
+    const fill = new T.AmbientLight(0x322e46, 0.35); scene.add(fill); // soft floor-level fill
     for (let i = 0; i < POOL; i++) {
       const pl = new T.PointLight(0xffb060, 0, 26, 2);
       pl.visible = false; scene.add(pl); pool.push(pl);

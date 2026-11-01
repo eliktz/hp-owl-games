@@ -20,7 +20,7 @@
     HPI.buildCommonRoom(scene, light);
 
     const spawns = {
-      entrance: { x: 0, z: 30, y: 0 },
+      entrance: { x: 0, z: 20, y: 0 },
       greatHall: { x: -30, z: 22, y: 0 },
       corridor: { x: 26, z: 20, y: 0 },
       library: { x: 55, z: 20, y: 0 },

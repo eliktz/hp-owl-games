@@ -492,7 +492,8 @@
       const sp = inside.spawns[spawnKey] || { x: inside.spawn.x, z: inside.spawn.z };
       player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z);
       player.rotation.y = Math.PI; facing = Math.PI;
-      mode = 'walk'; grounded = true; vy = 0; camYaw = 0; camPitch = 0.32;
+      mode = 'walk'; grounded = true; vy = 0; camYaw = 0; camPitch = 0.28;
+      camera.position.set(sp.x, player.position.y + 4.3, sp.z + 7.5); // snap behind (no ease from outside)
       flyBtn.style.display = 'none'; hedwig.visible = false;
       renderer.setClearColor(0x120f1e, 1); // dim interior backdrop (no daytime sky leak)
       audio.init(); audio.startBeds(); enterHint.classList.remove('on');
@@ -609,9 +610,9 @@
     const headY = player.position.y + (mode === 'walk' ? 2.0 : 2.6);
     camTarget.set(player.position.x, headY, player.position.z);
     // indoors: a bit closer than outside, but the ceiling clamp keeps it from poking through
-    const base = world === 'inside' ? 8 : camDist;
+    const base = world === 'inside' ? 7.5 : camDist;
     const dist = mode === 'walk' ? base : base + 4;
-    const vOff = world === 'inside' ? 1.4 : 2.2;
+    const vOff = world === 'inside' ? 1.0 : 2.2;
     const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
     camWant.set(
       player.position.x + Math.sin(camYaw) * cp * dist,
@@ -621,7 +622,7 @@
     if (world === 'inside') {
       inside.collide(camWant, 0.6); // keep the camera out of interior walls
       const f = inside.floorH(player.position.x, player.position.z);
-      camWant.y = clamp(camWant.y, f + 1.8, f + 5.3); // off the floor, below the ceiling
+      camWant.y = clamp(camWant.y, f + 1.8, f + 4.8); // off the floor, below the ceiling
     } else {
       const minY = terrainH(camWant.x, camWant.z) + 2.0;
       if (camWant.y < minY) camWant.y = minY;

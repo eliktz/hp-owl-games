@@ -21,8 +21,8 @@ window.HPI = (function () {
     UP: 7,                                        // upper-floor height
     rampZ0: 2, rampZ1: 14, rampX: 6,             // grand-staircase ramp footprint
     wall: 0.6,                                    // wall half-thickness for pushout
-    spawn: { x: 0, z: 30.5 },                     // where you appear on entering
-    exit:  { x: 0, z: 33.4 },                     // the great doors (walk here to leave)
+    spawn: { x: 0, z: 22 },                        // where you appear on entering (mid-hall)
+    exit:  { x: 0, z: 32.5 },                      // the great doors (walk here to leave)
   };
 
   // ---- navigation: wall segments + floor height ------------------------------

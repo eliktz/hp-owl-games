@@ -58,9 +58,9 @@
     // polished marble for the entrance-hall floor + grand staircase
     marble(rep = 2) {
       const col = cvs(256, (g, s) => {
-        g.fillStyle = '#d8d2e6'; g.fillRect(0, 0, s, s);
-        blobs(g, s, 60, 'rgba(180,172,205,A)', 10, 60, '0.5');
-        g.strokeStyle = 'rgba(90,80,120,0.35)'; g.lineWidth = 1.2;
+        g.fillStyle = '#9b96b0'; g.fillRect(0, 0, s, s);
+        blobs(g, s, 60, 'rgba(130,124,152,A)', 10, 60, '0.5');
+        g.strokeStyle = 'rgba(60,54,82,0.4)'; g.lineWidth = 1.2;
         for (let i = 0; i < 10; i++) { // grey veins
           g.beginPath(); let x = Math.random() * s, y = Math.random() * s; g.moveTo(x, y);
           for (let k = 0; k < 8; k++) { x += (Math.random() - 0.5) * 60; y += (Math.random() - 0.5) * 60; g.lineTo(x, y); }
