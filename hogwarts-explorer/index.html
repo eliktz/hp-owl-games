@@ -64,11 +64,32 @@
   .badge.got .bn{color:#ffe9a8}
   .bclose{display:block;margin:20px auto 0;padding:10px 40px;border-radius:40px;border:4px solid #fff;
     background:linear-gradient(#ffe48a,#ffb020);color:#7a3b00;font-size:32px;font-weight:bold;cursor:pointer}
+  /* fade-to-black used when stepping through the great doors */
+  #fade{position:fixed;inset:0;background:#05040f;z-index:40;opacity:0;pointer-events:none;transition:opacity .35s}
+  #fade.on{opacity:1}
+  /* gentle prompt that blooms when you stand at a doorway */
+  #enterHint{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    padding:10px 26px;border-radius:30px;background:rgba(40,25,90,.82);border:3px solid #ffd76a;color:#fff;
+    font-size:30px;font-weight:bold;z-index:12;opacity:0;transition:opacity .2s;pointer-events:none;text-shadow:0 2px 0 #000}
+  #enterHint.on{opacity:1}
 </style>
 </head>
 <body>
 <script src="../lib/three.min.js"></script>
 <script src="../lib/common.js"></script>
+<!-- walkable castle interior (built from small modules; see interior/*.js) -->
+<script src="interior/core.js"></script>
+<script src="interior/textures.js"></script>
+<script src="interior/kit.js"></script>
+<script src="interior/lighting.js"></script>
+<script src="interior/entrancehall.js"></script>
+<script src="interior/greathall.js"></script>
+<script src="interior/stairs.js"></script>
+<script src="interior/portraits.js"></script>
+<script src="interior/library.js"></script>
+<script src="interior/commonroom.js"></script>
+<script src="interior/audio.js"></script>
+<script src="interior/world.js"></script>
 <script>
 (() => {
   const { rand, clamp, lerp } = HP;
@@ -438,6 +459,58 @@
     HP.sfx.fanfare();
   }
 
+  /* ---------------- walkable castle interior ---------------- */
+  let world = 'outside', transiting = false;
+  const audio = HPI.Audio();
+  const inside = HPI.build({
+    fx, inv, collected,
+    onInvChange: (type) => { updInv(); bump(type === 'snitch' ? invS : invF); },
+    award, bubble, makeFrog, makeSnitch: HP.makeSnitch, audio,
+  });
+
+  const fade = document.createElement('div'); fade.id = 'fade'; document.body.appendChild(fade);
+  const enterHint = document.createElement('div'); enterHint.id = 'enterHint'; document.body.appendChild(enterHint);
+
+  // the great doors in the exterior: a glowing stone archway at the castle base
+  const doorPos = new THREE.Vector3(0, terrainH(0, -78), -78);
+  (function buildGreatDoors() {
+    const g = new THREE.Group(); g.position.copy(doorPos);
+    const portal = new THREE.Mesh(new THREE.PlaneGeometry(6, 8), new THREE.MeshBasicMaterial({ color: 0x15101f, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
+    portal.position.y = 4; g.add(portal);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: HP.glowTex, color: 0xffd27a, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(13, 15, 1); glow.position.y = 5; g.add(glow);
+    [-1, 1].forEach((s) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.72, 8, 10), stoneM); c.position.set(s * 3.4, 4, 0); g.add(c); });
+    const top = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.7, 8, 16, Math.PI), stoneM); top.position.y = 8; g.add(top);
+    scene.add(g);
+  })();
+
+  function enter(spawnKey) {
+    if (world === 'inside' || transiting) return;
+    transiting = true; fade.classList.add('on'); HP.sfx.whoosh();
+    setTimeout(() => {
+      world = 'inside'; scene.remove(player); inside.scene.add(player);
+      const sp = inside.spawns[spawnKey] || { x: inside.spawn.x, z: inside.spawn.z };
+      player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z);
+      player.rotation.y = Math.PI; facing = Math.PI;
+      mode = 'walk'; grounded = true; vy = 0; camYaw = 0; camPitch = 0.32;
+      flyBtn.style.display = 'none'; hedwig.visible = false;
+      audio.init(); audio.startBeds(); enterHint.classList.remove('on');
+      setTimeout(() => { fade.classList.remove('on'); transiting = false; }, 60);
+    }, 360);
+  }
+  function exitCastle() {
+    if (world !== 'inside' || transiting) return;
+    transiting = true; fade.classList.add('on'); HP.sfx.whoosh();
+    setTimeout(() => {
+      world = 'outside'; inside.scene.remove(player); scene.add(player);
+      player.position.set(doorPos.x, terrainH(doorPos.x, doorPos.z + 7), doorPos.z + 7);
+      player.rotation.y = 0; facing = 0;
+      mode = 'walk'; grounded = true; vy = 0; camYaw = Math.PI; camPitch = 0.42;
+      flyBtn.style.display = ''; enterHint.classList.remove('on');
+      setTimeout(() => { fade.classList.remove('on'); transiting = false; }, 60);
+    }, 360);
+  }
+
   /* ---------------- controls ---------------- */
   const keys = {};
   window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; if (e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault(); if (e.key.toLowerCase() === 'f') toggleFly(); if (e.key === ' ') doJump(); });
@@ -498,7 +571,7 @@
   let mode = 'walk';
   function doJump() { if (mode === 'walk' && grounded && ui.started()) { vy = 8.5; grounded = false; HP.sfx.boing(); } }
   function toggleFly() {
-    if (!ui.started()) return;
+    if (!ui.started() || world === 'inside') return; // no flying indoors
     if (mode === 'walk') { mode = 'fly'; hedwig.visible = true; HP.sfx.whoosh(); HP.sfx.hoot(); flyY = player.position.y + 2; }
     else if (mode === 'fly') { mode = 'landing'; }
   }
@@ -534,15 +607,22 @@
   function updateCamera(dt) {
     const headY = player.position.y + (mode === 'walk' ? 2.0 : 2.6);
     camTarget.set(player.position.x, headY, player.position.z);
-    const dist = mode === 'walk' ? camDist : camDist + 4;
+    // pull the camera in indoors so it doesn't poke through walls/ceilings
+    const base = world === 'inside' ? 6.5 : camDist;
+    const dist = mode === 'walk' ? base : base + 4;
     const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
     camWant.set(
       player.position.x + Math.sin(camYaw) * cp * dist,
       headY + sp * dist + 2.2,
       player.position.z + Math.cos(camYaw) * cp * dist
     );
-    const minY = terrainH(camWant.x, camWant.z) + 2.0;
-    if (camWant.y < minY) camWant.y = minY;
+    if (world === 'inside') {
+      inside.collide(camWant, 0.6); // keep the camera out of interior walls
+      camWant.y = Math.max(camWant.y, inside.floorH(camWant.x, camWant.z) + 1.2);
+    } else {
+      const minY = terrainH(camWant.x, camWant.z) + 2.0;
+      if (camWant.y < minY) camWant.y = minY;
+    }
     camera.position.lerp(camWant, 1 - Math.pow(0.0015, dt));
     camera.lookAt(camTarget);
   }
@@ -556,9 +636,9 @@
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.05);
     t += dt;
-    sky.update(t);
-    const dusk = cycle(t);
-    lakeMat.uniforms.t.value = t;
+    const outside = world === 'outside';
+    let dusk = 0;
+    if (outside) { sky.update(t); dusk = cycle(t); lakeMat.uniforms.t.value = t; }
 
     const ax = moveAxis();
     // camera-relative movement on the ground plane
@@ -574,10 +654,16 @@
         player.position.x += move.x * spd * dt * ax.l;
         player.position.z += move.z * spd * dt * ax.l;
       }
-      // keep inside the grounds
-      const r = Math.hypot(player.position.x, player.position.z + 15);
-      if (r > 112) { const k = 112 / r; player.position.x *= k; player.position.z = (player.position.z + 15) * k - 15; }
-      const gy = terrainH(player.position.x, player.position.z);
+      let gy;
+      if (outside) {
+        // keep inside the grounds
+        const r = Math.hypot(player.position.x, player.position.z + 15);
+        if (r > 112) { const k = 112 / r; player.position.x *= k; player.position.z = (player.position.z + 15) * k - 15; }
+        gy = terrainH(player.position.x, player.position.z);
+      } else {
+        inside.collide(player.position, 1.0);         // push out of interior walls
+        gy = inside.floorH(player.position.x, player.position.z);
+      }
       if (!grounded) { vy -= 20 * dt; player.position.y += vy * dt; if (player.position.y <= gy) { player.position.y = gy; vy = 0; grounded = true; HP.sfx.soft(); } }
       else player.position.y = gy;
       HP.animateChibi(player, dt, t, 0);
@@ -609,6 +695,7 @@
       if (Math.random() < 0.5) fx.trail(player.position.clone().add(new THREE.Vector3(0, -0.8, 0)), 0xffe9a0, 0.3);
     }
 
+    if (outside) {
     // candles bob + glow brighter at dusk
     for (let i = 0; i < NC; i++) {
       const c = candles[i], y = c.base.y + Math.sin(t * 1.3 + c.ph) * 0.4;
@@ -692,10 +779,24 @@
     // ambience
     hootT -= dt;
     if (hootT <= 0 && playing) { hootT = rand(7, 14); HP.sfx.hoot(Math.random() < 0.4); }
+    } // end outside-only simulation
+
+    if (!outside) {
+      inside.update(player, t, dt, playing && moving, ax.l, camera);
+      const dExit = Math.hypot(player.position.x - inside.exit.x, player.position.z - inside.exit.z);
+      const show = playing && dExit < 3.4;
+      enterHint.textContent = 'צא החוצה 🚪'; enterHint.classList.toggle('on', show);
+      if (show && dExit < 1.9 && !transiting) exitCastle();
+    } else {
+      const dEnter = Math.hypot(player.position.x - doorPos.x, player.position.z - doorPos.z);
+      const show = playing && mode === 'walk' && dEnter < 8;
+      enterHint.textContent = 'היכנסו לטירה 🏰'; enterHint.classList.toggle('on', show);
+      if (show && dEnter < 3 && !transiting) enter();
+    }
 
     updateCamera(dt);
     fx.update(dt);
-    renderer.render(scene, camera);
+    renderer.render(outside ? scene : inside.scene, camera);
     requestAnimationFrame(frame);
   }
 
@@ -703,6 +804,12 @@
     get score() { return earned.size; },
     player, hedwig, camera, items, NPCS, inv, collected, earned,
     get mode() { return mode; },
+    get world() { return world; },
+    inside, enter, exit: exitCastle,
+    goto(key) { // test helper: enter the castle and jump to a named room
+      if (world === 'outside') enter(key);
+      else { const sp = inside.spawns[key]; if (sp) { player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z); camYaw = 0; } }
+    },
     toggleFly, openBadges,
   };
   frame();
