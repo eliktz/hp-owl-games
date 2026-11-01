@@ -11,8 +11,9 @@
     const sources = [];                 // {pos, color, pri, flame, flicker}
     const POOL = opts.pool || 5;        // real point-lights (plus one hemi below)
     const pool = [];
-    const hemi = new T.HemisphereLight(0x4a4668, 0x1a1626, 0.9);
+    const hemi = new T.HemisphereLight(0x6a6496, 0x2a2436, 1.35);
     scene.add(hemi);
+    const fill = new T.AmbientLight(0x3a3450, 0.5); scene.add(fill); // soft floor-level fill
     for (let i = 0; i < POOL; i++) {
       const pl = new T.PointLight(0xffb060, 0, 26, 2);
       pl.visible = false; scene.add(pl); pool.push(pl);
@@ -110,7 +111,7 @@
         if (s && s.score > -34) {
           pl.visible = true; pl.position.copy(s.pos); pl.color.setHex(s.color);
           const fl = 0.85 + 0.25 * Math.sin(t * 14 + s.ph);
-          pl.intensity = (s.fire ? 2.4 : 1.4) * fl; pl.distance = s.fire ? 34 : 22;
+          pl.intensity = (s.fire ? 3.0 : 1.9) * fl; pl.distance = s.fire ? 36 : 26;
         } else pl.visible = false;
       }
       // dust drift

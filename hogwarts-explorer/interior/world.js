@@ -9,7 +9,7 @@
     HPI.nav.reset(); HPI.builders.length = 0;
     const scene = new T.Scene();
     scene.fog = new T.Fog(0x1a1626, 18, 96);
-    const light = HPI.Lighting(scene, { pool: 5 });
+    const light = HPI.Lighting(scene, { pool: 4 }); // +hemi +ambient = 6 real-time lights max
     const audio = ctx.audio;
 
     HPI.buildEntranceHall(scene, light);

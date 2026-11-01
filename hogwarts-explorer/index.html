@@ -494,6 +494,7 @@
       player.rotation.y = Math.PI; facing = Math.PI;
       mode = 'walk'; grounded = true; vy = 0; camYaw = 0; camPitch = 0.32;
       flyBtn.style.display = 'none'; hedwig.visible = false;
+      renderer.setClearColor(0x120f1e, 1); // dim interior backdrop (no daytime sky leak)
       audio.init(); audio.startBeds(); enterHint.classList.remove('on');
       setTimeout(() => { fade.classList.remove('on'); transiting = false; }, 60);
     }, 360);
@@ -608,17 +609,19 @@
     const headY = player.position.y + (mode === 'walk' ? 2.0 : 2.6);
     camTarget.set(player.position.x, headY, player.position.z);
     // pull the camera in indoors so it doesn't poke through walls/ceilings
-    const base = world === 'inside' ? 6.5 : camDist;
+    const base = world === 'inside' ? 5 : camDist;
     const dist = mode === 'walk' ? base : base + 4;
+    const vOff = world === 'inside' ? 0.6 : 2.2;
     const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
     camWant.set(
       player.position.x + Math.sin(camYaw) * cp * dist,
-      headY + sp * dist + 2.2,
+      headY + sp * dist + vOff,
       player.position.z + Math.cos(camYaw) * cp * dist
     );
     if (world === 'inside') {
       inside.collide(camWant, 0.6); // keep the camera out of interior walls
-      camWant.y = Math.max(camWant.y, inside.floorH(camWant.x, camWant.z) + 1.2);
+      const f = inside.floorH(player.position.x, player.position.z);
+      camWant.y = clamp(camWant.y, f + 1.2, f + 4.6); // stay off the floor and below the ceiling
     } else {
       const minY = terrainH(camWant.x, camWant.z) + 2.0;
       if (camWant.y < minY) camWant.y = minY;
@@ -807,8 +810,9 @@
     get world() { return world; },
     inside, enter, exit: exitCastle,
     goto(key) { // test helper: enter the castle and jump to a named room
-      if (world === 'outside') enter(key);
-      else { const sp = inside.spawns[key]; if (sp) { player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z); camYaw = 0; } }
+      const yaw = { greatHall: Math.PI / 2, corridor: Math.PI / 2, library: 0, commonRoom: 0, gallery: 0, entrance: 0 };
+      if (world === 'outside') { enter(key); setTimeout(() => { camYaw = yaw[key] || 0; }, 420); }
+      else { const sp = inside.spawns[key]; if (sp) { player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z); camYaw = yaw[key] || 0; } }
     },
     toggleFly, openBadges,
   };
