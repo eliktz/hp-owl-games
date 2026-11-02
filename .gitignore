@@ -12,3 +12,6 @@ hogwarts-explorer-hd/private-assets/
 .env
 *.token
 SKETCHFAB_TOKEN
+
+# Sketchfab Standard-licensed models may not be redistributed: local only.
+hogwarts-explorer-hd/assets/models/hut.glb

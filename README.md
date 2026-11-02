@@ -1,7 +1,7 @@
 # 🦉 Owl Post Games
 
 > **Disclaimer.** The newer **Hogwarts Explorer HD** world also uses a few **fan-made 3D
-> models from [Sketchfab](https://sketchfab.com)** (Hedwig, Ron, Hermione, Hagrid's hut,
+> models from [Sketchfab](https://sketchfab.com)** (Hedwig, Ron, Hermione,
 > the Great Hall and some props). This project is **unofficial** and for **personal,
 > non-commercial family use only — not for any commercial use**. All *Harry Potter* names,
 > characters and related rights belong to **Warner Bros. / J.K. Rowling**; this project is

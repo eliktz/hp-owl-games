@@ -1,7 +1,7 @@
 # 🏰 Hogwarts Explorer HD
 
 > **Disclaimer.** This world uses **fan-made 3D models from [Sketchfab](https://sketchfab.com)**
-> (Hedwig, Ron, Hermione, Hagrid's hut, the Great Hall, Dumbledore's office and some props).
+> (Hedwig, Ron, Hermione, the Great Hall, Dumbledore's office and some props).
 > It is an **unofficial** personal project for **personal, non-commercial family use only —
 > not for any commercial use**. All *Harry Potter* names, characters and related intellectual
 > property belong to **Warner Bros. Entertainment Inc. and J.K. Rowling**; this project is not
