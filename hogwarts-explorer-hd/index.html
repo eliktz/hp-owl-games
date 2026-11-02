@@ -43,6 +43,41 @@
   #load.hide{display:none}
   #err{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);display:none;z-index:50;
     background:rgba(60,10,10,.9);border:3px solid #ff8a8a;border-radius:16px;padding:18px 22px;max-width:80vw;font-size:22px}
+  /* quest HUD: stars + letters, under the FPS/tier row */
+  #quest{position:fixed;top:calc(52px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));
+    display:flex;gap:8px;z-index:10}
+  #quest .q{padding:3px 12px;border-radius:20px;background:rgba(30,20,70,.6);border:2px solid rgba(255,215,106,.7);
+    color:#ffe9a8;font-size:19px;font-weight:bold;text-shadow:0 2px 0 #000}
+  /* round action buttons on the right-bottom: map + mute */
+  #mapBtn{right:calc(18px + env(safe-area-inset-right));bottom:calc(32px + env(safe-area-inset-bottom))}
+  #muteBtn{right:calc(18px + env(safe-area-inset-right));bottom:calc(128px + env(safe-area-inset-bottom))}
+  #exitBtn{right:calc(18px + env(safe-area-inset-right));top:calc(100px + env(safe-area-inset-top));display:none}
+  /* speech bubble shown when near a friend */
+  #bubble{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    max-width:min(560px,86vw);padding:12px 20px;border-radius:20px;background:rgba(28,18,66,.92);
+    border:3px solid #ffd76a;color:#fff;font-size:22px;text-align:center;z-index:12;display:none;
+    box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  #bubble b{color:#ffe08a;display:block;font-size:17px;margin-bottom:2px}
+  /* toast for quest progress */
+  #toast{position:fixed;left:50%;top:22%;transform:translate(-50%,-10px);opacity:0;transition:all .3s;
+    padding:12px 24px;border-radius:18px;background:rgba(40,25,90,.95);border:3px solid #ffd76a;
+    color:#ffe9a8;font-size:24px;font-weight:bold;z-index:30;pointer-events:none;text-align:center}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  /* map / fast-travel overlay (built by map.js) */
+  #map{position:fixed;inset:0;z-index:35;display:none;flex-direction:column;align-items:center;
+    justify-content:center;gap:18px;background:radial-gradient(ellipse at 50% 35%,rgba(43,29,107,.97),rgba(5,6,13,.98));
+    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+  #map.on{display:flex}
+  #map h2{color:#ffd76a;font-size:30px;margin:0;text-shadow:0 2px 0 #000}
+  #map .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;
+    width:min(760px,90vw);max-height:62vh;overflow:auto;padding:4px}
+  #map .dest{padding:16px 10px;border-radius:18px;border:3px solid #ffd76a;cursor:pointer;
+    background:rgba(40,25,90,.7);color:#fff;font-size:20px;font-weight:bold;text-align:center;
+    display:flex;flex-direction:column;gap:6px;align-items:center}
+  #map .dest:active{transform:scale(.95)}
+  #map .dest .ico{font-size:40px}
+  #map .close{padding:10px 30px;border-radius:22px;border:3px solid #ffd76a;background:rgba(60,40,120,.8);
+    color:#ffe9a8;font-size:22px;font-weight:bold;cursor:pointer}
 </style>
 </head>
 <body>
@@ -53,6 +88,16 @@
 <div id="backend" class="pill">—</div>
 <div id="time" class="pill">☀️ יום</div>
 <button id="timeBtn" class="gamebtn" aria-label="שעה ביום">🌓</button>
+<button id="mapBtn" class="gamebtn" aria-label="מפה">🗺️</button>
+<button id="muteBtn" class="gamebtn" aria-label="צליל">🔊</button>
+<button id="exitBtn" class="gamebtn" aria-label="יציאה">🚪</button>
+<div id="quest">
+  <div class="q" id="stars">⭐ 0</div>
+  <div class="q" id="letters">💌 0</div>
+</div>
+<div id="bubble"></div>
+<div id="toast"></div>
+<div id="map"></div>
 <div id="joy"></div>
 <div id="joyKnob"></div>
 <div id="err"></div>

@@ -15,7 +15,6 @@ const CAP = Math.round(BUDGET.maxTriangles * 0.95);   // headroom under the budg
 // Hall / Dumbledore's-office models separately (see interiors.js), not out here.
 const PLACEMENT = {
   hut:       { x: SPOTS.hut.x, z: SPOTS.hut.z + 6, footprint: 12 },
-  owl:       { x: SPOTS.gates.x + 3, z: SPOTS.gates.z - 2, height: 0.5, y: 2.4 },
   quidditch: { x: -42, z: -34, footprint: 6 },
 };
 
