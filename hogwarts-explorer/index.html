@@ -821,7 +821,15 @@
     goto(key) { // test helper: enter the castle and jump to a named room
       const yaw = { greatHall: Math.PI / 2, corridor: Math.PI / 2, library: 0, commonRoom: 0, gallery: 0, entrance: 0 };
       if (world === 'outside') { enter(key); setTimeout(() => { camYaw = yaw[key] || 0; }, 420); }
-      else { const sp = inside.spawns[key]; if (sp) { player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z); camYaw = yaw[key] || 0; camPitch = 0.22; } }
+      else {
+        const sp = inside.spawns[key];
+        if (sp) {
+          const fy = inside.floorH(sp.x, sp.z);
+          player.position.set(sp.x, fy, sp.z); player.rotation.y = Math.PI; facing = Math.PI;
+          camYaw = yaw[key] || 0; camPitch = 0.22;
+          camera.position.set(sp.x + Math.sin(camYaw) * 7.3, fy + 3.0, sp.z + Math.cos(camYaw) * 7.3); // snap behind
+        }
+      }
     },
     toggleFly, openBadges,
   };
