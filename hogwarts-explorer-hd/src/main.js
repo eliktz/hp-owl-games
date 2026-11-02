@@ -46,7 +46,7 @@ async function boot() {
   const env = new Environment(scene);
   await env.setTime('day');
   buildTerrain(scene, { texture: grass });
-  buildLake(scene, { sunDir: env.sun.position.clone().normalize() });
+  buildLake(scene);
   const { colliders } = buildCastle(scene, mats);
 
   // Published fan scenery (Hagrid's hut, Quidditch props), area-streamed by distance.
@@ -143,6 +143,11 @@ async function boot() {
     setQuality: (t) => quality.applyTier(t),
     spots: () => Object.keys(SPOTS),
     questState: () => quests.state,
+    debug() {
+      let meshes = 0, casters = 0, visible = 0;
+      scene.traverse(o => { if (o.isMesh) { meshes++; if (o.castShadow) casters++; if (o.visible) visible++; } });
+      return { meshes, casters, visible };
+    },
     stats() {
       const info = renderer.info || {}; const r = info.render || {}; const mem = info.memory || {};
       return {
