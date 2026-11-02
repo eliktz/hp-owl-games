@@ -812,12 +812,58 @@
     requestAnimationFrame(frame);
   }
 
+  // swap the player between the exterior scene and the castle interior without a fade
+  // (the map's own swirl covers the screen while this runs). Mirrors enter()/exitCastle().
+  function ensureWorld(target) {
+    if (world === target) return;
+    if (target === 'inside') {
+      world = 'inside'; scene.remove(player); inside.scene.add(player);
+      flyBtn.style.display = 'none'; hedwig.visible = false;
+      renderer.setClearColor(0x120f1e, 1); audio.init(); audio.startBeds();
+    } else {
+      world = 'outside'; inside.scene.remove(player); scene.add(player);
+      flyBtn.style.display = '';
+    }
+    enterHint.classList.remove('on');
+  }
+
   window.__game = {
     get score() { return earned.size; },
     player, hedwig, camera, items, NPCS, inv, collected, earned,
     get mode() { return mode; },
     get world() { return world; },
+    get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; },
     inside, enter, exit: exitCastle,
+    // map fast-travel: instant teleport to a destination (map/travel.js wraps it in a swirl)
+    fastTravel(dest) {
+      if (!dest || transiting) return;
+      ensureWorld(dest.world);
+      mode = 'walk'; grounded = true; vy = 0;
+      if (dest.world === 'inside') {
+        const sp = inside.spawns[dest.key] || { x: inside.spawn.x, z: inside.spawn.z };
+        player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z);
+        facing = Math.PI; player.rotation.y = Math.PI;
+        camYaw = dest.yaw || 0; camPitch = dest.pitch != null ? dest.pitch : 0.22;
+      } else {
+        const gy = terrainH(dest.x, dest.z);
+        player.position.set(dest.x, gy, dest.z);
+        facing = dest.face != null ? dest.face : 0; player.rotation.y = facing;
+        camYaw = dest.yaw != null ? dest.yaw : Math.PI; camPitch = dest.pitch != null ? dest.pitch : 0.42;
+      }
+      updateCamera(4); // snap the follow-camera into place (no ease-jolt)
+    },
+    // rise into a Hedwig fly-over above the grounds (map/travel.js runs the cinematic)
+    flyTo(dest) {
+      if (transiting) return;
+      ensureWorld('outside');
+      const d = dest || { x: 0, z: 2 };
+      const gy = terrainH(d.x, d.z);
+      player.position.set(d.x, gy + 14, d.z);
+      mode = 'fly'; hedwig.visible = true; grounded = false; vy = 0; flyY = gy + 14;
+      facing = d.face != null ? d.face : 0; player.rotation.y = facing;
+      camYaw = d.yaw != null ? d.yaw : Math.PI; camPitch = d.pitch != null ? d.pitch : 0.5;
+      updateCamera(4);
+    },
     goto(key) { // test helper: enter the castle and jump to a named room
       const yaw = { greatHall: Math.PI / 2, corridor: Math.PI / 2, library: 0, commonRoom: 0, gallery: 0, entrance: 0 };
       if (world === 'outside') { enter(key); setTimeout(() => { camYaw = yaw[key] || 0; }, 420); }
@@ -836,5 +882,9 @@
   frame();
 })();
 </script>
+<!-- Hogwarts map + fast travel (loads after __game exists; see map/*.js) -->
+<script src="map/mapart.js"></script>
+<script src="map/travel.js"></script>
+<script src="map/map.js"></script>
 </body>
 </html>
