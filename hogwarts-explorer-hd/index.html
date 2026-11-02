@@ -30,6 +30,13 @@
     z-index:11;box-shadow:0 4px 14px rgba(0,0,0,.4);touch-action:none}
   .gamebtn:active{transform:scale(.9)}
   #timeBtn{left:calc(18px + env(safe-area-inset-left));bottom:calc(32px + env(safe-area-inset-bottom))}
+  /* on-screen camera controls (rotate / zoom / reset) — a tidy cluster, iPad-friendly */
+  #camctl{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(26px + env(safe-area-inset-bottom));
+    display:flex;gap:10px;z-index:11}
+  .cambtn{width:62px;height:62px;border-radius:50%;border:3px solid #ffd76a;
+    background:rgba(40,25,90,.6);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 10px rgba(0,0,0,.35);touch-action:none;-webkit-user-select:none;user-select:none}
+  .cambtn:active{transform:scale(.9);background:rgba(60,40,120,.8)}
   #joy{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;
     border:4px solid rgba(255,215,106,.75);background:radial-gradient(circle,rgba(60,40,120,.35),rgba(40,25,90,.15));
     z-index:9;pointer-events:none;opacity:0;transition:opacity .12s}
@@ -98,6 +105,13 @@
 <div id="bubble"></div>
 <div id="toast"></div>
 <div id="map"></div>
+<div id="camctl">
+  <button id="camL" class="cambtn" aria-label="סובב שמאלה">⟲</button>
+  <button id="camOut" class="cambtn" aria-label="התרחק">➖</button>
+  <button id="camReset" class="cambtn" aria-label="איפוס מצלמה">🎯</button>
+  <button id="camIn" class="cambtn" aria-label="התקרב">➕</button>
+  <button id="camR" class="cambtn" aria-label="סובב ימינה">⟳</button>
+</div>
 <div id="joy"></div>
 <div id="joyKnob"></div>
 <div id="err"></div>

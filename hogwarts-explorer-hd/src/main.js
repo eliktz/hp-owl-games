@@ -1,6 +1,6 @@
 // Entry point: builds the scene, wires the HUD/quests/map/interiors, runs the loop, and
 // exposes window.__game test hooks.
-import { Scene, PerspectiveCamera, Vector3 } from 'three';
+import { Scene, PerspectiveCamera, Vector3, Raycaster } from 'three';
 import { createRenderer, backendName } from './renderer.js';
 import { QualityManager } from './quality.js';
 import { Environment } from './environment.js';
@@ -93,7 +93,7 @@ async function boot() {
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
-  wireButtons({ env, map, interiors, audio });
+  wireButtons({ env, map, interiors, audio, player });
   // resume the audio context on the first user gesture (autoplay policy)
   const kick = () => { audio.resume(); removeEventListener('pointerdown', kick); removeEventListener('keydown', kick); };
   addEventListener('pointerdown', kick); addEventListener('keydown', kick);
@@ -145,6 +145,28 @@ async function boot() {
     setQuality: (t) => quality.applyTier(t),
     spots: () => Object.keys(SPOTS),
     questState: () => quests.state,
+    // Gameplay-test probe: player/camera world pos, whether a wall sits between the player
+    // and the lens (camera "inside" geometry), and where the player projects on screen.
+    probe() {
+      const head = new Vector3(player.pos.x, player.pos.y + player.cam.headY, player.pos.z);
+      const toCam = new Vector3().subVectors(camera.position, head);
+      const dist = toCam.length();
+      const rc = new Raycaster(head, toCam.clone().normalize(), 0.1, dist - 0.3);
+      const hits = rc.intersectObjects(player.cam.obstacles, true);
+      const camBehindWall = hits.length > 0 && hits[0].distance < dist - 0.35;
+      const sp = head.clone().project(camera);
+      const onScreen = sp.z < 1 && Math.abs(sp.x) <= 1 && Math.abs(sp.y) <= 1;
+      return {
+        player: { x: player.pos.x, y: player.pos.y, z: player.pos.z },
+        camera: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        camDist: dist, camBehindWall,
+        playerVisible: player.model.visible, onScreen,
+        screen: { x: (sp.x * 0.5 + 0.5) * innerWidth, y: (-sp.y * 0.5 + 0.5) * innerHeight },
+        interior: interiors.active,
+      };
+    },
+    walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
+    orbit(dx, dy) { player.cam.orbit(dx, dy); },
     debug() {
       let meshes = 0, casters = 0, visible = 0;
       scene.traverse(o => { if (o.isMesh) { meshes++; if (o.castShadow) casters++; if (o.visible) visible++; } });
@@ -168,7 +190,27 @@ function labelOf(id) {
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 
-function wireButtons({ env, map, interiors, audio }) {
+// A button that fires `fn` once on tap and then repeatedly while held (for rotate/zoom).
+function holdBtn(id, fn) {
+  const el = document.getElementById(id); if (!el) return;
+  let timer = null;
+  const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+  const start = e => { e.preventDefault(); e.stopPropagation(); fn(); stop(); timer = setInterval(fn, 40); };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointerleave', stop);
+  el.addEventListener('pointercancel', stop);
+}
+
+function wireButtons({ env, map, interiors, audio, player }) {
+  // Camera controls: orbit left/right, zoom in/out (held = continuous), reset behind player.
+  const cam = player.cam;
+  holdBtn('camL', () => cam.orbit(-9, 0));
+  holdBtn('camR', () => cam.orbit(9, 0));
+  holdBtn('camIn', () => cam.zoom(0.35));
+  holdBtn('camOut', () => cam.zoom(-0.35));
+  const cr = document.getElementById('camReset');
+  if (cr) cr.addEventListener('click', e => { e.stopPropagation(); cam.reset(player.yaw); });
   const t = document.getElementById('timeBtn');
   if (t) t.addEventListener('click', async () => {
     const k = await env.cycle();
