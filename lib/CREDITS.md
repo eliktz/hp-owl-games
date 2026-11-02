@@ -1,5 +1,22 @@
 # Credits & asset licensing
 
+## Castle interior — procedural, no third-party art
+
+The walkable castle interior added to `hogwarts-explorer` (Entrance Hall with a
+grand marble staircase, the Great Hall with four long house tables under an
+enchanted night-sky ceiling and floating candles, moving staircases, a portrait
+corridor, a library and a common room) is **100% original procedural code**
+(`hogwarts-explorer/interior/*.js`). Every surface is a three.js primitive; all
+stone, marble, oak, banner, stained-glass, book-spine and portrait textures are
+**drawn at runtime on a `<canvas>`** (`interior/textures.js`) — nothing is
+downloaded. The portrait figures are *generic* stylised busts built from meshes
+that wave and wink; they are **not** film stills, promotional images, or ripped
+game/book art. The layout follows the well-known Hogwarts look (great hall, four
+house tables, floating candles, enchanted ceiling, grand staircases, gothic
+arches, torchlit corridors, portraits, library) recreated from scratch as a
+personal, non-commercial homage — no copyrighted Harry Potter assets are used.
+No CC0/CC-BY third-party assets were vendored for the interior.
+
 ## Guest characters — procedural, no third-party art
 
 The cameo "guest" friends (a tousled bespectacled young wizard, a ginger
