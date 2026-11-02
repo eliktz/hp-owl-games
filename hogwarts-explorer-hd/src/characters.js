@@ -61,6 +61,7 @@ async function modelFigure(name, height, fallbackRobe) {
 }
 
 const C = SPOTS.courtyard, H = SPOTS.hut;
+const HEB = { harry: 'הארי', ron: 'רון', hermione: 'הרמיוני', hagrid: 'האגריד', hedwig: 'הדוויג' };
 const LINES = {
   harry:    ['שלום! אני הארי. בוא נחקור את הטירה יחד! ✨', 'כבר אספת כוכב קסם?', 'קווידיץ׳ זה הכי כיף בעולם!'],
   ron:      ['היי, אני רון! יש לך שוקולד צפרדע? 🐸', 'אל תדאג, הכול יהיה בסדר.', 'בוא נלך לאולם הגדול לאכול!'],
@@ -87,7 +88,7 @@ export async function createCharacters({ scene, heightAt }) {
     d.group.position.set(d.x, y, d.z);
     d.group.name = 'char-' + d.name;
     scene.add(d.group);
-    chars.push({ ...d, baseY: y, phase: i * 1.7, lines: LINES[d.name] });
+    chars.push({ ...d, baseY: y, phase: i * 1.7, lines: LINES[d.name], heb: HEB[d.name] });
   }
 
   let t = 0;

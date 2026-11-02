@@ -27,7 +27,7 @@ export function heightAt(x, z) {
 
 export function buildTerrain(scene, { texture } = {}) {
   const size = WORLD.groundSize;
-  const seg = 180;
+  const seg = 96;        // 96² quads ≈ 18k tris — keeps headroom under the iPad budget
   const geo = new PlaneGeometry(size, size, seg, seg);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
