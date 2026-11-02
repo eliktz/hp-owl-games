@@ -10,6 +10,7 @@ import { buildCastle } from './castle.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
 import { loadTexture } from './assets.js';
+import { loadPrivateModels } from './private-models.js';
 import { SPOTS, TIER } from './config.js';
 
 const hud = {
@@ -35,7 +36,11 @@ async function boot() {
   await env.setTime('day');
   buildTerrain(scene, { texture: grass });
   buildLake(scene, { sunDir: env.sun.position.clone().normalize() });
-  const { colliders } = buildCastle(scene, mats);
+  const { group: castleGroup, colliders } = buildCastle(scene, mats);
+
+  // Optional PRIVATE fan models (gitignored). No-op unless the files exist locally;
+  // on success the castle exterior, owl and characters appear, else procedural stays.
+  await loadPrivateModels({ scene, castleGroup }).catch(() => {});
 
   const input = new Input(document.body);
   const player = new Player(scene, camera, { heightAt, colliders });
