@@ -29,6 +29,13 @@
   #jumpBtn{right:calc(22px + env(safe-area-inset-right));bottom:calc(36px + env(safe-area-inset-bottom))}
   #badgeBtn{left:calc(14px + env(safe-area-inset-left));top:calc(96px + env(safe-area-inset-top));
     width:72px;height:72px;font-size:34px}
+  /* on-screen camera controls: rotate / zoom / reset (bottom-centre, iPad-friendly) */
+  #camctl{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(30px + env(safe-area-inset-bottom));
+    display:flex;gap:10px;z-index:11}
+  .cambtn{width:64px;height:64px;border-radius:50%;border:3px solid #ffd76a;background:rgba(40,25,90,.6);
+    color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 10px rgba(0,0,0,.35);touch-action:none;-webkit-user-select:none;user-select:none}
+  .cambtn:active{transform:scale(.9);background:rgba(60,40,120,.85)}
   /* dynamic virtual joystick — a soft ring that blooms under the thumb */
   #joy{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;
     border:4px solid rgba(255,215,106,.75);background:radial-gradient(circle,rgba(60,40,120,.35),rgba(40,25,90,.15));
@@ -77,6 +84,8 @@
 <body>
 <script src="../lib/three.min.js"></script>
 <script src="../lib/common.js"></script>
+<!-- shared spring-arm camera + slide-move collision engine -->
+<script src="engine/thirdperson.js"></script>
 <!-- walkable castle interior (built from small modules; see interior/*.js) -->
 <script src="interior/core.js"></script>
 <script src="interior/textures.js"></script>
@@ -492,8 +501,8 @@
       const sp = inside.spawns[spawnKey] || { x: inside.spawn.x, z: inside.spawn.z };
       player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z);
       player.rotation.y = Math.PI; facing = Math.PI;
-      mode = 'walk'; grounded = true; vy = 0; camYaw = 0; camPitch = 0.22;
-      camera.position.set(sp.x, player.position.y + 3.0, sp.z + 7.5); // snap behind (no ease from outside)
+      mode = 'walk'; grounded = true; vy = 0;
+      arm.setIndoor(true); arm.reset(facing + Math.PI); arm.pitch = 0.22;  // snap behind
       flyBtn.style.display = 'none'; hedwig.visible = false;
       renderer.setClearColor(0x120f1e, 1); // dim interior backdrop (no daytime sky leak)
       audio.init(); audio.startBeds(); enterHint.classList.remove('on');
@@ -507,7 +516,8 @@
       world = 'outside'; inside.scene.remove(player); scene.add(player);
       player.position.set(doorPos.x, terrainH(doorPos.x, doorPos.z + 7), doorPos.z + 7);
       player.rotation.y = 0; facing = 0;
-      mode = 'walk'; grounded = true; vy = 0; camYaw = Math.PI; camPitch = 0.42;
+      mode = 'walk'; grounded = true; vy = 0;
+      arm.setIndoor(false); arm.reset(facing + Math.PI);
       flyBtn.style.display = ''; enterHint.classList.remove('on');
       setTimeout(() => { fade.classList.remove('on'); transiting = false; }, 60);
     }, 360);
@@ -522,18 +532,50 @@
   const joyKnob = document.createElement('div'); joyKnob.id = 'joyKnob'; document.body.appendChild(joyKnob);
   const joy = { id: null, bx: 0, by: 0, x: 0, y: 0 };
   const look = { id: null, px: 0, py: 0 };
-  let camYaw = 0, camPitch = 0.42, camDist = 10;
+  const pinch = { a: null, b: null, dist: 0 };
+  // Spring-arm camera (raycasts walls so it never clips/sticks) replaces the old follow cam.
+  const arm = new HPX.SpringArm(camera);
+  arm.yaw = 0; arm.pitch = 0.42; arm.dist = 10;
+  const SOLIDS_OUT = [castle, bridge, hut, pitch, gh];
+  let insideSolids = null;
+  // Never frustum-cull the hero / companions / big structures (fixes half-rendered meshes).
+  [player, hedwig, castle, bridge, hut, pitch, gh].forEach(o => o && o.traverse(m => { if (m.isMesh) m.frustumCulled = false; }));
+  NPCS.forEach(n => n.chibi && n.chibi.traverse(m => { if (m.isMesh) m.frustumCulled = false; }));
+  if (inside && inside.npcs) inside.npcs.forEach(n => n.chibi.traverse(m => { if (m.isMesh) m.frustumCulled = false; }));
+  arm.onFade = (a) => { player.visible = a > 0.08; };
+  let stuckT = 0, moveActive = false; const lastP = new THREE.Vector3().copy(player.position);
 
+  // on-screen camera controls: tap or hold to rotate/zoom, tap to reset behind the player
+  const camctl = document.createElement('div'); camctl.id = 'camctl';
+  const CAMBTNS = [['⟲', () => arm.orbit(-9, 0)], ['➖', () => arm.zoom(-0.35)],
+    ['🎯', () => arm.reset(facing + Math.PI)], ['➕', () => arm.zoom(0.35)], ['⟳', () => arm.orbit(9, 0)]];
+  for (const [label, fn] of CAMBTNS) {
+    const b = document.createElement('button'); b.className = 'cambtn'; b.textContent = label; camctl.appendChild(b);
+    let timer = null;
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); if (label !== '🎯') { stop(); timer = setInterval(fn, 40); } });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+  }
+  document.body.appendChild(camctl);
+
+  // right-side / mouse pointers that drive look + pinch-zoom (joystick is tracked separately)
+  const camPtrs = new Map();
   function onDown(e) {
     if (!ui.started() || badgesOpen) return;
+    if (e.target && e.target.closest && e.target.closest('.gamebtn')) return;
     const left = e.clientX < window.innerWidth * 0.5;
     if (e.pointerType === 'touch' && left && joy.id === null) {
       joy.id = e.pointerId; joy.bx = e.clientX; joy.by = e.clientY; joy.x = 0; joy.y = 0;
       joyBase.style.left = e.clientX + 'px'; joyBase.style.top = e.clientY + 'px'; joyBase.classList.add('on');
       joyKnob.style.left = e.clientX + 'px'; joyKnob.style.top = e.clientY + 'px'; joyKnob.classList.add('on');
-    } else if (look.id === null) {
-      look.id = e.pointerId; look.px = e.clientX; look.py = e.clientY;
+    } else {
+      camPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (camPtrs.size === 2) pinch.dist = _pinchDist();
     }
+  }
+  function _pinchDist() {
+    const [a, b] = [...camPtrs.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
   }
   function onMove(e) {
     if (e.pointerId === joy.id) {
@@ -542,21 +584,29 @@
       const nx = dx / len, ny = dy / len;
       joy.x = nx * (cl / R); joy.y = ny * (cl / R);
       joyKnob.style.left = (joy.bx + nx * cl) + 'px'; joyKnob.style.top = (joy.by + ny * cl) + 'px';
+      return;
     }
-    if (e.pointerId === look.id) {
-      camYaw -= (e.clientX - look.px) * 0.005;
-      camPitch = clamp(camPitch - (e.clientY - look.py) * 0.005, 0.14, 1.15);
-      look.px = e.clientX; look.py = e.clientY;
+    const p = camPtrs.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (camPtrs.size >= 2) {            // two fingers → pinch-zoom, no orbit
+      const d = _pinchDist();
+      if (pinch.dist) arm.zoom((d - pinch.dist) * 0.03);
+      pinch.dist = d;
+    } else {                           // one finger / mouse drag → orbit
+      arm.orbit(dx, dy);
     }
   }
   function onUp(e) {
     if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; joyBase.classList.remove('on'); joyKnob.classList.remove('on'); }
-    if (e.pointerId === look.id) look.id = null;
+    camPtrs.delete(e.pointerId);
+    if (camPtrs.size === 2) pinch.dist = _pinchDist();
   }
   window.addEventListener('pointerdown', onDown);
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
+  window.addEventListener('wheel', (e) => { arm.zoom(-e.deltaY * 0.01); e.preventDefault(); }, { passive: false });
 
   function moveAxis() {
     let x = joy.x, y = -joy.y; // screen-down is backward
@@ -604,39 +654,33 @@
     return dusk;
   }
 
-  /* ---------------- camera follow ---------------- */
-  const camTarget = new THREE.Vector3(), camWant = new THREE.Vector3();
+  /* ---------------- camera follow (spring-arm, raycast wall-avoidance) ---------------- */
+  const camTarget = new THREE.Vector3();
   function updateCamera(dt) {
-    const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
+    // keyboard camera: Q/E orbit, +/- zoom (arrows stay bound to movement)
+    if (keys['q']) arm.orbit(-7, 0); if (keys['e']) arm.orbit(7, 0);
+    if (keys['='] || keys['+']) arm.zoom(0.14); if (keys['-'] || keys['_']) arm.zoom(-0.14);
+
     if (world === 'inside') {
-      // a near-level, over-the-shoulder cam: close, low, kept out of walls/ceiling
-      const f = inside.floorH(player.position.x, player.position.z);
-      const headY = player.position.y + 2.4;
-      camTarget.set(player.position.x, headY - 0.4, player.position.z);
-      const dist = 7.5;
-      camWant.set(
-        player.position.x + Math.sin(camYaw) * cp * dist,
-        headY + sp * dist * 0.5, // only half the pitch-rise, so we don't peer straight down
-        player.position.z + Math.cos(camYaw) * cp * dist
-      );
-      inside.collide(camWant, 0.6);
-      camWant.y = clamp(camWant.y, f + 1.6, f + 4.2);
-      camera.position.lerp(camWant, 1 - Math.pow(0.0015, dt));
-      camera.lookAt(camTarget);
-      return;
+      if (!insideSolids) {
+        const dyn = new Set([player, hedwig,
+          ...(inside.npcs || []).map(n => n.chibi), ...(inside.items || []).map(it => it.o)]);
+        insideSolids = inside.scene.children.filter(o => !dyn.has(o));
+      }
+      arm.obstacles = insideSolids;
+      if (!arm.indoor) arm.setIndoor(true);
+      camTarget.set(player.position.x, player.position.y + 2.0, player.position.z);
+    } else {
+      arm.obstacles = SOLIDS_OUT;
+      if (arm.indoor) arm.setIndoor(false);
+      camTarget.set(player.position.x, player.position.y + (mode === 'walk' ? 2.0 : 2.6), player.position.z);
     }
-    const headY = player.position.y + (mode === 'walk' ? 2.0 : 2.6);
-    camTarget.set(player.position.x, headY, player.position.z);
-    const dist = mode === 'walk' ? camDist : camDist + 4;
-    camWant.set(
-      player.position.x + Math.sin(camYaw) * cp * dist,
-      headY + sp * dist + 2.2,
-      player.position.z + Math.cos(camYaw) * cp * dist
-    );
-    const minY = terrainH(camWant.x, camWant.z) + 2.0;
-    if (camWant.y < minY) camWant.y = minY;
-    camera.position.lerp(camWant, 1 - Math.pow(0.0015, dt));
-    camera.lookAt(camTarget);
+    arm.update(dt, camTarget, facing + Math.PI, playing && moveActive);
+    // never let the lens dip below the terrain outdoors
+    if (world === 'outside') {
+      const minY = terrainH(camera.position.x, camera.position.z) + 1.2;
+      if (camera.position.y < minY) camera.position.y = minY;
+    }
   }
 
   /* ---------------- ambience: occasional hoots over the music box ---------------- */
@@ -653,18 +697,25 @@
     if (outside) { sky.update(t); dusk = cycle(t); lakeMat.uniforms.t.value = t; }
 
     const ax = moveAxis();
-    // camera-relative movement on the ground plane
-    const fwd = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
-    const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+    // camera-relative movement on the ground plane (uses the spring-arm's live yaw)
+    const fwd = new THREE.Vector3(-Math.sin(arm.yaw), 0, -Math.cos(arm.yaw));
+    const right = new THREE.Vector3(Math.cos(arm.yaw), 0, -Math.sin(arm.yaw));
     const move = new THREE.Vector3().addScaledVector(fwd, ax.y).addScaledVector(right, ax.x);
     const moving = move.lengthSq() > 0.001;
+    moveActive = moving;
     if (moving) { move.normalize(); facing = Math.atan2(move.x, move.z); }
 
     if (mode === 'walk') {
       const spd = 11;
       if (playing && moving) {
-        player.position.x += move.x * spd * dt * ax.l;
-        player.position.z += move.z * spd * dt * ax.l;
+        const dx = move.x * spd * dt * ax.l, dz = move.z * spd * dt * ax.l;
+        if (outside) {
+          // raycast slide-move so we glide along the castle/structures instead of clipping
+          const r = HPX.slideMove(player.position, dx, dz, 1.1, SOLIDS_OUT, 1.2);
+          player.position.x = r.x; player.position.z = r.z;
+        } else {
+          player.position.x += dx; player.position.z += dz;
+        }
       }
       let gy;
       if (outside) {
@@ -673,9 +724,20 @@
         if (r > 112) { const k = 112 / r; player.position.x *= k; player.position.z = (player.position.z + 15) * k - 15; }
         gy = terrainH(player.position.x, player.position.z);
       } else {
-        inside.collide(player.position, 1.0);         // push out of interior walls
+        for (let i = 0; i < 3; i++) inside.collide(player.position, 1.0);  // iterate: no corner sticking
         gy = inside.floorH(player.position.x, player.position.z);
       }
+      // anti-stuck: input held but no real progress for ~1.5s → nudge to a free spot
+      if (playing && moving) {
+        const prog = Math.hypot(player.position.x - lastP.x, player.position.z - lastP.z);
+        if (prog < spd * dt * ax.l * 0.25) stuckT += dt; else stuckT = 0;
+        if (stuckT > 1.5) {
+          if (outside) { const f = HPX.findFree(player.position.x, player.position.z, player.position.y, 1.2, SOLIDS_OUT, terrainH); player.position.x = f.x; player.position.z = f.z; }
+          else { player.position.x += Math.cos(arm.yaw) * 1.5; player.position.z -= Math.sin(arm.yaw) * 1.5; inside.collide(player.position, 1.0); }
+          stuckT = 0;
+        }
+      } else stuckT = 0;
+      lastP.copy(player.position);
       if (!grounded) { vy -= 20 * dt; player.position.y += vy * dt; if (player.position.y <= gy) { player.position.y = gy; vy = 0; grounded = true; HP.sfx.soft(); } }
       else player.position.y = gy;
       HP.animateChibi(player, dt, t, 0);
@@ -832,8 +894,29 @@
     player, hedwig, camera, items, NPCS, inv, collected, earned,
     get mode() { return mode; },
     get world() { return world; },
-    get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; },
+    get camYaw() { return arm.yaw; }, set camYaw(v) { arm.yaw = v; },
     inside, enter, exit: exitCastle,
+    // ---- gameplay-test hooks ----
+    walk(x, y) { joy.x = x; joy.y = -y; },          // drive the joystick (y+ = forward)
+    orbit(dx, dy) { arm.orbit(dx, dy); },
+    camZoom(a) { arm.zoom(a); },
+    camReset() { arm.reset(facing + Math.PI); },
+    probe() {
+      const head = new THREE.Vector3(player.position.x, player.position.y + 2.0, player.position.z);
+      const toCam = new THREE.Vector3().subVectors(camera.position, head);
+      const dist = toCam.length();
+      const rc = new THREE.Raycaster(head, toCam.clone().normalize(), 0.1, Math.max(0.01, dist - 0.35));
+      const hits = rc.intersectObjects(arm.obstacles || [], true);
+      const camBehindWall = hits.some(h => h.distance > 0.02 && h.distance < dist - 0.4);
+      const sp = head.clone().project(camera);
+      return {
+        player: { x: player.position.x, y: player.position.y, z: player.position.z },
+        camera: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        camDist: dist, camBehindWall, playerVisible: player.visible,
+        onScreen: sp.z < 1 && Math.abs(sp.x) <= 1 && Math.abs(sp.y) <= 1,
+        world,
+      };
+    },
     // map fast-travel: instant teleport to a destination (map/travel.js wraps it in a swirl)
     fastTravel(dest) {
       if (!dest || transiting) return;
@@ -843,12 +926,12 @@
         const sp = inside.spawns[dest.key] || { x: inside.spawn.x, z: inside.spawn.z };
         player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z);
         facing = Math.PI; player.rotation.y = Math.PI;
-        camYaw = dest.yaw || 0; camPitch = dest.pitch != null ? dest.pitch : 0.22;
+        arm.setIndoor(true); arm.yaw = dest.yaw || 0; arm.pitch = dest.pitch != null ? dest.pitch : 0.22; arm.userControlled = false;
       } else {
         const gy = terrainH(dest.x, dest.z);
         player.position.set(dest.x, gy, dest.z);
         facing = dest.face != null ? dest.face : 0; player.rotation.y = facing;
-        camYaw = dest.yaw != null ? dest.yaw : Math.PI; camPitch = dest.pitch != null ? dest.pitch : 0.42;
+        arm.setIndoor(false); arm.yaw = dest.yaw != null ? dest.yaw : Math.PI; arm.pitch = dest.pitch != null ? dest.pitch : 0.42; arm.userControlled = false;
       }
       updateCamera(4); // snap the follow-camera into place (no ease-jolt)
     },
@@ -861,19 +944,18 @@
       player.position.set(d.x, gy + 14, d.z);
       mode = 'fly'; hedwig.visible = true; grounded = false; vy = 0; flyY = gy + 14;
       facing = d.face != null ? d.face : 0; player.rotation.y = facing;
-      camYaw = d.yaw != null ? d.yaw : Math.PI; camPitch = d.pitch != null ? d.pitch : 0.5;
+      arm.setIndoor(false); arm.yaw = d.yaw != null ? d.yaw : Math.PI; arm.pitch = d.pitch != null ? d.pitch : 0.5; arm.userControlled = false;
       updateCamera(4);
     },
     goto(key) { // test helper: enter the castle and jump to a named room
       const yaw = { greatHall: Math.PI / 2, corridor: Math.PI / 2, library: 0, commonRoom: 0, gallery: 0, entrance: 0 };
-      if (world === 'outside') { enter(key); setTimeout(() => { camYaw = yaw[key] || 0; }, 420); }
+      if (world === 'outside') { enter(key); setTimeout(() => { arm.yaw = yaw[key] || 0; }, 420); }
       else {
         const sp = inside.spawns[key];
         if (sp) {
           const fy = inside.floorH(sp.x, sp.z);
           player.position.set(sp.x, fy, sp.z); player.rotation.y = Math.PI; facing = Math.PI;
-          camYaw = yaw[key] || 0; camPitch = 0.22;
-          camera.position.set(sp.x + Math.sin(camYaw) * 7.3, fy + 3.0, sp.z + Math.cos(camYaw) * 7.3); // snap behind
+          arm.setIndoor(true); arm.yaw = yaw[key] || 0; arm.pitch = 0.22; arm.userControlled = false;
         }
       }
     },
