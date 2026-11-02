@@ -1,4 +1,13 @@
 _test/
-hogwarts-explorer-hd/private-assets/
-hogwarts-explorer-hd/PRIVATE-ASSETS.md
+node_modules/
 hogwarts-explorer-hd/node_modules/
+hogwarts-explorer-hd/tools/optimize/node_modules/
+
+# Raw (pre-optimisation) Sketchfab downloads stay local; the optimised, credited
+# copies in hogwarts-explorer-hd/assets/models/ are the ones we publish.
+hogwarts-explorer-hd/private-assets/
+
+# NEVER commit the Sketchfab API token.
+.env
+*.token
+SKETCHFAB_TOKEN

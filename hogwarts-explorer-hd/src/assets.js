@@ -1,13 +1,11 @@
-// Asset loading with graceful fallback. Real CC0 files live in ./assets/ (committed).
-// Optional non-CC0 fan models live in ./private-assets/ (gitignored) and are loaded
-// only if present; any failure silently falls back to the CC0 / procedural look.
+// Asset loading with graceful fallback. Committed CC0 textures/HDRIs live in ./assets/;
+// the fan glTF models live in ./assets/models/ and are loaded via models.js. Any missing
+// file silently falls back to the procedural look.
 import { RepeatWrapping, SRGBColorSpace } from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TextureLoader } from 'three';
 
 const BASE = new URL('../assets/', import.meta.url).href;
-const PRIV = new URL('../private-assets/', import.meta.url).href;
 
 // Manifest of committed CC0 files. Consulted before any fetch so missing assets
 // never spam 404s in the console — we just fall back to the procedural look.
@@ -50,20 +48,4 @@ export async function loadTexture(file, { srgb = true, repeat = 1 } = {}) {
   } catch (e) { return null; }
 }
 
-// Optionally load a private fan-made glTF. Returns the loaded scene or null.
-// NEVER required: the castle & grounds render fully without it.
-export async function loadPrivateModel(file) {
-  const url = PRIV + file;
-  // probe quietly first; a miss is expected (private-assets is gitignored & optional)
-  try { const r = await fetch(url, { method: 'GET' }); if (!r.ok) return null; } catch { return null; }
-  try {
-    const gltf = await new GLTFLoader().loadAsync(url);
-    console.info('[assets] loaded private model:', file);
-    return gltf.scene;
-  } catch (e) {
-    console.warn('[assets] private model failed, ignoring:', file);
-    return null;
-  }
-}
-
-export { BASE as ASSET_BASE, PRIV as PRIVATE_BASE };
+export { BASE as ASSET_BASE };

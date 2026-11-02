@@ -1,0 +1,12 @@
+{
+  "_note": "Fan-made Sketchfab models, optimised for the web (Meshopt + 1024 WebP). See MODELS-CREDITS.md for attribution and the usage disclaimer. Personal, non-commercial family use only.",
+  "models": {
+    "castle":    { "file": "castle.glb",    "title": "The Great Hall in Hogwarts", "author": "s23383",      "url": "https://sketchfab.com/3d-models/the-great-hall-in-hogwarts-harry-potter-aa65c92e370f464ba81080cae44ab71f", "license": "CC-BY-4.0" },
+    "harry":     { "file": "harry.glb",     "title": "Dumbledore's Office",        "author": "zack_graham",  "url": "https://sketchfab.com/3d-models/dumbledores-office-c5fdffa78c9442bb93a88c386d4ad53d", "license": "CC-BY-4.0" },
+    "hut":       { "file": "hut.glb",       "title": "Hagrid's hut",               "author": "Katydid",      "url": "https://sketchfab.com/3d-models/hagrids-hut-915ea9ebeda44e08b3f9957e31b66b85", "license": "Sketchfab Standard" },
+    "owl":       { "file": "owl.glb",       "title": "Hedwig",                     "author": "cgbilz",       "url": "https://sketchfab.com/3d-models/hedwig-d02ece714c8b4f2ead4b27bbfa98d515", "license": "CC-BY-4.0" },
+    "quidditch": { "file": "quidditch.glb", "title": "Harry Potter props Homework 3 XYZ", "author": "Kate Abaeva", "url": "https://sketchfab.com/3d-models/harry-potter-props-homework-3-xyz-7a72bb34c22e4395a0b51301269455b9", "license": "CC-BY-4.0" },
+    "hermione":  { "file": "hermione.glb",  "title": "Hermione Granger",           "author": "zack_graham",  "url": "https://sketchfab.com/3d-models/hermione-granger-95714784f5bb4ac697040ec602b97932", "license": "CC-BY-4.0" },
+    "ron":       { "file": "ron.glb",       "title": "Ronald Weasley",             "author": "zack_graham",  "url": "https://sketchfab.com/3d-models/ronald-weasley-d3419667f6a345a09987a6c57d936d0a", "license": "CC-BY-4.0" }
+  }
+}

@@ -1,5 +1,15 @@
 # 🦉 Owl Post Games
 
+> **Disclaimer.** The newer **Hogwarts Explorer HD** world also uses a few **fan-made 3D
+> models from [Sketchfab](https://sketchfab.com)** (Hedwig, Ron, Hermione, Hagrid's hut,
+> the Great Hall and some props). This project is **unofficial** and for **personal,
+> non-commercial family use only — not for any commercial use**. All *Harry Potter* names,
+> characters and related rights belong to **Warner Bros. / J.K. Rowling**; this project is
+> not affiliated with or endorsed by them. Each model's title, author, source and licence
+> (CC-BY authors credited as required) are in
+> [`hogwarts-explorer-hd/MODELS-CREDITS.md`](hogwarts-explorer-hd/MODELS-CREDITS.md).
+> Rights holders / authors: anything can be **removed on request**.
+
 Five little Harry-Potter-themed browser games starring Hedwig and Pigwidgeon, made for a 7-year-old.
 Everything (owls, castle, letters, snitches, sounds) is drawn in code with three.js primitives and WebAudio, so there are no downloaded art or sound files.
 

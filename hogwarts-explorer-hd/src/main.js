@@ -10,7 +10,7 @@ import { buildCastle } from './castle.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
 import { loadTexture } from './assets.js';
-import { loadPrivateModels } from './private-models.js';
+import { loadScenery } from './scenery.js';
 import { SPOTS, TIER } from './config.js';
 
 const hud = {
@@ -38,17 +38,16 @@ async function boot() {
   buildLake(scene, { sunDir: env.sun.position.clone().normalize() });
   const { group: castleGroup, colliders } = buildCastle(scene, mats);
 
-  // Optional PRIVATE fan models (gitignored). No-op unless the files exist locally;
-  // on success the castle exterior, owl and characters appear, else procedural stays.
-  const priv = await loadPrivateModels({ scene, castleGroup, heightAt }).catch(() => ({}));
+  // Published fan scenery (Hagrid's hut, Hedwig, Quidditch props) on the real terrain.
+  const scenery = await loadScenery({ scene, heightAt }).catch(() => ({}));
 
   const input = new Input(document.body);
   const player = new Player(scene, camera, { heightAt, colliders });
 
-  // Settle the camera at the spawn view, then trim any private models that push the
-  // scene over the iPad triangle budget from that view (no-op without private models).
+  // Settle the camera at the spawn view, then trim any scenery that pushes the scene over
+  // the iPad triangle budget from that view.
   player.update(0, input);
-  if (priv.enforce) await priv.enforce(renderer, camera).catch(() => {});
+  if (scenery.enforce) await scenery.enforce(renderer, camera).catch(() => {});
 
   const quality = new QualityManager(renderer, {
     onTier: (t) => hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t),
