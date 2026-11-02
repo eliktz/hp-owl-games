@@ -132,7 +132,7 @@ const BUILDERS = { greathall: greatHall, staircase, library, commonroom: commonR
 // returns the player to the grounds. One room resident at a time.
 export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot, onEnter, onExit }) {
   let active = null, t = 0;
-  let savedAmb = 0, savedHemi = 0, savedColliders = null;
+  let savedAmb = 0, savedHemi = 0, savedColliders = null, savedDist = 9;
 
   async function enter(id) {
     const build = BUILDERS[id]; if (!build) return;
@@ -142,11 +142,14 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     if (!savedColliders) savedColliders = player.colliders;
     player.colliders = r.colliders;
     player.heightAt = () => FLOOR_Y;
-    player.teleport(r.spawn.x, r.spawn.z);
-    player.pos.y = FLOOR_Y; player.yaw = Math.PI; player.camYaw = 0;
+    // Stand just south of centre, facing the far (north) end; pull the camera in close so
+    // it never slips behind the back wall of even the smallest room.
+    player.teleport(0, 2);
+    player.pos.y = FLOOR_Y; player.yaw = Math.PI; player.camYaw = 0; player.camPitch = 0.12;
+    savedDist = player.camDist; player.camDist = 5;
     savedAmb = env.amb.intensity; savedHemi = env.hemi.intensity;
     env.amb.intensity = 0.95; env.hemi.intensity = 0.5;
-    scene.fog.density = 0.02; scene.fog.color = new Color(0x120a1e);
+    scene.fog.density = 0.014; scene.fog.color = new Color(0x160d26);
     scene.background = new Color(0x0a0710);
     onEnter && onEnter(id);
   }
@@ -158,6 +161,7 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     active = null;
     player.colliders = savedColliders || [];
     player.heightAt = terrainHeightAt;
+    player.camDist = savedDist;
     env.amb.intensity = savedAmb; env.hemi.intensity = savedHemi;
     env.setTime(env.time);      // restores fog + sky for the current time of day
     const h = homeSpot || { x: -18, z: 2 };
