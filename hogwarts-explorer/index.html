@@ -614,15 +614,23 @@
   window.addEventListener('pointercancel', onUp);
   window.addEventListener('wheel', (e) => { arm.zoom(-e.deltaY * 0.01); e.preventDefault(); }, { passive: false });
 
+  // smoothed movement with a dead-zone + acceleration/deceleration for a planted feel
+  const moveSm = { x: 0, y: 0 }; let moveLastT = performance.now();
   function moveAxis() {
     let x = joy.x, y = -joy.y; // screen-down is backward
     if (keys['a'] || keys['arrowleft']) x -= 1;
     if (keys['d'] || keys['arrowright']) x += 1;
     if (keys['w'] || keys['arrowup']) y += 1;
     if (keys['s'] || keys['arrowdown']) y -= 1;
-    const l = Math.hypot(x, y);
+    let l = Math.hypot(x, y);
+    if (l < 0.12) { x = y = 0; l = 0; }          // dead-zone
     if (l > 1) { x /= l; y /= l; }
-    return { x, y, l: Math.min(l, 1) };
+    const now = performance.now(), dt = Math.min((now - moveLastT) / 1000, 0.05); moveLastT = now;
+    const rate = l > Math.hypot(moveSm.x, moveSm.y) ? 14 : 10; // accelerate fast, ease off slower
+    const k = 1 - Math.exp(-rate * dt);
+    moveSm.x += (x - moveSm.x) * k; moveSm.y += (y - moveSm.y) * k;
+    if (Math.abs(moveSm.x) < 0.002) moveSm.x = 0; if (Math.abs(moveSm.y) < 0.002) moveSm.y = 0;
+    return { x: moveSm.x, y: moveSm.y, l: Math.min(Math.hypot(moveSm.x, moveSm.y), 1) };
   }
 
   // mode: 'walk' | 'fly' | 'landing'
