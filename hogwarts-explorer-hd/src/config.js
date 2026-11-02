@@ -37,7 +37,7 @@ export const TIMES = {
 export const SPOTS = {
   gates:    { x: 0,    y: 0, z: 70,  label: 'השער הראשי' },
   courtyard:{ x: 0,    y: 0, z: 18,  label: 'החצר' },
-  lake:     { x: -90,  y: 0, z: -10, label: 'האגם' },
+  lake:     { x: -42,  y: 0, z: -10, label: 'האגם' },
   bridge:   { x: 48,   y: 0, z: -8,  label: 'הגשר' },
   hut:      { x: 86,   y: 0, z: 36,  label: 'הבקתה של האגריד' },
 };

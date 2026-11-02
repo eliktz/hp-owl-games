@@ -13,8 +13,9 @@ export class Player {
     this.heightAt = heightAt || (() => 0);
     this.colliders = colliders || [];
     this.pos = new Vector3(0, 0, 60);
-    this.yaw = Math.PI;         // facing -z (toward the castle)
-    this.camYaw = Math.PI; this.camPitch = 0.32; this.camDist = 9;
+    this.yaw = Math.PI;         // model faces -z (toward the castle)
+    this.camYaw = 0;            // camera sits on the +z side, looking toward the castle
+    this.camPitch = 0.30; this.camDist = 9;
 
     const g = new Group();
     const robe = new Mesh(new ConeGeometry(0.55, 1.5, 12), new MeshStandardMaterial({ color: 0x2a2140, roughness: 0.9 }));
@@ -86,18 +87,26 @@ export class Player {
   }
 
   _updateCamera() {
-    const cp = Math.cos(this.camPitch);
-    const want = new Vector3(
-      this.pos.x + Math.sin(this.camYaw) * this.camDist * cp,
-      this.pos.y + 2.4 + Math.sin(this.camPitch) * this.camDist,
-      this.pos.z + Math.cos(this.camYaw) * this.camDist * cp,
-    );
-    // pull camera in if it would sit inside a tower/wall collider
+    // step the camera inward until it clears every collider (keeps walls out of view)
     let dist = this.camDist;
-    for (const c of this.colliders) {
-      if (c.type !== 'circle') continue;
-      const d = Math.hypot(want.x - c.x, want.z - c.z);
-      if (d < c.r + 1) dist = Math.min(dist, Math.max(3, this.camDist - (c.r + 1 - d)));
+    const inside = (x, z) => {
+      for (const c of this.colliders) {
+        if (c.type === 'circle') {
+          if (Math.hypot(x - c.x, z - c.z) < c.r + 0.8) return true;
+        } else {
+          const ca = Math.cos(-c.angle), sa = Math.sin(-c.angle);
+          const lx = (x - c.x) * ca - (z - c.z) * sa, lz = (x - c.x) * sa + (z - c.z) * ca;
+          if (Math.abs(lx) < c.hw + 0.8 && Math.abs(lz) < c.hd + 0.8) return true;
+        }
+      }
+      return false;
+    };
+    for (let i = 0; i < 8; i++) {
+      const cp3 = Math.cos(this.camPitch);
+      const cx = this.pos.x + Math.sin(this.camYaw) * dist * cp3;
+      const cz = this.pos.z + Math.cos(this.camYaw) * dist * cp3;
+      if (!inside(cx, cz) || dist <= 3) break;
+      dist = Math.max(3, dist - 1);
     }
     const cp2 = Math.cos(this.camPitch);
     this.camera.position.set(
