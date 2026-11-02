@@ -31,6 +31,7 @@
   const markerEls = {};
   T.DESTINATIONS.forEach(function (d) {
     const m = mkMarker(d.icon, d.he, d.mx, d.my);
+    m.dataset.id = d.id;
     m.setAttribute('aria-label', 'נסיעה אל ' + d.he);
     activate(m, function () { travel(d); });
     markerEls[d.id] = m;
@@ -39,7 +40,7 @@
 
   // ---- Hedwig: tap to fly ----
   const hw = mkMarker(T.HEDWIG.icon, T.HEDWIG.he, T.HEDWIG.mx, T.HEDWIG.my);
-  hw.classList.add('mapHedwig');
+  hw.classList.add('mapHedwig'); hw.dataset.id = 'hedwig-fly';
   hw.setAttribute('aria-label', T.HEDWIG.he);
   activate(hw, function () { closeMap(); T.flyHedwig(); });
   marks.appendChild(hw);
