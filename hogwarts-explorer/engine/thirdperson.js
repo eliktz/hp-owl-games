@@ -15,8 +15,8 @@ window.HPX = (function () {
       this.minDist = 2.4; this.maxDist = 14;
       this.minPitch = 0.08; this.maxPitch = 1.15;
       this.indoor = false;
-      this.obstacles = [];
-      this.ray = new THREE.Raycaster(); this.ray.near = 0.05;
+      this.obstacles = [];   // mesh list (no sprites/points) the arm raycasts against
+      this.ray = new THREE.Raycaster(); this.ray.near = 0.05; this.ray.camera = camera;
       this.idle = 0; this.recenterAfter = 2.4; this.userControlled = false;
       this._target = new THREE.Vector3();
       this._dir = new THREE.Vector3();

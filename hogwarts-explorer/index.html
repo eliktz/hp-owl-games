@@ -535,14 +535,20 @@
   const pinch = { a: null, b: null, dist: 0 };
   // Spring-arm camera (raycasts walls so it never clips/sticks) replaces the old follow cam.
   const arm = new HPX.SpringArm(camera);
-  arm.yaw = 0; arm.pitch = 0.42; arm.dist = 10;
-  const SOLIDS_OUT = [castle, bridge, hut, pitch, gh];
+  arm.yaw = 0; arm.pitch = 0.42; arm.dist = 10; arm.minDist = 1.5;
+  // Camera raycasts against the chunky structures only — flatten to meshes (never sprites,
+  // which can't raycast without a camera and would falsely block the lens).
+  const SOLIDS_OUT = [];
+  [castle, bridge, hut, pitch, gh].forEach(g => g && g.traverse(m => { if (m.isMesh) SOLIDS_OUT.push(m); }));
   let insideSolids = null;
   // Never frustum-cull the hero / companions / big structures (fixes half-rendered meshes).
   [player, hedwig, castle, bridge, hut, pitch, gh].forEach(o => o && o.traverse(m => { if (m.isMesh) m.frustumCulled = false; }));
   NPCS.forEach(n => n.chibi && n.chibi.traverse(m => { if (m.isMesh) m.frustumCulled = false; }));
   if (inside && inside.npcs) inside.npcs.forEach(n => n.chibi.traverse(m => { if (m.isMesh) m.frustumCulled = false; }));
-  arm.onFade = (a) => { player.visible = a > 0.08; };
+  // Give the hero its own materials so fading the lens-blocked player can't tint the NPCs.
+  const playerMats = [];
+  player.traverse(m => { if (m.isMesh && m.material) { m.material = Array.isArray(m.material) ? m.material.map(x => x.clone()) : m.material.clone(); (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => playerMats.push(x)); } });
+  arm.onFade = (a) => { for (const mt of playerMats) { mt.transparent = a < 0.99; mt.opacity = a; } player.visible = a > 0.03; };
   let stuckT = 0, moveActive = false; const lastP = new THREE.Vector3().copy(player.position);
 
   // on-screen camera controls: tap or hold to rotate/zoom, tap to reset behind the player
@@ -665,7 +671,8 @@
       if (!insideSolids) {
         const dyn = new Set([player, hedwig,
           ...(inside.npcs || []).map(n => n.chibi), ...(inside.items || []).map(it => it.o)]);
-        insideSolids = inside.scene.children.filter(o => !dyn.has(o));
+        insideSolids = [];
+        inside.scene.children.forEach(o => { if (!dyn.has(o)) o.traverse(m => { if (m.isMesh) insideSolids.push(m); }); });
       }
       arm.obstacles = insideSolids;
       if (!arm.indoor) arm.setIndoor(true);
@@ -928,8 +935,10 @@
         facing = Math.PI; player.rotation.y = Math.PI;
         arm.setIndoor(true); arm.yaw = dest.yaw || 0; arm.pitch = dest.pitch != null ? dest.pitch : 0.22; arm.userControlled = false;
       } else {
-        const gy = terrainH(dest.x, dest.z);
-        player.position.set(dest.x, gy, dest.z);
+        // safe teleport: never drop the player inside a solid (hut/greenhouse/etc.)
+        const f = HPX.findFree(dest.x, dest.z, terrainH(dest.x, dest.z), 1.2, SOLIDS_OUT, terrainH);
+        const gy = terrainH(f.x, f.z);
+        player.position.set(f.x, gy, f.z);
         facing = dest.face != null ? dest.face : 0; player.rotation.y = facing;
         arm.setIndoor(false); arm.yaw = dest.yaw != null ? dest.yaw : Math.PI; arm.pitch = dest.pitch != null ? dest.pitch : 0.42; arm.userControlled = false;
       }
