@@ -492,8 +492,8 @@
       const sp = inside.spawns[spawnKey] || { x: inside.spawn.x, z: inside.spawn.z };
       player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z);
       player.rotation.y = Math.PI; facing = Math.PI;
-      mode = 'walk'; grounded = true; vy = 0; camYaw = 0; camPitch = 0.28;
-      camera.position.set(sp.x, player.position.y + 4.3, sp.z + 7.5); // snap behind (no ease from outside)
+      mode = 'walk'; grounded = true; vy = 0; camYaw = 0; camPitch = 0.22;
+      camera.position.set(sp.x, player.position.y + 3.0, sp.z + 7.5); // snap behind (no ease from outside)
       flyBtn.style.display = 'none'; hedwig.visible = false;
       renderer.setClearColor(0x120f1e, 1); // dim interior backdrop (no daytime sky leak)
       audio.init(); audio.startBeds(); enterHint.classList.remove('on');
@@ -607,26 +607,34 @@
   /* ---------------- camera follow ---------------- */
   const camTarget = new THREE.Vector3(), camWant = new THREE.Vector3();
   function updateCamera(dt) {
+    const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
+    if (world === 'inside') {
+      // a near-level, over-the-shoulder cam: close, low, kept out of walls/ceiling
+      const f = inside.floorH(player.position.x, player.position.z);
+      const headY = player.position.y + 2.4;
+      camTarget.set(player.position.x, headY - 0.4, player.position.z);
+      const dist = 7.5;
+      camWant.set(
+        player.position.x + Math.sin(camYaw) * cp * dist,
+        headY + sp * dist * 0.5, // only half the pitch-rise, so we don't peer straight down
+        player.position.z + Math.cos(camYaw) * cp * dist
+      );
+      inside.collide(camWant, 0.6);
+      camWant.y = clamp(camWant.y, f + 1.6, f + 4.2);
+      camera.position.lerp(camWant, 1 - Math.pow(0.0015, dt));
+      camera.lookAt(camTarget);
+      return;
+    }
     const headY = player.position.y + (mode === 'walk' ? 2.0 : 2.6);
     camTarget.set(player.position.x, headY, player.position.z);
-    // indoors: a bit closer than outside, but the ceiling clamp keeps it from poking through
-    const base = world === 'inside' ? 7.5 : camDist;
-    const dist = mode === 'walk' ? base : base + 4;
-    const vOff = world === 'inside' ? 1.0 : 2.2;
-    const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
+    const dist = mode === 'walk' ? camDist : camDist + 4;
     camWant.set(
       player.position.x + Math.sin(camYaw) * cp * dist,
-      headY + sp * dist + vOff,
+      headY + sp * dist + 2.2,
       player.position.z + Math.cos(camYaw) * cp * dist
     );
-    if (world === 'inside') {
-      inside.collide(camWant, 0.6); // keep the camera out of interior walls
-      const f = inside.floorH(player.position.x, player.position.z);
-      camWant.y = clamp(camWant.y, f + 1.8, f + 4.8); // off the floor, below the ceiling
-    } else {
-      const minY = terrainH(camWant.x, camWant.z) + 2.0;
-      if (camWant.y < minY) camWant.y = minY;
-    }
+    const minY = terrainH(camWant.x, camWant.z) + 2.0;
+    if (camWant.y < minY) camWant.y = minY;
     camera.position.lerp(camWant, 1 - Math.pow(0.0015, dt));
     camera.lookAt(camTarget);
   }
@@ -813,7 +821,7 @@
     goto(key) { // test helper: enter the castle and jump to a named room
       const yaw = { greatHall: Math.PI / 2, corridor: Math.PI / 2, library: 0, commonRoom: 0, gallery: 0, entrance: 0 };
       if (world === 'outside') { enter(key); setTimeout(() => { camYaw = yaw[key] || 0; }, 420); }
-      else { const sp = inside.spawns[key]; if (sp) { player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z); camYaw = yaw[key] || 0; } }
+      else { const sp = inside.spawns[key]; if (sp) { player.position.set(sp.x, inside.floorH(sp.x, sp.z), sp.z); camYaw = yaw[key] || 0; camPitch = 0.22; } }
     },
     toggleFly, openBadges,
   };
