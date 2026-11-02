@@ -40,7 +40,7 @@ async function boot() {
 
   // Optional PRIVATE fan models (gitignored). No-op unless the files exist locally;
   // on success the castle exterior, owl and characters appear, else procedural stays.
-  const priv = await loadPrivateModels({ scene, castleGroup }).catch(() => ({}));
+  const priv = await loadPrivateModels({ scene, castleGroup, heightAt }).catch(() => ({}));
 
   const input = new Input(document.body);
   const player = new Player(scene, camera, { heightAt, colliders });

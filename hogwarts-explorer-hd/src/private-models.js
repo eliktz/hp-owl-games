@@ -21,9 +21,10 @@ const CAP = Math.round(BUDGET.maxTriangles * 0.95);   // leave headroom under th
 const PLACEMENT = {
   castle:       { x: 0,  z: -16, height: 46, swapProcedural: true, faceSouth: true },
   owl:          { x: SPOTS.gates.x + 3, z: SPOTS.gates.z - 2, height: 0.5, y: 2.4 },
-  harry:        { x: -15, z: 4,  height: 1.6,  faceSouth: true },
-  hermione:     { x: -13, z: 5,  height: 1.65, faceSouth: true },
-  ron:          { x: -17, z: 5,  height: 1.7,  faceSouth: true },
+  // characters stand in the courtyard, in front of (south of) the courtyard spawn view.
+  harry:        { x: SPOTS.courtyard.x + 4, z: SPOTS.courtyard.z - 7, height: 1.6 },
+  hermione:     { x: SPOTS.courtyard.x,     z: SPOTS.courtyard.z - 8, height: 1.65 },
+  ron:          { x: SPOTS.courtyard.x - 4, z: SPOTS.courtyard.z - 7, height: 1.7 },
   hagrid:       { x: SPOTS.hut.x - 4, z: SPOTS.hut.z, height: 2.6, faceSouth: true },
   hut:          { x: SPOTS.hut.x, z: SPOTS.hut.z + 6, footprint: 9 },
   'great-hall': { x: 10, z: 6,  height: 12 },
@@ -37,8 +38,9 @@ async function manifest() {
   } catch { return null; }
 }
 
-// Uniformly scale + ground + position a loaded scene by its bounding box.
-function fit(obj, p) {
+// Uniformly scale + ground + position a loaded scene by its bounding box. `groundY` is
+// the terrain height under the spot so figures stand on the ground, not at y=0.
+function fit(obj, p, groundY) {
   const box = new Box3().setFromObject(obj);
   const size = new Vector3(); box.getSize(size);
   const center = new Vector3(); box.getCenter(center);
@@ -47,18 +49,19 @@ function fit(obj, p) {
     obj.scale.setScalar(s);
     box.setFromObject(obj); box.getSize(size); box.getCenter(center);
   }
-  obj.position.x += p.x - center.x;              // centre over the world spot
+  obj.position.x += p.x - center.x;                       // centre over the world spot
   obj.position.z += p.z - center.z;
-  obj.position.y += (p.y || 0) - box.min.y;      // base on the ground (owl lifts via y)
-  if (p.faceSouth) obj.rotation.y = Math.PI;     // face the arriving player (+Z)
+  obj.position.y += groundY + (p.y || 0) - box.min.y;     // base on terrain (owl lifts via y)
+  if (p.faceSouth) obj.rotation.y = Math.PI;              // face the arriving player (+Z)
 }
 
-async function loadSlot(loader, slot, info) {
+async function loadSlot(loader, slot, info, ctx) {
   try {
     const gltf = await loader.loadAsync(PRIV + info.file);
     const g = new Group(); g.name = 'private-' + slot; g.add(gltf.scene);
     gltf.scene.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
-    fit(g, PLACEMENT[slot]);
+    const p = PLACEMENT[slot];
+    fit(g, p, ctx.heightAt ? ctx.heightAt(p.x, p.z) : 0);
     return g;
   } catch (e) {
     console.warn('[private] skipped', slot, '-', e.message);
@@ -79,7 +82,7 @@ export async function loadPrivateModels(ctx) {
   for (const slot of Object.keys(PLACEMENT)) {
     const info = m.slots[slot];
     if (!info?.file) continue;
-    const g = await loadSlot(loader, slot, info);
+    const g = await loadSlot(loader, slot, info, ctx);
     if (g) pending.push({ slot, group: g });
   }
   if (pending.length) console.info('[private] available:', pending.map(p => p.slot).join(', '));
