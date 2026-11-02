@@ -45,15 +45,17 @@ async function boot() {
 
   const env = new Environment(scene);
   await env.setTime('day');
-  buildTerrain(scene, { texture: grass });
+  const terrain = buildTerrain(scene, { texture: grass });
   buildLake(scene);
-  const { colliders } = buildCastle(scene, mats);
+  const { group: castleGroup, colliders } = buildCastle(scene, mats);
 
   // Published fan scenery (Hagrid's hut, Quidditch props), area-streamed by distance.
   const scenery = await loadScenery({ scene, heightAt }).catch(() => ({ update: () => {} }));
 
   const input = new Input(document.body);
   const player = new Player(scene, camera, { heightAt, colliders });
+  // The spring-arm raycasts against the castle shell + terrain so it never clips walls.
+  player.cam.obstacles = [castleGroup, terrain];
   const audio = createAudio();
 
   // Friendly characters (Ron/Hermione/Hedwig models + code-drawn Harry/Hagrid).

@@ -132,7 +132,7 @@ const BUILDERS = { greathall: greatHall, staircase, library, commonroom: commonR
 // returns the player to the grounds. One room resident at a time.
 export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot, onEnter, onExit }) {
   let active = null, t = 0;
-  let savedAmb = 0, savedHemi = 0, savedColliders = null, savedDist = 9;
+  let savedAmb = 0, savedHemi = 0, savedColliders = null, savedObstacles = null;
 
   async function enter(id) {
     const build = BUILDERS[id]; if (!build) return;
@@ -140,13 +140,16 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     const r = await build(); active = r; active.id = id;
     scene.add(r.group);
     if (!savedColliders) savedColliders = player.colliders;
+    if (!savedObstacles) savedObstacles = player.cam.obstacles;
     player.colliders = r.colliders;
     player.heightAt = () => FLOOR_Y;
-    // Stand just south of centre, facing the far (north) end; pull the camera in close so
-    // it never slips behind the back wall of even the smallest room.
+    // Indoors: tighter spring-arm, raycast only against this room's shell so the lens
+    // never slips behind the back wall of even the smallest room.
+    player.cam.obstacles = [r.group];
+    player.cam.setIndoor(true);
+    player.yaw = Math.PI;
     player.teleport(0, 2);
-    player.pos.y = FLOOR_Y; player.yaw = Math.PI; player.camYaw = 0; player.camPitch = 0.12;
-    savedDist = player.camDist; player.camDist = 5;
+    player.pos.y = FLOOR_Y; player.smoothY = FLOOR_Y;
     savedAmb = env.amb.intensity; savedHemi = env.hemi.intensity;
     env.amb.intensity = 0.95; env.hemi.intensity = 0.5;
     scene.fog.density = 0.014; scene.fog.color = new Color(0x160d26);
@@ -160,8 +163,9 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     active.group.traverse(o => { if (o.isMesh) o.geometry?.dispose?.(); });
     active = null;
     player.colliders = savedColliders || [];
+    player.cam.obstacles = savedObstacles || [];
+    player.cam.setIndoor(false);
     player.heightAt = terrainHeightAt;
-    player.camDist = savedDist;
     env.amb.intensity = savedAmb; env.hemi.intensity = savedHemi;
     env.setTime(env.time);      // restores fog + sky for the current time of day
     const h = homeSpot || { x: -18, z: 2 };

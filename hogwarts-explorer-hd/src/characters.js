@@ -87,6 +87,9 @@ export async function createCharacters({ scene, heightAt }) {
     const y = ground(d.x, d.z) + (d.kind === 'owl' ? 1.6 : 0);
     d.group.position.set(d.x, y, d.z);
     d.group.name = 'char-' + d.name;
+    // Primitive/merged parts can get a bad bounding sphere and vanish at screen edges;
+    // these figures are cheap, so never frustum-cull them.
+    d.group.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
     scene.add(d.group);
     chars.push({ ...d, baseY: y, phase: i * 1.7, lines: LINES[d.name], heb: HEB[d.name] });
   }

@@ -71,6 +71,9 @@ export async function loadModel(name) {
 // then plant its base at (x, groundY, z). `y` lifts it extra (e.g. a perched owl);
 // `faceSouth` turns it to face an arriving player (+Z). Mutates and returns obj.
 export function fitModel(obj, { x = 0, z = 0, height, footprint, y = 0, faceSouth, groundY = 0 } = {}) {
+  // Recompute bounds and disable frustum culling so a stale/merged bounding sphere can
+  // never leave the mesh half-rendered or popped out at the edge of the view.
+  obj.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.geometry?.computeBoundingSphere?.(); } });
   const box = new Box3().setFromObject(obj);
   const size = new Vector3(); box.getSize(size);
   const center = new Vector3(); box.getCenter(center);
