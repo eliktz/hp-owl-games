@@ -18,7 +18,15 @@ window.HPI = (function () {
     LIB: { x0: 40, x1: 70, z0: 2,   z1: 40 },    // Library (far east)
     GAL: { x0: -7, x1: 7,  z0: -14, z1: 2 },     // upper gallery (top of stairs)
     CR:  { x0: 7,  x1: 28, z0: -14, z1: 2 },     // Common room (upper, east of gallery)
+    // ---- new wings (all distinct x-z footprints: collision is purely 2D) ----
+    DUN: { x0: -56, x1: -34, z0: -26, z1: 2 },   // Potions dungeon (below, north of GH)
+    NCOR:{ x0: 31, x1: 40, z0: -44, z1: 16 },    // north corridor (branch off the portrait corridor)
+    CHA: { x0: 8,  x1: 31, z0: -28, z1: -16 },   // Charms classroom (west of NCOR)
+    TRA: { x0: 8,  x1: 31, z0: -44, z1: -30 },   // Transfiguration classroom (far NW)
+    AST: { x0: 40, x1: 58, z0: -30, z1: -14 },   // Astronomy observatory (east of NCOR)
     UP: 7,                                        // upper-floor height
+    DN: -6,                                       // dungeon floor height (below ground)
+    dunFloorZ: -3,                                // dungeon ramp bottoms out here
     rampZ0: 2, rampZ1: 14, rampX: 6,             // grand-staircase ramp footprint
     wall: 0.6,                                    // wall half-thickness for pushout
     spawn: { x: 0, z: 22 },                        // where you appear on entering (mid-hall)
@@ -53,6 +61,11 @@ window.HPI = (function () {
         return L.UP * clamp((L.rampZ1 - z) / (L.rampZ1 - L.rampZ0), 0, 1);
       }
       if (inside(L.GAL, x, z) || inside(L.CR, x, z)) return L.UP; // upper floor
+      // dungeon: a gentle ramp down from the Great Hall doorway into the deep floor
+      if (inside(L.DUN, x, z)) {
+        if (z > L.dunFloorZ) return L.DN * clamp((L.DUN.z1 - z) / (L.DUN.z1 - L.dunFloorZ), 0, 1);
+        return L.DN;
+      }
       return 0;
     },
 
