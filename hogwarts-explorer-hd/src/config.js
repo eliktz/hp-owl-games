@@ -36,7 +36,7 @@ export const TIMES = {
 // Landmark spawn points for the (later) map/teleport feature; used now for test hooks.
 export const SPOTS = {
   gates:    { x: 0,    y: 0, z: 70,  label: 'השער הראשי' },
-  courtyard:{ x: -18,  y: 0, z: 2,   label: 'החצר' },
+  courtyard:{ x: 0,    y: 0, z: 38,  label: 'החצר' },
   lake:     { x: -42,  y: 0, z: -10, label: 'האגם' },
   bridge:   { x: 48,   y: 0, z: -8,  label: 'הגשר' },
   hut:      { x: 86,   y: 0, z: 36,  label: 'הבקתה של האגריד' },

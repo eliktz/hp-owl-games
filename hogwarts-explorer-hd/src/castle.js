@@ -3,10 +3,14 @@
 // All static geometry is MERGED per material so the whole castle is ~3 draw calls.
 // Returns { group, colliders } — colliders are simple circles/boxes in the XZ plane.
 import {
-  Group, Mesh, Object3D,
-  CylinderGeometry, ConeGeometry, BoxGeometry,
+  Group, Mesh, Object3D, MeshStandardMaterial, Color,
+  CylinderGeometry, ConeGeometry, BoxGeometry, SphereGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// Where the castle's front doors are, and the zone that triggers entering the Entrance Hall.
+// Centred in the front curtain wall (z≈20), facing the approach (+z). See main.js.
+export const DOOR = { x: 0, z: 20, face: 1, enterZ: 22, enterR: 5, autoR: 2.4, outZ: 28 };
 
 // Collector: bakes each primitive's transform into its geometry, bucketed by material key.
 class Builder {
@@ -63,6 +67,39 @@ function wall(b, x1, z1, x2, z2, h = 7, t = 2.2) {
   b.collider({ type: 'box', x: cx, z: cz, hw: len / 2, hd: t / 2, angle: Math.atan2(dz, dx) });
 }
 
+// The grand front entrance: the front curtain wall with a central oak gateway. Two wall
+// stubs leave a doorway gap framed by taller piers + a lintel; a pair of closed oak doors
+// (added un-merged to `group`) with iron bands, a ring and a warm lantern mark the way in.
+// A solid collider fills the gap — you don't walk through; proximity triggers the interior.
+function gatehouse(b, group, x1, x2, z, h = 9) {
+  const hw = 3.4;                               // half-width of the doorway opening
+  wall(b, x1, z, -hw, z, h);                    // left stub
+  wall(b, hw, z, x2, z, h);                     // right stub
+  for (const sx of [-hw, hw]) {                 // flanking gate piers
+    b.add('stone', new CylinderGeometry(1.3, 1.5, h + 3, 12), { pos: [sx, (h + 3) / 2, z] });
+    b.add('slate', new ConeGeometry(1.7, 4, 12), { pos: [sx, h + 3 + 2, z] });
+  }
+  b.add('stone', new BoxGeometry(hw * 2 + 3, 2.4, 2.6), { pos: [0, h + 1.2, z] });  // lintel
+  b.collider({ type: 'box', x: 0, z, hw: hw + 0.2, hd: 1.3, angle: 0 });            // doors block
+  // oak doors (un-merged so they read as real wood against the grey stone)
+  const oak = new MeshStandardMaterial({ color: 0x4a2e16, roughness: 0.9 });
+  const iron = new MeshStandardMaterial({ color: 0x1c1a16, metalness: 0.5, roughness: 0.5 });
+  const dz = z + 1.35;                           // doors sit on the +z (approach) face
+  for (const s of [-1, 1]) {
+    const leaf = new Mesh(new BoxGeometry(hw - 0.15, 7, 0.4), oak);
+    leaf.position.set(s * (hw / 2), 3.5, dz); leaf.castShadow = true; group.add(leaf);
+    for (let band = 0; band < 3; band++) {
+      const b2 = new Mesh(new BoxGeometry(hw - 0.15, 0.22, 0.5), iron);
+      b2.position.set(s * (hw / 2), 1.4 + band * 2.1, dz); group.add(b2);
+    }
+    const ring = new Mesh(new CylinderGeometry(0.28, 0.28, 0.08, 14), iron);
+    ring.rotation.x = Math.PI / 2; ring.position.set(s * 0.6, 3.4, dz + 0.22); group.add(ring);
+  }
+  const lamp = new Mesh(new SphereGeometry(0.5, 12, 10),
+    new MeshStandardMaterial({ color: 0xffd27a, emissive: new Color(0xffb84d), emissiveIntensity: 2.2, roughness: 0.4 }));
+  lamp.position.set(0, h + 2.6, dz); group.add(lamp);
+}
+
 function greatHall(b, x, z) {
   const W = 16, L = 34, H = 11;
   b.add('stone', new BoxGeometry(W, H, L), { pos: [x, H / 2, z] });
@@ -85,13 +122,17 @@ export function buildCastle(scene, mats) {
   tower(b, -6, -14, 3.2, 44);       // keep spire
   const ring = [
     [-24, 20, 4.5, 20], [24, 20, 4.5, 22], [-26, -26, 5, 26],
-    [26, -24, 4.5, 24], [0, 30, 5.5, 18], [-30, -2, 4, 19], [30, 0, 4, 21],
+    [26, -24, 4.5, 24], [-19, 34, 5, 18], [-30, -2, 4, 19], [30, 0, 4, 21],
   ];
   for (const [x, z, r, h] of ring) tower(b, x, z, r, h);
-  const pts = [[-24, 20], [24, 20], [26, -24], [-26, -26], [-24, 20]];
+  gatehouse(b, group, -24, 24, 20);     // front curtain wall with the central oak gateway
+  const pts = [[24, 20], [26, -24], [-26, -26], [-24, 20]];
   for (let i = 0; i < pts.length - 1; i++) wall(b, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
 
   b.build(group, mats);
+  // A flagstone approach path leading the eye from the courtyard straight to the oak doors.
+  const path = new Mesh(new BoxGeometry(6, 0.1, 20), mats.stone);
+  path.position.set(DOOR.x, 0.06, DOOR.z + 11); path.receiveShadow = true; group.add(path);
   scene.add(group);
   return { group, colliders: b.colliders };
 }

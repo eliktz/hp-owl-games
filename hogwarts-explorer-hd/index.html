@@ -59,6 +59,13 @@
   #mapBtn{right:calc(18px + env(safe-area-inset-right));bottom:calc(32px + env(safe-area-inset-bottom))}
   #muteBtn{right:calc(18px + env(safe-area-inset-right));bottom:calc(128px + env(safe-area-inset-bottom))}
   #exitBtn{right:calc(18px + env(safe-area-inset-right));top:calc(100px + env(safe-area-inset-top));display:none}
+  /* "enter the castle" prompt — a wide gold pill that appears near the front oak doors */
+  #enterBtn{position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    display:none;align-items:center;gap:8px;padding:12px 26px;border-radius:26px;border:4px solid #ffd76a;
+    background:rgba(40,25,90,.82);color:#ffe9a8;font-size:24px;font-weight:bold;z-index:13;cursor:pointer;
+    text-shadow:0 2px 0 #000;box-shadow:0 4px 16px rgba(0,0,0,.5);animation:enterPulse 1.4s ease-in-out infinite}
+  #enterBtn:active{transform:translateX(-50%) scale(.94)}
+  @keyframes enterPulse{0%,100%{box-shadow:0 4px 16px rgba(0,0,0,.5)}50%{box-shadow:0 0 22px 4px rgba(255,210,90,.6)}}
   /* speech bubble shown when near a friend */
   #bubble{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);
     max-width:min(560px,86vw);padding:12px 20px;border-radius:20px;background:rgba(28,18,66,.92);
@@ -98,6 +105,7 @@
 <button id="mapBtn" class="gamebtn" aria-label="מפה">🗺️</button>
 <button id="muteBtn" class="gamebtn" aria-label="צליל">🔊</button>
 <button id="exitBtn" class="gamebtn" aria-label="יציאה">🚪</button>
+<button id="enterBtn" aria-label="היכנס לטירה">🚪 היכנס לטירה</button>
 <div id="quest">
   <div class="q" id="stars">⭐ 0</div>
   <div class="q" id="letters">💌 0</div>

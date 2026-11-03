@@ -7,7 +7,7 @@ import { Environment } from './environment.js';
 import { buildTerrain, heightAt } from './terrain.js';
 import { buildLake } from './lake.js';
 import { makeMaterials } from './materials.js';
-import { buildCastle } from './castle.js';
+import { buildCastle, DOOR } from './castle.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
 import { loadTexture } from './assets.js';
@@ -109,6 +109,21 @@ async function boot() {
     bubbleEl.style.display = 'block';
   }
 
+  // ---- physical castle entrance -------------------------------------------
+  // Outside, near the front oak doors: show a big "enter" prompt; walking right into the
+  // doorway auto-enters the Entrance Hall. `doorArmed` stops re-triggering after exiting
+  // (you leave onto the approach path, clear of the trigger, which re-arms it).
+  const enterBtn = document.getElementById('enterBtn');
+  let doorArmed = true;
+  if (enterBtn) enterBtn.addEventListener('click', () => { if (!interiors.active) interiors.enter('entrancehall'); });
+  function updateDoor(inside) {
+    if (inside) { if (enterBtn) enterBtn.style.display = 'none'; return; }
+    const d = Math.hypot(player.pos.x - DOOR.x, player.pos.z - DOOR.enterZ);
+    if (enterBtn) enterBtn.style.display = d < DOOR.enterR ? 'flex' : 'none';
+    if (d > DOOR.enterR + 1.5) doorArmed = true;
+    else if (doorArmed && d < DOOR.autoR) { doorArmed = false; interiors.enter('entrancehall'); }
+  }
+
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
   function loop() {
     const now = performance.now();
@@ -122,6 +137,7 @@ async function boot() {
     if (Math.hypot(ax.x, ax.y) > 0.05) audio.step(dt);
     interiors.update(dt);
     const inside = !!interiors.active;
+    updateDoor(inside);
     scenery.update(inside ? null : player.pos);
     if (inside) for (const pc of scenery.pieces || []) pc.group.visible = false;
     const near = inside ? null : characters.update(dt, player.pos);
@@ -166,6 +182,16 @@ async function boot() {
       };
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
+    // Steer toward a world point (x,z): sets the joystick to head there given the camera's
+    // current yaw. Returns the remaining distance so tests can walk until they arrive.
+    steer(x, z) {
+      const cy = player.cam.yaw, dx = x - player.pos.x, dz = z - player.pos.z;
+      const d = Math.hypot(dx, dz) || 1e-3, nx = dx / d, nz = dz / d;
+      const fx = -Math.sin(cy), fz = -Math.cos(cy), rx = Math.cos(cy), rz = -Math.sin(cy);
+      input.target.y = nx * fx + nz * fz;   // forward component
+      input.target.x = nx * rx + nz * rz;   // strafe component
+      return d;
+    },
     orbit(dx, dy) { player.cam.orbit(dx, dy); },
     debug() {
       let meshes = 0, casters = 0, visible = 0;
