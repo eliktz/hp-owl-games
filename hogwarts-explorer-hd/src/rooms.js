@@ -17,8 +17,8 @@ const HOUSE = [0x7a1020, 0x1a3a6a, 0xb08a1a, 0x1a5a2a];
 
 // Four axis-aligned walls + floor + ceiling; pushes box colliders. `open` lists wall sides
 // ('s'|'n'|'e'|'w') to leave as a walkable doorway gap (split into two stubs, no centre block).
-function shell(g, cols, W, D, H, { ceil = true, open = [] } = {}) {
-  floor(g, W, D);
+function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5 } = {}) {
+  floor(g, W, D, floorColor, floorTile);
   if (ceil) ceiling(g, W, D, H);
   const t = 1, GAP = 3.6;
   const sides = {
@@ -87,19 +87,26 @@ function entranceHall() {
 // ---- The Great Hall: four long tables, a head table on a dais, floating candles ---------
 function greatHall() {
   const g = new Group(); const cols = []; const W = 20, D = 36, H = 15;
-  shell(g, cols, W, D, H, { ceil: false, open: ['s'] });   // south doorway -> Entrance Hall
+  shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0xb6a284, floorTile: 4 });
   enchantedCeiling(g, W, D, H);
+  carpet(g, 0, 0, 6, D - 5, 0x6e1420);                     // long crimson aisle runner
   const flames = [];
-  for (const tx of [-6, 6]) for (const tz of [-7, 8]) {
-    longTable(g, tx, tz, 15);
-    for (let i = -6; i <= 6; i += 3) { const c = candle(tx, 7 + Math.sin(i) * 0.4, tz + i); g.add(c); flames.push(c); }
+  // Four house tables framing the central aisle: benches, plates, and low candelabra.
+  for (const tx of [-5, 5]) for (const tz of [-6, 9]) {
+    longTable(g, tx, tz, 16);
+    for (let i = -6; i <= 6; i += 4) { const c = candle(tx, 1.45, tz + i); g.add(c); flames.push(c); }
   }
-  for (let x = -W / 2 + 4; x <= W / 2 - 4; x += 6) { column(g, x, -D / 2 + 1.2, H); column(g, x, D / 2 - 1.2, H); }
-  for (const sx of [-W / 2 + 0.2, W / 2 - 0.2]) for (const z of [-10, 0, 10]) window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10, -6 + (i % 2) * 12, c, (i < 2 ? 1 : -1) * Math.PI / 2));
-  headTable(g, -D / 2 + 3.5, 0, W - 6).rotation.y = Math.PI / 2;
-  for (const [x, z] of [[-W / 2 + 0.5, 12], [W / 2 - 0.5, 12]]) torch(g, x, 5, z);
-  return room(g, cols, { x: 0, z: 9, yaw: Math.PI }, {
+  // The Great Hall's floating candles: two drifting rows high over the aisle.
+  for (let z = -11; z <= 13; z += 3) for (const ax of [-2.2, 2.2]) {
+    const c = candle(ax, 7.2 + Math.sin(z * 0.6) * 0.5, z); g.add(c); flames.push(c);
+  }
+  for (let z = -D / 2 + 4; z <= D / 2 - 4; z += 7) { column(g, -W / 2 + 0.9, z, H); column(g, W / 2 - 0.9, z, H); }
+  for (const sx of [-W / 2 + 0.2, W / 2 - 0.2]) for (const z of [-9, 0, 9])
+    window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a);
+  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+  headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
+  for (const [x, z] of [[-W / 2 + 0.5, 13], [W / 2 - 0.5, 13]]) torch(g, x, 5, z);
+  return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
     flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }],
   });
 }

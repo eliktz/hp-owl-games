@@ -46,7 +46,7 @@ async function boot() {
   const env = new Environment(scene);
   await env.setTime('day');
   const terrain = buildTerrain(scene, { texture: grass });
-  buildLake(scene);
+  const lake = buildLake(scene);
   const { group: castleGroup, colliders } = buildCastle(scene, mats);
 
   // Published fan scenery (Hagrid's hut, Quidditch props), area-streamed by distance.
@@ -124,6 +124,21 @@ async function boot() {
     else if (doorArmed && d < DOOR.autoR) { doorArmed = false; interiors.enter('entrancehall'); }
   }
 
+  // Indoors, hide the whole outdoor world (castle shell, terrain, lake, friends). The rooms
+  // live 200m below the grounds, but relying on distance+fog+ceiling to occlude the exterior
+  // is fragile — the Great Hall has no solid ceiling, so on WebGPU the real castle bled
+  // through as a pale pixelated "tower" behind the tables. Toggling visibility is the robust
+  // fix (and reclaims the exterior's draw calls / shadow pass while you're inside).
+  const outdoorRoots = [castleGroup, terrain, lake];
+  let worldShown = true;
+  function setWorldVisible(on) {
+    if (on === worldShown) return;
+    worldShown = on;
+    for (const o of outdoorRoots) o.visible = on;
+    for (const c of characters.characters || []) c.group.visible = on;
+    for (const pc of scenery.pieces || []) if (!on) pc.group.visible = false;
+  }
+
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
   function loop() {
     const now = performance.now();
@@ -137,9 +152,9 @@ async function boot() {
     if (Math.hypot(ax.x, ax.y) > 0.05) audio.step(dt);
     interiors.update(dt);
     const inside = !!interiors.active;
+    setWorldVisible(!inside);
     updateDoor(inside);
     scenery.update(inside ? null : player.pos);
-    if (inside) for (const pc of scenery.pieces || []) pc.group.visible = false;
     const near = inside ? null : characters.update(dt, player.pos);
     quests.update(dt, inside ? null : player.pos, near);
     // cycle the dialogue line every few seconds while standing by a friend
