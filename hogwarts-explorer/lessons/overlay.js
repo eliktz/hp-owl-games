@@ -115,6 +115,7 @@
       el,
       win(stars) { reward(def, Math.max(1, Math.min(3, stars || 1))); },
     };
+    HPL._host = host;   // test hook: current lesson's host (drive/finish from Playwright)
     return host;
   }
 
