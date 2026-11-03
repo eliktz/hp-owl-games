@@ -147,23 +147,36 @@ function commonRoom() {
 
 // ---- The grand moving staircases --------------------------------------------------------
 function staircase() {
-  const g = new Group(); const cols = []; const W = 20, D = 20, H = 24;
-  shell(g, cols, W, D, H);
-  const flights = [];
-  for (let f = 0; f < 4; f++) {
-    const flight = new Group();
-    for (let s = 0; s < 10; s++) {
-      const step = new Mesh(new BoxGeometry(3, 0.3, 1), MAT.stone);
-      step.position.set(0, s * 0.55, s * 0.9 - 4.5); step.castShadow = true; flight.add(step);
-    }
-    const a = f * Math.PI / 2;
-    flight.position.set(Math.cos(a) * 5, 1 + f * 3.2, Math.sin(a) * 5); flight.rotation.y = a;
-    g.add(flight); flights.push({ node: flight, base: a, amp: 0.25 + f * 0.05 });
+  const g = new Group(); const cols = []; const W = 20, D = 22, H = 22;
+  shell(g, cols, W, D, H, { floorColor: 0xa89a82, floorTile: 4 });
+  carpet(g, 0, 1, 5, 9, 0x6e1420);                         // runner up to the foot of the stairs
+  // A grand central flight straight ahead, up to a landing with an archway to the floors above.
+  for (let s = 0; s < 12; s++) {
+    const step = new Mesh(new BoxGeometry(6, 0.42, 0.9), MAT.stone);
+    step.position.set(0, 0.21 + s * 0.46, -2 - s * 0.8); step.castShadow = true; step.receiveShadow = true; g.add(step);
   }
-  for (const [x, z] of [[-W / 2 + 0.3, -6], [-W / 2 + 0.3, 6], [W / 2 - 0.3, 0]]) torch(g, x, 4, z);
+  const landing = new Mesh(new BoxGeometry(8, 0.5, 4), MAT.stone);
+  landing.position.set(0, 5.75, -11); landing.castShadow = true; g.add(landing);
+  archway(g, 0, -D / 2 + 0.5, 0, { w: 3.4, h: 5.5 }).position.y = 6;
+  // Two animated 'moving' flights that sway, flanking the grand stair.
+  const flights = [];
+  for (const sx of [-1, 1]) {
+    const flight = new Group();
+    for (let s = 0; s < 8; s++) {
+      const step = new Mesh(new BoxGeometry(2.4, 0.3, 1), MAT.stone);
+      step.position.set(0, s * 0.5, s * 0.9 - 3); step.castShadow = true; flight.add(step);
+    }
+    flight.position.set(sx * 7, 2.6, -1); flight.rotation.y = sx * 0.55;
+    g.add(flight); flights.push({ node: flight, base: sx * 0.55, amp: 0.22 });
+  }
+  const ch = chandelier(g, 0, H - 5, 1);
+  for (const [x, z] of [[-W / 2 + 0.3, -6], [-W / 2 + 0.3, 6], [W / 2 - 0.3, -6], [W / 2 - 0.3, 6]]) torch(g, x, 4, z);
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 10, -5 + (i % 2) * 10, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
-    update: (dt, t) => { for (const fl of flights) fl.node.rotation.y = fl.base + Math.sin(t * 0.3 + fl.base) * fl.amp; },
+    update: (dt, t) => {
+      for (const fl of flights) fl.node.rotation.y = fl.base + Math.sin(t * 0.4 + fl.base) * fl.amp;
+      for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4;
+    },
   });
 }
 
