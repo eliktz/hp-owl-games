@@ -2,8 +2,8 @@
 // the shared textured materials in interior-kit.js, so rooms stay warm and coherent without
 // adding runtime lights (iPad rule) — warm accents come from emissive candles/fires.
 import {
-  Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, ConeGeometry,
-  TorusGeometry, MeshStandardMaterial, Color, DoubleSide,
+  Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, ConeGeometry,
+  TorusGeometry, MeshStandardMaterial, DoubleSide,
 } from 'three';
 import { MAT, emissive, woodMat } from './interior-kit.js';
 
@@ -65,11 +65,10 @@ export function fireplace(group, x, z, rotY = 0) {
   g.add(new Mesh(new BoxGeometry(5, 4, 1), stone)).position.set(0, 2, 0);           // back
   for (const sx of [-2, 2]) g.add(new Mesh(new BoxGeometry(1, 3.4, 1.4), stone)).position.set(sx, 1.7, 0.4);
   g.add(new Mesh(new BoxGeometry(5.6, 0.5, 1.8), MAT.dark)).position.set(0, 3.5, 0.5); // mantel
-  const fire = new Mesh(new BoxGeometry(2.6, 1.3, 0.5), emissive(0xff7a1a, 2.0));
-  fire.position.set(0, 1.0, 0.6); g.add(fire);
-  // soft hearth halo — small, transparent, no depth write so it reads as glow, not a ball
-  const glowMat = emissive(0xff8a2a, 0.6); glowMat.transparent = true; glowMat.opacity = 0.5; glowMat.depthWrite = false;
-  const glow = new Mesh(new SphereGeometry(0.9, 10, 8), glowMat); glow.position.set(0, 1.0, 0.7); g.add(glow);
+  const fire = new Mesh(new BoxGeometry(2.4, 1.2, 0.4), emissive(0xff7a1a, 1.8));
+  fire.position.set(0, 1.0, 0.55); g.add(fire);
+  // a few small ember logs; no big glow ball — the fire box + bloom carry the warmth
+  for (const sx of [-0.5, 0.5]) { const log = new Mesh(new CylinderGeometry(0.16, 0.16, 1.6, 6), MAT.dark); log.rotation.z = Math.PI / 2; log.position.set(sx * 0.3, 0.5, 0.5); g.add(log); }
   g.traverse(o => { if (o.isMesh && o.material === stone) o.castShadow = true; });
   group.add(g); return { group: g, fire };
 }
