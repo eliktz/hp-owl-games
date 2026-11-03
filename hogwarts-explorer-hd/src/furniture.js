@@ -67,7 +67,9 @@ export function fireplace(group, x, z, rotY = 0) {
   g.add(new Mesh(new BoxGeometry(5.6, 0.5, 1.8), MAT.dark)).position.set(0, 3.5, 0.5); // mantel
   const fire = new Mesh(new BoxGeometry(2.6, 1.3, 0.5), emissive(0xff7a1a, 2.0));
   fire.position.set(0, 1.0, 0.6); g.add(fire);
-  const glow = new Mesh(new SphereGeometry(1.6, 10, 8), emissive(0xff8a2a, 0.22)); glow.position.set(0, 1.2, 0.9); g.add(glow);
+  // soft hearth halo — small, transparent, no depth write so it reads as glow, not a ball
+  const glowMat = emissive(0xff8a2a, 0.6); glowMat.transparent = true; glowMat.opacity = 0.5; glowMat.depthWrite = false;
+  const glow = new Mesh(new SphereGeometry(0.9, 10, 8), glowMat); glow.position.set(0, 1.0, 0.7); g.add(glow);
   g.traverse(o => { if (o.isMesh && o.material === stone) o.castShadow = true; });
   group.add(g); return { group: g, fire };
 }

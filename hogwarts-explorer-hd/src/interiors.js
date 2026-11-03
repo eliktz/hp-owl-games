@@ -62,11 +62,14 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
   // Walkable doorways: a portal fires only after the player has first stepped clear of it
   // (so spawning on a doorway never instantly re-triggers it).
   function checkPortals() {
-    if (!active || cooldown > 0) return;
+    if (!active) return;
     for (const p of active.portals || []) {
       const d = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
+      // Arm as soon as the player is clear — even during the entry cooldown — so walking
+      // straight into a doorway after spawning (e.g. the exit, ~3.8m away) still triggers.
+      // The cooldown only gates the actual fire, which is what stops an instant re-bounce.
       if (d > p.r + 1.2) p.armed = true;
-      else if (p.armed && d < p.r) { p.armed = false; if (p.to === 'out') exit(); else enter(p.to); return; }
+      else if (p.armed && d < p.r && cooldown <= 0) { p.armed = false; if (p.to === 'out') exit(); else enter(p.to); return; }
     }
   }
 
