@@ -546,6 +546,11 @@
   // which can't raycast without a camera and would falsely block the lens).
   const SOLIDS_OUT = [];
   [castle, bridge, hut, pitch, gh].forEach(g => g && g.traverse(m => { if (m.isMesh) SOLIDS_OUT.push(m); }));
+  // The decorative bridge sits at body height right across the courtyard→door path, so it
+  // would trap a child walking up to the castle. Keep it for the camera/visuals, but let
+  // the player walk cleanly beneath its archway — move-collision excludes the bridge.
+  const bridgeMeshes = new Set(); bridge.traverse(m => { if (m.isMesh) bridgeMeshes.add(m); });
+  const MOVE_SOLIDS_OUT = SOLIDS_OUT.filter(m => !bridgeMeshes.has(m));
   let insideSolids = null;
   // Never frustum-cull the hero / companions / big structures (fixes half-rendered meshes).
   [player, hedwig, castle, bridge, hut, pitch, gh].forEach(o => o && o.traverse(m => { if (m.isMesh) m.frustumCulled = false; }));
@@ -733,7 +738,7 @@
         const dx = move.x * spd * dt * ax.l, dz = move.z * spd * dt * ax.l;
         if (outside) {
           // raycast slide-move so we glide along the castle/structures instead of clipping
-          const r = HPX.slideMove(player.position, dx, dz, 1.1, SOLIDS_OUT, 1.2);
+          const r = HPX.slideMove(player.position, dx, dz, 1.1, MOVE_SOLIDS_OUT, 1.2);
           player.position.x = r.x; player.position.z = r.z;
         } else {
           player.position.x += dx; player.position.z += dz;
@@ -754,7 +759,7 @@
         const prog = Math.hypot(player.position.x - lastP.x, player.position.z - lastP.z);
         if (prog < spd * dt * ax.l * 0.25) stuckT += dt; else stuckT = 0;
         if (stuckT > 1.5) {
-          if (outside) { const f = HPX.findFree(player.position.x, player.position.z, player.position.y, 1.2, SOLIDS_OUT, terrainH); player.position.x = f.x; player.position.z = f.z; }
+          if (outside) { const f = HPX.findFree(player.position.x, player.position.z, player.position.y, 1.2, MOVE_SOLIDS_OUT, terrainH); player.position.x = f.x; player.position.z = f.z; }
           else { player.position.x += Math.cos(arm.yaw) * 1.5; player.position.z -= Math.sin(arm.yaw) * 1.5; inside.collide(player.position, 1.0); }
           stuckT = 0;
         }
@@ -887,7 +892,9 @@
       const dEnter = Math.hypot(player.position.x - doorPos.x, player.position.z - doorPos.z);
       const show = playing && mode === 'walk' && dEnter < 8;
       enterHint.textContent = 'היכנסו לטירה 🏰'; enterHint.classList.toggle('on', show);
-      if (show && dEnter < 3 && !transiting) enter();
+      // the castle's own base wall stops the walk ~3.8 away, so trigger a touch wider
+      // (you still have to walk right up to the glowing doors to go in)
+      if (show && dEnter < 4.5 && !transiting) enter();
     }
 
     updateCamera(dt);
@@ -953,7 +960,7 @@
         arm.setIndoor(true); arm.yaw = dest.yaw || 0; arm.pitch = dest.pitch != null ? dest.pitch : 0.22; arm.userControlled = false;
       } else {
         // safe teleport: never drop the player inside a solid (hut/greenhouse/etc.)
-        const f = HPX.findFree(dest.x, dest.z, terrainH(dest.x, dest.z), 1.2, SOLIDS_OUT, terrainH);
+        const f = HPX.findFree(dest.x, dest.z, terrainH(dest.x, dest.z), 1.2, MOVE_SOLIDS_OUT, terrainH);
         const gy = terrainH(f.x, f.z);
         player.position.set(f.x, gy, f.z);
         facing = dest.face != null ? dest.face : 0; player.rotation.y = facing;
