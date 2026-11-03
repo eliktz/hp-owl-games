@@ -38,8 +38,10 @@ export const MAT = {
 };
 const emissive = (c, i = 1) => new MeshStandardMaterial({ color: c, emissive: new Color(c), emissiveIntensity: i, roughness: 0.4 });
 
-export function floor(group, w, d, color = 0x6b655c) {
-  const m = new Mesh(new PlaneGeometry(w, d), new MeshStandardMaterial({ color, map: tile(_tex?.floor, w / 4, d / 4), roughness: 0.95 }));
+export function floor(group, w, d, color = 0x9a8f7e) {
+  // Warm flagstone: the castle-wall map (not the near-black slate) tiled per ~2.5m so the
+  // floor reads as lit stone, not a flat dark void.
+  const m = new Mesh(new PlaneGeometry(w, d), new MeshStandardMaterial({ color, map: tile(_tex?.wall, w / 2.5, d / 2.5), roughness: 0.92 }));
   m.rotation.x = -Math.PI / 2; m.receiveShadow = true; group.add(m); return m;
 }
 
