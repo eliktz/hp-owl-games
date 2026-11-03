@@ -125,7 +125,7 @@ function library() {
 
 // ---- A cosy common room: hearth, armchairs, a warm rug ----------------------------------
 function commonRoom() {
-  const g = new Group(); const cols = []; const W = 16, D = 16, H = 7;
+  const g = new Group(); const cols = []; const W = 18, D = 18, H = 9;
   shell(g, cols, W, D, H);
   carpet(g, 0, 1, 8, 6, 0x6a1420);
   const hp = fireplace(g, 0, -D / 2 + 0.8);

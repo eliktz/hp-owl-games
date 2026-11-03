@@ -208,6 +208,17 @@ async function boot() {
       });
       return { nan, meshes };
     },
+    // Emissive meshes that project near the top of the frame — for tracking down stray glows.
+    scan() {
+      const out = []; const p = new Vector3();
+      scene.traverse(o => {
+        if (!o.isMesh || !o.visible) return;
+        const m = o.material; if (!m || !m.emissiveIntensity) return;
+        o.getWorldPosition(p); const s = p.clone().project(camera);
+        if (s.z < 1 && s.y > 0.3) out.push({ y: +p.y.toFixed(1), z: +p.z.toFixed(1), sy: +s.y.toFixed(2), ei: m.emissiveIntensity, geo: o.geometry.type });
+      });
+      return out.sort((a, b) => b.sy - a.sy).slice(0, 8);
+    },
     debug() {
       let meshes = 0, casters = 0, visible = 0;
       scene.traverse(o => { if (o.isMesh) { meshes++; if (o.castShadow) casters++; if (o.visible) visible++; } });
