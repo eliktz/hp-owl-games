@@ -18,12 +18,18 @@ window.HPI = (function () {
     LIB: { x0: 40, x1: 70, z0: 2,   z1: 40 },    // Library (far east)
     GAL: { x0: -7, x1: 7,  z0: -14, z1: 2 },     // upper gallery (top of stairs)
     CR:  { x0: 7,  x1: 28, z0: -14, z1: 2 },     // Common room (upper, east of gallery)
-    // ---- new wings (all distinct x-z footprints: collision is purely 2D) ----
-    DUN: { x0: -56, x1: -34, z0: -26, z1: 2 },   // Potions dungeon (below, north of GH)
+    // ---- new wings (all distinct x-z footprints: collision is purely 2D, so no two
+    //      rooms may share an x-z patch even on different floors) ----
+    HOS: { x0: 13, x1: 31, z0: 2,   z1: 16 },    // Hospital wing (central: off Entrance Hall + corridor)
+    DUN: { x0: -56, x1: -34, z0: -26, z1: 2 },   // Potions dungeon (below, north of Great Hall)
+    KIT: { x0: -34, x1: -13, z0: -26, z1: 2 },   // Kitchens (dungeon level, east of the dungeon)
     NCOR:{ x0: 31, x1: 40, z0: -44, z1: 16 },    // north corridor (branch off the portrait corridor)
     CHA: { x0: 8,  x1: 31, z0: -28, z1: -16 },   // Charms classroom (west of NCOR)
     TRA: { x0: 8,  x1: 31, z0: -44, z1: -30 },   // Transfiguration classroom (far NW)
-    AST: { x0: 40, x1: 58, z0: -30, z1: -14 },   // Astronomy observatory (east of NCOR)
+    AST: { x0: 40, x1: 58, z0: -30, z1: -14 },   // Astronomy tower (east of NCOR)
+    DEF: { x0: 40, x1: 58, z0: -44, z1: -32 },   // Defence / Spells classroom (NE, north of Astronomy)
+    TRO: { x0: 40, x1: 58, z0: -14, z1: 2 },     // Trophy room (east of NCOR, north of Library)
+    OWL: { x0: 8,  x1: 58, z0: -58, z1: -44 },   // Owlery (open roost across the castle's north top)
     UP: 7,                                        // upper-floor height
     DN: -6,                                       // dungeon floor height (below ground)
     dunFloorZ: -3,                                // dungeon ramp bottoms out here
@@ -42,6 +48,9 @@ window.HPI = (function () {
     wallX(c, lo, hi) { this.wallsX.push({ c, lo: Math.min(lo, hi), hi: Math.max(lo, hi) }); },
     // a wall perpendicular to Z (blocks north/south motion) at z=c over x in [lo,hi]
     wallZ(c, lo, hi) { this.wallsZ.push({ c, lo: Math.min(lo, hi), hi: Math.max(lo, hi) }); },
+    // one collision wall with optional door gap(s) — gap is [lo,hi] or [[lo,hi],...].
+    // axis 'x' → a wall on the line x=c spanning z; axis 'z' → line z=c spanning x.
+    seg(axis, c, lo, hi, gap) { segWithGap(axis === 'x' ? this.wallsX : this.wallsZ, c, Math.min(lo, hi), Math.max(lo, hi), gap); },
 
     // rectangular outer walls of a room, each side optionally carrying a door gap.
     // gap = [axisLo, axisHi] opening on that side (omitted side = solid wall).
@@ -66,6 +75,7 @@ window.HPI = (function () {
         if (z > L.dunFloorZ) return L.DN * clamp((L.DUN.z1 - z) / (L.DUN.z1 - L.dunFloorZ), 0, 1);
         return L.DN;
       }
+      if (inside(L.KIT, x, z)) return L.DN;                       // kitchens sit on the dungeon floor
       return 0;
     },
 
@@ -84,11 +94,17 @@ window.HPI = (function () {
     },
   };
 
+  // `gap` is either a single [lo,hi] opening or an array of [lo,hi] openings.
+  // We carve every gap out of the [lo,hi] span and push the remaining solid runs.
   function segWithGap(arr, c, lo, hi, gap) {
     if (!gap) { arr.push({ c, lo, hi }); return; }
-    const [glo, ghi] = gap;
-    if (glo > lo) arr.push({ c, lo, hi: glo });
-    if (ghi < hi) arr.push({ c, lo: ghi, hi });
+    const gaps = (Array.isArray(gap[0]) ? gap : [gap]).slice().sort((a, b) => a[0] - b[0]);
+    let cur = lo;
+    for (const [glo, ghi] of gaps) {
+      if (glo > cur) arr.push({ c, lo: cur, hi: glo });
+      cur = Math.max(cur, ghi);
+    }
+    if (cur < hi) arr.push({ c, lo: cur, hi });
   }
   function inside(r, x, z) { return x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1; }
 
@@ -96,5 +112,5 @@ window.HPI = (function () {
   const materialCache = {};
   function mat(key, make) { return materialCache[key] || (materialCache[key] = make()); }
 
-  return { T, L, nav, clamp, inside, mat, builders: [] };
+  return { T, L, nav, clamp, inside, mat, builders: [], teachers: [] };
 })();

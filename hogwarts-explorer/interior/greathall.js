@@ -8,12 +8,12 @@
 
   HPI.buildGreatHall = function (scene, light) {
     const GH = L.GH;
-    HPI.nav.room(GH, { e: [22, 28] });                               // door back to Entrance Hall
+    HPI.nav.room(GH, { e: [22, 28], n: [-50, -44] });                // door to Entrance Hall + stair down to the dungeon
 
     kit.slab(scene, GH, HPI.tex.stone(4), 0.02, true, 3.5);          // flagstone floor
     const stone = HPI.tex.stone(4);
     kit.wall(scene, { axis: 'x', c: GH.x0, lo: GH.z0, hi: GH.z1, y0: 0, y1: CEIL }, stone);              // west (head end)
-    kit.wall(scene, { axis: 'z', c: GH.z0, lo: GH.x0, hi: GH.x1, y0: 0, y1: CEIL }, stone);              // south long wall
+    kit.wall(scene, { axis: 'z', c: GH.z0, lo: GH.x0, hi: GH.x1, y0: 0, y1: CEIL, gap: [-50, -44] }, stone); // north wall, dungeon stair gap
     kit.wall(scene, { axis: 'z', c: GH.z1, lo: GH.x0, hi: GH.x1, y0: 0, y1: CEIL }, stone);              // north long wall
 
     // ---- vaulted ceiling: columns + pointed-arch ribs across the span ----

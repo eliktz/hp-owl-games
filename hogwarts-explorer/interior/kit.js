@@ -18,9 +18,13 @@
   // spec: {axis:'x'|'z', c, lo, hi, y0, y1, gap:[glo,ghi]}
   function wall(scene, spec, matInfo) {
     const { axis, c, lo, hi, y0 = 0, y1 = 10, gap } = spec;
+    // `gap` may be a single [lo,hi] doorway or an array of [lo,hi] doorways.
+    const gaps = gap ? (Array.isArray(gap[0]) ? gap.slice() : [gap]).sort((a, b) => a[0] - b[0]) : [];
     const segs = [];
-    if (gap) { if (gap[0] > lo) segs.push([lo, gap[0]]); if (gap[1] < hi) segs.push([gap[1], hi]); if (gap[1] < y1) {/* lintel over door */ } }
-    else segs.push([lo, hi]);
+    let cur = lo;
+    for (const [glo, ghi] of gaps) { if (glo > cur) segs.push([cur, glo]); cur = Math.max(cur, ghi); }
+    if (cur < hi) segs.push([cur, hi]);
+    if (!gaps.length) segs.push([lo, hi]);
     const mat = new T.MeshStandardMaterial({ map: cloneTex(matInfo.map), bumpMap: cloneTex(matInfo.bump), bumpScale: 0.3, roughness: 0.95 });
     for (const [a, b] of segs) {
       const len = b - a, h = y1 - y0, th = 0.5;
@@ -31,12 +35,12 @@
       else m.position.set((a + b) / 2, (y0 + y1) / 2, c);
       scene.add(m);
     }
-    if (gap) { // stone lintel bridging the doorway top
-      const len = gap[1] - gap[0], th = 0.5, lh = 1.4, ly = y1 - lh / 2;
+    for (const [glo, ghi] of gaps) { // a stone lintel bridging each doorway top
+      const len = ghi - glo, th = 0.5, lh = 1.4, ly = y1 - lh / 2;
       const geo = axis === 'x' ? new T.BoxGeometry(th, lh, len) : new T.BoxGeometry(len, lh, th);
       const m = new T.Mesh(geo, mat.clone());
-      if (axis === 'x') m.position.set(c, ly, (gap[0] + gap[1]) / 2);
-      else m.position.set((gap[0] + gap[1]) / 2, ly, c);
+      if (axis === 'x') m.position.set(c, ly, (glo + ghi) / 2);
+      else m.position.set((glo + ghi) / 2, ly, c);
       scene.add(m);
     }
   }
@@ -90,5 +94,12 @@
     scene.add(pole); return m;
   }
 
-  HPI.kit = { slab, wall, column, pointedArch, banner, cloneTex };
+  // build a visual wall AND its matching collision segment(s) in one call, so a room's
+  // look and its nav can never drift apart. spec is the same shape kit.wall() takes.
+  function wallNav(scene, spec, matInfo) {
+    wall(scene, spec, matInfo);
+    HPI.nav.seg(spec.axis, spec.c, spec.lo, spec.hi, spec.gap);
+  }
+
+  HPI.kit = { slab, wall, wallNav, column, pointedArch, banner, cloneTex };
 })(window.HPI);

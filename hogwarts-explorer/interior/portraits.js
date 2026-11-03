@@ -59,11 +59,12 @@
 
   HPI.buildCorridor = function (scene, light) {
     const COR = L.COR;
-    HPI.nav.room(COR, { w: [17, 23], e: [17, 23] });
+    // doors: west→Entrance Hall, east→Library, north→Hospital wing + the north corridor
+    HPI.nav.room(COR, { w: [17, 23], e: [17, 23], n: [[18, 26], [33, 39]] });
     kit.slab(scene, COR, HPI.tex.stone(3), 0.02, true, 3);
     kit.slab(scene, COR, HPI.tex.stone(3), 6, false, 3);
     const stone = HPI.tex.stone(3);
-    kit.wall(scene, { axis: 'z', c: COR.z0, lo: COR.x0, hi: COR.x1, y0: 0, y1: 6 }, stone);
+    kit.wall(scene, { axis: 'z', c: COR.z0, lo: COR.x0, hi: COR.x1, y0: 0, y1: 6, gap: [[18, 26], [33, 39]] }, stone);
     kit.wall(scene, { axis: 'z', c: COR.z1, lo: COR.x0, hi: COR.x1, y0: 0, y1: 6 }, stone);
     // runner carpet
     const rug = new T.Mesh(new T.PlaneGeometry(2.4, COR.x1 - COR.x0), new T.MeshStandardMaterial({ color: 0x5a1a28, roughness: 0.85 }));

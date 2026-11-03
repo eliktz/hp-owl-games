@@ -10,7 +10,7 @@
     const EH = L.EH;
     // collision walls (doorways are the gaps): south=outside, west=Great Hall,
     // east=corridor, north=open over the staircase ramp.
-    HPI.nav.room(EH, { s: [-2.6, 2.6], w: [22, 28], e: [17, 23], n: [-L.rampX, L.rampX] });
+    HPI.nav.room(EH, { s: [-2.6, 2.6], w: [22, 28], e: [[6, 12], [17, 23]], n: [-L.rampX, L.rampX] });
 
     kit.slab(scene, EH, HPI.tex.marble(2), 0.02, true, 4);          // marble floor
     kit.slab(scene, EH, HPI.tex.stone(3), CEIL, false, 3);          // stone ceiling
@@ -19,7 +19,7 @@
     // visual walls (this room owns the shared west & east walls)
     kit.wall(scene, { axis: 'z', c: EH.z1, lo: EH.x0, hi: EH.x1, y0: 0, y1: CEIL, gap: [-2.6, 2.6] }, stone); // south / doors
     kit.wall(scene, { axis: 'x', c: EH.x0, lo: EH.z0, hi: EH.z1, y0: 0, y1: CEIL, gap: [22, 28] }, stone);     // west -> GH
-    kit.wall(scene, { axis: 'x', c: EH.x1, lo: EH.z0, hi: EH.z1, y0: 0, y1: CEIL, gap: [17, 23] }, stone);     // east -> corridor
+    kit.wall(scene, { axis: 'x', c: EH.x1, lo: EH.z0, hi: EH.z1, y0: 0, y1: CEIL, gap: [[6, 12], [17, 23]] }, stone); // east -> hospital + corridor
     // north wall exists only beside the staircase (the ramp gap is open to the gallery)
     kit.wall(scene, { axis: 'z', c: EH.z0, lo: EH.x0, hi: -L.rampX, y0: 0, y1: CEIL }, stone);
     kit.wall(scene, { axis: 'z', c: EH.z0, lo: L.rampX, hi: EH.x1, y0: 0, y1: CEIL }, stone);

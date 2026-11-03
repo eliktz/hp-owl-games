@@ -6,10 +6,10 @@
   const T = HPI.T, L = HPI.L;
 
   HPI.build = function (ctx) {
-    HPI.nav.reset(); HPI.builders.length = 0;
+    HPI.nav.reset(); HPI.builders.length = 0; HPI.teachers.length = 0;
     const scene = new T.Scene();
     scene.fog = new T.Fog(0x1a1626, 18, 96);
-    const light = HPI.Lighting(scene, { pool: 4 }); // +hemi +ambient = 6 real-time lights max
+    const light = HPI.Lighting(scene, { pool: 5 }); // +hemi +ambient; a bigger castle, a touch more light
     const audio = ctx.audio;
 
     HPI.buildEntranceHall(scene, light);
@@ -18,6 +18,18 @@
     HPI.buildCorridor(scene, light);
     HPI.buildLibrary(scene, light);
     HPI.buildCommonRoom(scene, light);
+    // ---- the expanded castle: dungeon + kitchens, the north wing of classrooms,
+    //      the Astronomy tower, the Owlery and three discovery rooms ----
+    HPI.buildDungeon(scene, light);
+    HPI.buildKitchens(scene, light);
+    HPI.buildHospital(scene, light);
+    HPI.buildNorthCorridor(scene, light);
+    HPI.buildCharms(scene, light);
+    HPI.buildTransfiguration(scene, light);
+    HPI.buildAstronomy(scene, light);
+    HPI.buildDefence(scene, light);
+    HPI.buildTrophy(scene, light);
+    HPI.buildOwlery(scene, light);
 
     const spawns = {
       entrance: { x: 0, z: 20, y: 0 },
@@ -26,6 +38,16 @@
       library: { x: 55, z: 20, y: 0 },
       gallery: { x: 0, z: -4, y: L.UP },
       commonRoom: { x: 17, z: -6, y: L.UP },
+      dungeon: { x: -45, z: -12, y: L.DN },
+      kitchens: { x: -20, z: -14, y: L.DN },
+      hospital: { x: 22, z: 10, y: 0 },
+      ncorridor: { x: 35, z: 0, y: 0 },
+      charms: { x: 20, z: -22, y: 0 },
+      transfiguration: { x: 20, z: -37, y: 0 },
+      astronomy: { x: 46, z: -22, y: 0 },
+      spells: { x: 50, z: -38, y: 0 },
+      trophy: { x: 53, z: -6, y: 0 },
+      owlery: { x: 35, z: -50, y: 0 },
     };
 
     // ---- collectibles scattered through the rooms ----
@@ -37,8 +59,10 @@
       o.position.set(x, y, z); scene.add(o);
       items.push({ o, type, base: new T.Vector3(x, y, z), ph: Math.random() * 7, hop: 0 });
     }
-    [[-20, 10], [-40, 30], [-30, 37], [-48, 7], [0, 20], [8, 28]].forEach((p) => drop('snitch', ...p));
-    [[55, 10], [50, 34], [64, 24], [26, 20], [17, -9], [2, -4]].forEach((p) => drop('frog', ...p));
+    [[-20, 10], [-40, 30], [-30, 37], [-48, 7], [0, 20], [8, 28],
+     [-50, -12], [12, -20], [55, -18], [49, -9], [14, -50], [35, -20]].forEach((p) => drop('snitch', ...p));
+    [[55, 10], [50, 34], [64, 24], [26, 20], [17, -9], [2, -4],
+     [-28, -20], [28, 12], [12, -40], [55, -40], [55, -4]].forEach((p) => drop('frog', ...p));
 
     // ---- NPC cameos with short greetings + tiny quests ----
     const npcs = [];
@@ -111,7 +135,7 @@
       spawn: L.spawn, exit: L.exit,
       floorH: (x, z) => HPI.nav.floorH(x, z),
       collide: (p, r) => HPI.nav.collide(p, r),
-      update, items, npcs,
+      update, items, npcs, teachers: HPI.teachers,
     };
   };
 })(window.HPI);

@@ -53,14 +53,14 @@
   HPI.buildDungeon = function (scene, light) {
     // nav: west/east/north walls; the south (z=2) wall is the Great Hall's (door cut there)
     HPI.nav.wallX(DUN.x0, DUN.z0, DUN.z1);
-    HPI.nav.wallX(DUN.x1, DUN.z0, DUN.z1);
+    HPI.nav.seg('x', DUN.x1, DUN.z0, DUN.z1, [-20, -8]);   // east wall, doorway through to the kitchens
     HPI.nav.wallZ(DUN.z0, DUN.x0, DUN.x1);
 
     const stone = HPI.tex.stone(3);
     kit.slab(scene, DUN, HPI.tex.stone(4), FY + 0.02, true, 3.5);     // deep flagstone floor
     kit.slab(scene, DUN, stone, CEIL, false, 3);                       // low vaulted ceiling
     kit.wall(scene, { axis: 'x', c: DUN.x0, lo: DUN.z0, hi: DUN.z1, y0: FY, y1: CEIL }, stone);
-    kit.wall(scene, { axis: 'x', c: DUN.x1, lo: DUN.z0, hi: DUN.z1, y0: FY, y1: CEIL }, stone);
+    kit.wall(scene, { axis: 'x', c: DUN.x1, lo: DUN.z0, hi: DUN.z1, y0: FY, y1: CEIL, gap: [-20, -8] }, stone);
     kit.wall(scene, { axis: 'z', c: DUN.z0, lo: DUN.x0, hi: DUN.x1, y0: FY, y1: CEIL }, stone);
     // a short inner wall below the Great-Hall doorway so you don't see the void beside the ramp
     kit.wall(scene, { axis: 'z', c: DUN.z1, lo: DUN.x0, hi: -50, y0: FY, y1: 0.2 }, stone);
