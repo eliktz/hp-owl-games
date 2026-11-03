@@ -1,12 +1,10 @@
 // Third-person player: a stylised wizard walking the grounds. Capsule-vs-collider movement
 // with wall sliding (no corner/doorway sticking), smooth ground snapping, anti-stuck
 // recovery, and always-safe teleport. Owns a SpringCamera that keeps walls out of view.
-import {
-  Group, Mesh, CapsuleGeometry, SphereGeometry, ConeGeometry, MeshStandardMaterial,
-  Vector3, Color, MathUtils,
-} from 'three';
+import { Vector3, MathUtils } from 'three';
 import { WORLD } from './config.js';
 import { SpringCamera } from './camera.js';
+import { buildChibi, animateChibi } from './chibi.js';
 
 const STEP = 0.45;   // max height change absorbed per frame without a jolt (stairs/kerbs)
 
@@ -23,19 +21,12 @@ export class Player {
     this._lastPos = new Vector3(0, 0, 60);
     this._stuckT = 0;
 
-    const g = new Group();
-    const robe = new Mesh(new ConeGeometry(0.55, 1.5, 12), new MeshStandardMaterial({ color: 0x2a2140, roughness: 0.9 }));
-    robe.position.y = 0.75; robe.castShadow = true; g.add(robe);
-    const body = new Mesh(new CapsuleGeometry(0.28, 0.5, 4, 8), new MeshStandardMaterial({ color: 0x3a2d55, roughness: 0.85 }));
-    body.position.y = 1.35; body.castShadow = true; g.add(body);
-    const head = new Mesh(new SphereGeometry(0.26, 16, 12), new MeshStandardMaterial({ color: 0xd9ad86, roughness: 0.7 }));
-    head.position.y = 1.9; head.castShadow = true; g.add(head);
-    const scarf = new Mesh(new CapsuleGeometry(0.1, 0.5, 3, 6), new MeshStandardMaterial({ color: 0x7a1020, emissive: new Color(0x300008), roughness: 0.8 }));
-    scarf.position.set(0, 1.25, 0.18); g.add(scarf);
-    // Never let a bad bounding sphere cull the hero, and collect materials so the camera
-    // can fade us when it's forced in close.
+    // The hero: a charming chibi wizard-kid (robe + scarf + hat + wand), from chibi.js.
+    const g = buildChibi({ robe: 0x3a2d55, trim: 0x2a2140, house: 0x7a1020, hair: 0x2a1a12, hat: 0x241a33, wand: true });
+    this._rig = g.userData.rig;
+    // Collect materials so the camera can fade us when it's forced in close.
     this._mats = [];
-    g.traverse(o => { if (o.isMesh) { o.frustumCulled = false; this._mats.push(o.material); } });
+    g.traverse(o => { if (o.isMesh) this._mats.push(o.material); });
     this.model = g; scene.add(g);
     this.bob = 0;
 
@@ -173,9 +164,10 @@ export class Player {
     else this.smoothY += (gy - this.smoothY) * (1 - Math.pow(0.001, dt));
     this.pos.y = this.smoothY;
 
+    animateChibi(this._rig, dt, { moving, running: ax.running });
     this.model.position.set(this.pos.x, this.pos.y, this.pos.z);
     this.model.rotation.y = this.yaw;
-    this.model.position.y += moving ? Math.abs(Math.sin(this.bob)) * 0.08 : 0;
+    this.model.position.y += moving ? Math.abs(Math.sin(this.bob)) * 0.06 : 0;
 
     this.cam.update(dt, this.pos, this.yaw, moving);
   }
