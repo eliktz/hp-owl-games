@@ -41,7 +41,9 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
   function teardown() {
     if (!active) return;
     scene.remove(active.group);
-    active.group.traverse(o => { if (o.isMesh) o.geometry?.dispose?.(); });
+    // Guard geometry disposal: the WebGPU backend throws ("Invalid unregisterToken") when a
+    // geometry's attributes were never GPU-registered, which must never break walking back out.
+    active.group.traverse(o => { if (o.isMesh) { try { o.geometry?.dispose?.(); } catch { /* backend quirk */ } } });
     active = null;
   }
 
