@@ -423,6 +423,7 @@
 
   /* ---------------- HUD ---------------- */
   let playing = false;
+  let modal = false; // true while a full-screen overlay (a lesson) owns the input
   const ui = HP.ui({
     title: 'הוגוורטס – טיול קסום', icon: '🎖️', hint: '🕹️ לזוז &nbsp; 🦉 לעוף &nbsp; ⬆️ לקפוץ',
     onStart() { playing = true; HP.sfx.hoot(); HP.sfx.music(true); },
@@ -572,7 +573,7 @@
   // right-side / mouse pointers that drive look + pinch-zoom (joystick is tracked separately)
   const camPtrs = new Map();
   function onDown(e) {
-    if (!ui.started() || badgesOpen) return;
+    if (!ui.started() || badgesOpen || modal) return;
     if (e.target && e.target.closest && e.target.closest('.gamebtn')) return;
     const left = e.clientX < window.innerWidth * 0.5;
     if (e.pointerType === 'touch' && left && joy.id === null) {
@@ -622,6 +623,7 @@
   // smoothed movement with a dead-zone + acceleration/deceleration for a planted feel
   const moveSm = { x: 0, y: 0 }; let moveLastT = performance.now();
   function moveAxis() {
+    if (modal) { moveSm.x = 0; moveSm.y = 0; return { x: 0, y: 0, l: 0 }; } // frozen during a lesson
     let x = joy.x, y = -joy.y; // screen-down is backward
     if (keys['a'] || keys['arrowleft']) x -= 1;
     if (keys['d'] || keys['arrowright']) x += 1;
@@ -640,9 +642,9 @@
 
   // mode: 'walk' | 'fly' | 'landing'
   let mode = 'walk';
-  function doJump() { if (mode === 'walk' && grounded && ui.started()) { vy = 8.5; grounded = false; HP.sfx.boing(); } }
+  function doJump() { if (mode === 'walk' && grounded && ui.started() && !modal) { vy = 8.5; grounded = false; HP.sfx.boing(); } }
   function toggleFly() {
-    if (!ui.started() || world === 'inside') return; // no flying indoors
+    if (!ui.started() || world === 'inside' || modal) return; // no flying indoors or mid-lesson
     if (mode === 'walk') { mode = 'fly'; hedwig.visible = true; HP.sfx.whoosh(); HP.sfx.hoot(); flyY = player.position.y + 2; }
     else if (mode === 'fly') { mode = 'landing'; }
   }
@@ -914,6 +916,8 @@
     player, hedwig, camera, items, NPCS, inv, collected, earned,
     get mode() { return mode; },
     get world() { return world; },
+    get modal() { return modal; }, setModal(v) { modal = !!v; },
+    get started() { return ui.started(); },
     get camYaw() { return arm.yaw; }, set camYaw(v) { arm.yaw = v; },
     inside, enter, exit: exitCastle,
     // ---- gameplay-test hooks ----
