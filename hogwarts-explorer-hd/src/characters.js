@@ -3,57 +3,34 @@
 // match the chibi style. Everyone has a gentle idle animation (bob / float) and a short
 // set of friendly Hebrew lines shown when the player walks up (see main.js for the bubble).
 import {
-  Group, Mesh, SphereGeometry, CapsuleGeometry, ConeGeometry, TorusGeometry,
-  MeshStandardMaterial, Color,
+  Group, Mesh, SphereGeometry, ConeGeometry, MeshStandardMaterial,
 } from 'three';
 import { loadModel, fitModel } from './models.js';
+import { buildChibi, animateChibi } from './chibi.js';
 import { SPOTS } from './config.js';
 
 const mat = (color, extra = {}) => new MeshStandardMaterial({ color, roughness: 0.85, ...extra });
 
-// A little chibi figure: robe cone + body + head, plus optional extras (glasses, beard…).
-function chibi({ robe, skin = 0xe8c49a, scale = 1 }) {
-  const g = new Group();
-  const r = new Mesh(new ConeGeometry(0.55, 1.5, 14), mat(robe, { roughness: 0.9 }));
-  r.position.y = 0.75; r.castShadow = true; g.add(r);
-  const body = new Mesh(new CapsuleGeometry(0.28, 0.5, 4, 8), mat(robe));
-  body.position.y = 1.35; body.castShadow = true; g.add(body);
-  const head = new Mesh(new SphereGeometry(0.27, 18, 14), mat(skin, { roughness: 0.7 }));
-  head.position.y = 1.92; head.castShadow = true; g.add(head);
-  g.scale.setScalar(scale);
-  g.userData.head = head;
-  return g;
-}
-
+// Harry: Gryffindor chibi with round glasses, messy black hair and a red scarf.
 function buildHarry() {
-  const g = chibi({ robe: 0x2a2140 });
-  const head = g.userData.head;
-  for (const sx of [-0.1, 0.1]) {                      // round glasses
-    const ring = new Mesh(new TorusGeometry(0.07, 0.018, 8, 16), mat(0x101010, { metalness: 0.3 }));
-    ring.position.set(sx, 1.92, 0.24); g.add(ring);
-  }
-  const hair = new Mesh(new SphereGeometry(0.29, 16, 12), mat(0x2a1a12, { roughness: 0.95 }));
-  hair.position.set(0, 2.02, -0.03); hair.scale.set(1, 0.7, 1); g.add(hair);
-  const scarf = new Mesh(new CapsuleGeometry(0.1, 0.5, 3, 6), mat(0x7a1020, { emissive: new Color(0x300008) }));
-  scarf.position.set(0, 1.28, 0.16); g.add(scarf);
-  void head; return g;
+  return buildChibi({ robe: 0x2a2140, trim: 0x1a1430, house: 0x7a1020, hair: 0x1a120c, glasses: true, wand: true });
 }
 
+// Hagrid: a big, warm chibi in a brown coat with a huge bushy beard.
 function buildHagrid() {
-  const g = chibi({ robe: 0x4a3524, skin: 0xd9ad86, scale: 1.5 });
-  const coat = new Mesh(new ConeGeometry(0.62, 1.6, 14), mat(0x30241a, { roughness: 0.95 }));
-  coat.position.y = 0.8; coat.castShadow = true; g.add(coat);
-  const beard = new Mesh(new ConeGeometry(0.3, 0.7, 12), mat(0x3b352f, { roughness: 1 }));
-  beard.position.set(0, 1.72, 0.12); beard.rotation.x = Math.PI; g.add(beard);
-  const hair = new Mesh(new SphereGeometry(0.34, 16, 12), mat(0x3b352f, { roughness: 1 }));
-  hair.position.set(0, 2.0, -0.02); hair.scale.set(1, 0.9, 1); g.add(hair);
+  const g = buildChibi({ robe: 0x4a3524, trim: 0x30241a, house: 0x5a4030, skin: 0xd9ad86, hair: 0x3b352f, scale: 1.5 });
+  const head = g.userData.rig.head;
+  const beard = new Mesh(new ConeGeometry(0.34, 0.8, 14), mat(0x3b352f, { roughness: 1 }));
+  beard.position.set(0, -0.18, 0.14); beard.rotation.x = Math.PI; beard.castShadow = true; head.add(beard);
+  const brow = new Mesh(new SphereGeometry(0.36, 16, 12), mat(0x3b352f, { roughness: 1 }));
+  brow.position.set(0, 0.08, -0.02); brow.scale.set(1.05, 0.95, 1.05); head.add(brow);
   return g;
 }
 
 // Model-backed figure: load, scale to height, face the player. Falls back to a chibi.
 async function modelFigure(name, height, fallbackRobe) {
   const obj = await loadModel(name);
-  if (!obj) return chibi({ robe: fallbackRobe });
+  if (!obj) return buildChibi({ robe: fallbackRobe });
   obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   const g = new Group(); g.add(obj);
   fitModel(obj, { x: 0, z: 0, height, faceSouth: true });
@@ -103,7 +80,10 @@ export async function createCharacters({ scene, heightAt }) {
       for (const c of chars) {
         const s = Math.sin(t * (c.kind === 'owl' ? 2.2 : 1.4) + c.phase);
         if (c.kind === 'owl') { c.group.position.y = c.baseY + s * 0.18 + 0.1; c.group.rotation.y += dt * 0.4; }
-        else { c.group.position.y = c.baseY + Math.abs(s) * 0.04; c.group.rotation.y = Math.sin(t * 0.5 + c.phase) * 0.25; }
+        else {
+          c.group.position.y = c.baseY + Math.abs(s) * 0.04; c.group.rotation.y = Math.sin(t * 0.5 + c.phase) * 0.25;
+          animateChibi(c.group.userData.rig, dt, { moving: false });   // breathing/head-tilt for code-drawn chibis
+        }
         if (playerPos) {
           const d = Math.hypot(playerPos.x - c.x, playerPos.z - c.z);
           if (d < 4.5 && d < best) { best = d; near = c; }
