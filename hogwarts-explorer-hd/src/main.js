@@ -193,6 +193,21 @@ async function boot() {
       return d;
     },
     orbit(dx, dy) { player.cam.orbit(dx, dy); },
+    // Corruption probe: any non-finite world positions or geometry bounds across the scene
+    // (NaN/Infinity from a bad merge/UV/scale would show up here before it reaches a pixel).
+    health() {
+      let nan = 0, meshes = 0;
+      const p = new Vector3();
+      scene.traverse(o => {
+        if (!o.isMesh || !o.visible) return;
+        meshes++;
+        o.getWorldPosition(p);
+        if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) nan++;
+        const bs = o.geometry && o.geometry.boundingSphere;
+        if (bs && !isFinite(bs.radius)) nan++;
+      });
+      return { nan, meshes };
+    },
     debug() {
       let meshes = 0, casters = 0, visible = 0;
       scene.traverse(o => { if (o.isMesh) { meshes++; if (o.castShadow) casters++; if (o.visible) visible++; } });
