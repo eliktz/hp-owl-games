@@ -17,14 +17,15 @@ const HOUSE = [0x7a1020, 0x1a3a6a, 0xb08a1a, 0x1a5a2a];
 
 // Four axis-aligned walls + floor + ceiling; pushes box colliders. `open` lists wall sides
 // ('s'|'n'|'e'|'w') to leave as a walkable doorway gap (split into two stubs, no centre block).
-function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5 } = {}) {
+function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5, ceilColor = 0x3c3850 } = {}) {
   floor(g, W, D, floorColor, floorTile);
-  if (ceil) ceiling(g, W, D, H);
+  if (ceil) ceiling(g, W, D, H, ceilColor);
   const t = 1, GAP = 3.6;
   const sides = {
     s: { x: 0, z: D / 2, w: W, horizontal: true }, n: { x: 0, z: -D / 2, w: W, horizontal: true },
     e: { x: W / 2, z: 0, w: D, horizontal: false }, w: { x: -W / 2, z: 0, w: D, horizontal: false },
   };
+  const DH = Math.min(5.6, H - 1);                          // doorway opening height
   for (const [key, s] of Object.entries(sides)) {
     if (open.includes(key)) {
       const stub = (s.w - GAP) / 2, off = (GAP + stub) / 2;
@@ -32,6 +33,13 @@ function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e
         const cx = s.horizontal ? sgn * off : s.x, cz = s.horizontal ? s.z : sgn * off;
         const ww = s.horizontal ? stub : t, dd = s.horizontal ? t : stub;
         wall(g, cx, cz, ww, H, dd, 0); cols.push({ type: 'box', x: cx, z: cz, hw: ww / 2, hd: dd / 2, angle: 0 });
+      }
+      // Lintel over the gap so the doorway is door-height, not a full-height slot to the void.
+      const lh = H - DH;
+      if (lh > 0.2) {
+        const lw = s.horizontal ? GAP : t, ld = s.horizontal ? t : GAP;
+        const lintel = new Mesh(new BoxGeometry(lw, lh, ld), MAT.stone);
+        lintel.position.set(s.horizontal ? 0 : s.x, DH + lh / 2, s.horizontal ? s.z : 0); g.add(lintel);
       }
     } else {
       const ww = s.horizontal ? s.w : t, dd = s.horizontal ? t : s.w;
@@ -132,11 +140,15 @@ function library() {
 
 // ---- A cosy common room: hearth, armchairs, a warm rug ----------------------------------
 function commonRoom() {
-  const g = new Group(); const cols = []; const W = 18, D = 18, H = 9;
-  shell(g, cols, W, D, H);
+  const g = new Group(); const cols = []; const W = 18, D = 18, H = 9.5;
+  shell(g, cols, W, D, H, { ceilColor: 0x47372a });        // warm timber ceiling, not a cold slab
+  for (let x = -W / 2 + 3; x <= W / 2 - 3; x += 4) {        // exposed oak beams across the ceiling
+    const beam = new Mesh(new BoxGeometry(0.5, 0.5, D - 1), MAT.wood); beam.position.set(x, H - 0.4, 0); g.add(beam);
+  }
   carpet(g, 0, 1, 8, 6, 0x6a1420);
   const hp = fireplace(g, 0, -D / 2 + 0.8);
-  for (const [sx, rot] of [[-3, 0.5], [3, -0.5], [0, Math.PI]]) armchair(g, sx, sx === 0 ? 4 : 0, rot);
+  // Three wing chairs in a loose arc facing the hearth (seen on entry, fire glowing beyond).
+  armchair(g, -3.6, -2.4, Math.PI - 0.35); armchair(g, 3.6, -2.4, Math.PI + 0.35); armchair(g, 0, -3.4, Math.PI);
   bookshelf(g, -W / 2 + 0.8, 5, 1); bookshelf(g, W / 2 - 0.8, 5, -1);
   for (const [x, z] of [[-W / 2 + 0.4, 2], [W / 2 - 0.4, 2]]) torch(g, x, 3.4, z);
   banner(g, 0, 3.6, -D / 2 + 0.3, HOUSE[0]);   // kept clear of the low (H=7) ceiling
