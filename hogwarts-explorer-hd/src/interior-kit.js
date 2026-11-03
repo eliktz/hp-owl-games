@@ -135,7 +135,7 @@ export function window2(group, x, y, z, rotY = 0, hue = 0x9fc6ff) {
 export function banner(group, x, y, z, color, rotY = 0) {
   const g = new Group(); g.position.set(x, y, z); g.rotation.y = rotY;
   const cloth = new Mesh(new PlaneGeometry(2.4, 5.5), new MeshStandardMaterial({ color, roughness: 0.9, side: DoubleSide })); g.add(cloth);
-  const crest = new Mesh(new PlaneGeometry(1.4, 1.4), emissive(0xd9b24a, 0.5)); crest.material.side = DoubleSide; crest.position.z = 0.02; g.add(crest);
+  const crest = new Mesh(new PlaneGeometry(1.4, 1.4), emissive(0xd9b24a, 0.22)); crest.material.side = DoubleSide; crest.position.z = 0.02; g.add(crest);
   g.add(new Mesh(new CylinderGeometry(0.07, 0.07, 2.8, 6), MAT.gold)).rotation.z = Math.PI / 2;
   group.add(g); return g;
 }

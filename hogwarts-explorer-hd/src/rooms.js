@@ -132,7 +132,7 @@ function commonRoom() {
   for (const [sx, rot] of [[-3, 0.5], [3, -0.5], [0, Math.PI]]) armchair(g, sx, sx === 0 ? 4 : 0, rot);
   bookshelf(g, -W / 2 + 0.8, 5, 1); bookshelf(g, W / 2 - 0.8, 5, -1);
   for (const [x, z] of [[-W / 2 + 0.4, 2], [W / 2 - 0.4, 2]]) torch(g, x, 3.4, z);
-  banner(g, 0, 4.5, -D / 2 + 0.3, HOUSE[0]);
+  banner(g, 0, 3.6, -D / 2 + 0.3, HOUSE[0]);   // kept clear of the low (H=7) ceiling
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     update: (dt, t) => { hp.fire.material.emissiveIntensity = 1.7 + Math.sin(t * 7) * 0.35; },
   });
