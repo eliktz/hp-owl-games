@@ -40,12 +40,22 @@
 
   // ---- Kitchens (dungeon level): a big hearth, long work tables, hanging pots ----
   HPI.buildKitchens = function (scene, light) {
-    const R = L.KIT, FY = L.DN, CEIL = L.DN + 8, stone = HPI.tex.stone(3, 'warm');
+    const R = L.KIT, FY = L.DN, CEIL = L.DN + 8, stone = HPI.tex.stone(3, 'warm'), cx = (R.x0 + R.x1) / 2;
     kit.slab(scene, R, HPI.tex.stone(4, 'warm'), FY + 0.02, true, 3.5);
     kit.slab(scene, R, stone, CEIL, false, 3);
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: FY, y1: CEIL }, stone); // east (west=dungeon, south=Great Hall)
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: FY, y1: CEIL }, stone); // north
+    // a woven runner down the central aisle + two high windows flanking the hearth
+    F.rug(scene, cx, -13, 5, 18, FY, '#5a3418', '#c9a94a');
+    F.window3(scene, light, cx - 7, FY + 4.2, R.z0 + 0.3, 'z', 1, 'day', 2, 2.6);
+    F.window3(scene, light, cx + 7, FY + 4.2, R.z0 + 0.3, 'z', 1, 'day', 2, 2.6);
     const woodM = new T.MeshStandardMaterial({ map: HPI.tex.wood(2, '#3a2412').map, roughness: 0.85 });
+    // a dresser of golden plates stood on edge against the east wall
+    const plateM = new T.MeshStandardMaterial({ color: 0xd9b24a, metalness: 0.6, roughness: 0.35 });
+    for (let s = 0; s < 3; s++) {
+      const shelf = F.mesh(new T.BoxGeometry(0.5, 0.12, 6), woodM, R.x1 - 0.5, FY + 2 + s * 1.3, -14); scene.add(shelf);
+      for (let p = 0; p < 6; p++) { const plate = F.mesh(new T.CylinderGeometry(0.42, 0.42, 0.08, 16), plateM, R.x1 - 0.55, FY + 2.5 + s * 1.3, -17 + p * 1.1); plate.rotation.z = Math.PI / 2; scene.add(plate); }
+    }
     // two long scrubbed work tables piled with golden plates
     [-18, -10].forEach((z) => {
       const top = F.mesh(new T.BoxGeometry(14, 0.2, 1.6), woodM, (R.x0 + R.x1) / 2, FY + 1, z); scene.add(top);

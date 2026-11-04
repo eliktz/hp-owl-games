@@ -70,10 +70,10 @@
 <!-- inner decorative frame -->
 <path d="M40 40 Q500 30 960 42 Q968 360 958 680 Q500 690 44 680 Q34 360 40 40 Z" fill="none" stroke="${GOLD}" stroke-width="2.4" stroke-dasharray="1 10" stroke-linecap="round"/>
 
-<!-- title banner (Hebrew) -->
+<!-- title banner (Hebrew) — kept compact + high so tower markers clear it -->
 <g>
-  <path d="M330 44 q170 -16 340 0 l-14 34 q-156 12 -312 0 Z" fill="#7a2f33" stroke="${INK}" stroke-width="1.6"/>
-  <text x="500" y="72" text-anchor="middle" font-family="serif" font-size="30" fill="#ffe9b0" font-weight="bold">מפת הוגוורטס</text>
+  <path d="M356 34 q144 -14 288 0 l-12 30 q-132 11 -264 0 Z" fill="#7a2f33" stroke="${INK}" stroke-width="1.6"/>
+  <text x="500" y="59" text-anchor="middle" font-family="serif" font-size="26" fill="#ffe9b0" font-weight="bold">מפת הוגוורטס</text>
 </g>
 
 <!-- lake -->

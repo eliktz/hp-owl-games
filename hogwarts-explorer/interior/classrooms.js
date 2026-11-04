@@ -20,41 +20,56 @@
     return c;
   }
 
-  // ---- Charms: feathers floating over the desks, Flitwick on a stack of books ----
+  // ---- Charms: an airy blue-stone room — day windows, a bronze rug, a bookcase, drifting
+  //      feather sprites and Flitwick at the front, Ravenclaw banner by the board ----
   HPI.buildCharms = function (scene, light) {
-    const R = L.CHA, stone = HPI.tex.stone(3);
+    const R = L.CHA, stone = HPI.tex.stone(3, 'charm'), cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
     shell(scene, R, 7, [
       { axis: 'x', c: R.x0, lo: R.z0, hi: R.z1 },              // west
       { axis: 'z', c: R.z1, lo: R.x0, hi: R.x1 },              // south
       { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1 },              // north
     ], stone);
-    F.board(scene, R.x0 + 0.3, 3.4, (R.z0 + R.z1) / 2, Math.PI / 2, 'סְוִיש!');
-    F.deskRows(scene, (R.x0 + R.x1) / 2 + 2, R.z0 + 3, 0, 2, 3, -Math.PI / 2);
-    const pod = F.podium(scene, R.x0 + 2.4, 0, (R.z0 + R.z1) / 2, Math.PI / 2);
-    teacher(scene, 'flitwick', R.x0 + 3.4, (R.z0 + R.z1) / 2, Math.PI / 2, 'charms');
-    // levitating feathers drifting above the class
-    const featherM = new T.MeshStandardMaterial({ color: 0xf3efe0, roughness: 0.7, side: T.DoubleSide, emissive: 0x332a44, emissiveIntensity: 0.3 });
+    F.rug(scene, cx, cz, 8, 8, 0, '#223a6a', '#c9a94a');
+    F.board(scene, R.x0 + 0.3, 3.4, cz, Math.PI / 2, 'סְוִיש!');
+    F.deskRows(scene, cx + 2, R.z0 + 3, 0, 2, 3, -Math.PI / 2);
+    F.podium(scene, R.x0 + 2.4, 0, cz, Math.PI / 2);
+    teacher(scene, 'flitwick', R.x0 + 3.4, cz, Math.PI / 2, 'charms');
+    // tall day windows on the outer north wall (light spills over the desks)
+    F.window3(scene, light, R.x0 + 7, 3.7, R.z0 + 0.3, 'z', 1, 'day', 2.2, 4);
+    F.window3(scene, light, R.x1 - 5, 3.7, R.z0 + 0.3, 'z', 1, 'day', 2.2, 4);
+    // Ravenclaw banner (Flitwick's house) beside the board + a charms bookcase
+    kit.banner(scene, HPI.tex.banner(0x1b3a6b, '🦅'), R.x0 + 0.45, 4.3, cz + 3.4, 2, 4, 0);
+    F.bookshelf(scene, R.x1 - 4.5, 0, R.z1 - 0.4, Math.PI, 4, 3);
+    // levitating feathers drifting above the class — crisp emoji sprites (no flat strips)
+    const featherTex = HP.canvasTex(64, (g, s) => { g.font = '52px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🪶', s / 2, s / 2); });
     for (let i = 0; i < 6; i++) {
-      const fe = new T.Group();
-      const quill = new T.Mesh(new T.PlaneGeometry(0.3, 1.1), featherM); fe.add(quill);
-      F.levitate(scene, fe, R.x0 + 6 + (i % 3) * 5, 3 + (i % 2) * 1, R.z0 + 3 + Math.floor(i / 3) * 4);
+      const fe = new T.Sprite(new T.SpriteMaterial({ map: featherTex, transparent: true, depthWrite: false }));
+      fe.scale.setScalar(0.9);
+      F.levitate(scene, fe, R.x0 + 7 + (i % 3) * 5, 2.6 + (i % 2) * 1.1, R.z0 + 4 + Math.floor(i / 3) * 3.5);
     }
-    light.addTorch(R.x1 - 0.5, 4, R.z0 + 2, 0xbfa0ff, 6);
-    light.addTorch(R.x1 - 0.5, 4, R.z1 - 2, 0xbfa0ff, 6);
-    light.addDust((R.x0 + R.x1) / 2, 2, (R.z0 + R.z1) / 2, R.x1 - R.x0, 6, R.z1 - R.z0, 70);
+    light.addTorch(R.x1 - 0.5, 4, R.z0 + 2, 0xbfd0ff, 6);
+    light.addTorch(R.x1 - 0.5, 4, R.z1 - 2, 0xbfd0ff, 6);
+    light.addDust(cx, 2, cz, R.x1 - R.x0, 6, R.z1 - R.z0, 70);
   };
 
-  // ---- Transfiguration: a display of objects mid-morph, McGonagall + her cat ----
+  // ---- Transfiguration: a sage-stone studio — night windows, a crimson rug, a shelf of
+  //      texts, a morph menagerie on pedestals, McGonagall + her tabby, Gryffindor banner --
   HPI.buildTransfiguration = function (scene, light) {
-    const R = L.TRA, stone = HPI.tex.stone(3);
+    const R = L.TRA, stone = HPI.tex.stone(3, 'sage'), cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
     shell(scene, R, 7, [
       { axis: 'x', c: R.x0, lo: R.z0, hi: R.z1 },              // west
       { axis: 'z', c: R.z1, lo: R.x0, hi: R.x1 },              // south (north owned by owlery)
     ], stone);
-    F.board(scene, R.x0 + 0.3, 3.2, (R.z0 + R.z1) / 2, Math.PI / 2, 'גִּלְגּוּל');
-    F.deskRows(scene, (R.x0 + R.x1) / 2 + 2, R.z0 + 4, 0, 1, 3, -Math.PI / 2);
-    F.podium(scene, R.x0 + 2.4, 0, (R.z0 + R.z1) / 2, Math.PI / 2);
-    teacher(scene, 'mcgon', R.x0 + 3.4, (R.z0 + R.z1) / 2, Math.PI / 2, 'transfiguration');
+    F.rug(scene, cx - 2, cz, 9, 7, 0, '#4a1824', '#c9a94a');
+    F.board(scene, R.x0 + 0.3, 3.2, cz, Math.PI / 2, 'גִּלְגּוּל');
+    F.deskRows(scene, cx + 2, R.z0 + 4, 0, 1, 3, -Math.PI / 2);
+    F.podium(scene, R.x0 + 2.4, 0, cz, Math.PI / 2);
+    teacher(scene, 'mcgon', R.x0 + 3.4, cz, Math.PI / 2, 'transfiguration');
+    // moonlit windows on the south wall + a Gryffindor banner + a shelf of texts
+    F.window3(scene, light, R.x0 + 7, 3.6, R.z1 - 0.3, 'z', -1, 'night', 2.2, 3.8);
+    F.window3(scene, light, R.x1 - 6, 3.6, R.z1 - 0.3, 'z', -1, 'night', 2.2, 3.8);
+    kit.banner(scene, HPI.tex.banner(0x7a1420, '🦁'), R.x0 + 0.45, 4.2, cz + 3.4, 2, 4, 0);
+    F.bookshelf(scene, R.x0 + 8, 0, R.z0 + 0.4, 0, 4, 3);
     // a sleek tabby cat curled on the podium (McGonagall's Animagus form)
     const catM = new T.MeshStandardMaterial({ color: 0x7a6a52, roughness: 0.8 });
     const cat = new T.Group();

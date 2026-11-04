@@ -6,8 +6,8 @@
   // mx/my: marker position in % of the map canvas. Interior rooms carry `key`
   // (an inside.spawns name); outdoor spots carry world x/z (+ optional facing).
   const DESTINATIONS = [
-    { id: 'commonRoom', he: 'חדר המועדון', icon: '🔥', mx: 50, my: 16, world: 'inside', key: 'commonRoom', yaw: 0 },
-    { id: 'stairs', he: 'מדרגות נעות', icon: '🪜', mx: 59, my: 21, world: 'inside', key: 'gallery', yaw: 0 },
+    { id: 'commonRoom', he: 'חדר המועדון', icon: '🔥', mx: 50, my: 20, world: 'inside', key: 'commonRoom', yaw: 0 },
+    { id: 'stairs', he: 'מדרגות נעות', icon: '🪜', mx: 59, my: 23, world: 'inside', key: 'gallery', yaw: 0 },
     { id: 'greatHall', he: 'האולם הגדול', icon: '🍽️', mx: 40, my: 25, world: 'inside', key: 'greatHall', yaw: Math.PI / 2 },
     { id: 'entrance', he: 'אולם הכניסה', icon: '🚪', mx: 50, my: 29, world: 'inside', key: 'entrance', yaw: 0 },
     { id: 'corridor', he: 'מסדרון הדיוקנאות', icon: '🖼️', mx: 64, my: 30, world: 'inside', key: 'corridor', yaw: Math.PI / 2 },
@@ -16,13 +16,13 @@
     { id: 'dungeon', he: 'מרתף השיקויים ⚗️', icon: '⚗️', mx: 33, my: 34, world: 'inside', key: 'dungeon', yaw: Math.PI / 2 },
     { id: 'kitchens', he: 'המטבחים', icon: '🍲', mx: 40, my: 37, world: 'inside', key: 'kitchens', yaw: 0 },
     { id: 'hospital', he: 'אגף החולים', icon: '🛏️', mx: 46, my: 20, world: 'inside', key: 'hospital', yaw: Math.PI },
-    { id: 'charms', he: 'כיתת הלחשים 🪶', icon: '🪶', mx: 56, my: 13, world: 'inside', key: 'charms', yaw: -Math.PI / 2 },
-    { id: 'transfiguration', he: 'שינוי צורה 🐱', icon: '🐱', mx: 50, my: 9, world: 'inside', key: 'transfiguration', yaw: -Math.PI / 2 },
-    { id: 'spells', he: 'כיתת ההגנה 🪄', icon: '🪄', mx: 70, my: 9, world: 'inside', key: 'spells', yaw: Math.PI / 2 },
-    { id: 'astronomy', he: 'מגדל הכוכבים 🔭', icon: '🔭', mx: 68, my: 14, world: 'inside', key: 'astronomy', yaw: Math.PI / 2 },
-    { id: 'trophy', he: 'חדר הגביעים', icon: '🏆', mx: 78, my: 18, world: 'inside', key: 'trophy', yaw: Math.PI / 2 },
-    { id: 'owlery', he: 'מגדל הינשופים', icon: '🦉', mx: 60, my: 6, world: 'inside', key: 'owlery', yaw: 0 },
-    { id: 'clocktower', he: 'מגדל השעון ⏰', icon: '⏰', mx: 82, my: 14, world: 'inside', key: 'clocktower', yaw: Math.PI },
+    { id: 'charms', he: 'כיתת הלחשים 🪶', icon: '🪶', mx: 38, my: 15, world: 'inside', key: 'charms', yaw: -Math.PI / 2 },
+    { id: 'transfiguration', he: 'שינוי צורה 🐱', icon: '🐱', mx: 28, my: 11, world: 'inside', key: 'transfiguration', yaw: -Math.PI / 2 },
+    { id: 'spells', he: 'כיתת ההגנה 🪄', icon: '🪄', mx: 73, my: 11, world: 'inside', key: 'spells', yaw: Math.PI / 2 },
+    { id: 'astronomy', he: 'מגדל הכוכבים 🔭', icon: '🔭', mx: 66, my: 16, world: 'inside', key: 'astronomy', yaw: Math.PI / 2 },
+    { id: 'trophy', he: 'חדר הגביעים', icon: '🏆', mx: 80, my: 20, world: 'inside', key: 'trophy', yaw: Math.PI / 2 },
+    { id: 'owlery', he: 'מגדל הינשופים', icon: '🦉', mx: 51, my: 14, world: 'inside', key: 'owlery', yaw: 0 },
+    { id: 'clocktower', he: 'מגדל השעון ⏰', icon: '⏰', mx: 85, my: 15, world: 'inside', key: 'clocktower', yaw: Math.PI },
     { id: 'courtyard', he: 'החצר', icon: '⛲', mx: 50, my: 45, world: 'outside', x: 0, z: -42, face: Math.PI, yaw: Math.PI },
     { id: 'greenhouse', he: 'החממה', icon: '🌿', mx: 24, my: 42, world: 'outside', x: -34, z: -16, yaw: 0.6 },
     { id: 'lake', he: 'האגם', icon: '🌊', mx: 16, my: 60, world: 'outside', x: -60, z: 6, yaw: -0.9 },
@@ -31,7 +31,7 @@
     { id: 'forest', he: 'שולי היער', icon: '🌲', mx: 26, my: 76, world: 'outside', x: -52, z: -58, yaw: -0.4 },
   ];
   // Hedwig's perch on the map → tap her to take a flight instead of a jump.
-  const HEDWIG = { mx: 88, my: 14, icon: '🦉', he: 'עוף עם הֶדְוִיג' };
+  const HEDWIG = { mx: 90, my: 8, icon: '🦉', he: 'עוף עם הֶדְוִיג' };
 
   let overlay; // reused swirl element
   function ensureOverlay() {

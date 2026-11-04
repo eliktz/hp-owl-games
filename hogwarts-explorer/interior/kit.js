@@ -63,11 +63,13 @@
   // a gothic pointed arch between two columns, as a thin ribbed frame
   function pointedArch(scene, x, z, span, rise, axis, mat) {
     const m = mat || new T.MeshStandardMaterial({ color: 0x3a3658, roughness: 0.95 });
-    const steps = 7, pts = [];
+    const steps = 8, pts = [];
     for (let i = 0; i <= steps; i++) {
-      const t = i / steps, ang = t * Math.PI; // left->right
-      const px = Math.cos(ang) * (span / 2);
-      const py = Math.sin(ang * 0.5) * rise; // pointed: half-sine gives a tall peak
+      const t = i / steps;                       // 0..1 across the span, left->right
+      const px = (0.5 - t) * span;               // +span/2 .. -span/2
+      const u = 1 - Math.abs(2 * t - 1);         // 0 at the springers, 1 at the centre
+      // symmetric gothic arch: springs up steeply then meets in a point at the centre
+      const py = rise * Math.pow(Math.sin(u * Math.PI / 2), 0.72);
       pts.push([px, py]);
     }
     const g = new T.Group();

@@ -103,20 +103,26 @@
       const door = new T.Mesh(new T.PlaneGeometry(1.6, 2.6), doorM); door.position.set(wx + dir * 0.2, y + 1.5, z); door.rotation.y = dir * Math.PI / 2; scene.add(door);
     });
 
-    // the moving staircases: flights slowly swinging between the landings
+    // the moving staircases: chunky flights with SOLID skirted sides (not thin rails) that
+    // read clearly as staircases, tucked to the sides + deep so none bars across the arch.
+    const stepLit = new T.MeshStandardMaterial({ color: 0x6a6490, roughness: 0.9 });  // treads catch the moonlight
+    const sideStone = new T.MeshStandardMaterial({ color: 0x47435f, roughness: 0.95 }); // solid side skirts
     const flights = [];
-    [{ x: -8, y: 4.2, z: -20, len: 8, rot: 0.5, spd: 0.1 },
-     { x: 2, y: 8.2, z: -25, len: 7, rot: -0.6, spd: -0.09 },
-     { x: -8, y: 12.2, z: -31, len: 7, rot: 0.8, spd: 0.1 },
-     { x: 1, y: 15.7, z: -35, len: 6, rot: -0.9, spd: -0.12 }].forEach((f) => {
+    [{ x: -9, y: 3.6, z: -23, len: 7, rot: 0.4, spd: 0.08 },
+     { x: 4, y: 7.4, z: -27, len: 6, rot: -0.5, spd: -0.07 },
+     { x: -9, y: 11.2, z: -31, len: 6, rot: 0.6, spd: 0.09 },
+     { x: 3, y: 14.6, z: -35, len: 5, rot: -0.7, spd: -0.1 }].forEach((f) => {
       const g = new T.Group(); g.position.set(f.x, f.y, f.z); g.rotation.y = f.rot;
-      for (let i = 0; i < f.len; i++) { const st = new T.Mesh(new T.BoxGeometry(3, 0.35, 1.1), stoneStep); st.position.set(0, i * 0.5, -f.len / 2 + i); g.add(st); }
-      [-1, 1].forEach((s) => { const str = new T.Mesh(new T.BoxGeometry(0.25, 0.9, f.len * 1.05), stoneStep); str.position.set(s * 1.4, f.len * 0.25 - 0.3, 0); str.rotation.x = -Math.atan2(f.len * 0.5, f.len); g.add(str); });
-      scene.add(g); flights.push({ g, base: f.rot, spd: f.spd, ph: Math.random() * 7 });
+      const slope = -Math.atan2(0.5, 1);                         // 0.5 rise per 1 run → ~26.5°
+      for (let i = 0; i < f.len; i++) { const st = new T.Mesh(new T.BoxGeometry(2.8, 0.4, 1.1), stepLit); st.position.set(0, i * 0.5, -f.len / 2 + i); g.add(st); }
+      // solid skirt on each side (a slab flush under the treads) → looks like a real flight
+      [-1, 1].forEach((s) => { const side = new T.Mesh(new T.BoxGeometry(0.42, 1.5, f.len * 1.02), sideStone); side.position.set(s * 1.35, (f.len - 1) * 0.25 - 0.55, 0); side.rotation.x = slope; g.add(side); });
+      scene.add(g); flights.push({ g, base: f.rot, spd: f.spd, ph: (f.z % 7 + 7) });
     });
-    light.addTorch(SH.x0 + 0.5, 6, -20, 0xffb060, 5);
+    light.addTorch(SH.x0 + 0.5, 6, -23, 0xffb060, 5);
     light.addTorch(SH.x1 - 0.5, 10, -31, 0xffb060, 5);
     light.addDust(cx, (BOT + TOP) / 2, cz, SH.x1 - SH.x0, TOP - BOT, SH.z1 - SH.z0, 140);
-    HPI.builders.push((t) => { for (const f of flights) { f.g.rotation.y = f.base + Math.sin(t * f.spd + f.ph) * 0.4; f.g.position.y += Math.sin(t * 0.3 + f.ph) * 0.003; } });
+    // gentle swing (smaller amplitude so a flight never sweeps across the arch opening)
+    HPI.builders.push((t) => { for (const f of flights) { f.g.rotation.y = f.base + Math.sin(t * f.spd + f.ph) * 0.18; f.g.position.y += Math.sin(t * 0.3 + f.ph) * 0.003; } });
   }
 })(window.HPI);

@@ -195,5 +195,46 @@
     return g;
   }
 
-  HPI.furnish = { board, deskRows, desk, podium, ghost, armour, jokePortrait, levitate, mesh, sign, lantern };
+  // ---- a tall arched window set into a wall: a backlit day/night sky pane behind stone
+  //      mullions, with a sill + a soft shaft of light so the room feels lit from outside.
+  //      `axis` 'x' means the wall runs along z (window faces ±x), 'z' the opposite.
+  function window3(scene, light, x, y, z, axis, dir, mode, w = 2.2, h = 4, color) {
+    const g = new T.Group(); g.position.set(x, y, z);
+    if (axis === 'x') g.rotation.y = Math.PI / 2;            // face along x
+    const pane = new T.Mesh(new T.PlaneGeometry(w, h),
+      new T.MeshBasicMaterial({ map: HPI.tex.sky(mode), side: T.DoubleSide, fog: false }));
+    pane.position.z = 0.02 * dir; g.add(pane);
+    const stoneM = new T.MeshStandardMaterial({ color: 0x3a3658, roughness: 0.95 });
+    // arched top (thin ribbed frame) + mullion cross + sill
+    const arch = HPI.kit.pointedArch(g, 0, 0, w + 0.5, 1.1, 'z', stoneM); arch.position.y = h / 2 - 0.2;
+    g.add(mesh(new T.BoxGeometry(0.16, h, 0.16), stoneM, 0, 0, 0));        // vertical mullion
+    g.add(mesh(new T.BoxGeometry(w, 0.16, 0.16), stoneM, 0, 0, 0));        // horizontal mullion
+    [-1, 1].forEach((s) => g.add(mesh(new T.BoxGeometry(0.22, h + 0.3, 0.22), stoneM, s * (w / 2 + 0.05), 0, 0))); // jambs
+    g.add(mesh(new T.BoxGeometry(w + 0.7, 0.3, 0.6), stoneM, 0, -h / 2 - 0.1, 0.18 * dir)); // sill
+    scene.add(g);
+    if (light) light.addShaft(x - (axis === 'x' ? dir * 2.5 : 0), y - 1, z - (axis === 'z' ? dir * 2.5 : 0), h * 1.4, 1.8, 0);
+    return g;
+  }
+
+  // ---- a floor rug laid flat (woven texture), lifted a hair above the stone ----
+  function rug(scene, x, z, w, d, floorY, field, border) {
+    const m = new T.Mesh(new T.PlaneGeometry(w, d),
+      new T.MeshStandardMaterial({ map: HPI.tex.rug(field, border), roughness: 0.96 }));
+    m.rotation.x = -Math.PI / 2; m.position.set(x, (floorY || 0) + 0.04, z); scene.add(m); return m;
+  }
+
+  // ---- a wall bookshelf: oak frame with rows of painted book-spine texture ----
+  function bookshelf(scene, x, y, z, rotY, w = 3, floors = 3) {
+    const g = new T.Group(); g.position.set(x, y, z); g.rotation.y = rotY || 0;
+    const wm = new T.MeshStandardMaterial({ map: HPI.tex.wood(1, '#2e1d10').map, roughness: 0.9 });
+    const h = floors * 1.1 + 0.3;
+    g.add(mesh(new T.BoxGeometry(w, h, 0.5), wm, 0, h / 2 - 0.15, -0.15)); // back box
+    [-1, 1].forEach((s) => g.add(mesh(new T.BoxGeometry(0.14, h, 0.56), wm, s * (w / 2), h / 2 - 0.15, 0)));
+    for (let f = 0; f <= floors; f++) g.add(mesh(new T.BoxGeometry(w, 0.12, 0.56), wm, 0, f * 1.1, 0));
+    const booksM = new T.MeshStandardMaterial({ map: HPI.tex.books(), roughness: 0.85 });
+    for (let f = 0; f < floors; f++) g.add(mesh(new T.BoxGeometry(w - 0.3, 0.9, 0.42), booksM, 0, f * 1.1 + 0.6, 0.02));
+    scene.add(g); return g;
+  }
+
+  HPI.furnish = { board, deskRows, desk, podium, ghost, armour, jokePortrait, levitate, mesh, sign, lantern, window3, rug, bookshelf };
 })(window.HPI);
