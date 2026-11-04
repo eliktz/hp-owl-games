@@ -1,14 +1,23 @@
-/* Charms with Professor Flitwick — swish-and-flick to make a feather float. Over three
+/* Charms with Professor Flitwick — swish-and-flick to make a feather float. Over several
  * rounds the child drags a finger through a glowing dashed path, touching numbered
  * waypoints in order; finishing a path sends a feather drifting up with sparkles.
- * Gentle on lifts/misses (just resets the trail), more waypoints as level/round grow. */
+ * Adaptive difficulty: higher host.level + later rounds → more rounds, longer/denser
+ * paths, tighter hit radius, looping figures, and a speed timer. Gentle on lifts/misses
+ * and timeouts (just resets the round, counts a retry); too many resets → host.fail(). */
 (function () {
   const HPL = (window.HPLessons = window.HPLessons || {});
 
   HPL.games.charms = function (host) {
-    const el = HPL.el, N = 3;
-    const W = 360, H = 260, HIT = 34;
-    let round = 0, retries = 0;
+    const el = HPL.el, L = host.level;
+    const W = 360, H = 260;
+    // more rounds as you climb: 3 at level 1 → 5 at the top
+    const N = Math.min(5, 3 + Math.floor((L - 1) / 3));
+    // tighter target as skill grows (shrinks further per round below)
+    const HIT0 = Math.max(18, 34 - (L - 1) * 2);
+    // speed pressure arrives at level 3+
+    const TIMED = L >= 3;
+    const MAX_RESETS = N + 4; // too many flubs → gentle fail instead of pity win
+    let round = 0, retries = 0, roundTimer = null;
 
     // canvas trace area
     const wrap = el('div', { style: 'position:relative;width:86%;max-width:380px' });
@@ -20,23 +29,51 @@
     const stars = [];
     for (let k = 0; k < 46; k++) stars.push([host.rnd(4, W - 4), host.rnd(4, H - 4), Math.random() * 1.6 + 0.4]);
 
-    let pts = [], trail = [], next = 0, dragging = false, done = false;
+    let pts = [], trail = [], next = 0, dragging = false, done = false, HIT = HIT0;
 
-    // build a swish-and-flick path for this round; more points = harder
-    function makePath(r) {
-      const L = host.level, extra = (L - 1) + r; // 0..4
-      const mx = 50, my = 40, iw = W - mx * 2, ih = H - my * 2;
-      const n = Math.min(5, 3 + Math.floor(extra / 2)); // 3..5 waypoints
-      const p = [];
-      const loop = (r >= 2 && L >= 2); // later/harder rounds loop
-      for (let k = 0; k < n; k++) {
-        const t = n === 1 ? 0 : k / (n - 1);
-        let x, y;
-        if (loop) { const a = t * Math.PI * 1.7 - 0.4; x = W / 2 + Math.cos(a) * iw * 0.34; y = H / 2 + Math.sin(a) * ih * 0.4; }
-        else { x = mx + t * iw; y = my + ih * (0.5 + Math.sin(t * Math.PI * (1 + r)) * 0.42) - (k === n - 1 ? ih * 0.3 : 0); }
-        p.push({ x: Math.max(mx, Math.min(W - mx, x)), y: Math.max(my, Math.min(H - my, y)) });
+    // resample a polyline to `n` evenly-spaced waypoints → denser, longer patterns to trace
+    function densify(src, n) {
+      if (n <= src.length) return src.slice(0, Math.max(2, n));
+      const seg = []; let total = 0;
+      for (let k = 1; k < src.length; k++) { const d = Math.hypot(src[k].x - src[k - 1].x, src[k].y - src[k - 1].y); seg.push(d); total += d; }
+      const out = [];
+      for (let j = 0; j < n; j++) {
+        let t = total * j / (n - 1), k = 0;
+        while (k < seg.length && t > seg[k]) { t -= seg[k]; k++; }
+        if (k >= seg.length) { out.push({ x: src[src.length - 1].x, y: src[src.length - 1].y }); continue; }
+        const f = seg[k] ? t / seg[k] : 0;
+        out.push({ x: src[k].x + (src[k + 1].x - src[k].x) * f, y: src[k].y + (src[k + 1].y - src[k].y) * f });
       }
-      return p;
+      return out;
+    }
+
+    // build a swish-and-flick path for this round; more points + looping = harder.
+    // difficulty ramps with level AND round (later rounds are harder than earlier ones).
+    function makePath(r) {
+      const diff = (L - 1) + r;            // overall difficulty for this round, 0..~11
+      const mx = 46, my = 38, iw = W - mx * 2, ih = H - my * 2;
+      // base control points, then densify → waypoint count 4..9
+      const n = Math.min(9, 4 + Math.floor(diff * 0.7));
+      const loop = (L >= 4 ? r >= 1 : L >= 2 && r >= 2); // loops arrive sooner at higher levels
+      const base = [];
+      const bn = Math.max(4, Math.min(6, 3 + Math.floor(diff / 3)));
+      for (let k = 0; k < bn; k++) {
+        const t = bn === 1 ? 0 : k / (bn - 1);
+        let x, y;
+        if (loop) {
+          // figure / spiral that wraps further round as it gets harder
+          const a = t * Math.PI * (1.6 + diff * 0.14) - 0.4;
+          const rad = 0.3 + 0.08 * (1 - t);
+          x = W / 2 + Math.cos(a) * iw * (rad + 0.06);
+          y = H / 2 + Math.sin(a) * ih * (rad + 0.12);
+        } else {
+          // wavier (more humps) the harder it gets
+          x = mx + t * iw;
+          y = my + ih * (0.5 + Math.sin(t * Math.PI * (1 + r + diff * 0.2)) * 0.42) - (k === bn - 1 ? ih * 0.3 : 0);
+        }
+        base.push({ x: Math.max(mx, Math.min(W - mx, x)), y: Math.max(my, Math.min(H - my, y)) });
+      }
+      return densify(base, n);
     }
 
     function draw() {
@@ -53,13 +90,14 @@
         ctx.shadowColor = '#8ad0ff'; ctx.shadowBlur = 12;
         ctx.beginPath(); trail.forEach((p, k) => k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); ctx.shadowBlur = 0;
       }
-      // numbered waypoints
+      // numbered waypoints (smaller dots when the hit radius is tight → reads as harder)
+      const dotR = Math.max(12, HIT * 0.5);
       pts.forEach((p, k) => {
         const hit = k < next;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, 7);
+        ctx.beginPath(); ctx.arc(p.x, p.y, dotR, 0, 7);
         ctx.fillStyle = hit ? '#7ef0a0' : (k === next ? '#ffd76a' : 'rgba(255,255,255,.2)');
         ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
-        ctx.fillStyle = '#2a1a12'; ctx.font = 'bold 20px Rubik,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#2a1a12'; ctx.font = 'bold ' + Math.round(dotR * 1.2) + 'px Rubik,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(hit ? '✓' : String(k + 1), p.x, p.y + 1);
       });
     }
@@ -70,6 +108,30 @@
       return { x: (t.clientX - r.left) * (W / r.width), y: (t.clientY - r.top) * (H / r.height) };
     }
     function near(p, w) { return Math.hypot(p.x - w.x, p.y - w.y) <= HIT; }
+
+    // count a flub (early lift / timeout) and bail to a gentle retry if it piles up
+    function flub() {
+      retries++;
+      if (retries > MAX_RESETS) { stopTimer(); return host.fail('קֶסֶם קָשֶׁה היום — ננסה שוב?'), true; }
+      return false;
+    }
+
+    function stopTimer() { if (roundTimer) { roundTimer.stop(); roundTimer = null; } }
+    // time budget scales with path length but shrinks with level → real pressure up top
+    function timeMs() { return Math.max(3200, 4200 + pts.length * 520 - L * 360 - round * 300); }
+    function armTimer() {
+      if (!TIMED) return;
+      stopTimer();
+      roundTimer = host.timer(timeMs(), onTimeout);
+    }
+    function onTimeout() {
+      roundTimer = null;
+      if (done) return;
+      dragging = false; next = 0; trail = []; draw(); host.bad();
+      if (flub()) return;
+      host.say('מהר יותר! סְוִיש וּפְלִיק ✨');
+      armTimer();
+    }
 
     function start(e) { if (done) return; e.preventDefault(); dragging = true; trail = []; next = 0; move(e); }
     function move(e) {
@@ -84,14 +146,15 @@
     }
     function end(e) {
       if (!dragging || done) return; dragging = false;
-      if (next < pts.length) { // lifted early — gentle reset
-        retries++; next = 0; trail = []; draw(); host.bad();
+      if (next < pts.length) { // lifted early — gentle reset, counts toward retry tally
+        next = 0; trail = []; draw(); host.bad();
+        if (flub()) return;
         host.say('עוד פעם, סְוִיש וּפְלִיק!');
       }
     }
 
     function finishRound() {
-      done = true; dragging = false; draw();
+      done = true; dragging = false; stopTimer(); draw();
       const w = pts[pts.length - 1];
       const pr = host.stage.getBoundingClientRect(), cr = cv.getBoundingClientRect();
       host.good(cr.left - pr.left + w.x * (cr.width / W), cr.top - pr.top + w.y * (cr.height / H));
@@ -107,15 +170,24 @@
 
     function next2() {
       done = false; pts = makePath(round); trail = []; next = 0;
-      host.say('סְוִיש וּפְלִיק! עקוב אחרי הנתיב');
-      draw();
+      // tighten the hit radius a touch each round within the lesson
+      HIT = Math.max(14, HIT0 - round * 2);
+      host.say(round === 0 ? 'סְוִיש וּפְלִיק! עקוב אחרי הנתיב' : 'יפה! נתיב ארוך יותר — קדימה!');
+      draw(); armTimer();
     }
 
     function finish() {
+      stopTimer();
       host.confetti(); host.say('הנוצה מרחפת! 🪶');
+      // stars reflect performance (resets + timeouts)
       const stars = retries <= 1 ? 3 : retries <= 3 ? 2 : 1;
       host.after(800, () => host.win(stars));
     }
+
+    // test hook: expose the live canvas + the CURRENT round's waypoints ({x,y} in canvas
+    // pixel coords) so the walk-bot can trace a real swish-and-flick through the dots
+    // instead of shortcutting. Mirrors lessons/spells.js HPL._spellProbe.
+    HPL._charmsProbe = () => ({ canvas: cv, pts: pts });
 
     cv.addEventListener('mousedown', start); cv.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
     cv.addEventListener('touchstart', start, { passive: false }); cv.addEventListener('touchmove', move, { passive: false }); cv.addEventListener('touchend', end);

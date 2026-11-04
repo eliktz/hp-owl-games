@@ -21,11 +21,13 @@
   ov.id = 'mapOverlay'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'מפת הוגוורטס');
   ov.innerHTML = '<div class="mapFrame"><div class="mapArt"></div>'
     + '<div class="mapMarks"></div>'
+    + '<div class="mapLessons"></div>'
     + '<button class="mapClose" type="button" aria-label="סגור">✕</button>'
     + '<div class="mapHint">בחרו יעד ✨</div></div>';
   document.body.appendChild(ov);
   ov.querySelector('.mapArt').innerHTML = ART.svg();
   const marks = ov.querySelector('.mapMarks');
+  const lessonLayer = ov.querySelector('.mapLessons');
 
   // ---- build a marker for every destination ----
   const markerEls = {};
@@ -44,6 +46,45 @@
   hw.setAttribute('aria-label', T.HEDWIG.he);
   activate(hw, function () { closeMap(); T.flyHedwig(); });
   marks.appendChild(hw);
+
+  // ---- lesson state badges: show which classroom is OPEN / CLOSED per the timetable ----
+  // map each lesson key to its classroom destination (so we reuse the dest's mx,my)
+  const LESSON_DEST = { potions: 'dungeon', charms: 'charms', transfiguration: 'transfiguration',
+    spells: 'spells', astronomy: 'astronomy', herbology: 'greenhouse' };
+  const lessonEls = {};   // key -> { wrap, lock, when }
+  // map.js loads before lessons/core.js, so HPLessons.LESSONS isn't ready at init —
+  // build the badges lazily on first openMap() (and no-op once built).
+  function buildLessonBadges() {
+    if (Object.keys(lessonEls).length) return;
+    const L = (window.HPLessons && HPLessons.LESSONS) || [];
+    const byId = {}; T.DESTINATIONS.forEach(function (d) { byId[d.id] = d; });
+    L.forEach(function (l) {
+      const d = byId[LESSON_DEST[l.key]]; if (!d) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'mapLesson'; wrap.dataset.key = l.key;
+      wrap.style.left = d.mx + '%'; wrap.style.top = d.my + '%';
+      wrap.innerHTML = '<span class="licon">' + (l.icon || '✨') + '</span>'
+        + '<span class="llock">🔒</span><span class="lwhen"></span>';
+      lessonLayer.appendChild(wrap);
+      lessonEls[l.key] = { wrap: wrap, lock: wrap.querySelector('.llock'), when: wrap.querySelector('.lwhen') };
+    });
+  }
+
+  // read HPSchedule live and paint each badge open (green glow) or closed (dim + lock + time)
+  function refreshLessons() {
+    const S = window.HPSchedule; if (!S) return;
+    Object.keys(lessonEls).forEach(function (key) {
+      const e = lessonEls[key];
+      const open = S.isOpen ? S.isOpen(key) : false;
+      e.wrap.classList.toggle('lOpen', open);
+      e.wrap.classList.toggle('lShut', !open);
+      if (open) { e.when.textContent = ''; }
+      else {
+        const nx = S.nextOpenOf ? S.nextOpenOf(key) : null;
+        e.when.textContent = (nx && nx.time) ? nx.time : '';
+      }
+    });
+  }
 
   // ---- helpers ----
   function mkMarker(icon, label, mx, my) {
@@ -88,9 +129,17 @@
   }
 
   // ---- open / close ----
-  let open = false;
-  function openMap() { if (open) return; open = true; markHere(); ov.classList.add('on'); sfx('flip'); }
-  function closeMap() { if (!open) return; open = false; ov.classList.remove('on'); sfx('pop'); }
+  let open = false, lessonTimer = null;
+  function openMap() {
+    if (open) return; open = true; markHere();
+    buildLessonBadges(); refreshLessons(); clearInterval(lessonTimer); lessonTimer = setInterval(refreshLessons, 1000);
+    ov.classList.add('on'); sfx('flip');
+  }
+  function closeMap() {
+    if (!open) return; open = false;
+    clearInterval(lessonTimer); lessonTimer = null;
+    ov.classList.remove('on'); sfx('pop');
+  }
   function toggle() { open ? closeMap() : openMap(); }
 
   function sfx(n) { try { window.HP && HP.sfx && HP.sfx[n] && HP.sfx[n](); } catch (e) { /* noop */ } }
@@ -139,6 +188,21 @@
     + '.mapHere::before{content:"";position:absolute;top:2px;left:50%;width:46px;height:46px;'
     + 'margin-left:-23px;border-radius:50%;border:3px solid #7CFC7C;'
     + 'box-shadow:0 0 14px #7CFC7C;animation:mapPulse 1.3s ease-out infinite;pointer-events:none}'
+    // lesson state badges (OPEN = green glow/pulse, CLOSED = dim + padlock + open-time label)
+    + '.mapLessons{position:absolute;inset:0;pointer-events:none}'
+    + '.mapLesson{position:absolute;transform:translate(-50%,-150%);display:flex;flex-direction:column;'
+    + 'align-items:center;pointer-events:none;z-index:1}'
+    + '.mapLesson .licon{font-size:26px;line-height:1;width:40px;height:40px;border-radius:50%;'
+    + 'display:flex;align-items:center;justify-content:center;background:rgba(20,12,44,.78);'
+    + 'border:3px solid #b9842f;box-shadow:0 2px 6px rgba(0,0,0,.5)}'
+    + '.mapLesson .llock{position:absolute;top:-6px;inset-inline-end:-6px;font-size:16px;display:none}'
+    + '.mapLesson .lwhen{display:none;margin-top:2px;font-size:11px;font-weight:bold;color:#ffe9b0;'
+    + 'background:rgba(20,12,44,.85);border-radius:7px;padding:0 5px;white-space:nowrap}'
+    + '.mapLesson.lOpen .licon{border-color:#7CFC7C;background:rgba(18,53,26,.82);'
+    + 'box-shadow:0 0 14px #7CFC7C;animation:mapLessonPulse 1.4s ease-in-out infinite}'
+    + '.mapLesson.lShut .licon{filter:grayscale(.85) brightness(.7);border-color:#5a4a7a;opacity:.7}'
+    + '.mapLesson.lShut .llock{display:block}.mapLesson.lShut .lwhen{display:block}'
+    + '@keyframes mapLessonPulse{0%,100%{box-shadow:0 0 10px #7CFC7C}50%{box-shadow:0 0 20px #7CFC7C}}'
     + '.mapClose{position:absolute;top:-6px;inset-inline-end:-6px;width:46px;height:46px;border-radius:50%;'
     + 'border:3px solid #ffd76a;background:#3a2060;color:#fff;font-size:22px;cursor:pointer;z-index:2;'
     + 'box-shadow:0 3px 10px rgba(0,0,0,.5)}'
