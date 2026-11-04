@@ -91,13 +91,27 @@
     }
     light.addDust((GH.x0 + GH.x1) / 2, 2, (GH.z0 + GH.z1) / 2, 40, 12, 36, 200);
 
+    // ---- warm hall lighting: the enchanted ceiling is night, so the candles alone left
+    //      the floor murky. Wall torches down both long walls + two braziers flanking the
+    //      head table give the pooled point-lights something warm to follow everywhere. ----
+    for (let x = -50; x <= -18; x += 8) {
+      light.addTorch(x, 7, GH.z0 + 0.7, 0xffb866, 6);
+      light.addTorch(x, 7, GH.z1 - 0.7, 0xffb866, 6);
+    }
+    const ironM = new T.MeshStandardMaterial({ color: 0x20201e, metalness: 0.6, roughness: 0.6 });
+    [GH.z0 + 8, GH.z1 - 8].forEach((z) => {
+      const stand = new T.Mesh(new T.CylinderGeometry(0.14, 0.24, 2.4, 8), ironM); stand.position.set(GH.x0 + 7, 1.2, z); scene.add(stand);
+      const bowl = new T.Mesh(new T.CylinderGeometry(0.55, 0.3, 0.45, 12), ironM); bowl.position.set(GH.x0 + 7, 2.5, z); scene.add(bowl);
+      light.addFire(GH.x0 + 7, 2.7, z, 0.9);
+    });
+
     HPI.builders.push((t) => {
       for (let i = 0; i < 44; i++) {
         const c = candles[i], y = c.base + Math.sin(t * 1.1 + c.ph) * 0.4;
         d.position.set(c.x, y, c.z); d.updateMatrix(); im.setMatrixAt(i, d.matrix);
         c.halo.position.set(c.x, y + 0.45, c.z);
-        c.halo.material.opacity = 0.7 + 0.25 * Math.sin(t * 9 + c.ph);
-        c.halo.scale.setScalar(0.85 + 0.12 * Math.sin(t * 11 + c.ph));
+        c.halo.material.opacity = 0.82 + 0.18 * Math.sin(t * 9 + c.ph);
+        c.halo.scale.setScalar(1.0 + 0.14 * Math.sin(t * 11 + c.ph));
       }
       im.instanceMatrix.needsUpdate = true;
     });
