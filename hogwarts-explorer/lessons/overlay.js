@@ -107,23 +107,43 @@
   }
 
   // open a lesson: def={key,subject,teacher,color,greet}; onComplete(stars, quit)
+  let curDef = null;
   function open(def, onComplete) {
     if (!ov) build();
-    curDone = onComplete; stageEl.innerHTML = ''; sayEl.textContent = def.greet || 'שלום!';
+    curDone = onComplete; curDef = def; stageEl.innerHTML = ''; sayEl.textContent = def.greet || 'שלום!';
     nameEl.textContent = def.subject; panel.style.borderColor = def.color || '#ffd76a';
     ov.classList.add('on'); animAvatar(def.teacher);
     try { HP.sfx.flip(); } catch (e) {}
     try { window.__game && __game.setModal && __game.setModal(true); } catch (e) {}
     const host = makeHost(def);
     host.say(def.greet || 'שלום!');
-    timers.push(setTimeout(() => { try { (HPL.games[def.key] || missing)(host); } catch (e) { console.warn('[lesson]', e); } }, 650));
+    runGame(def, host, 650);
+  }
+  function runGame(def, host, delay) {
+    clearTimers(); stageEl.innerHTML = ''; pipsEl.innerHTML = '';
+    timers.push(setTimeout(() => { try { (HPL.games[def.key] || missing)(host); } catch (e) { console.warn('[lesson]', e); } }, delay || 400));
   }
   function missing(host) { host.say('השיעור בקרוב!'); host.after(1200, () => host.win(1)); }
 
+  // gentle retry screen — a failed attempt never auto-awards; the child chooses to try again
+  function failScreen(def, host, msg) {
+    clearTimers(); pipsEl.innerHTML = ''; stageEl.innerHTML = '';
+    sayEl.textContent = msg || 'כמעט! ננסה שוב?'; moodT = 0.6; mood = 1;
+    try { HP.sfx.soft && HP.sfx.soft(); } catch (e) {}
+    const box = el('div', { class: 'lsnReward' },
+      el('div', { style: 'font-size:72px' }, '💪'),
+      el('div', { class: 'big' }, 'כמעט! ננסה שוב'),
+      el('button', { class: 'lsnBtn wide', onclick: () => runGame(def, host, 250) }, '🔁 עוד פעם'),
+      el('button', { class: 'lsnBtn wide', style: 'font-size:24px;background:linear-gradient(#cdbfe8,#9a86c8)', onclick: () => { teardown(); if (curDone) curDone(0, true); } }, 'אחר כך'));
+    stageEl.appendChild(box);
+  }
+
   function makeHost(def) {
-    const level = (HPL.progress && HPL.progress.level(def.key)) || 1;
+    const base = (HPL.progress && HPL.progress.level(def.key)) || 1;
+    const day = (window.HPSchedule && HPSchedule.state) ? HPSchedule.state().day : 0;
+    const level = Math.min(8, base + Math.floor(day / 2));   // mastery + ramps across the week
     const host = {
-      stage: stageEl, subject: def.subject, color: def.color, teacher: def.teacher, key: def.key, level,
+      stage: stageEl, subject: def.subject, color: def.color, teacher: def.teacher, key: def.key, level, day,
       say(t, m) { sayEl.textContent = t; moodT = Math.max(0.3, (t || '').length * 0.045); mood = 1; },
       setProgress(cur, total) {
         pipsEl.innerHTML = '';
@@ -136,6 +156,18 @@
       rnd(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); },
       el,
       win(stars) { reward(def, Math.max(1, Math.min(3, stars || 1))); },
+      fail(msg) { failScreen(def, host, msg); },      // too many misses → gentle retry, no pity-win
+      // a shrinking timer bar for timed-bonus rounds; returns { stop, left() }
+      timer(ms, onEnd) {
+        const bar = el('div', { style: 'width:70%;max-width:320px;height:14px;border-radius:8px;background:rgba(255,255,255,.15);border:2px solid #ffd76a;overflow:hidden' });
+        const fill = el('div', { style: 'height:100%;width:100%;background:linear-gradient(90deg,#9effa0,#ffe48a,#ff8a5a);transition:width .2s linear' });
+        bar.appendChild(fill); stageEl.appendChild(bar);
+        const t0 = performance.now(); let stopped = false;
+        const tick = () => { if (stopped) return; const k = Math.max(0, 1 - (performance.now() - t0) / ms); fill.style.width = (k * 100) + '%';
+          if (k <= 0) { stopped = true; bar.remove(); onEnd && onEnd(); } else requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+        return { stop() { stopped = true; bar.remove(); }, left() { return Math.max(0, ms - (performance.now() - t0)); } };
+      },
     };
     HPL._host = host;   // test hook: current lesson's host (drive/finish from Playwright)
     return host;
@@ -150,12 +182,15 @@
 
   function reward(def, stars) {
     clearTimers(); pipsEl.innerHTML = ''; stageEl.innerHTML = '';
-    const sticker = (HPL.progress && HPL.progress.award(def.key, stars)) || def.icon || '⭐';
+    // attend() records the finish, bumps mastery + stars and books house points on the board
+    const pts = (HPL.progress && HPL.progress.attend) ? HPL.progress.attend(def.key, stars) : 0;
+    const sticker = def.sticker || def.icon || '⭐';
     sayEl.textContent = 'כל הכבוד! 🎉'; moodT = 1.2; mood = 1;
     const box = el('div', { class: 'lsnReward' },
       el('div', { class: 'lsnStars' }, '⭐'.repeat(stars) + '☆'.repeat(3 - stars)),
       el('div', { class: 'lsnSticker' }, sticker),
       el('div', { class: 'big' }, 'מדבקה חדשה!'),
+      el('div', { style: 'font-size:24px;color:#9effa0;font-weight:bold' }, '🏆 +' + pts + ' נקודות בית'),
       el('button', { class: 'lsnBtn wide', onclick: () => { teardown(); if (curDone) curDone(stars, false); } }, 'המשך ✨'));
     stageEl.appendChild(box);
     try { HP.sfx.fanfare(); HP.cheer && HP.cheer(); } catch (e) {}
