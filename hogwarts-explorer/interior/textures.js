@@ -34,33 +34,45 @@
   };
   const TX = {
     // mortared ashlar stone blocks (walls / floors). `variant` picks a palette above.
+    // Subtle, quarried-stone look: tight running-bond courses, each block lit with a
+    // soft top-left bevel + fine granite speckle — deliberately NOT the old crater
+    // "cheese" of big dark blobs.
     stone(rep = 3, variant = 'hall') {
       const P = STONE[variant] || STONE.hall, ck = 'stone_' + variant;
       if (cache[ck]) return clone(cache[ck], rep);
-      const S = 256;
-      const col = cvs(S, (g, s) => {
-        g.fillStyle = P.fill; g.fillRect(0, 0, s, s);
-        const rows = 4, bh = s / rows;
-        for (let r = 0; r < rows; r++) {
-          const off = (r % 2) * (s / 6);
-          for (let x = -s / 6; x < s; x += s / 3) {
-            const bx = x + off, by = r * bh;
-            g.fillStyle = `hsl(${P.hue},${P.sat}%,${P.lo + Math.random() * 10}%)`;
-            g.fillRect(bx + 2, by + 2, s / 3 - 4, bh - 4);
-          }
+      const S = 256, rows = 4, cols = 3, bh = S / rows, bw = S / cols;
+      const block = (g, bx, by, light) => {
+        g.fillStyle = `hsl(${P.hue},${P.sat}%,${light}%)`;
+        g.fillRect(bx + 1.5, by + 1.5, bw - 3, bh - 3);
+        // fine granite mottle kept inside the block (small + low-contrast, never holes)
+        for (let i = 0; i < 26; i++) {
+          const x = bx + 2 + Math.random() * (bw - 4), y = by + 2 + Math.random() * (bh - 4);
+          const up = Math.random() < 0.5;
+          g.fillStyle = `hsla(${P.hue},${P.sat}%,${light + (up ? 12 : -12)}%,0.16)`;
+          g.fillRect(x, y, 0.8 + Math.random() * 1.6, 0.8 + Math.random() * 1.6);
         }
-        blobs(g, s, 90, `rgba(${P.dark},A)`, 2, 18, '0.5');
-        blobs(g, s, 40, `rgba(${P.lite},A)`, 2, 10, '0.25');
+        // soft chiselled bevel: highlight along top+left, shadow along bottom+right
+        g.fillStyle = `hsla(${P.hue},${P.sat}%,${light + 15}%,0.45)`;
+        g.fillRect(bx + 1.5, by + 1.5, bw - 3, 1.6); g.fillRect(bx + 1.5, by + 1.5, 1.6, bh - 3);
+        g.fillStyle = `rgba(${P.dark},0.4)`;
+        g.fillRect(bx + 1.5, by + bh - 3, bw - 3, 1.6); g.fillRect(bx + bw - 3, by + 1.5, 1.6, bh - 3);
+      };
+      const col = cvs(S, (g, s) => {
+        g.fillStyle = P.mortar; g.fillRect(0, 0, s, s);            // recessed mortar fills the joints
+        for (let r = 0; r < rows; r++) {
+          const off = (r % 2) * (bw / 2);
+          for (let c = -1; c <= cols; c++) block(g, c * bw + off, r * bh, P.lo + 2 + Math.random() * 8);
+        }
+        // the faintest overall grime wash so tiling doesn't read as a flat grid
+        blobs(g, s, 10, `rgba(${P.dark},A)`, 40, 90, '0.07');
       });
       const bump = cvs(S, (g, s) => {
-        g.fillStyle = '#808080'; g.fillRect(0, 0, s, s);
-        g.strokeStyle = P.mortar; g.lineWidth = 5;
-        const rows = 4, bh = s / rows;
+        g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, s, s);
+        g.strokeStyle = '#3a3a3a'; g.lineWidth = 4;                // mortar grooves sit lower
         for (let r = 0; r < rows; r++) {
-          const off = (r % 2) * (s / 6); g.strokeRect(0, r * bh, s, 0.1);
-          for (let x = -s / 6; x < s; x += s / 3) g.strokeRect(x + off, r * bh, s / 3, bh);
+          const off = (r % 2) * (bw / 2); g.beginPath(); g.moveTo(0, r * bh); g.lineTo(s, r * bh); g.stroke();
+          for (let c = -1; c <= cols; c++) { const bx = c * bw + off; g.beginPath(); g.moveTo(bx, r * bh); g.lineTo(bx, r * bh + bh); g.stroke(); }
         }
-        blobs(g, s, 60, 'rgba(40,40,40,A)', 2, 12, '0.5');
       });
       cache[ck] = { col, bump };
       return clone(cache[ck], rep);
