@@ -5,24 +5,31 @@
 (function () {
   // mx/my: marker position in % of the map canvas. Interior rooms carry `key`
   // (an inside.spawns name); outdoor spots carry world x/z (+ optional facing).
+  // Castle markers are laid out in four tidy rows (my 13/21/29/37) with generous
+  // spacing so no two labels ever collide; lesson open/closed state lives ON the marker
+  // (see map.js), so nothing floats up onto the title banner. Rooms don't have to sit on
+  // the exact drawn tower — the whole top third is castle grounds.
   const DESTINATIONS = [
-    { id: 'commonRoom', he: 'חדר המועדון', icon: '🔥', mx: 50, my: 20, world: 'inside', key: 'commonRoom', yaw: 0 },
-    { id: 'stairs', he: 'מדרגות נעות', icon: '🪜', mx: 59, my: 23, world: 'inside', key: 'gallery', yaw: 0 },
-    { id: 'greatHall', he: 'האולם הגדול', icon: '🍽️', mx: 40, my: 25, world: 'inside', key: 'greatHall', yaw: Math.PI / 2 },
-    { id: 'entrance', he: 'אולם הכניסה', icon: '🚪', mx: 50, my: 29, world: 'inside', key: 'entrance', yaw: 0 },
-    { id: 'corridor', he: 'מסדרון הדיוקנאות', icon: '🖼️', mx: 64, my: 30, world: 'inside', key: 'corridor', yaw: Math.PI / 2 },
-    { id: 'library', he: 'הספרייה', icon: '📚', mx: 74, my: 25, world: 'inside', key: 'library', yaw: 0 },
-    // ---- the expanded castle + lesson rooms ----
-    { id: 'dungeon', he: 'מרתף השיקויים ⚗️', icon: '⚗️', mx: 33, my: 34, world: 'inside', key: 'dungeon', yaw: Math.PI / 2 },
-    { id: 'kitchens', he: 'המטבחים', icon: '🍲', mx: 40, my: 37, world: 'inside', key: 'kitchens', yaw: 0 },
-    { id: 'hospital', he: 'אגף החולים', icon: '🛏️', mx: 46, my: 20, world: 'inside', key: 'hospital', yaw: Math.PI },
-    { id: 'charms', he: 'כיתת הלחשים 🪶', icon: '🪶', mx: 38, my: 15, world: 'inside', key: 'charms', yaw: -Math.PI / 2 },
-    { id: 'transfiguration', he: 'שינוי צורה 🐱', icon: '🐱', mx: 28, my: 11, world: 'inside', key: 'transfiguration', yaw: -Math.PI / 2 },
-    { id: 'spells', he: 'כיתת ההגנה 🪄', icon: '🪄', mx: 73, my: 11, world: 'inside', key: 'spells', yaw: Math.PI / 2 },
-    { id: 'astronomy', he: 'מגדל הכוכבים 🔭', icon: '🔭', mx: 66, my: 16, world: 'inside', key: 'astronomy', yaw: Math.PI / 2 },
-    { id: 'trophy', he: 'חדר הגביעים', icon: '🏆', mx: 80, my: 20, world: 'inside', key: 'trophy', yaw: Math.PI / 2 },
-    { id: 'owlery', he: 'מגדל הינשופים', icon: '🦉', mx: 51, my: 14, world: 'inside', key: 'owlery', yaw: 0 },
-    { id: 'clocktower', he: 'מגדל השעון ⏰', icon: '⏰', mx: 85, my: 15, world: 'inside', key: 'clocktower', yaw: Math.PI },
+    // row 1 — classrooms along the top (clear of the centred banner)
+    { id: 'transfiguration', he: 'שינוי צורה 🐱', icon: '🐱', mx: 16, my: 13, world: 'inside', key: 'transfiguration', yaw: -Math.PI / 2 },
+    { id: 'charms', he: 'כיתת הלחשים 🪶', icon: '🪶', mx: 31, my: 13, world: 'inside', key: 'charms', yaw: -Math.PI / 2 },
+    { id: 'astronomy', he: 'מגדל הכוכבים 🔭', icon: '🔭', mx: 67, my: 13, world: 'inside', key: 'astronomy', yaw: Math.PI / 2 },
+    { id: 'spells', he: 'כיתת ההגנה 🪄', icon: '🪄', mx: 82, my: 13, world: 'inside', key: 'spells', yaw: Math.PI / 2 },
+    // row 2 — wings + towers
+    { id: 'hospital', he: 'אגף החולים', icon: '🛏️', mx: 25, my: 21, world: 'inside', key: 'hospital', yaw: Math.PI },
+    { id: 'owlery', he: 'מגדל הינשופים', icon: '🦉', mx: 43, my: 21, world: 'inside', key: 'owlery', yaw: 0 },
+    { id: 'trophy', he: 'חדר הגביעים', icon: '🏆', mx: 64, my: 21, world: 'inside', key: 'trophy', yaw: Math.PI / 2 },
+    { id: 'clocktower', he: 'מגדל השעון ⏰', icon: '⏰', mx: 86, my: 21, world: 'inside', key: 'clocktower', yaw: Math.PI },
+    // row 3 — the main halls
+    { id: 'greatHall', he: 'האולם הגדול', icon: '🍽️', mx: 22, my: 29, world: 'inside', key: 'greatHall', yaw: Math.PI / 2 },
+    { id: 'commonRoom', he: 'חדר המועדון', icon: '🔥', mx: 40, my: 29, world: 'inside', key: 'commonRoom', yaw: 0 },
+    { id: 'stairs', he: 'מדרגות נעות', icon: '🪜', mx: 56, my: 29, world: 'inside', key: 'gallery', yaw: 0 },
+    { id: 'library', he: 'הספרייה', icon: '📚', mx: 74, my: 29, world: 'inside', key: 'library', yaw: 0 },
+    // row 4 — entrance + the lower floor (dungeon / kitchens)
+    { id: 'dungeon', he: 'מרתף השיקויים ⚗️', icon: '⚗️', mx: 14, my: 37, world: 'inside', key: 'dungeon', yaw: Math.PI / 2 },
+    { id: 'kitchens', he: 'המטבחים', icon: '🍲', mx: 32, my: 37, world: 'inside', key: 'kitchens', yaw: 0 },
+    { id: 'entrance', he: 'אולם הכניסה', icon: '🚪', mx: 50, my: 37, world: 'inside', key: 'entrance', yaw: 0 },
+    { id: 'corridor', he: 'מסדרון הדיוקנאות', icon: '🖼️', mx: 66, my: 37, world: 'inside', key: 'corridor', yaw: Math.PI / 2 },
     { id: 'courtyard', he: 'החצר', icon: '⛲', mx: 50, my: 45, world: 'outside', x: 0, z: -42, face: Math.PI, yaw: Math.PI },
     { id: 'greenhouse', he: 'החממה', icon: '🌿', mx: 24, my: 42, world: 'outside', x: -34, z: -16, yaw: 0.6 },
     { id: 'lake', he: 'האגם', icon: '🌊', mx: 16, my: 60, world: 'outside', x: -60, z: 6, yaw: -0.9 },
