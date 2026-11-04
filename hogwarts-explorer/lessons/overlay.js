@@ -18,7 +18,12 @@
     .lsnPanel{position:relative;width:min(94vw,780px);max-height:92vh;overflow:hidden;background:rgba(32,20,70,.96);
       border:5px solid #ffd76a;border-radius:28px;padding:16px 18px 20px;box-shadow:0 14px 50px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}
     .lsnHead{display:flex;align-items:center;gap:14px}
-    .lsnAv{width:92px;height:92px;border-radius:50%;border:4px solid #ffd76a;background:rgba(10,6,30,.5);flex:0 0 auto}
+    .lsnAvWrap{position:relative;flex:0 0 auto}
+    .lsnAv{width:92px;height:92px;border-radius:50%;border:4px solid #ffd76a;background:rgba(10,6,30,.5);display:block}
+    .lsnPaw{position:absolute;bottom:-4px;inset-inline-end:-4px;width:30px;height:30px;border-radius:50%;background:#2a1540;border:2px solid #ffd76a;
+      display:none;align-items:center;justify-content:center;font-size:17px;pointer-events:none;animation:lsnPawB 1.1s infinite}
+    .lsnPaw.on{display:flex}
+    @keyframes lsnPawB{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}
     .lsnName{color:#ffd76a;font-size:30px;font-weight:bold;text-shadow:0 2px 0 #7a3b00}
     .lsnSay{flex:1;min-height:56px;background:rgba(255,245,220,.95);color:#2a1a12;border-radius:18px;
       padding:10px 16px;font-size:26px;font-weight:bold;line-height:1.25;position:relative}
@@ -47,30 +52,47 @@
     document.head.appendChild(s);
   }
 
-  let ov, panel, avCanvas, nameEl, sayEl, pipsEl, stageEl;
+  let ov, panel, avCanvas, pawEl, nameEl, sayEl, pipsEl, stageEl;
   function build() {
     injectCss();
     ov = document.createElement('div'); ov.id = 'lsnOv';
     panel = document.createElement('div'); panel.className = 'lsnPanel';
     panel.innerHTML = '<button class="lsnClose" aria-label="סגור">✕</button>'
-      + '<div class="lsnHead"><canvas class="lsnAv" width="128" height="128"></canvas>'
+      + '<div class="lsnHead"><div class="lsnAvWrap"><canvas class="lsnAv" width="128" height="128"></canvas><div class="lsnPaw">🐾</div></div>'
       + '<div style="flex:1"><div class="lsnName"></div><div class="lsnSay"></div></div></div>'
       + '<div class="lsnPips"></div><div class="lsnStage"></div>';
     ov.appendChild(panel); document.body.appendChild(ov);
-    avCanvas = panel.querySelector('.lsnAv'); nameEl = panel.querySelector('.lsnName');
+    avCanvas = panel.querySelector('.lsnAv'); pawEl = panel.querySelector('.lsnPaw'); nameEl = panel.querySelector('.lsnName');
     sayEl = panel.querySelector('.lsnSay'); pipsEl = panel.querySelector('.lsnPips'); stageEl = panel.querySelector('.lsnStage');
     panel.querySelector('.lsnClose').addEventListener('click', () => quit());
+    avCanvas.style.cursor = 'pointer'; avCanvas.title = 'נגעו בי!';
+    avCanvas.addEventListener('click', () => toggleCat());
   }
 
   let raf = null, timers = [], curClose = null, mood = 0, moodT = 0;
+  let avWho = 'defence', catForm = false, canCat = false;
+  // McGonagall's cat-form touch: tap her portrait to flip between witch ⇄ tabby, with a
+  // little spin-pop and a playful meow. Only the Transfiguration teacher (mcgon) can morph.
+  function toggleCat() {
+    if (!canCat) { moodT = 0.6; mood = 1; try { HP.sfx.soft(); } catch (e) {} return; }
+    catForm = !catForm; avWho = catForm ? 'cat' : 'mcgon';
+    avFlip = 1; moodT = 0.9; mood = 1;
+    try { catForm ? (HP.sfx.sparkle && HP.sfx.sparkle(), HP.sfx.hoot && HP.sfx.hoot()) : HP.sfx.pop && HP.sfx.pop(); } catch (e) {}
+    if (sayEl) { const prev = sayEl.textContent; sayEl.textContent = catForm ? 'מִיָאוּ! 🐱' : 'שוב פרופסור! 🪄'; moodT = 1; clearTimeout(toggleCat._t); toggleCat._t = setTimeout(() => { if (sayEl) sayEl.textContent = prev; }, 1200); }
+  }
+  let avFlip = 0;
   function animAvatar(who) {
     const ctx = avCanvas.getContext('2d');
     cancelAnimationFrame(raf);
+    avWho = who; catForm = false; canCat = (who === 'mcgon'); avFlip = 0;
+    if (pawEl) pawEl.classList.toggle('on', canCat);
     let last = performance.now();
     (function loop(now) {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (moodT > 0) { moodT -= dt; mood = Math.abs(Math.sin(now / 90)) * (moodT > 0 ? 1 : 0); } else mood *= 0.9;
-      HPL.teacherAvatar(ctx, who, 128, mood);
+      // quick spin-pop on a form flip
+      if (avFlip > 0) { avFlip = Math.max(0, avFlip - dt * 2.2); const k = 1 + Math.sin(avFlip * Math.PI) * 0.35; ctx.clearRect(0, 0, 128, 128); ctx.save(); ctx.translate(64, 64); ctx.rotate((1 - avFlip) * Math.PI * 2); ctx.scale(k, k); ctx.translate(-64, -64); HPL.teacherAvatar(ctx, avWho, 128, mood); ctx.restore(); }
+      else HPL.teacherAvatar(ctx, avWho, 128, mood);
       raf = requestAnimationFrame(loop);
     })(last);
   }

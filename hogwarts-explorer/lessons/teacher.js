@@ -13,6 +13,7 @@
 
   // mood: 0 = calm, up to ~1 = talking (mouth opens + tiny bob handled by caller)
   function draw(ctx, who, s, mood) {
+    if (who === 'cat') return drawCat(ctx, s, mood);   // McGonagall's Animagus form
     const p = PAL[who] || PAL.defence;
     const cx = s / 2, cy = s * 0.5, hr = s * (p.small ? 0.3 : 0.27);
     ctx.clearRect(0, 0, s, s);
@@ -51,6 +52,42 @@
     if (p.beard) { ctx.fillStyle = p.hair; ctx.beginPath(); ctx.arc(cx, my + hr * 0.2, hr * 0.55, 0, Math.PI); ctx.fill(); }
     if (p.hat) { ctx.fillStyle = p.hat; ctx.beginPath(); ctx.moveTo(cx - hr * 1.2, cy - hr * 0.9); ctx.lineTo(cx + hr * 1.2, cy - hr * 0.9); ctx.lineTo(cx, cy - hr * 2.4); ctx.closePath(); ctx.fill(); ctx.fillRect(cx - hr * 1.3, cy - hr * 1.0, hr * 2.6, hr * 0.25); }
     if (p.stars) { ctx.fillStyle = '#ffe59a'; for (let i = 0; i < 5; i++) { ctx.font = (hr * 0.3) + 'px serif'; ctx.fillText('✦', cx - hr + i * hr * 0.5, cy + hr * 1.6); } }
+  }
+  // A chibi tabby cat (McGonagall's Animagus) — square spectacle-markings around the eyes
+  // nod to her glasses; mood twitches the whiskers + opens a tiny meow.
+  function drawCat(ctx, s, mood) {
+    const cx = s / 2, cy = s * 0.52, hr = s * 0.3, fur = '#7a6a52', dark = '#4a3c2a';
+    ctx.clearRect(0, 0, s, s);
+    // ears (with pink inners)
+    [-1, 1].forEach((d) => {
+      ctx.fillStyle = fur; ctx.beginPath();
+      ctx.moveTo(cx + d * hr * 0.75, cy - hr * 0.7); ctx.lineTo(cx + d * hr * 1.15, cy - hr * 1.5);
+      ctx.lineTo(cx + d * hr * 0.2, cy - hr * 1.0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#d98f9a'; ctx.beginPath();
+      ctx.moveTo(cx + d * hr * 0.74, cy - hr * 0.8); ctx.lineTo(cx + d * hr * 0.95, cy - hr * 1.3);
+      ctx.lineTo(cx + d * hr * 0.42, cy - hr * 0.95); ctx.closePath(); ctx.fill();
+    });
+    // head
+    ctx.fillStyle = fur; ctx.beginPath(); ctx.ellipse(cx, cy, hr * 1.02, hr * 0.92, 0, 0, 7); ctx.fill();
+    // tabby forehead stripes
+    ctx.strokeStyle = dark; ctx.lineWidth = hr * 0.08; ctx.lineCap = 'round';
+    [-0.22, 0, 0.22].forEach((o) => { ctx.beginPath(); ctx.moveTo(cx + o * hr, cy - hr * 0.95); ctx.lineTo(cx + o * hr * 0.6, cy - hr * 0.5); ctx.stroke(); });
+    // spectacle markings + big green eyes
+    const ey = cy - hr * 0.05, ex = hr * 0.42;
+    ctx.strokeStyle = dark; ctx.lineWidth = hr * 0.05;
+    [-1, 1].forEach((d) => { ctx.strokeRect(cx + d * ex - hr * 0.26, ey - hr * 0.22, hr * 0.52, hr * 0.44); });
+    ctx.beginPath(); ctx.moveTo(cx - hr * 0.16, ey); ctx.lineTo(cx + hr * 0.16, ey); ctx.stroke();
+    ctx.fillStyle = '#8fd66a'; eye(ctx, cx - ex, ey, hr * 0.2); eye(ctx, cx + ex, ey, hr * 0.2);
+    ctx.fillStyle = '#17120a'; const sl = hr * (0.05 + mood * 0.05);
+    [-1, 1].forEach((d) => { ctx.beginPath(); ctx.ellipse(cx + d * ex, ey, sl, hr * 0.17, 0, 0, 7); ctx.fill(); });
+    // muzzle + pink nose + meow
+    ctx.fillStyle = '#9b8a6f'; ctx.beginPath(); ctx.ellipse(cx, cy + hr * 0.45, hr * 0.5, hr * 0.34, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#d98f9a'; ctx.beginPath(); ctx.moveTo(cx - hr * 0.1, cy + hr * 0.3); ctx.lineTo(cx + hr * 0.1, cy + hr * 0.3); ctx.lineTo(cx, cy + hr * 0.42); ctx.closePath(); ctx.fill();
+    const open = mood * hr * 0.14;
+    if (open > hr * 0.03) { ctx.fillStyle = '#b05a5a'; ctx.beginPath(); ctx.ellipse(cx, cy + hr * 0.6, hr * 0.1, open, 0, 0, 7); ctx.fill(); }
+    // whiskers (twitch with mood)
+    ctx.strokeStyle = '#efe6d2'; ctx.lineWidth = hr * 0.03; const tw = mood * hr * 0.08;
+    [-1, 1].forEach((d) => { [-0.1, 0.05, 0.2].forEach((o, k) => { ctx.beginPath(); ctx.moveTo(cx + d * hr * 0.3, cy + hr * 0.45 + o * hr); ctx.lineTo(cx + d * hr * 1.3, cy + hr * (0.3 + o) - (k - 1) * tw); ctx.stroke(); }); });
   }
   function eye(c, x, y, r) { c.beginPath(); c.ellipse(x, y, r * 0.8, r, 0, 0, 7); c.fill(); }
   function brow(c, x, y, ex) { c.beginPath(); c.moveTo(x - ex * 0.5, y + 2); c.lineTo(x + ex * 0.5, y); c.stroke(); }
