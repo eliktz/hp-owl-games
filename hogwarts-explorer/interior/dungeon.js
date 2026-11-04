@@ -87,6 +87,13 @@
     // a stout lectern for the professor
     const lect = new T.Mesh(new T.BoxGeometry(1.2, 1.3, 0.8), new T.MeshStandardMaterial({ map: HPI.tex.wood(1, '#241812').map, roughness: 0.9 }));
     lect.position.set(-45, FY + 0.65, -25.2); scene.add(lect);
+    // Professor Snape at his lectern — the Potions lesson's trigger (key: 'potions').
+    // Without this the dungeon had no teacher, so the walk-up start prompt never appeared.
+    const snape = HP.makeChibi('snape'); snape.scale.setScalar(1.2);
+    snape.position.set(-45, FY, -24); scene.add(snape);
+    const sph = Math.random() * 7;
+    HPI.builders.push((t, dt) => HP.animateChibi(snape, dt, t + sph, 0));
+    HPI.teachers.push({ key: 'potions', chibi: snape, x: -45, z: -24 });
 
     // green-tinged dungeon torches + cool dust
     for (let z = -6; z >= -24; z -= 6) {
