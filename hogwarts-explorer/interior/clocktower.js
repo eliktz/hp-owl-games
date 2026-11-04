@@ -27,21 +27,24 @@
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone);
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL }, stone);
 
-    // ---- the giant clock face on the north wall, with sweeping hands ----
+    // ---- the giant clock face on the north wall (flat & bright so the dial reads),
+    //      a gilded rim, and dark sweeping hands pinned just in front of it ----
     const face = new T.Mesh(new T.CircleGeometry(4, 40),
-      new T.MeshStandardMaterial({ map: clockFaceTex(), emissive: 0xffe08a, emissiveIntensity: 0.6, roughness: 0.6 }));
-    face.position.set(cx, 9, R.z0 + 0.2); scene.add(face);
-    const glow = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xffe59a, transparent: true, opacity: 0.4, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
-    glow.scale.setScalar(12); glow.position.set(cx, 9, R.z0 + 0.4); scene.add(glow);
-    const handM = new T.MeshStandardMaterial({ color: 0x20201e, metalness: 0.6, roughness: 0.4, emissive: 0x151208, emissiveIntensity: 0.4 });
-    const hour = new T.Mesh(new T.BoxGeometry(0.25, 2.2, 0.1), handM); const minute = new T.Mesh(new T.BoxGeometry(0.18, 3.2, 0.1), handM);
-    [hour, minute].forEach((h) => { h.geometry.translate(0, h.geometry.parameters.height / 2 - 0.3, 0); h.position.set(cx, 9, R.z0 + 0.35); scene.add(h); });
-
-    // ---- a long brass pendulum swinging from the ceiling ----
+      new T.MeshBasicMaterial({ map: clockFaceTex(), fog: false }));
+    face.position.set(cx, 9, R.z0 + 0.25); scene.add(face);
     const brass = new T.MeshStandardMaterial({ color: 0xc9a23a, metalness: 0.7, roughness: 0.3 });
-    const pend = new T.Group(); pend.position.set(cx, CEIL - 1, cz + 1);
-    const rod = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, 9, 8), brass); rod.position.y = -4.5; pend.add(rod);
-    const bob = new T.Mesh(new T.CylinderGeometry(0.7, 0.7, 0.3, 20), brass); bob.rotation.x = Math.PI / 2; bob.position.y = -9; pend.add(bob);
+    const rim = new T.Mesh(new T.TorusGeometry(4.1, 0.22, 10, 44), brass); rim.position.set(cx, 9, R.z0 + 0.3); scene.add(rim);
+    const glow = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xffe59a, transparent: true, opacity: 0.22, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
+    glow.scale.setScalar(5); glow.position.set(cx, 9, R.z0 + 0.5); scene.add(glow);
+    const handM = new T.MeshStandardMaterial({ color: 0x15120a, roughness: 0.5, emissive: 0x0a0804, emissiveIntensity: 0.3 });
+    const hour = new T.Mesh(new T.BoxGeometry(0.28, 2.3, 0.12), handM); const minute = new T.Mesh(new T.BoxGeometry(0.2, 3.3, 0.12), handM);
+    hour.geometry.translate(0, 0.85, 0); minute.geometry.translate(0, 1.35, 0);
+    [hour, minute].forEach((h) => { h.position.set(cx, 9, R.z0 + 0.42); scene.add(h); });
+
+    // ---- a long brass pendulum swinging below a little hub on the back wall ----
+    const pend = new T.Group(); pend.position.set(cx, 9, R.z0 + 0.5);
+    const rod = new T.Mesh(new T.CylinderGeometry(0.08, 0.08, 6.5, 8), brass); rod.position.y = -3.25; pend.add(rod);
+    const bob = new T.Mesh(new T.SphereGeometry(0.75, 20, 16), brass); bob.position.y = -6.5; pend.add(bob);
     scene.add(pend);
 
     // ---- two toothed gears turning on the east wall ----
