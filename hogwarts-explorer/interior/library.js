@@ -2,7 +2,7 @@
  * reading tables lit by candles, drifting dust, and a dozen enchanted books that
  * float and gently flap their glowing pages in the central aisle. */
 (function (HPI) {
-  const T = HPI.T, L = HPI.L, kit = HPI.kit;
+  const T = HPI.T, L = HPI.L, kit = HPI.kit, F = HPI.furnish;
   const CEIL = 13;
 
   function bookcase(w, h) {
@@ -25,12 +25,13 @@
 
   HPI.buildLibrary = function (scene, light) {
     const LIB = L.LIB;
-    HPI.nav.room(LIB, { w: [17, 23] });
+    HPI.nav.room(LIB, { w: [17, 23], n: [61, 67] });   // west → corridor, north → clock tower
     kit.slab(scene, LIB, HPI.tex.wood(3, '#3a2616'), 0.02, true, 4);
     kit.slab(scene, LIB, HPI.tex.stone(3, 'warm'), CEIL, false, 3);
     const stone = HPI.tex.stone(3, 'warm');
     kit.wall(scene, { axis: 'x', c: LIB.x1, lo: LIB.z0, hi: LIB.z1, y0: 0, y1: CEIL }, stone);
-    kit.wall(scene, { axis: 'z', c: LIB.z0, lo: LIB.x0, hi: LIB.x1, y0: 0, y1: CEIL }, stone);
+    kit.wall(scene, { axis: 'z', c: LIB.z0, lo: LIB.x0, hi: LIB.x1, y0: 0, y1: CEIL, gap: [61, 67] }, stone); // north wall, door to the clock tower
+    F.sign(scene, 59, 4.4, LIB.z0 + 0.3, 0, 'מגדל השעון', '⏰');   // beside the door, points north to the tower
     kit.wall(scene, { axis: 'z', c: LIB.z1, lo: LIB.x0, hi: LIB.x1, y0: 0, y1: CEIL }, stone);
 
     // perimeter bookcases flush to the three walls

@@ -22,6 +22,7 @@
     { id: 'astronomy', he: 'מגדל הכוכבים 🔭', icon: '🔭', mx: 68, my: 14, world: 'inside', key: 'astronomy', yaw: Math.PI / 2 },
     { id: 'trophy', he: 'חדר הגביעים', icon: '🏆', mx: 78, my: 18, world: 'inside', key: 'trophy', yaw: Math.PI / 2 },
     { id: 'owlery', he: 'מגדל הינשופים', icon: '🦉', mx: 60, my: 6, world: 'inside', key: 'owlery', yaw: 0 },
+    { id: 'clocktower', he: 'מגדל השעון ⏰', icon: '⏰', mx: 82, my: 14, world: 'inside', key: 'clocktower', yaw: Math.PI },
     { id: 'courtyard', he: 'החצר', icon: '⛲', mx: 50, my: 45, world: 'outside', x: 0, z: -42, face: Math.PI, yaw: Math.PI },
     { id: 'greenhouse', he: 'החממה', icon: '🌿', mx: 24, my: 42, world: 'outside', x: -34, z: -16, yaw: 0.6 },
     { id: 'lake', he: 'האגם', icon: '🌊', mx: 16, my: 60, world: 'outside', x: -60, z: 6, yaw: -0.9 },

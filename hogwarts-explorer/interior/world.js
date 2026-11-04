@@ -30,6 +30,7 @@
     HPI.buildDefence(scene, light);
     HPI.buildTrophy(scene, light);
     HPI.buildOwlery(scene, light);
+    HPI.buildClockTower(scene, light);
 
     const spawns = {
       entrance: { x: 0, z: 20, y: 0 },
@@ -48,6 +49,7 @@
       spells: { x: 50, z: -38, y: 0 },
       trophy: { x: 53, z: -6, y: 0 },
       owlery: { x: 35, z: -50, y: 0 },
+      clocktower: { x: 64, z: -8, y: 0 },
     };
 
     // ---- collectibles scattered through the rooms ----
@@ -60,9 +62,9 @@
       items.push({ o, type, base: new T.Vector3(x, y, z), ph: Math.random() * 7, hop: 0 });
     }
     [[-20, 10], [-40, 30], [-30, 37], [-48, 7], [0, 20], [8, 28],
-     [-50, -12], [12, -20], [55, -18], [49, -9], [14, -50], [35, -20]].forEach((p) => drop('snitch', ...p));
+     [-50, -12], [12, -20], [55, -18], [49, -9], [14, -50], [35, -20], [64, -12]].forEach((p) => drop('snitch', ...p));
     [[55, 10], [50, 34], [64, 24], [26, 20], [17, -9], [2, -4],
-     [-28, -20], [28, 12], [12, -40], [55, -40], [55, -4]].forEach((p) => drop('frog', ...p));
+     [-28, -20], [28, 12], [12, -40], [55, -40], [55, -4], [66, -3]].forEach((p) => drop('frog', ...p));
 
     // ---- NPC cameos with short greetings + tiny quests ----
     const npcs = [];

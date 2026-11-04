@@ -29,6 +29,7 @@ window.HPI = (function () {
     AST: { x0: 40, x1: 58, z0: -30, z1: -14 },   // Astronomy tower (east of NCOR)
     DEF: { x0: 40, x1: 58, z0: -44, z1: -32 },   // Defence / Spells classroom (NE, north of Astronomy)
     TRO: { x0: 40, x1: 58, z0: -14, z1: 2 },     // Trophy room (east of NCOR, north of Library)
+    CLK: { x0: 58, x1: 70, z0: -18, z1: 2 },     // Clock tower (east strip, reached north from the Library)
     OWL: { x0: 8,  x1: 58, z0: -58, z1: -44 },   // Owlery (open roost across the castle's north top)
     UP: 7,                                        // upper-floor height
     DN: -6,                                       // dungeon floor height (below ground)
