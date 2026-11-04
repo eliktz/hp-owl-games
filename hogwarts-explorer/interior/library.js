@@ -27,8 +27,8 @@
     const LIB = L.LIB;
     HPI.nav.room(LIB, { w: [17, 23] });
     kit.slab(scene, LIB, HPI.tex.wood(3, '#3a2616'), 0.02, true, 4);
-    kit.slab(scene, LIB, HPI.tex.stone(3), CEIL, false, 3);
-    const stone = HPI.tex.stone(3);
+    kit.slab(scene, LIB, HPI.tex.stone(3, 'warm'), CEIL, false, 3);
+    const stone = HPI.tex.stone(3, 'warm');
     kit.wall(scene, { axis: 'x', c: LIB.x1, lo: LIB.z0, hi: LIB.z1, y0: 0, y1: CEIL }, stone);
     kit.wall(scene, { axis: 'z', c: LIB.z0, lo: LIB.x0, hi: LIB.x1, y0: 0, y1: CEIL }, stone);
     kit.wall(scene, { axis: 'z', c: LIB.z1, lo: LIB.x0, hi: LIB.x1, y0: 0, y1: CEIL }, stone);

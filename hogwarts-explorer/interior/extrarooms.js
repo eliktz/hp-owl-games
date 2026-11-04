@@ -40,8 +40,8 @@
 
   // ---- Kitchens (dungeon level): a big hearth, long work tables, hanging pots ----
   HPI.buildKitchens = function (scene, light) {
-    const R = L.KIT, FY = L.DN, CEIL = L.DN + 8, stone = HPI.tex.stone(3);
-    kit.slab(scene, R, HPI.tex.stone(4), FY + 0.02, true, 3.5);
+    const R = L.KIT, FY = L.DN, CEIL = L.DN + 8, stone = HPI.tex.stone(3, 'warm');
+    kit.slab(scene, R, HPI.tex.stone(4, 'warm'), FY + 0.02, true, 3.5);
     kit.slab(scene, R, stone, CEIL, false, 3);
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: FY, y1: CEIL }, stone); // east (west=dungeon, south=Great Hall)
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: FY, y1: CEIL }, stone); // north
@@ -67,7 +67,7 @@
 
   // ---- Trophy room: glass cases of golden cups, shields and a championship cup ----
   HPI.buildTrophy = function (scene, light) {
-    const R = L.TRO, CEIL = 8, stone = HPI.tex.stone(3);
+    const R = L.TRO, CEIL = 8, stone = HPI.tex.stone(3, 'warm');
     kit.slab(scene, R, HPI.tex.wood(3, '#2e1d10'), 0.02, true, 4);
     kit.slab(scene, R, stone, CEIL, false, 3);
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone); // east (others owned by NCOR/LIB/AST)

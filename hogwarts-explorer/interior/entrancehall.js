@@ -60,6 +60,12 @@
       light.addTorch(EH.x1 - 0.5, 4.2, z, 0xffa848, 4);
       if (z % 14 === 8) { light.addShaft(EH.x0 + 4, 7, z, 10, 2.2, 0.5); light.addShaft(EH.x1 - 4, 7, z, 10, 2.2, -0.5); }
     }
+    // wayfinding signs over the three inner doorways + a couple of hanging lanterns
+    const F = HPI.furnish;
+    F.sign(scene, EH.x0 + 0.35, 5, 25, Math.PI / 2, 'האולם הגדול', '🍽️');  // west → Great Hall
+    F.sign(scene, EH.x1 - 0.35, 5, 20, -Math.PI / 2, 'מסדרון', '🖼️');       // east → portrait corridor
+    F.sign(scene, EH.x1 - 0.35, 5, 9, -Math.PI / 2, 'אגף החולים', '🛏️');    // east → hospital wing
+    F.lantern(scene, -4, 7.8, 12); F.lantern(scene, 4, 7.8, 24);
     light.addDust(0, 2, 18, 20, 9, 26, 150);
   };
 })(window.HPI);

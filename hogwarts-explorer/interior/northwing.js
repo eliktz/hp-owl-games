@@ -25,13 +25,21 @@
     F.armour(scene, R.x1 - 1, 0, 4, -Math.PI / 2);
     F.ghost(scene, [[R.x0 + 2, 10], [R.x0 + 2, -40], [R.x1 - 2, -40], [R.x1 - 2, 10]], 0);
     for (let z = 8; z > -44; z -= 8) { light.addTorch(R.x0 + 0.5, 4, z, 0xffc070, 4); }
+    // doorway signs to every classroom/tower + warm hanging lanterns down the long run
+    F.sign(scene, R.x0 + 0.3, 4, -22, Math.PI / 2, 'כיתת הלחשים', '🪶');     // west → Charms
+    F.sign(scene, R.x0 + 0.3, 4, -37, Math.PI / 2, 'שינוי צורה', '🐱');      // west → Transfiguration
+    F.sign(scene, R.x1 - 0.3, 4, -22, -Math.PI / 2, 'מגדל הכוכבים', '🔭');   // east → Astronomy
+    F.sign(scene, R.x1 - 0.3, 4, -38, -Math.PI / 2, 'כיתת ההגנה', '🪄');     // east → Defence
+    F.sign(scene, R.x1 - 0.3, 4, -6, -Math.PI / 2, 'חדר הגביעים', '🏆');     // east → Trophy
+    F.sign(scene, 35.5, 4, R.z0 + 0.4, 0, 'מגדל הינשופים', '🦉');           // north → Owlery
+    [10, -8, -26, -42].forEach((z) => F.lantern(scene, (R.x0 + R.x1) / 2, 4.3, z));
     light.addDust((R.x0 + R.x1) / 2, 2, (R.z0 + R.z1) / 2, 8, 5, R.z1 - R.z0, 120);
   };
 
   // ---- Astronomy tower: a tall star-domed observatory with a brass telescope ----
   HPI.buildAstronomy = function (scene, light) {
-    const R = L.AST, CEIL = 14, stone = HPI.tex.stone(3);
-    kit.slab(scene, R, HPI.tex.stone(4), 0.02, true, 3.5);
+    const R = L.AST, CEIL = 14, stone = HPI.tex.stone(3, 'tower');
+    kit.slab(scene, R, HPI.tex.stone(4, 'tower'), 0.02, true, 3.5);
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone);           // east
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL }, stone);           // north
     kit.wallNav(scene, { axis: 'z', c: R.z1, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL }, stone);           // south
@@ -57,7 +65,7 @@
 
   // ---- Owlery: an open roost across the castle's north top, full of hooting owls ----
   HPI.buildOwlery = function (scene, light) {
-    const R = L.OWL, CEIL = 9, stone = HPI.tex.stone(3);
+    const R = L.OWL, CEIL = 9, stone = HPI.tex.stone(3, 'tower');
     const straw = new T.MeshStandardMaterial({ map: HPI.tex.wood(4, '#8a6a2a').map, roughness: 1 });
     const floor = new T.Mesh(new T.PlaneGeometry(R.x1 - R.x0, R.z1 - R.z0), straw);
     floor.rotation.x = -Math.PI / 2; floor.position.set((R.x0 + R.x1) / 2, 0.03, (R.z0 + R.z1) / 2); scene.add(floor);

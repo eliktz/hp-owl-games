@@ -156,5 +156,44 @@
     return obj;
   }
 
-  HPI.furnish = { board, deskRows, desk, podium, ghost, armour, jokePortrait, levitate, mesh };
+  // ---- a hanging room sign: gold-rimmed violet plaque (house style) with an emoji +
+  //      a Hebrew room name, slung from a little bar on two chains. Pure wayfinding. ----
+  function sign(scene, x, y, z, rotY, text, icon) {
+    const g = new T.Group(); g.position.set(x, y, z); g.rotation.y = rotY || 0;
+    const plaque = new T.Mesh(new T.PlaneGeometry(3, 1),
+      new T.MeshStandardMaterial({ map: signTex(text, icon), transparent: true, roughness: 0.8, emissive: 0x241845, emissiveIntensity: 0.6, side: T.DoubleSide }));
+    plaque.position.z = 0.06; g.add(plaque);
+    const ironM = new T.MeshStandardMaterial({ color: 0x20201e, metalness: 0.6, roughness: 0.5 });
+    [-1, 1].forEach((s) => { const ch = new T.Mesh(new T.CylinderGeometry(0.03, 0.03, 0.7, 6), ironM); ch.position.set(s * 1.1, 0.72, 0); g.add(ch); });
+    const bar = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 2.7, 6), ironM); bar.rotation.z = Math.PI / 2; bar.position.set(0, 1.07, 0); g.add(bar);
+    scene.add(g); return g;
+  }
+  function signTex(text, icon) {
+    const c = document.createElement('canvas'); c.width = 330; c.height = 112; const g = c.getContext('2d');
+    g.clearRect(0, 0, 330, 112);
+    roundRect(g, 6, 6, 318, 100, 20); g.fillStyle = 'rgba(40,25,90,.93)'; g.fill(); g.strokeStyle = '#ffd76a'; g.lineWidth = 6; g.stroke();
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '46px serif'; g.fillText(icon || '', 58, 58);
+    g.fillStyle = '#ffe9b0'; g.font = 'bold 36px Rubik, sans-serif'; g.fillText(text, 192, 60);
+    return new T.CanvasTexture(c);
+  }
+
+  // ---- a hanging iron lantern: warm glowing pane + additive halo on a chain (cheap,
+  //      no pooled light). Adds a lived-in glow to long corridors + stair hall. ----
+  function lantern(scene, x, y, z, color = 0xffc070) {
+    const g = new T.Group(); g.position.set(x, y, z);
+    const ironM = new T.MeshStandardMaterial({ color: 0x1c1c1a, metalness: 0.6, roughness: 0.5 });
+    const chain = new T.Mesh(new T.CylinderGeometry(0.03, 0.03, 1.2, 6), ironM); chain.position.y = 0.8; g.add(chain);
+    const cage = new T.Mesh(new T.BoxGeometry(0.42, 0.6, 0.42), new T.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, transparent: true, opacity: 0.55, roughness: 0.4 }));
+    g.add(cage);
+    [0.35, -0.35].forEach((o) => { const cap = new T.Mesh(new T.ConeGeometry(0.3, 0.22, 4), ironM); cap.position.y = o; cap.rotation.y = Math.PI / 4; if (o < 0) cap.rotation.x = Math.PI; g.add(cap); });
+    const halo = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color, transparent: true, opacity: 0.6, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
+    halo.scale.setScalar(1.8); g.add(halo);
+    scene.add(g);
+    const ph = Math.random() * 7;
+    HPI.builders.push((t) => { halo.material.opacity = 0.45 + 0.18 * Math.sin(t * 6 + ph); g.rotation.z = Math.sin(t * 0.5 + ph) * 0.03; });
+    return g;
+  }
+
+  HPI.furnish = { board, deskRows, desk, podium, ghost, armour, jokePortrait, levitate, mesh, sign, lantern };
 })(window.HPI);

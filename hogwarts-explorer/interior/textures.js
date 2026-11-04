@@ -23,28 +23,38 @@
   }
 
   const cache = {};
+  // ashlar-stone palettes, so each part of the castle reads with its own mood:
+  // the violet main halls, the cold damp dungeon, warm brown library/kitchens, and
+  // the blue night-stone of the towers. Each keeps the same block layout, re-tinted.
+  const STONE = {
+    hall:    { fill: '#4a4668', hue: 258, sat: 16, lo: 26, mortar: '#2b2740', dark: '20,16,36', lite: '150,140,185' },
+    dungeon: { fill: '#39434c', hue: 196, sat: 12, lo: 17, mortar: '#192530', dark: '8,14,20',   lite: '120,150,160' },
+    warm:    { fill: '#574a3e', hue: 30,  sat: 20, lo: 24, mortar: '#2c2118', dark: '28,18,8',    lite: '200,170,120' },
+    tower:   { fill: '#3e3f63', hue: 232, sat: 22, lo: 23, mortar: '#1e1f38', dark: '10,12,30',   lite: '150,160,210' },
+  };
   const TX = {
-    // mortared ashlar stone blocks (walls / floors of the halls)
-    stone(rep = 3) {
-      if (cache.stone) return clone(cache.stone, rep);
-      const S = 256, mortar = '#2b2740';
+    // mortared ashlar stone blocks (walls / floors). `variant` picks a palette above.
+    stone(rep = 3, variant = 'hall') {
+      const P = STONE[variant] || STONE.hall, ck = 'stone_' + variant;
+      if (cache[ck]) return clone(cache[ck], rep);
+      const S = 256;
       const col = cvs(S, (g, s) => {
-        g.fillStyle = '#4a4668'; g.fillRect(0, 0, s, s);
+        g.fillStyle = P.fill; g.fillRect(0, 0, s, s);
         const rows = 4, bh = s / rows;
         for (let r = 0; r < rows; r++) {
           const off = (r % 2) * (s / 6);
           for (let x = -s / 6; x < s; x += s / 3) {
             const bx = x + off, by = r * bh;
-            g.fillStyle = `hsl(258,16%,${26 + Math.random() * 10}%)`;
+            g.fillStyle = `hsl(${P.hue},${P.sat}%,${P.lo + Math.random() * 10}%)`;
             g.fillRect(bx + 2, by + 2, s / 3 - 4, bh - 4);
           }
         }
-        blobs(g, s, 90, 'rgba(20,16,36,A)', 2, 18, '0.5');
-        blobs(g, s, 40, 'rgba(150,140,185,A)', 2, 10, '0.25');
+        blobs(g, s, 90, `rgba(${P.dark},A)`, 2, 18, '0.5');
+        blobs(g, s, 40, `rgba(${P.lite},A)`, 2, 10, '0.25');
       });
       const bump = cvs(S, (g, s) => {
         g.fillStyle = '#808080'; g.fillRect(0, 0, s, s);
-        g.strokeStyle = mortar; g.lineWidth = 5;
+        g.strokeStyle = P.mortar; g.lineWidth = 5;
         const rows = 4, bh = s / rows;
         for (let r = 0; r < rows; r++) {
           const off = (r % 2) * (s / 6); g.strokeRect(0, r * bh, s, 0.1);
@@ -52,8 +62,8 @@
         }
         blobs(g, s, 60, 'rgba(40,40,40,A)', 2, 12, '0.5');
       });
-      cache.stone = { col, bump };
-      return clone(cache.stone, rep);
+      cache[ck] = { col, bump };
+      return clone(cache[ck], rep);
     },
     // polished marble for the entrance-hall floor + grand staircase
     marble(rep = 2) {

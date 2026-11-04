@@ -80,6 +80,13 @@
       light.addTorch(x, 4.2, north ? COR.z1 - 0.4 : COR.z0 + 0.4, 0xffa848, 5);
       k++;
     }
+    // doorway signs + warm hanging lanterns so the corridor reads as a real place
+    const F = HPI.furnish;
+    F.sign(scene, COR.x1 - 0.3, 3.9, 20, -Math.PI / 2, 'הספרייה', '📚');     // east → Library
+    F.sign(scene, COR.x0 + 0.3, 3.9, 20, Math.PI / 2, 'אולם הכניסה', '🚪');  // west → Entrance Hall
+    F.sign(scene, 22, 3.9, COR.z0 + 0.3, 0, 'אגף החולים', '🛏️');            // north → Hospital
+    F.sign(scene, 36, 3.9, COR.z0 + 0.3, 0, 'הכיתות', '🪄');                 // north → classrooms wing
+    F.lantern(scene, 20, 4.3, 20); F.lantern(scene, 32, 4.3, 20);
     light.addDust((COR.x0 + COR.x1) / 2, 2, (COR.z0 + COR.z1) / 2, COR.x1 - COR.x0, 5, 7, 90);
 
     HPI.builders.push((t, dt) => {

@@ -82,12 +82,13 @@
     kit.slab(scene, SH, HPI.tex.stone(4), BOT + 0.02, true, 3.5);   // bottom landing (no bottomless void)
     kit.slab(scene, SH, stone, TOP - 0.1, false, 3);                // top ceiling (no open top)
 
-    // tall arched window of deep night on the back wall + a glowing moon
-    const night = new T.Mesh(new T.PlaneGeometry(SH.x1 - SH.x0 - 4, TOP - 6),
-      new T.MeshBasicMaterial({ map: HPI.tex.stained(230), transparent: true, opacity: 0.92, side: T.DoubleSide, fog: false }));
-    night.position.set(cx, (BOT + TOP) / 2 + 1, SH.z0 + 0.25); scene.add(night);
-    const moon = new T.Mesh(new T.CircleGeometry(1.8, 28), new T.MeshBasicMaterial({ color: 0xfff6d0, fog: false }));
-    moon.position.set(cx + 4, TOP - 6, SH.z0 + 0.35); scene.add(moon);
+    // a near-full-height arched window of deep night on the back wall (fills the shaft
+    // with moonlight so there is never a dark upper void) + a glowing moon
+    const night = new T.Mesh(new T.PlaneGeometry(SH.x1 - SH.x0 - 3, TOP - 3),
+      new T.MeshBasicMaterial({ map: HPI.tex.stained(230), transparent: true, opacity: 0.95, side: T.DoubleSide, fog: false }));
+    night.position.set(cx, (BOT + TOP) / 2 + 1.2, SH.z0 + 0.25); scene.add(night);
+    const moon = new T.Mesh(new T.CircleGeometry(1.9, 28), new T.MeshBasicMaterial({ color: 0xfff6d0, fog: false }));
+    moon.position.set(cx + 4, TOP - 4.5, SH.z0 + 0.35); scene.add(moon);
     const moonGlow = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xfff0c0, transparent: true, opacity: 0.5, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
     moonGlow.scale.setScalar(12); moonGlow.position.copy(moon.position); scene.add(moonGlow);
     light.addShaft(cx, TOP - 7, cz, 26, 4, 0);

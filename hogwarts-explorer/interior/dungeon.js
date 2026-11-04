@@ -56,8 +56,8 @@
     HPI.nav.seg('x', DUN.x1, DUN.z0, DUN.z1, [-20, -8]);   // east wall, doorway through to the kitchens
     HPI.nav.wallZ(DUN.z0, DUN.x0, DUN.x1);
 
-    const stone = HPI.tex.stone(3);
-    kit.slab(scene, DUN, HPI.tex.stone(4), FY + 0.02, true, 3.5);     // deep flagstone floor
+    const stone = HPI.tex.stone(3, 'dungeon');
+    kit.slab(scene, DUN, HPI.tex.stone(4, 'dungeon'), FY + 0.02, true, 3.5);     // deep flagstone floor
     kit.slab(scene, DUN, stone, CEIL, false, 3);                       // low vaulted ceiling
     kit.wall(scene, { axis: 'x', c: DUN.x0, lo: DUN.z0, hi: DUN.z1, y0: FY, y1: CEIL }, stone);
     kit.wall(scene, { axis: 'x', c: DUN.x1, lo: DUN.z0, hi: DUN.z1, y0: FY, y1: CEIL, gap: [-20, -8] }, stone);
@@ -68,7 +68,7 @@
 
     // the entry ramp (matches core.floorH): slopes from the doorway down into the cellar
     const rampLen = Math.hypot(L.DUN.z1 - L.dunFloorZ, -FY);
-    const ramp = new T.Mesh(new T.BoxGeometry(6, 0.3, rampLen), new T.MeshStandardMaterial({ map: HPI.tex.stone(3).map, roughness: 0.95 }));
+    const ramp = new T.Mesh(new T.BoxGeometry(6, 0.3, rampLen), new T.MeshStandardMaterial({ map: HPI.tex.stone(3, 'dungeon').map, roughness: 0.95 }));
     ramp.position.set(-47, FY / 2, (L.DUN.z1 + L.dunFloorZ) / 2);
     ramp.rotation.x = -Math.atan2(-FY, L.DUN.z1 - L.dunFloorZ); scene.add(ramp);
 
