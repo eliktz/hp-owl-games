@@ -85,9 +85,15 @@
     background:rgba(40,25,90,.92);border:4px solid #ffd76a;border-radius:24px;padding:14px 26px;color:#fff;font-size:34px;font-weight:bold;
     text-shadow:0 2px 0 #000;transition:transform .4s cubic-bezier(.3,1.7,.5,1)}
   #lsnAnn.on{transform:translate(-50%,-50%) scale(1)}
-  #lsnArrow{position:fixed;left:50%;top:50%;z-index:13;width:84px;height:84px;margin:-42px 0 0 -42px;pointer-events:none;display:none;
-    font-size:60px;filter:drop-shadow(0 0 10px #7CFC7C);color:#bfffbf;align-items:center;justify-content:center}
+  #lsnArrow{position:fixed;left:50%;top:50%;z-index:13;width:96px;height:96px;margin:-48px 0 0 -48px;pointer-events:none;display:none;
+    flex-direction:column;align-items:center;justify-content:center;color:#bfffbf}
   #lsnArrow.on{display:flex}
+  #lsnArrow .ic{font-size:26px;width:44px;height:44px;border-radius:50%;background:rgba(20,53,26,.92);border:3px solid #7CFC7C;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px #7CFC7C;position:relative;animation:lsnPulse 1.2s infinite}
+  #lsnArrow .ic .lk{position:absolute;bottom:-7px;inset-inline-end:-7px;font-size:15px;display:none}
+  #lsnArrow.shut .ic{border-color:#ffd76a;box-shadow:0 0 12px #ffd76a;background:rgba(53,40,20,.92)}
+  #lsnArrow.shut .ic .lk{display:block}
+  #lsnArrow .ar{font-size:54px;line-height:1;filter:drop-shadow(0 0 10px #7CFC7C);margin-top:-2px}
   #lsnStart{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:12;
     display:none;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
   #lsnStart.on{display:flex}
@@ -100,18 +106,27 @@
   #lsnClosed.on{display:flex}
   #lsnClosed .sign{background:rgba(44,30,70,.96);color:#fff;border:3px solid #b9a0ff;border-radius:18px;padding:10px 18px;font-size:22px;font-weight:bold;max-width:74vw}
   #lsnClosed .when{color:#9effa0;font-size:20px;margin-top:4px}
-  #lsnClosed .spk{font-size:26px;animation:lsnPulse 1.3s infinite}`;
+  #lsnClosed .spk{font-size:26px;animation:lsnPulse 1.3s infinite}
+  #lsnTip{position:fixed;left:50%;bottom:calc(240px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(12px);
+    z-index:14;max-width:86vw;background:rgba(40,25,90,.96);border:3px solid #ffd76a;border-radius:18px;padding:11px 18px;
+    color:#fff;font-size:19px;font-weight:bold;text-align:center;line-height:1.5;opacity:0;pointer-events:none;
+    box-shadow:0 6px 20px rgba(0,0,0,.5);transition:opacity .45s,transform .45s}
+  #lsnTip.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  #lsnTip b{color:#9effa0} #lsnTip .k{color:#ffe9a8}`;
   document.head.appendChild(style);
 
   // ---- DOM: bell, schedule, announcement, arrow, start prompt, closed sign ----
-  let bellBtn, schedOv, annEl, arrowEl, startEl, goBtn, greetEl, closedEl, closedSign, closedWhen;
+  let bellBtn, schedOv, annEl, arrowEl, arrowEm, arrowArr, startEl, goBtn, greetEl, closedEl, closedSign, closedWhen;
   function build() {
     bellBtn = mk('button', 'bellBtn'); bellBtn.innerHTML = '🔔<span class="bd">0</span>'; bellBtn.title = 'שיעורים';
     bellBtn.addEventListener('click', (e) => { e.stopPropagation(); openSchedule(); });
     schedOv = mk('div', 'schedOv'); document.body.appendChild(schedOv);
     schedOv.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === schedOv) closeSchedule(); });
     annEl = mk('div', 'lsnAnn'); document.body.appendChild(annEl);
-    arrowEl = mk('div', 'lsnArrow'); arrowEl.textContent = '➤'; document.body.appendChild(arrowEl);
+    arrowEl = mk('div', 'lsnArrow');
+    arrowEl.innerHTML = '<div class="ic"><span class="em">✨</span><span class="lk">🔒</span></div><div class="ar">➤</div>';
+    arrowEm = arrowEl.querySelector('.em'); arrowArr = arrowEl.querySelector('.ar');
+    document.body.appendChild(arrowEl);
     startEl = mk('div', 'lsnStart');
     greetEl = mk('div'); greetEl.className = 'greet'; startEl.appendChild(greetEl);
     goBtn = mk('button'); goBtn.className = 'go'; goBtn.textContent = '▶'; startEl.appendChild(goBtn);
@@ -124,8 +139,22 @@
     closedEl.appendChild(closedSign); closedEl.appendChild(closedWhen); closedEl.appendChild(spk);
     document.body.appendChild(closedEl);
     document.body.appendChild(bellBtn);
+    tipEl = mk('div', 'lsnTip');
+    tipEl.innerHTML = 'עֲקֹב אַחֲרֵי הַחֵץ הַיָּרֹק <b>➤</b> אֶל הַשִּׁעוּר<br>'
+      + 'וְהַקֵּשׁ עַל הַ<span class="k">🔔</span> לִרְאוֹת מָתַי כָּל שִׁעוּר';
+    document.body.appendChild(tipEl);
     refreshBell();
     if (SCH && SCH.onBell) SCH.onBell((key) => ringBell(key));
+  }
+  // a gentle one-time coach tip, the first time a child actually starts playing
+  let tipEl = null, tipDone = false;
+  function maybeTip() {
+    if (tipDone) return; tipDone = true;
+    try { if (localStorage.getItem('hpLsnTip1')) return; } catch (e) {}
+    if (!tipEl) return;
+    tipEl.classList.add('on');
+    try { localStorage.setItem('hpLsnTip1', '1'); } catch (e) {}
+    setTimeout(() => tipEl && tipEl.classList.remove('on'), 8000);
   }
   function mk(t, id) { const e = document.createElement(t); if (id) e.id = id; return e; }
   function refreshBell() { if (bellBtn) bellBtn.querySelector('.bd').textContent = HPL.progress.total(); }
@@ -241,6 +270,7 @@
     requestAnimationFrame(frame);
     const g = window.__game;
     if (!g || !g.started || g.modal) { hideStart(); hideClosed(); arrowEl.classList.remove('on'); return; }
+    if (!tipDone) maybeTip();   // first frame of real play → show the coach tip once
     const world = g.world, pp = g.player.position;
     const openKey = SCH ? SCH.state().openKey : null;
     // the arrow always leads to the open lesson (or, in a break, the next one)
@@ -297,7 +327,10 @@
     const rad = Math.min(window.innerWidth, window.innerHeight) * 0.3;
     arrowEl.style.left = (cx + Math.cos(ang) * rad) + 'px';
     arrowEl.style.top = (cy - Math.sin(ang) * rad) + 'px';
-    arrowEl.style.transform = 'rotate(' + (-ang) + 'rad)';
+    // the icon chip stays upright so kids can read "this way to [subject]"; only the ➤ turns.
+    if (arrowEm) arrowEm.textContent = l.icon;
+    if (arrowArr) arrowArr.style.transform = 'rotate(' + (-ang) + 'rad)';
+    arrowEl.classList.toggle('shut', !(SCH && SCH.isOpen && SCH.isOpen(l.key)));
     arrowEl.classList.add('on');
   }
 
