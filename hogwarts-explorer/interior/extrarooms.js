@@ -8,7 +8,7 @@
   // ---- Hospital wing: rows of neat beds, screens, a shelf of healing potions ----
   HPI.buildHospital = function (scene, light) {
     const R = L.HOS, CEIL = 8, stone = HPI.tex.stone(3);
-    kit.slab(scene, R, HPI.tex.marble(2), 0.02, true, 8);   // big calm marble slabs (less busy veining)
+    kit.slab(scene, R, HPI.tex.stone(4, 'hall'), 0.02, true, 4);   // clean pale flagstones (no scribbly marble veins)
     kit.slab(scene, R, stone, CEIL, false, 3);
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL }, stone); // south (other 3 owned by EH/COR/NCOR)
     const bedW = new T.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.85 });
