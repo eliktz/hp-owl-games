@@ -8,7 +8,7 @@
   // ---- Hospital wing: rows of neat beds, screens, a shelf of healing potions ----
   HPI.buildHospital = function (scene, light) {
     const R = L.HOS, CEIL = 8, stone = HPI.tex.stone(3);
-    kit.slab(scene, R, HPI.tex.marble(2), 0.02, true, 4);
+    kit.slab(scene, R, HPI.tex.marble(2), 0.02, true, 8);   // big calm marble slabs (less busy veining)
     kit.slab(scene, R, stone, CEIL, false, 3);
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL }, stone); // south (other 3 owned by EH/COR/NCOR)
     const bedW = new T.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.85 });
@@ -31,7 +31,14 @@
       const b = F.mesh(new T.CylinderGeometry(0.1, 0.13, 0.4, 8), new T.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.5, roughness: 0.5, transparent: true, opacity: 0.85 }), R.x0 + 2.5 + i * 1.3, 1.3, R.z1 - 1);
       scene.add(b);
     }
-    F.levitate(scene, F.mesh(new T.SphereGeometry(0.3, 12, 10), new T.MeshStandardMaterial({ color: 0xfff1b0, emissive: 0xffd76a, emissiveIntensity: 0.7, roughness: 0.5 }), 0, 0, 0), (R.x0 + R.x1) / 2, 4, (R.z0 + R.z1) / 2);
+    // a hanging healing-lamp over the ward: a chain from the ceiling to a glowing glass
+    //      globe (anchored, so it reads as a lamp and not a stray floating ball) ----
+    const lcx = (R.x0 + R.x1) / 2, lcz = (R.z0 + R.z1) / 2, orbY = 5;
+    scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, CEIL - orbY, 6), new T.MeshStandardMaterial({ color: 0x3a3a40, metalness: 0.5, roughness: 0.6 }), lcx, (CEIL + orbY) / 2, lcz)); // chain
+    const orb = F.mesh(new T.SphereGeometry(0.34, 14, 12), new T.MeshStandardMaterial({ color: 0xfff1b0, emissive: 0xffd76a, emissiveIntensity: 0.8, roughness: 0.4, transparent: true, opacity: 0.92 }), lcx, orbY, lcz); scene.add(orb);
+    const orbHalo = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xffe6a6, transparent: true, opacity: 0.5, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
+    orbHalo.scale.setScalar(2.6); orbHalo.position.set(lcx, orbY, lcz); scene.add(orbHalo);
+    HPI.builders.push((t) => { orbHalo.material.opacity = 0.42 + 0.16 * Math.sin(t * 2.2); });
     light.addTorch(R.x0 + 0.5, 4, R.z1 - 2, 0xfff0d0, 5);
     light.addTorch(R.x1 - 0.5, 4, R.z1 - 2, 0xfff0d0, 5);
     light.addShaft((R.x0 + R.x1) / 2, 6, R.z0 + 2, 9, 2.4, 0);

@@ -75,11 +75,27 @@
     kit.wallNav(scene, { axis: 'x', c: R.x0, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone);
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone);
     light.enchantedCeiling((R.x0 + R.x1) / 2, (R.z0 + R.z1) / 2, R.x1 - R.x0, R.z1 - R.z0, CEIL - 0.3);
-    // a big round moon window on the north wall
-    const moon = new T.Mesh(new T.CircleGeometry(2.4, 28), new T.MeshBasicMaterial({ color: 0xfff6d0, fog: false }));
-    moon.position.set((R.x0 + R.x1) / 2, 6, R.z0 + 0.25); scene.add(moon);
-    const moonGlow = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xfff0c0, transparent: true, opacity: 0.5, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
-    moonGlow.scale.setScalar(10); moonGlow.position.set((R.x0 + R.x1) / 2, 6, R.z0 + 1); scene.add(moonGlow);
+    // a big round night-window on the north wall: a dark starry sky pane with a softly
+    //      shaded moon (not a flat blown-out disc), set behind a stone ring frame
+    const mx = (R.x0 + R.x1) / 2, my = 6;
+    const skyPane = new T.Mesh(new T.CircleGeometry(2.4, 32), new T.MeshBasicMaterial({ color: 0x0b0d2e, fog: false }));
+    skyPane.position.set(mx, my, R.z0 + 0.22); scene.add(skyPane);
+    const moon = new T.Mesh(new T.CircleGeometry(0.95, 24), new T.MeshBasicMaterial({ color: 0xfff6d0, fog: false }));
+    moon.position.set(mx + 0.7, my + 0.55, R.z0 + 0.25); scene.add(moon);
+    [[-0.3, 0.2, 0.18], [0.25, -0.25, 0.14], [0.1, 0.35, 0.1]].forEach(([dx, dy, r]) => { // soft craters so it reads as a moon
+      const cr = new T.Mesh(new T.CircleGeometry(r, 12), new T.MeshBasicMaterial({ color: 0xe6dcae, fog: false }));
+      cr.position.set(mx + 0.7 + dx, my + 0.55 + dy, R.z0 + 0.26); scene.add(cr);
+    });
+    // a scatter of tiny stars across the pane
+    for (let k = 0; k < 14; k++) {
+      const a = k * 2.399, rr = 0.4 + (k % 7) * 0.28, st = new T.Mesh(new T.CircleGeometry(0.04 + (k % 3) * 0.015, 6), new T.MeshBasicMaterial({ color: 0xdfe6ff, fog: false }));
+      st.position.set(mx + Math.cos(a) * rr * 0.8 - 0.8, my + Math.sin(a) * rr - 0.3, R.z0 + 0.24); scene.add(st);
+    }
+    // a chunky stone ring frame around the window
+    const ring = new T.Mesh(new T.TorusGeometry(2.5, 0.26, 10, 32), new T.MeshStandardMaterial({ color: 0x3a3658, roughness: 0.95 }));
+    ring.position.set(mx, my, R.z0 + 0.28); scene.add(ring);
+    const moonGlow = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xfff0c0, transparent: true, opacity: 0.32, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
+    moonGlow.scale.setScalar(5); moonGlow.position.set(mx + 0.7, my + 0.55, R.z0 + 1); scene.add(moonGlow);
     // perch beams with roosting owls that bob + hoot
     const beamM = new T.MeshStandardMaterial({ color: 0x4a3420, roughness: 0.9 });
     const owls = [];
