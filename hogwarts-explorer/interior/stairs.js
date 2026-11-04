@@ -78,6 +78,7 @@
     kit.wall(scene, { axis: 'z', c: SH.z0, lo: SH.x0, hi: SH.x1, y0: BOT, y1: TOP }, stone);   // north (back)
     kit.wall(scene, { axis: 'z', c: SH.z1, lo: SH.x0, hi: -L.rampX, y0: BOT, y1: TOP }, stone); // south returns flanking the arch
     kit.wall(scene, { axis: 'z', c: SH.z1, lo: L.rampX, hi: SH.x1, y0: BOT, y1: TOP }, stone);
+    kit.wall(scene, { axis: 'z', c: SH.z1, lo: -L.rampX, hi: L.rampX, y0: L.UP + 6, y1: TOP }, stone); // cap above the gallery arch
     kit.slab(scene, SH, HPI.tex.stone(4), BOT + 0.02, true, 3.5);   // bottom landing (no bottomless void)
     kit.slab(scene, SH, stone, TOP - 0.1, false, 3);                // top ceiling (no open top)
 
