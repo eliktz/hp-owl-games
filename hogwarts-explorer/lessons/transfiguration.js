@@ -88,6 +88,10 @@
       host.after(800, () => host.win(stars));
     }
 
+    // test hook: the current round's correct target emoji, so the walk-bot can tap the
+    // right morph button for real (exercising the morph animation + scoring path).
+    HPL._transTarget = () => (i < N && order[i] ? order[i][1] : null);
+
     ask();
   };
 })();

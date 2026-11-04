@@ -129,6 +129,10 @@
       host.after(800, () => host.win(stars));
     }
 
+    // test hook: expose the live canvas + current spell's waypoints so the walk-bot can
+    // trace a real cast (dispatch pointer events through the dots) instead of shortcutting.
+    HPL._spellProbe = () => ({ canvas, pts: cur ? cur.pts : [] });
+
     canvas.addEventListener('pointerdown', begin);
     canvas.addEventListener('pointermove', move);
     canvas.addEventListener('pointerup', end);
