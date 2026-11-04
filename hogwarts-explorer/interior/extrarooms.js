@@ -38,41 +38,92 @@
     light.addDust((R.x0 + R.x1) / 2, 2, (R.z0 + R.z1) / 2, R.x1 - R.x0, 6, R.z1 - R.z0, 70);
   };
 
-  // ---- Kitchens (dungeon level): a big hearth, long work tables, hanging pots ----
+  // ---- Kitchens (dungeon level): you spawn in a clear central aisle (x≈-23) looking
+  //      north at a grand cooking hearth; two long work tables run lengthwise to either
+  //      side so nothing blocks the view. A chimney breast climbs the whole north wall
+  //      (no floating hood), copper pots + pans hang overhead, a plate dresser lines the
+  //      east wall, and warm fire/torch light fills the room. ----
   HPI.buildKitchens = function (scene, light) {
-    const R = L.KIT, FY = L.DN, CEIL = L.DN + 8, stone = HPI.tex.stone(3, 'warm'), cx = (R.x0 + R.x1) / 2;
-    kit.slab(scene, R, HPI.tex.stone(4, 'warm'), FY + 0.02, true, 3.5);
+    const R = L.KIT, FY = L.DN, CEIL = L.DN + 8, cx = (R.x0 + R.x1) / 2;
+    const stone = HPI.tex.stone(3, 'warm'), warm = HPI.tex.stone(4, 'warm');
+    kit.slab(scene, R, warm, FY + 0.02, true, 3.5);
     kit.slab(scene, R, stone, CEIL, false, 3);
-    kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: FY, y1: CEIL }, stone); // east (west=dungeon, south=Great Hall)
-    kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: FY, y1: CEIL }, stone); // north
-    // a woven runner down the central aisle + two high windows flanking the hearth
-    F.rug(scene, cx, -13, 5, 18, FY, '#5a3418', '#c9a94a');
-    F.window3(scene, light, cx - 7, FY + 4.2, R.z0 + 0.3, 'z', 1, 'day', 2, 2.6);
-    F.window3(scene, light, cx + 7, FY + 4.2, R.z0 + 0.3, 'z', 1, 'day', 2, 2.6);
+    kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: FY, y1: CEIL }, stone); // east (west=dungeon doorway)
+    kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: FY, y1: CEIL }, stone); // north (hearth)
+    // the Great-Hall owns the south wall from y0 up, but only above ground level — patch
+    // the dungeon-level undercroft here so you never see a black void under the hall.
+    kit.wall(scene, { axis: 'z', c: R.z1, lo: R.x0, hi: R.x1, y0: FY, y1: 0.3 }, stone);
     const woodM = new T.MeshStandardMaterial({ map: HPI.tex.wood(2, '#3a2412').map, roughness: 0.85 });
-    // a dresser of golden plates stood on edge against the east wall
+    const darkW = new T.MeshStandardMaterial({ map: HPI.tex.wood(1, '#2e1d10').map, roughness: 0.9 });
     const plateM = new T.MeshStandardMaterial({ color: 0xd9b24a, metalness: 0.6, roughness: 0.35 });
-    for (let s = 0; s < 3; s++) {
-      const shelf = F.mesh(new T.BoxGeometry(0.5, 0.12, 6), woodM, R.x1 - 0.5, FY + 2 + s * 1.3, -14); scene.add(shelf);
-      for (let p = 0; p < 6; p++) { const plate = F.mesh(new T.CylinderGeometry(0.42, 0.42, 0.08, 16), plateM, R.x1 - 0.55, FY + 2.5 + s * 1.3, -17 + p * 1.1); plate.rotation.z = Math.PI / 2; scene.add(plate); }
-    }
-    // two long scrubbed work tables piled with golden plates
-    [-18, -10].forEach((z) => {
-      const top = F.mesh(new T.BoxGeometry(14, 0.2, 1.6), woodM, (R.x0 + R.x1) / 2, FY + 1, z); scene.add(top);
-      const legs = F.mesh(new T.BoxGeometry(13, 0.9, 0.3), woodM, (R.x0 + R.x1) / 2, FY + 0.5, z); scene.add(legs);
-      for (let p = R.x0 + 3; p < R.x1 - 2; p += 3) scene.add(F.mesh(new T.CylinderGeometry(0.28, 0.24, 0.05, 12), new T.MeshStandardMaterial({ color: 0xd9b24a, metalness: 0.6, roughness: 0.35 }), p, FY + 1.13, z));
-    });
-    // a great cooking hearth on the north wall
-    light.addFire((R.x0 + R.x1) / 2, FY + 0.3, R.z0 + 0.8, 1.4);
-    const hood = F.mesh(new T.BoxGeometry(5, 1, 2), new T.MeshStandardMaterial({ color: 0x3a2e24, roughness: 0.95 }), (R.x0 + R.x1) / 2, FY + 4.5, R.z0 + 1); scene.add(hood);
-    // hanging copper pots over the tables
     const copper = new T.MeshStandardMaterial({ color: 0xc87a3a, metalness: 0.6, roughness: 0.4 });
-    for (let i = 0; i < 6; i++) { const pot = F.mesh(new T.CylinderGeometry(0.3, 0.26, 0.4, 12), copper, R.x0 + 4 + i * 3, FY + 5, -14); scene.add(pot); }
-    // stacked barrels in a corner
-    [[R.x1 - 2, -24], [R.x1 - 3.4, -24], [R.x1 - 2.7, -23]].forEach(([x, z], i) => scene.add(F.mesh(new T.CylinderGeometry(0.6, 0.6, 1.4, 12), woodM, x, FY + 0.7 + (i === 2 ? 1.4 : 0), z)));
-    light.addTorch(R.x1 - 0.5, FY + 3.5, -10, 0xffb060, 5);
-    light.addTorch(R.x1 - 0.5, FY + 3.5, -20, 0xffb060, 5);
-    light.addDust((R.x0 + R.x1) / 2, FY + 1.5, (R.z0 + R.z1) / 2, R.x1 - R.x0, 7, R.z1 - R.z0, 90);
+    const ironM = new T.MeshStandardMaterial({ color: 0x1b1b20, roughness: 0.7, metalness: 0.5 });
+
+    // a woven runner down the open central aisle toward the hearth
+    F.rug(scene, cx, -12, 4.5, 20, FY, '#5a3418', '#c9a94a');
+    // daylight windows high on either side of the chimney breast
+    F.window3(scene, light, R.x0 + 4, FY + 4.4, R.z0 + 0.3, 'z', 1, 'auto', 1.8, 2.4);
+    F.window3(scene, light, R.x1 - 4, FY + 4.4, R.z0 + 0.3, 'z', 1, 'auto', 1.8, 2.4);
+
+    // ---- the hearth: a stone chimney breast up the full north wall (grounds the hood) ----
+    const breast = F.mesh(new T.BoxGeometry(6, CEIL - FY, 1.1), new T.MeshStandardMaterial({ map: HPI.tex.stone(3, 'warm').map, bumpMap: HPI.tex.stone(3, 'warm').bump, bumpScale: 0.25, roughness: 0.95 }), cx, (FY + CEIL) / 2, R.z0 + 0.55); scene.add(breast);
+    const dark = new T.MeshStandardMaterial({ color: 0x120c07, roughness: 1 });
+    scene.add(F.mesh(new T.BoxGeometry(3.6, 2.8, 0.4), dark, cx, FY + 1.4, R.z0 + 1.15));       // dark firebox recess
+    const jamb = new T.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 0.95 });
+    [-1, 1].forEach((s) => scene.add(F.mesh(new T.BoxGeometry(0.7, 3, 0.9), jamb, cx + s * 2.2, FY + 1.5, R.z0 + 1.1)));
+    scene.add(F.mesh(new T.BoxGeometry(5.6, 0.55, 1.2), woodM, cx, FY + 3.1, R.z0 + 1.15));      // mantel beam
+    scene.add(F.mesh(new T.BoxGeometry(5, 1.6, 1), jamb, cx, FY + 4.1, R.z0 + 1));                // stone hood, sat on the mantel
+    // a glowing ember bed so the firebox is never a dark hole, then fire + logs + cauldron
+    const embers = F.mesh(new T.BoxGeometry(3, 0.25, 0.7), new T.MeshBasicMaterial({ color: 0xff7a24, transparent: true, opacity: 0.9, fog: false }), cx, FY + 0.18, R.z0 + 1.1); scene.add(embers);
+    light.addFire(cx, FY + 0.35, R.z0 + 1.0, 1.6);
+    [-0.4, 0.4].forEach((o) => { const log = F.mesh(new T.CylinderGeometry(0.16, 0.16, 1.8, 8), darkW, cx, FY + 0.25, R.z0 + 1.1); log.rotation.z = Math.PI / 2; log.position.x = cx + o; scene.add(log); });
+    const crane = F.mesh(new T.BoxGeometry(0.12, 0.12, 1.6), ironM, cx - 1.4, FY + 2.4, R.z0 + 1.1); crane.rotation.y = Math.PI / 2; scene.add(crane);
+    const pot = new T.Group(); pot.position.set(cx, FY + 1.5, R.z0 + 1.1);
+    pot.add(F.mesh(new T.SphereGeometry(0.5, 14, 10, 0, 6.3, 0, 2.1), ironM, 0, 0.1, 0));
+    pot.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.9, 6), ironM, 0, 0.55, 0)); scene.add(pot);
+    const brew = F.mesh(new T.CircleGeometry(0.42, 16), new T.MeshBasicMaterial({ color: 0xffb259, transparent: true, opacity: 0.85, fog: false }), cx, FY + 1.56, R.z0 + 1.1); brew.rotation.x = -Math.PI / 2; scene.add(brew);
+    // two brass candlesticks on the mantel
+    [-1.7, 1.7].forEach((o) => { scene.add(F.mesh(new T.CylinderGeometry(0.06, 0.1, 0.5, 8), copper, cx + o, FY + 3.6, R.z0 + 1.1)); scene.add(F.mesh(new T.SphereGeometry(0.08, 8, 6), new T.MeshBasicMaterial({ color: 0xffe3a0, fog: false }), cx + o, FY + 3.95, R.z0 + 1.1)); });
+
+    // ---- a plate dresser against the east wall (plates stood on edge) ----
+    for (let s = 0; s < 3; s++) {
+      scene.add(F.mesh(new T.BoxGeometry(0.5, 0.12, 6), darkW, R.x1 - 0.5, FY + 2 + s * 1.3, -14));
+      for (let p = 0; p < 6; p++) { const pl = F.mesh(new T.CylinderGeometry(0.42, 0.42, 0.08, 16), plateM, R.x1 - 0.55, FY + 2.5 + s * 1.3, -17 + p * 1.1); pl.rotation.z = Math.PI / 2; scene.add(pl); }
+    }
+
+    // ---- two long work tables running lengthwise, flanking the open aisle ----
+    [R.x0 + 2.6, R.x1 - 2.6].forEach((tx) => {
+      scene.add(F.mesh(new T.BoxGeometry(1.5, 0.2, 13), woodM, tx, FY + 1, -13));
+      scene.add(F.mesh(new T.BoxGeometry(0.3, 0.9, 12), woodM, tx, FY + 0.5, -13));
+      for (let z = -18; z <= -8; z += 2.5) scene.add(F.mesh(new T.CylinderGeometry(0.26, 0.22, 0.05, 12), plateM, tx, FY + 1.13, z));
+    });
+    // a plump loaf + a wheel of cheese on the left table for life
+    const loaf = F.mesh(new T.SphereGeometry(0.3, 10, 8), new T.MeshStandardMaterial({ color: 0xc08a46, roughness: 0.9 }), R.x0 + 2.6, FY + 1.3, -11); loaf.scale.set(1.5, 0.8, 1); scene.add(loaf);
+    scene.add(F.mesh(new T.CylinderGeometry(0.34, 0.34, 0.22, 16), new T.MeshStandardMaterial({ color: 0xe8c860, roughness: 0.7 }), R.x0 + 2.6, FY + 1.25, -15));
+
+    // ---- a hanging pot rack over the aisle: a tidy row of copper pots, with flat-bottomed
+    //      pans hung edge-on by the handle to the sides (so they read as pans, not dark discs) ----
+    const rail = F.mesh(new T.CylinderGeometry(0.06, 0.06, 11, 8), ironM, cx, FY + 5.3, -13); rail.rotation.x = Math.PI / 2; scene.add(rail);
+    for (let i = 0; i < 5; i++) {
+      const z = -18 + i * 2.5;
+      scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.5, 6), ironM, cx, FY + 5.0, z));
+      scene.add(F.mesh(new T.CylinderGeometry(0.3, 0.26, 0.42, 12), copper, cx, FY + 4.5, z)); // pot (rounded, reads well)
+    }
+    [-1, 1].forEach((s) => [-16, -11].forEach((z) => {
+      const px = cx + s * 1.8;
+      scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.6, 6), ironM, px, FY + 4.95, z));
+      const pan = F.mesh(new T.CylinderGeometry(0.32, 0.32, 0.07, 14), copper, px, FY + 4.5, z); pan.rotation.z = Math.PI / 2; scene.add(pan); // face along x → edge-on from the aisle
+      const handle = F.mesh(new T.BoxGeometry(0.06, 0.5, 0.06), ironM, px, FY + 4.78, z); scene.add(handle);
+    }));
+
+    // ---- stacked barrels in the SE corner ----
+    [[R.x1 - 2, -24, 0], [R.x1 - 3.4, -24, 0], [R.x1 - 2.7, -23, 1.4]].forEach(([x, z, up]) => scene.add(F.mesh(new T.CylinderGeometry(0.6, 0.6, 1.4, 12), darkW, x, FY + 0.7 + up, z)));
+
+    light.addTorch(R.x1 - 0.5, FY + 3.5, -8, 0xffb060, 5);
+    light.addTorch(R.x0 + 0.5, FY + 3.5, -8, 0xffb060, 5);
+    light.addTorch(R.x1 - 0.5, FY + 3.5, -22, 0xffb060, 5);
+    F.lantern(scene, cx, FY + 6.2, -20, 0xffc070);
+    light.addDust(cx, FY + 1.5, (R.z0 + R.z1) / 2, R.x1 - R.x0, 7, R.z1 - R.z0, 90);
   };
 
   // ---- Trophy room: glass cases of golden cups, shields and a championship cup ----

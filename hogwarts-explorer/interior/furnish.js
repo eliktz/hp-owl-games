@@ -201,6 +201,8 @@
   function window3(scene, light, x, y, z, axis, dir, mode, w = 2.2, h = 4, color) {
     const g = new T.Group(); g.position.set(x, y, z);
     if (axis === 'x') g.rotation.y = Math.PI / 2;            // face along x
+    // 'auto' tracks the school clock so a window never shows night in a daytime castle
+    if (mode === 'auto' || mode == null) mode = (HPI.skyMode ? HPI.skyMode() : 'day');
     const pane = new T.Mesh(new T.PlaneGeometry(w, h),
       new T.MeshBasicMaterial({ map: HPI.tex.sky(mode), side: T.DoubleSide, fog: false }));
     pane.position.z = 0.02 * dir; g.add(pane);

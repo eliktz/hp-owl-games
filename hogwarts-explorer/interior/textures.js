@@ -148,9 +148,17 @@
       const c = cvs(128, (g, s) => {
         const grd = g.createLinearGradient(0, 0, 0, s);
         if (mode === 'night') { grd.addColorStop(0, '#0a0b28'); grd.addColorStop(1, '#241a52'); }
+        else if (mode === 'dusk') { grd.addColorStop(0, '#3f4f8f'); grd.addColorStop(0.5, '#e38a52'); grd.addColorStop(1, '#ffd79a'); }
         else { grd.addColorStop(0, '#6fb7ef'); grd.addColorStop(0.6, '#bfe3ff'); grd.addColorStop(1, '#eaf6ff'); }
         g.fillStyle = grd; g.fillRect(0, 0, s, s);
-        if (mode === 'night') {
+        if (mode === 'dusk') {
+          g.fillStyle = 'rgba(255,238,190,0.95)'; g.beginPath(); g.arc(s * 0.3, s * 0.62, 15, 0, 7); g.fill(); // low sun
+          g.fillStyle = 'rgba(255,255,255,0.55)';
+          [[0.6, 0.3, 15], [0.78, 0.5, 12]].forEach(([x, y, r]) => {
+            for (const [dx, dy, rr] of [[0, 0, 1], [0.6, 0.1, 0.8], [-0.6, 0.1, 0.8]])
+              { g.beginPath(); g.arc((x + dx * r / s) * s, (y + dy * r / s) * s, r * rr, 0, 7); g.fill(); }
+          });
+        } else if (mode === 'night') {
           for (let i = 0; i < 70; i++) { g.globalAlpha = 0.3 + Math.random() * 0.7; g.fillStyle = '#eef'; const r = Math.random() * 1.4 + 0.3; g.beginPath(); g.arc(Math.random() * s, Math.random() * s, r, 0, 7); g.fill(); }
           g.globalAlpha = 1; g.fillStyle = '#fff6d0'; g.beginPath(); g.arc(s * 0.72, s * 0.26, 13, 0, 7); g.fill();
           g.fillStyle = '#241a52'; g.beginPath(); g.arc(s * 0.78, s * 0.22, 11, 0, 7); g.fill(); // crescent bite
@@ -204,6 +212,18 @@
     const c = new T.Color(hex); c.multiplyScalar(f); return '#' + c.getHexString();
   }
   HPI.tex = TX;
+  // Single source of truth for what the sky looks like through a window right now,
+  // read off the school clock so every habitable room agrees (no stray night panes in
+  // a daytime castle). Classes run 09:00–14:00, so it's daylight while school is in
+  // session; the enchanted Great-Hall ceiling / Astronomy dome keep their own night.
+  HPI.skyMode = function () {
+    try {
+      const st = window.HPSchedule && HPSchedule.state ? HPSchedule.state() : null;
+      if (!st) return 'day';
+      // last period of the day (14:00) tips into a warm late-afternoon light
+      return st.period >= 5 ? 'dusk' : 'day';
+    } catch (e) { return 'day'; }
+  };
   // house palette reused by banners, flames, carpets everywhere inside
   HPI.HOUSES = [
     { key: 'gryf', field: 0x7a1420, trim: 0xd9b24a, crest: '🦁' },

@@ -34,9 +34,9 @@
     F.deskRows(scene, cx + 2, R.z0 + 3, 0, 2, 3, -Math.PI / 2);
     F.podium(scene, R.x0 + 2.4, 0, cz, Math.PI / 2);
     teacher(scene, 'flitwick', R.x0 + 3.4, cz, Math.PI / 2, 'charms');
-    // tall day windows on the outer north wall (light spills over the desks)
-    F.window3(scene, light, R.x0 + 7, 3.7, R.z0 + 0.3, 'z', 1, 'day', 2.2, 4);
-    F.window3(scene, light, R.x1 - 5, 3.7, R.z0 + 0.3, 'z', 1, 'day', 2.2, 4);
+    // tall windows on the outer north wall (light spills over the desks), clock-driven
+    F.window3(scene, light, R.x0 + 7, 3.7, R.z0 + 0.3, 'z', 1, 'auto', 2.2, 4);
+    F.window3(scene, light, R.x1 - 5, 3.7, R.z0 + 0.3, 'z', 1, 'auto', 2.2, 4);
     // Ravenclaw banner (Flitwick's house) beside the board + a charms bookcase
     kit.banner(scene, HPI.tex.banner(0x1b3a6b, '🦅'), R.x0 + 0.45, 4.3, cz + 3.4, 2, 4, 0);
     F.bookshelf(scene, R.x1 - 4.5, 0, R.z1 - 0.4, Math.PI, 4, 3);
@@ -52,7 +52,7 @@
     light.addDust(cx, 2, cz, R.x1 - R.x0, 6, R.z1 - R.z0, 70);
   };
 
-  // ---- Transfiguration: a sage-stone studio — night windows, a crimson rug, a shelf of
+  // ---- Transfiguration: a sage-stone studio — daylight windows, a crimson rug, a shelf of
   //      texts, a morph menagerie on pedestals, McGonagall + her tabby, Gryffindor banner --
   HPI.buildTransfiguration = function (scene, light) {
     const R = L.TRA, stone = HPI.tex.stone(3, 'sage'), cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
@@ -65,9 +65,10 @@
     F.deskRows(scene, cx + 2, R.z0 + 4, 0, 1, 3, -Math.PI / 2);
     F.podium(scene, R.x0 + 2.4, 0, cz, Math.PI / 2);
     teacher(scene, 'mcgon', R.x0 + 3.4, cz, Math.PI / 2, 'transfiguration');
-    // moonlit windows on the south wall + a Gryffindor banner + a shelf of texts
-    F.window3(scene, light, R.x0 + 7, 3.6, R.z1 - 0.3, 'z', -1, 'night', 2.2, 3.8);
-    F.window3(scene, light, R.x1 - 6, 3.6, R.z1 - 0.3, 'z', -1, 'night', 2.2, 3.8);
+    // daylight windows on the south wall + a Gryffindor banner + a shelf of texts
+    // (clock-driven: a school-hours studio, not a midnight one)
+    F.window3(scene, light, R.x0 + 7, 3.6, R.z1 - 0.3, 'z', -1, 'auto', 2.2, 3.8);
+    F.window3(scene, light, R.x1 - 6, 3.6, R.z1 - 0.3, 'z', -1, 'auto', 2.2, 3.8);
     kit.banner(scene, HPI.tex.banner(0x7a1420, '🦁'), R.x0 + 0.45, 4.2, cz + 3.4, 2, 4, 0);
     F.bookshelf(scene, R.x0 + 8, 0, R.z0 + 0.4, 0, 4, 3);
     // a sleek tabby cat curled on the podium (McGonagall's Animagus form)

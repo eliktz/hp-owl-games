@@ -40,7 +40,7 @@
       gallery: { x: 0, z: -4, y: L.UP },
       commonRoom: { x: 17, z: -6, y: L.UP },
       dungeon: { x: -45, z: -12, y: L.DN },
-      kitchens: { x: -20, z: -14, y: L.DN },
+      kitchens: { x: -23, z: -11, y: L.DN },
       hospital: { x: 22, z: 10, y: 0 },
       ncorridor: { x: 35, z: 0, y: 0 },
       charms: { x: 20, z: -22, y: 0 },
