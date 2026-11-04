@@ -117,9 +117,28 @@
       });
       host.after(1100, () => { fx.style.opacity = '0'; });
       host.good(fx0x, fx0y);
+      // a quick gold pulse on the spell name — "you cast it!"
+      try { nameEl.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 480, easing: 'cubic-bezier(.2,1.5,.4,1)' }); } catch (e) {}
+      if (cur.dummy) reactDummy();                 // the friendly target gets happily zapped
       si++; host.setProgress(si, 3);
       if (si >= 3) host.after(900, finish);
       else host.after(1100, () => start(si));
+    }
+
+    // Expelliarmus landed: the smiley dummy spins back dizzy (😵) then pops a happy ⭐,
+    // its little wand flying off — a gentle, friendly "disarm" with no one hurt.
+    function reactDummy() {
+      const t0 = performance.now();
+      (function spin(now) {
+        const k = Math.min(1, (now - t0) / 900);
+        ctx.clearRect(0, 0, 360, 260);
+        ctx.save(); ctx.translate(300, 110); ctx.rotate(Math.sin(k * 12) * (1 - k) * 0.6);
+        ctx.font = '70px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(k < 0.7 ? '😵' : '⭐', 0, 0); ctx.restore();
+        // the disarmed wand tumbles up and away
+        ctx.font = '26px serif'; ctx.fillText('🪄', 300 + k * 60, 150 - k * 70);
+        if (k < 1) requestAnimationFrame(spin);
+      })(t0);
     }
 
     function finish() {
