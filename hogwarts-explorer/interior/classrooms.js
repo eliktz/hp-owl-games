@@ -101,6 +101,10 @@
     F.board(scene, R.x1 - 0.3, 3.2, (R.z0 + R.z1) / 2, -Math.PI / 2, 'לוּמוֹס');
     F.podium(scene, R.x1 - 2.4, 0, (R.z0 + R.z1) / 2, -Math.PI / 2);
     teacher(scene, 'defence', R.x1 - 3.4, (R.z0 + R.z1) / 2, -Math.PI / 2, 'spells');
+    // daylight windows on the free south wall — this room had none, so it read gloomy;
+    // 'auto' tracks the clock like the other classrooms and the shafts lift the whole room
+    F.window3(scene, light, R.x0 + 7, 3.6, R.z1 - 0.3, 'z', -1, 'auto', 2.2, 3.8);
+    F.window3(scene, light, R.x1 - 6, 3.6, R.z1 - 0.3, 'z', -1, 'auto', 2.2, 3.8);
     // two straw practice dummies that bob when hexed
     const burlap = new T.MeshStandardMaterial({ color: 0xc9a86a, roughness: 0.95 });
     [[R.x0 + 4, R.z0 + 3], [R.x0 + 4, R.z1 - 3]].forEach(([x, z], i) => {
