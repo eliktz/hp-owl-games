@@ -7,7 +7,7 @@
 
   HPL.games.spells = function (host) {
     const el = HPL.el, L = host.level;
-    let si = 0, retries = 0;
+    let si = 0, retries = 0, spellTimer = null;
 
     // canvas
     const canvas = el('canvas', { style: 'width:86%;max-width:380px;background:radial-gradient(ellipse at center,#1a1640,#07061e);border:4px solid #ffd76a;border-radius:20px;touch-action:none;cursor:crosshair' });
@@ -17,10 +17,26 @@
     host.stage.appendChild(nameEl); host.stage.appendChild(canvas); host.stage.appendChild(fx);
     const ctx = canvas.getContext('2d');
 
-    // extra waypoints + tighter hit radius on higher levels
-    const extra = L - 1, HIT = 38 - (L - 1) * 4;
+    // tighter hit radius + longer, denser paths + a tighter time limit on higher levels
+    const HIT = Math.max(20, 38 - (L - 1) * 3);
+    const NSP = L >= 4 ? 4 : 3;                 // a fourth spell once you're skilled
 
-    // three spells: name, dotted path waypoints, effect emoji + float direction
+    // resample a polyline to `n` evenly-spaced waypoints → longer patterns to trace
+    function densify(pts, n) {
+      if (n <= pts.length) return pts.slice(0, Math.max(2, n));
+      const seg = [], out = []; let total = 0;
+      for (let k = 1; k < pts.length; k++) { const d = Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); seg.push(d); total += d; }
+      for (let j = 0; j < n; j++) {
+        let t = total * j / (n - 1), k = 0;
+        while (k < seg.length && t > seg[k]) { t -= seg[k]; k++; }
+        if (k >= seg.length) { out.push(pts[pts.length - 1].slice()); continue; }
+        const f = seg[k] ? t / seg[k] : 0;
+        out.push([pts[k][0] + (pts[k + 1][0] - pts[k][0]) * f, pts[k][1] + (pts[k + 1][1] - pts[k][1]) * f]);
+      }
+      return out;
+    }
+
+    // spells: name, dotted path waypoints, effect emoji + float direction
     function paths() {
       const base = [
         { name: 'לוּמוֹס', emoji: '💡', dir: [0, -70], dummy: false,
@@ -29,19 +45,30 @@
           pts: [[70, 170], [150, 170], [230, 170], [270, 90], [250, 40]] },
         { name: 'אֶקְסְפֶּלִיאַרְמוּס', emoji: '🪄', dir: [60, -30], dummy: true,
           pts: [[60, 200], [140, 160], [220, 120], [290, 80]] },
-      ];
-      return base.map((s) => ({ ...s, pts: s.pts.slice(0, Math.min(s.pts.length, 3 + extra)) }));
+        { name: 'פְּרוֹטֶגוֹ', emoji: '🛡️', dir: [0, -40], dummy: false,
+          pts: [[180, 60], [120, 110], [140, 190], [230, 190], [250, 110], [180, 60]] },
+      ].slice(0, NSP);
+      // longer trace the higher the level: 4 → up to 8 waypoints
+      return base.map((s, idx) => ({ ...s, pts: densify(s.pts, Math.min(8, 4 + (L - 1) + idx)) }));
     }
     const spells = paths();
 
     let cur, hit, trail, down = false;
 
+    function timeMs() { return Math.max(3000, 4200 + cur.pts.length * 480 - L * 340); }
+    function armTimer() { if (spellTimer) spellTimer.stop(); spellTimer = host.timer(timeMs(), onTimeout); }
+    function onTimeout() {
+      retries++; trail = []; hit = cur.pts.map(() => false); down = false; host.bad();
+      if (retries > NSP + 4) { if (spellTimer) spellTimer.stop(); return host.fail('קצת מהיר היום — ננסה שוב?'); }
+      host.say('מהר יותר! ✨'); draw(); armTimer();
+    }
+
     function start(idx) {
       cur = spells[idx]; hit = cur.pts.map(() => false); trail = []; down = false;
       nameEl.textContent = cur.name;
-      host.setProgress(idx, 3);
-      host.say(idx === 2 ? 'כוון לבובה הידידותית! 🙂' : 'עקוב אחרי הנקודות!');
-      draw();
+      host.setProgress(idx, NSP);
+      host.say(cur.dummy ? 'כוון לבובה הידידותית! 🙂' : 'מהר ובעדינות — עקוב אחרי הנקודות!');
+      draw(); armTimer();
     }
 
     function draw() {
@@ -119,9 +146,10 @@
       host.good(fx0x, fx0y);
       // a quick gold pulse on the spell name — "you cast it!"
       try { nameEl.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 480, easing: 'cubic-bezier(.2,1.5,.4,1)' }); } catch (e) {}
+      if (spellTimer) spellTimer.stop();
       if (cur.dummy) reactDummy();                 // the friendly target gets happily zapped
-      si++; host.setProgress(si, 3);
-      if (si >= 3) host.after(900, finish);
+      si++; host.setProgress(si, NSP);
+      if (si >= NSP) host.after(900, finish);
       else host.after(1100, () => start(si));
     }
 
@@ -142,6 +170,7 @@
     }
 
     function finish() {
+      if (spellTimer) spellTimer.stop();
       fx.style.opacity = '0';
       host.confetti(); host.say('קוסם אמיתי! ✨');
       const stars = retries <= 1 ? 3 : retries <= 3 ? 2 : 1;
