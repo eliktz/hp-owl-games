@@ -100,7 +100,8 @@
     const beamM = new T.MeshStandardMaterial({ color: 0x4a3420, roughness: 0.9 });
     const owls = [];
     for (let i = 0; i < 7; i++) {
-      const x = R.x0 + 5 + i * 7, by = 3 + (i % 3) * 1.6;
+      // roost the owls high up near the ceiling so none loom at the follow-camera's eye level
+      const x = R.x0 + 5 + i * 7, by = 4.9 + (i % 3) * 1.2;
       const beam = new T.Mesh(new T.BoxGeometry(2.4, 0.2, 0.2), beamM); beam.position.set(x, by, R.z0 + 1.2 + (i % 2) * 2); scene.add(beam);
       const owl = HP.makeOwl('hedwig'); owl.scale.setScalar(0.5); owl.position.set(x + (i % 2 ? 0.5 : -0.5), by + 0.4, beam.position.z); scene.add(owl);
       owls.push({ owl, ph: Math.random() * 7 });
