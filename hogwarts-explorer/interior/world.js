@@ -66,6 +66,19 @@
     [[55, 10], [50, 34], [64, 24], [26, 20], [17, -9], [2, -4],
      [-28, -20], [28, 12], [12, -40], [55, -40], [55, -4], [66, -3]].forEach((p) => drop('frog', ...p));
 
+    // ---- hidden chocolate-frog cards: one per not-yet-found card, tucked across the castle.
+    //      All are placed near guaranteed-reachable spawn points (see the reachability test). ----
+    const cardSpots = { merlin: [42, 30], star: [46, -22], owl: [35, -48], dragon: [53, -8], potion: [-45, -12],
+      cat: [20, -37], herb: [20, -22], broom: [22, 10], ghost: [64, -8] };
+    if (window.HPICards) HPICards.CATALOG.forEach((c) => {
+      if (HPICards.has(c.id)) return;                 // already collected → don't respawn
+      const sp = cardSpots[c.id]; if (!sp) return;
+      const o = HPICards.mesh(c);
+      const y = HPI.nav.floorH(sp[0], sp[1]) + 0.1;
+      o.position.set(sp[0], y, sp[1]); scene.add(o);
+      items.push({ o, type: 'card', id: c.id, base: new T.Vector3(sp[0], y, sp[1]), ph: Math.random() * 7, hop: 0 });
+    });
+
     // ---- NPC cameos with short greetings + tiny quests ----
     const npcs = [];
     const defs = [
@@ -89,14 +102,22 @@
         const it = items[i], o = it.o;
         if (it.taken) { o.position.lerp(player.position, dt * 8); o.scale.multiplyScalar(1 - dt * 5); it.taken -= dt; if (it.taken <= 0) { scene.remove(o); items.splice(i, 1); } continue; }
         if (it.type === 'snitch') { HP.animateSnitch(o, t); o.position.y = it.base.y + Math.sin(t * 1.6 + it.ph) * 0.4; o.rotation.y += dt * 0.6; }
+        else if (it.type === 'card') { o.position.y = it.base.y + Math.sin(t * 1.6 + it.ph) * 0.18; o.rotation.y += dt * 0.8; }
         else { it.hop -= dt; if (it.hop <= 0 && Math.random() < 0.01) it.hop = 0.5; o.position.y = it.base.y + (it.hop > 0 ? Math.sin((it.hop / 0.5) * Math.PI) * 0.6 : 0); o.rotation.y = Math.sin(t * 0.6 + it.ph) * 0.5; }
-        if (Math.random() < 0.06) ctx.fx.trail(o.position, it.type === 'snitch' ? 0xffd34d : 0xffcf6a, 0.22);
+        if (Math.random() < 0.06) ctx.fx.trail(o.position, it.type === 'snitch' ? 0xffd34d : it.type === 'card' ? 0xffd76a : 0xffcf6a, 0.22);
         if (o.position.distanceTo(player.position) < 2.2) {
-          it.taken = 0.25; ctx.inv[it.type]++; ctx.collected[it.type]++; ctx.onInvChange(it.type);
-          HP.sfx.chime(); HP.sfx.sparkle();
-          ctx.fx.burst(o.position, it.type === 'snitch' ? [0xffd34d, 0xffffff, 0xffef9a] : [0xffcf6a, 0xd59a5a, 0xfff0c0], 24, 6, 0.6);
-          if (ctx.collected.snitch >= 6) ctx.award('snitch');
-          if (ctx.collected.frog >= 6) ctx.award('frog');
+          it.taken = 0.25;
+          if (it.type === 'card') {
+            if (window.HPICards) HPICards.collect(it.id);
+            HP.sfx.chime(); HP.sfx.sparkle();
+            ctx.fx.burst(o.position, [0xffd76a, 0xffffff, 0xffe59a], 26, 6, 0.7);
+          } else {
+            ctx.inv[it.type]++; ctx.collected[it.type]++; ctx.onInvChange(it.type);
+            HP.sfx.chime(); HP.sfx.sparkle();
+            ctx.fx.burst(o.position, it.type === 'snitch' ? [0xffd34d, 0xffffff, 0xffef9a] : [0xffcf6a, 0xd59a5a, 0xfff0c0], 24, 6, 0.6);
+            if (ctx.collected.snitch >= 6) ctx.award('snitch');
+            if (ctx.collected.frog >= 6) ctx.award('frog');
+          }
         }
       }
     }
