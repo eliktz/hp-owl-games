@@ -50,20 +50,12 @@
   const LESSON_DEST = { potions: 'dungeon', charms: 'charms', transfiguration: 'transfiguration',
     spells: 'spells', astronomy: 'astronomy', herbology: 'greenhouse' };
 
-  // read HPSchedule live and paint each lesson marker open (green ring) or closed (dim + lock + time)
+  // every classroom is always open now — paint each lesson marker open (green ring), never shut
   function refreshLessons() {
-    const S = window.HPSchedule; if (!S) return;
     Object.keys(LESSON_DEST).forEach(function (key) {
       const m = markerEls[LESSON_DEST[key]]; if (!m) return;
-      const open = S.isOpen ? S.isOpen(key) : false;
-      m.classList.toggle('lOpen', open);
-      m.classList.toggle('lShut', !open);
-      const when = m.querySelector('.mwhen');
-      if (open) { if (when) when.textContent = ''; }
-      else {
-        const nx = S.nextOpenOf ? S.nextOpenOf(key) : null;
-        if (when) when.textContent = (nx && nx.time) ? nx.time : '';
-      }
+      m.classList.add('lOpen'); m.classList.remove('lShut');
+      const when = m.querySelector('.mwhen'); if (when) when.textContent = '';
     });
   }
 
@@ -112,15 +104,14 @@
   }
 
   // ---- open / close ----
-  let open = false, lessonTimer = null;
+  let open = false;
   function openMap() {
     if (open) return; open = true; markHere();
-    refreshLessons(); clearInterval(lessonTimer); lessonTimer = setInterval(refreshLessons, 1000);
+    refreshLessons();                 // classrooms are always open; paint once, no clock polling
     ov.classList.add('on'); sfx('flip');
   }
   function closeMap() {
     if (!open) return; open = false;
-    clearInterval(lessonTimer); lessonTimer = null;
     ov.classList.remove('on'); sfx('pop');
   }
   function toggle() { open ? closeMap() : openMap(); }

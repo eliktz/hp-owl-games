@@ -1,8 +1,10 @@
-/* The lessons controller: the 🔔 "שיעורים" bell + a visual school timetable (today's six
- * periods with a live clock, countdown and a weekly house-points board), the ringing
- * announcement + glowing guide arrow to the open classroom, the walk-up greeting + start
- * button, a polite closed-door sign when you arrive off-period, and the dispatch into each
- * minigame overlay. Reads window.HPSchedule for the clock; self-contained like the map. */
+/* The lessons controller: the 🔔 "שיעורים" bell now opens a big, friendly LESSON PICKER —
+ * a grid of the six subjects (icon + Hebrew name + a ✓/⭐ for lessons already done today)
+ * and a "go there" ➤ button that travels to the classroom and aims the glowing guide arrow.
+ * Every classroom is always open: the child freely picks what to attend, any time, in any
+ * order, never interrupted. No timetable, no clock gating, no closed-door signs, no auto
+ * bell. On arrival a walk-up greeting + ▶ start button appears, then the minigame overlay.
+ * Reads window.HPSchedule only for the cosmetic day (difficulty ramp); self-contained. */
 (function () {
   const HPL = (window.HPLessons = window.HPLessons || {});
   const T = window.THREE;
@@ -20,27 +22,35 @@
   HPL.LESSONS = LESSONS;
   const byKey = {}; LESSONS.forEach((l) => (byKey[l.key] = l));
 
-  // ---- progress store (localStorage): best stars + attendance + weekly house points ----
+  // ---- progress store (localStorage): best stars + attendance + "done today" ----
   const KEY = 'hpLessons1';
   function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
   const store = load();
   store.stars = store.stars || {}; store.got = store.got || {};
   store.att = store.att || {};        // completed-count per subject (feeds difficulty)
-  store.points = store.points || 0;   // total house points on the weekly board
-  store.pday = store.pday || {};      // points earned per weekday index
+  store.points = store.points || 0;   // total house points (kept internal)
+  store.pday = store.pday || {};      // points earned per weekday index (kept internal)
+  store.done = store.done || {};      // subjects completed on the current calendar day
+  store.doneDate = store.doneDate || '';
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+  function todayStamp() { try { return new Date().toDateString(); } catch (e) { return 'day'; } }
+  // roll the "done today" set over at a real calendar-day boundary
+  function doneReset() { const d = todayStamp(); if (store.doneDate !== d) { store.doneDate = d; store.done = {}; save(); } }
+  doneReset();
   HPL.progress = {
-    // base mastery level 1..6 from stars earned + times attended → ramps across the week
+    // base mastery level 1..6 from stars earned + times attended → ramps gently
     level(key) { const s = store.stars[key] || 0, a = store.att[key] || 0; return Math.max(1, Math.min(6, 1 + Math.floor((s + a) / 2))); },
     stars(key) { return store.stars[key] || 0; },
     att(key) { return store.att[key] || 0; },
     points() { return store.points; },
     pday() { return store.pday; },
     total() { return LESSONS.reduce((s, l) => s + (store.stars[l.key] || 0), 0); },
+    doneToday(key) { doneReset(); return !!store.done[key]; },
     award(key, stars) { store.stars[key] = Math.max(store.stars[key] || 0, stars); store.got[key] = true; save(); refreshBell(); return byKey[key] ? byKey[key].sticker : '⭐'; },
-    // a lesson finished: record attendance + house points on the weekly board
+    // a lesson finished: record attendance, mark it done today + book house points
     attend(key, stars) {
       store.att[key] = (store.att[key] || 0) + 1;
+      doneReset(); store.done[key] = true;
       const day = (SCH && SCH.state) ? SCH.state().day : 0;
       const pts = stars * 10 + 5;    // 15–35 points per attended lesson
       store.points += pts; store.pday[day] = (store.pday[day] || 0) + pts;
@@ -57,42 +67,31 @@
     touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   #bellBtn:active{transform:scale(.9)} #bellBtn .bd{position:absolute;top:-4px;inset-inline-end:-4px;background:#7CFC7C;color:#13351a;
     font-size:15px;font-weight:bold;min-width:22px;height:22px;border-radius:12px;border:2px solid #13351a;display:flex;align-items:center;justify-content:center;padding:0 3px}
-  #schedOv{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(8,6,24,.8);font-family:'Rubik',sans-serif}
-  #schedOv.on{display:flex}
-  .schedP{width:min(94vw,560px);max-height:92vh;overflow:auto;background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:26px;padding:16px}
-  .schedT{text-align:center;color:#ffd76a;font-size:30px;font-weight:bold;text-shadow:0 2px 0 #7a3b00;margin:0}
-  .schedClock{text-align:center;color:#fff;font-size:20px;margin:2px 0 4px}
-  .schedClock b{color:#ffe9a8;font-size:24px} .schedClock .cd{color:#9effa0}
-  .schedBoard{display:flex;align-items:flex-end;gap:5px;justify-content:center;height:48px;margin:4px 0 10px}
-  .schedBoard .bar{flex:1;max-width:46px;border-radius:7px 7px 0 0;background:linear-gradient(#ffe48a,#ffb020);position:relative;min-height:5px}
-  .schedBoard .bar span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:12px;color:#ffe9a8}
-  .schedBoard .bar small{position:absolute;bottom:-17px;left:0;right:0;text-align:center;font-size:12px;color:#cdbfff}
-  .schedPts{text-align:center;color:#ffe9a8;font-size:19px;margin-bottom:8px}
-  .schedRow{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:2px solid rgba(255,215,106,.35);border-radius:16px;padding:7px 10px;margin-bottom:8px}
-  .schedRow.now{border-color:#9effa0;background:rgba(120,240,160,.16);box-shadow:0 0 14px rgba(120,240,160,.4)}
-  .schedRow.past{opacity:.5}
-  .schedRow .ic{font-size:34px;flex:0 0 auto;width:44px;text-align:center}
-  .schedRow .tm{font-size:19px;color:#cdbfff;width:52px;text-align:center}
-  .schedRow .info{flex:1} .schedRow .sub{color:#fff;font-size:21px;font-weight:bold} .schedRow .st{font-size:15px;letter-spacing:1px}
-  .schedRow .tag{font-size:15px;font-weight:bold;border-radius:10px;padding:2px 8px}
-  .schedRow .tag.open{background:#9effa0;color:#143a1a} .schedRow .tag.shut{background:#6a5a8a;color:#eadcff}
-  .schedGo{min-width:58px;height:50px;border-radius:14px;border:3px solid #fff;background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;font-size:20px;font-weight:bold;cursor:pointer;font-family:inherit;touch-action:manipulation}
-  .schedGo:active{transform:scale(.92)} .schedGo:disabled{opacity:.45;filter:grayscale(.5)}
-  .schedSkip{display:block;width:100%;margin:4px 0 8px;padding:10px;border-radius:16px;border:3px solid #fff;background:linear-gradient(#b5a0ff,#7a52d6);color:#fff;font-size:20px;font-weight:bold;cursor:pointer;font-family:inherit;touch-action:none;-webkit-user-select:none;user-select:none}
-  .schedSkip:active{transform:scale(.97)}
-  .schedClose{display:block;margin:2px auto 0;padding:8px 36px;border-radius:40px;border:4px solid #fff;background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;font-size:24px;font-weight:bold;cursor:pointer;font-family:inherit}
-  #lsnAnn{position:fixed;left:50%;top:22%;transform:translate(-50%,-50%) scale(0);z-index:44;pointer-events:none;text-align:center;
-    background:rgba(40,25,90,.92);border:4px solid #ffd76a;border-radius:24px;padding:14px 26px;color:#fff;font-size:34px;font-weight:bold;
-    text-shadow:0 2px 0 #000;transition:transform .4s cubic-bezier(.3,1.7,.5,1)}
-  #lsnAnn.on{transform:translate(-50%,-50%) scale(1)}
+  /* ---- the friendly lesson picker ---- */
+  #pickOv{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(8,6,24,.82);font-family:'Rubik',sans-serif;direction:rtl}
+  #pickOv.on{display:flex}
+  .pickP{width:min(94vw,620px);max-height:92vh;overflow:auto;background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:28px;padding:18px 18px 20px}
+  .pickT{text-align:center;color:#ffd76a;font-size:30px;font-weight:bold;text-shadow:0 2px 0 #7a3b00;margin:0 0 4px}
+  .pickSub{text-align:center;color:#eadcff;font-size:17px;margin:0 0 12px}
+  .pickGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media (max-width:520px){.pickGrid{grid-template-columns:repeat(2,1fr)}}
+  .pickCard{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,.07);
+    border:3px solid rgba(255,215,106,.45);border-radius:20px;padding:12px 8px 10px;cursor:pointer;font-family:inherit;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .1s}
+  .pickCard:active{transform:scale(.94)} .pickCard:focus{outline:none;border-color:#9effa0;box-shadow:0 0 14px rgba(120,240,160,.5)}
+  .pickCard .ic{font-size:46px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+  .pickCard .nm{color:#fff;font-size:20px;font-weight:bold}
+  .pickCard .st{font-size:16px;letter-spacing:1px;min-height:20px;color:#ffe9a8}
+  .pickCard .st .done{color:#9effa0;font-weight:bold}
+  .pickCard .go{margin-top:2px;display:inline-flex;align-items:center;gap:6px;background:linear-gradient(#ffe48a,#ffb020);
+    color:#5a2b00;font-size:17px;font-weight:bold;border:3px solid #fff;border-radius:40px;padding:4px 14px}
+  .pickCard .go .ar{font-size:18px}
+  .pickClose{display:block;margin:14px auto 0;padding:8px 40px;border-radius:40px;border:4px solid #fff;background:linear-gradient(#b5a0ff,#7a52d6);color:#fff;font-size:22px;font-weight:bold;cursor:pointer;font-family:inherit}
   #lsnArrow{position:fixed;left:50%;top:50%;z-index:13;width:96px;height:96px;margin:-48px 0 0 -48px;pointer-events:none;display:none;
     flex-direction:column;align-items:center;justify-content:center;color:#bfffbf}
   #lsnArrow.on{display:flex}
   #lsnArrow .ic{font-size:26px;width:44px;height:44px;border-radius:50%;background:rgba(20,53,26,.92);border:3px solid #7CFC7C;
     display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px #7CFC7C;position:relative;animation:lsnPulse 1.2s infinite}
-  #lsnArrow .ic .lk{position:absolute;bottom:-7px;inset-inline-end:-7px;font-size:15px;display:none}
-  #lsnArrow.shut .ic{border-color:#ffd76a;box-shadow:0 0 12px #ffd76a;background:rgba(53,40,20,.92)}
-  #lsnArrow.shut .ic .lk{display:block}
   #lsnArrow .ar{font-size:54px;line-height:1;filter:drop-shadow(0 0 10px #7CFC7C);margin-top:-2px}
   #lsnStart{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:12;
     display:none;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
@@ -101,12 +100,6 @@
   #lsnStart .go{pointer-events:auto;width:92px;height:92px;border-radius:50%;border:5px solid #fff;background:linear-gradient(#ffe48a,#ffb020);
     color:#5a2b00;font-size:46px;font-weight:bold;cursor:pointer;box-shadow:0 0 26px rgba(255,210,90,.9);animation:lsnPulse 1.1s infinite;font-family:inherit;touch-action:manipulation}
   @keyframes lsnPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.09)}}
-  #lsnClosed{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:12;display:none;
-    flex-direction:column;align-items:center;gap:6px;pointer-events:none;text-align:center}
-  #lsnClosed.on{display:flex}
-  #lsnClosed .sign{background:rgba(44,30,70,.96);color:#fff;border:3px solid #b9a0ff;border-radius:18px;padding:10px 18px;font-size:22px;font-weight:bold;max-width:74vw}
-  #lsnClosed .when{color:#9effa0;font-size:20px;margin-top:4px}
-  #lsnClosed .spk{font-size:26px;animation:lsnPulse 1.3s infinite}
   #lsnTip{position:fixed;left:50%;bottom:calc(240px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(12px);
     z-index:14;max-width:86vw;background:rgba(40,25,90,.96);border:3px solid #ffd76a;border-radius:18px;padding:11px 18px;
     color:#fff;font-size:19px;font-weight:bold;text-align:center;line-height:1.5;opacity:0;pointer-events:none;
@@ -115,16 +108,16 @@
   #lsnTip b{color:#9effa0} #lsnTip .k{color:#ffe9a8}`;
   document.head.appendChild(style);
 
-  // ---- DOM: bell, schedule, announcement, arrow, start prompt, closed sign ----
-  let bellBtn, schedOv, annEl, arrowEl, arrowEm, arrowArr, startEl, goBtn, greetEl, closedEl, closedSign, closedWhen;
+  // ---- DOM: bell, picker, guide arrow, start prompt ----
+  let bellBtn, pickOv, arrowEl, arrowEm, arrowArr, startEl, goBtn, greetEl;
   function build() {
-    bellBtn = mk('button', 'bellBtn'); bellBtn.innerHTML = '🔔<span class="bd">0</span>'; bellBtn.title = 'שיעורים';
-    bellBtn.addEventListener('click', (e) => { e.stopPropagation(); openSchedule(); });
-    schedOv = mk('div', 'schedOv'); document.body.appendChild(schedOv);
-    schedOv.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === schedOv) closeSchedule(); });
-    annEl = mk('div', 'lsnAnn'); document.body.appendChild(annEl);
+    bellBtn = mk('button', 'bellBtn'); bellBtn.innerHTML = '🔔<span class="bd">0</span>';
+    bellBtn.title = 'בחרו שיעור'; bellBtn.setAttribute('aria-label', 'בחרו שיעור');
+    bellBtn.addEventListener('click', (e) => { e.stopPropagation(); openPicker(); });
+    pickOv = mk('div', 'pickOv'); document.body.appendChild(pickOv);
+    pickOv.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === pickOv) closePicker(); });
     arrowEl = mk('div', 'lsnArrow');
-    arrowEl.innerHTML = '<div class="ic"><span class="em">✨</span><span class="lk">🔒</span></div><div class="ar">➤</div>';
+    arrowEl.innerHTML = '<div class="ic"><span class="em">✨</span></div><div class="ar">➤</div>';
     arrowEm = arrowEl.querySelector('.em'); arrowArr = arrowEl.querySelector('.ar');
     document.body.appendChild(arrowEl);
     startEl = mk('div', 'lsnStart');
@@ -132,19 +125,12 @@
     goBtn = mk('button'); goBtn.className = 'go'; goBtn.textContent = '▶'; startEl.appendChild(goBtn);
     goBtn.addEventListener('click', (e) => { e.stopPropagation(); if (nearKey) startLesson(nearKey); });
     document.body.appendChild(startEl);
-    closedEl = mk('div', 'lsnClosed');
-    closedSign = mk('div'); closedSign.className = 'sign'; closedSign.innerHTML = '🔒 הדלת סגורה';
-    closedWhen = mk('div'); closedWhen.className = 'when';
-    const spk = mk('div'); spk.className = 'spk'; spk.textContent = '✨';
-    closedEl.appendChild(closedSign); closedEl.appendChild(closedWhen); closedEl.appendChild(spk);
-    document.body.appendChild(closedEl);
     document.body.appendChild(bellBtn);
     tipEl = mk('div', 'lsnTip');
-    tipEl.innerHTML = 'עֲקֹב אַחֲרֵי הַחֵץ הַיָּרֹק <b>➤</b> אֶל הַשִּׁעוּר<br>'
-      + 'וְהַקֵּשׁ עַל הַ<span class="k">🔔</span> לִרְאוֹת מָתַי כָּל שִׁעוּר';
+    tipEl.innerHTML = 'הַקֵּשׁ עַל הַ<span class="k">🔔</span> וּבְחַר אֵיזֶה שִׁעוּר תִּרְצֶה<br>'
+      + 'וְאָז עֲקֹב אַחֲרֵי הַחֵץ הַיָּרֹק <b>➤</b> אֶל הַכִּתָּה';
     document.body.appendChild(tipEl);
     refreshBell();
-    if (SCH && SCH.onBell) SCH.onBell((key) => ringBell(key));
   }
   // a gentle one-time coach tip, the first time a child actually starts playing
   let tipEl = null, tipDone = false;
@@ -159,93 +145,59 @@
   function mk(t, id) { const e = document.createElement(t); if (id) e.id = id; return e; }
   function refreshBell() { if (bellBtn) bellBtn.querySelector('.bd').textContent = HPL.progress.total(); }
 
-  // the clock rolled into a new lesson period → ring + announce + aim the guide arrow
-  function ringBell(key) {
+  // ---- the lesson picker: a big friendly icon menu, no timetable ----
+  function openPicker() {
+    setModal(true); try { HP.sfx.flip(); } catch (e) {}
+    renderPicker();
+    pickOv.classList.add('on');
+  }
+  function closePicker() { pickOv.classList.remove('on'); setModal(false); try { HP.sfx.pop(); } catch (e) {} }
+
+  function renderPicker() {
+    const p = document.createElement('div'); p.className = 'pickP';
+    const head = document.createElement('div');
+    head.innerHTML = '<div class="pickT">✨ בחרו שיעור ✨</div><div class="pickSub">כל הכיתות פתוחות — בחרו מה שבא לכם!</div>';
+    p.appendChild(head);
+    const grid = document.createElement('div'); grid.className = 'pickGrid';
+    LESSONS.forEach((l) => {
+      const done = HPL.progress.doneToday(l.key);
+      const stn = HPL.progress.stars(l.key);
+      const card = document.createElement('button'); card.type = 'button'; card.className = 'pickCard'; card.dataset.k = l.key;
+      card.setAttribute('aria-label', 'ללכת לשיעור ' + l.subject);
+      const status = done
+        ? '<span class="done">✓ ' + ('⭐'.repeat(Math.max(1, stn))) + '</span>'
+        : ('⭐'.repeat(stn) + '☆'.repeat(3 - stn));
+      card.innerHTML = '<div class="ic">' + l.icon + '</div>'
+        + '<div class="nm">' + l.subject + '</div>'
+        + '<div class="st">' + status + '</div>'
+        + '<div class="go"><span class="ar">➤</span> ללכת</div>';
+      card.addEventListener('click', (e) => { e.stopPropagation(); pick(l.key); });
+      grid.appendChild(card);
+    });
+    p.appendChild(grid);
+    const close = document.createElement('button'); close.className = 'pickClose'; close.textContent = 'סגור';
+    close.addEventListener('click', (e) => { e.stopPropagation(); closePicker(); });
+    p.appendChild(close);
+    pickOv.innerHTML = ''; pickOv.appendChild(p);
+  }
+
+  // the child picked a lesson → aim the guide arrow at it + travel to its classroom
+  let activeKey = null;
+  function pick(key) {
     const l = byKey[key]; if (!l) return;
     activeKey = key;
-    announce('🔔 הפעמון מצלצל!', l.icon + ' ' + l.subject);
+    closePicker();
+    goToLesson(key);
   }
-
-  // ---- the schedule / timetable screen ----
-  let schedTimer = null;
-  function openSchedule() {
-    setModal(true); try { HP.sfx.flip(); } catch (e) {}
-    renderSchedule();
-    schedOv.classList.add('on');
-    clearInterval(schedTimer); schedTimer = setInterval(renderSchedule, 500);
-  }
-  function closeSchedule() { schedOv.classList.remove('on'); clearInterval(schedTimer); schedTimer = null; setModal(false); try { HP.sfx.pop(); } catch (e) {} }
-
-  function renderSchedule() {
-    if (!SCH) return;
-    const t = SCH.today(), st = t.state;
-    const status = st.inLesson ? ('שיעור: ' + (byKey[st.openKey] ? byKey[st.openKey].subject : '')) : 'הפסקה — זמן חופשי';
-    const p = document.createElement('div'); p.className = 'schedP';
-    p.innerHTML = '<div class="schedT">🔔 מערכת שעות</div>'
-      + '<div class="schedClock">יום <b>' + t.dayName + '</b> · ' + SCH.timeLabel(st.period) + ' · ' + status
-      + ' <span class="cd">(' + SCH.fmt(st.remain) + ')</span></div>';
-    // weekly house-points board
-    const board = document.createElement('div'); board.className = 'schedBoard';
-    const pday = HPL.progress.pday(); let maxP = 1;
-    SCH.DAYS.forEach((_, d) => { maxP = Math.max(maxP, pday[d] || 0); });
-    SCH.DAYS.forEach((dn, d) => {
-      const v = pday[d] || 0; const bar = document.createElement('div'); bar.className = 'bar';
-      bar.style.height = (6 + (v / maxP) * 40) + 'px';
-      bar.innerHTML = '<span>' + (v || '') + '</span><small>' + dn + '</small>';
-      if (d === st.day) bar.style.outline = '2px solid #9effa0';
-      board.appendChild(bar);
-    });
-    p.appendChild(board);
-    const pts = document.createElement('div'); pts.className = 'schedPts';
-    pts.textContent = '🏆 נקודות בית: ' + HPL.progress.points() + '   ⭐ ' + HPL.progress.total() + '/' + (LESSONS.length * 3);
-    p.appendChild(pts);
-    // skip-to-next-lesson (tap once, or hold to fast-forward through the break)
-    const skip = document.createElement('button'); skip.className = 'schedSkip';
-    skip.textContent = '⏩ לדלג לשיעור הבא (החזק/י)';
-    bindSkip(skip);
-    p.appendChild(skip);
-    // today's six periods
-    t.rows.forEach((r) => {
-      const l = byKey[r.key]; const open = r.now;
-      const row = document.createElement('div'); row.className = 'schedRow' + (open ? ' now' : '') + (r.past ? ' past' : '');
-      const stn = HPL.progress.stars(r.key);
-      const nxt = SCH.nextOpenOf(r.key);
-      row.innerHTML = '<div class="ic">' + l.icon + '</div><div class="tm">' + r.time + '</div>'
-        + '<div class="info"><div class="sub">' + l.subject + '</div>'
-        + '<div class="st">' + ('⭐'.repeat(stn) + '☆'.repeat(3 - stn)) + '</div></div>'
-        + '<div class="tag ' + (open ? 'open' : 'shut') + '">' + (open ? 'פתוח' : '🔒') + '</div>';
-      const go = document.createElement('button'); go.className = 'schedGo'; go.textContent = 'ללכת';
-      go.addEventListener('click', (e) => { e.stopPropagation(); closeSchedule(); goToLesson(r.key); });
-      row.appendChild(go); p.appendChild(row);
-    });
-    const close = document.createElement('button'); close.className = 'schedClose'; close.textContent = 'סגור';
-    close.addEventListener('click', (e) => { e.stopPropagation(); closeSchedule(); });
-    p.appendChild(close);
-    schedOv.innerHTML = ''; schedOv.appendChild(p);
-  }
-
-  // skip button: a tap jumps to the next lesson; holding fast-forwards (parent-friendly)
-  function bindSkip(btn) {
-    let held = null, moved = false;
-    const down = (e) => { e.preventDefault(); e.stopPropagation(); moved = false;
-      held = setTimeout(function ff() { moved = true; SCH.fastForward(4000); renderSchedule(); held = setTimeout(ff, 90); }, 300); };
-    const up = (e) => { if (held) { clearTimeout(held); held = null; } if (!moved) { SCH.skipToNextLesson(); try { HP.sfx.chime && HP.sfx.chime(); } catch (x) {} renderSchedule(); } };
-    btn.addEventListener('pointerdown', down);
-    btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', () => { if (held) { clearTimeout(held); held = null; } });
-  }
-
-  // chosen from the schedule → travel to its classroom (door-gating handles open/closed)
-  let activeKey = null;
+  // travel to a classroom (used by the picker + the HPLessons.go test hook)
   function goToLesson(key) {
     const l = byKey[key]; if (!l) return;
     activeKey = key;
     const dest = l.dest || { world: 'inside', key: l.room };
-    try { if (__game.fastTravel) __game.fastTravel(dest); } catch (e) {}
-  }
-  function announce(a, b) {
-    annEl.innerHTML = a + '<br><span style="font-size:26px;color:#ffe9a8">' + b + '</span>';
-    annEl.classList.add('on'); try { HP.sfx.hoot(true); } catch (e) {}
-    clearTimeout(announce._t); announce._t = setTimeout(() => annEl.classList.remove('on'), 2600);
+    try {
+      if (window.HPTravel && HPTravel.go) HPTravel.go(dest);
+      else if (__game.fastTravel) __game.fastTravel(dest);
+    } catch (e) {}
   }
 
   // ---- proximity: find the lesson whose teacher the player is standing near ----
@@ -254,27 +206,30 @@
     const t = (__game.inside && __game.inside.teachers || []).find((x) => x.key === l.key);
     return t ? { x: t.x, z: t.z } : null;
   }
-  let nearKey = null, armed = {};
+  let nearKey = null, armed = {}, lastPos = null;
   function startLesson(key) {
-    const l = byKey[key]; if (!l || (__game && __game.modal)) return;
-    if (SCH && !SCH.isOpen(key)) { showClosed(key); return; }   // door shut off-period
-    hideStart(); hideClosed(); arrowEl.classList.remove('on'); armed[key] = false;
-    HPL.overlay.open(l, () => { refreshBell(); });   // reward() books attendance + house points
+    const l = byKey[key]; if (!l || (__game && __game.modal)) return;   // every room is always open now
+    hideStart(); arrowEl.classList.remove('on'); armed[key] = false;
+    if (activeKey === key) activeKey = null;      // arrived — retire the guide arrow
+    HPL.overlay.open(l, () => { refreshBell(); });   // reward() books attendance + marks done today
   }
 
   function setModal(v) { try { __game && __game.setModal && __game.setModal(v); } catch (e) {} }
 
-  // ---- per-frame loop (own rAF; reads __game + the clock) ----
+  // ---- per-frame loop (own rAF; reads __game) ----
   const tmp = T ? new T.Vector3() : null;
   function frame() {
     requestAnimationFrame(frame);
     const g = window.__game;
-    if (!g || !g.started || g.modal) { hideStart(); hideClosed(); arrowEl.classList.remove('on'); return; }
-    if (!tipDone) maybeTip();   // first frame of real play → show the coach tip once
+    if (!g || !g.started) { hideStart(); arrowEl.classList.remove('on'); return; }
     const world = g.world, pp = g.player.position;
-    const openKey = SCH ? SCH.state().openKey : null;
-    // the arrow always leads to the open lesson (or, in a break, the next one)
-    activeKey = openKey || (SCH && SCH.next ? SCH.next().key : activeKey);
+    // detect a fast-travel teleport (big jump / world change): on arrival we show the ▶
+    // start prompt rather than auto-begin, so landing on a teacher is a calm choice, not a
+    // jarring instant start. A physical walk-up (small steps) still auto-begins.
+    const teleported = !lastPos || lastPos.world !== world || Math.hypot(pp.x - lastPos.x, pp.z - lastPos.z) > 6;
+    lastPos = { x: pp.x, z: pp.z, world };
+    if (g.modal) { hideStart(); arrowEl.classList.remove('on'); return; }
+    if (!tipDone) maybeTip();   // first frame of real play → show the coach tip once
     // nearest triggerable lesson in this world
     let best = null, bd = 1e9;
     for (const l of LESSONS) {
@@ -286,34 +241,22 @@
     const range = 4.2;
     if (best && bd < range) {
       nearKey = best.key;
-      if (SCH && !SCH.isOpen(best.key)) {           // standing at a shut door
-        hideStart(); showClosed(best.key);
-      } else {
-        hideClosed(); showStart(best);
-        // open + walked right up → auto-begin
-        if (openKey === best.key && bd < 2.6 && armed[best.key] !== false) startLesson(best.key);
-      }
+      showStart(best);
+      if (teleported && bd < 3) armed[best.key] = false;   // just warped in → wait for a tap, don't auto-start
+      // walked right up → auto-begin (classrooms are always open)
+      if (!teleported && bd < 2.6 && armed[best.key] !== false) startLesson(best.key);
       if (bd > 3) armed[best.key] = true;           // re-arm after stepping back
-    } else { nearKey = null; hideStart(); hideClosed(); if (best) armed[best.key] = true; }
+    } else { nearKey = null; hideStart(); if (best) armed[best.key] = true; }
     updateArrow(g, world);
   }
   function showStart(l) {
-    hideClosed();
     if (startEl.classList.contains('on') && greetEl.dataset.k === l.key) return;
     greetEl.dataset.k = l.key; greetEl.textContent = l.icon + ' ' + l.greet;
     startEl.classList.add('on');
   }
   function hideStart() { if (startEl) startEl.classList.remove('on'); }
-  function showClosed(key) {
-    const l = byKey[key]; if (!closedEl) return;
-    const info = SCH ? SCH.nextOpenOf(key) : null;
-    closedSign.innerHTML = '🔒 ' + l.icon + ' ' + l.subject + ' — הדלת סגורה';
-    closedWhen.textContent = info ? ('בוא/י ביום ' + info.dayName + ' בשעה ' + info.time + ' ✨') : '';
-    if (closedEl.dataset.k !== key) { closedEl.dataset.k = key; try { HP.sfx.soft && HP.sfx.soft(); } catch (e) {} }
-    closedEl.classList.add('on');
-  }
-  function hideClosed() { if (closedEl) { closedEl.classList.remove('on'); closedEl.dataset.k = ''; } }
 
+  // the glowing guide arrow points to whichever lesson the child picked from the menu
   function updateArrow(g, world) {
     const l = activeKey && byKey[activeKey];
     if (!l || l.world !== world || !tmp) { arrowEl.classList.remove('on'); return; }
@@ -330,7 +273,6 @@
     // the icon chip stays upright so kids can read "this way to [subject]"; only the ➤ turns.
     if (arrowEm) arrowEm.textContent = l.icon;
     if (arrowArr) arrowArr.style.transform = 'rotate(' + (-ang) + 'rad)';
-    arrowEl.classList.toggle('shut', !(SCH && SCH.isOpen && SCH.isOpen(l.key)));
     arrowEl.classList.add('on');
   }
 
@@ -339,5 +281,6 @@
     if (!window.__game || !HPL.overlay || !HPL.teacherAvatar) { return void setTimeout(boot, 120); }
     build(); requestAnimationFrame(frame);
   })();
-  HPL.start = startLesson; HPL.go = goToLesson;   // test hooks
+  HPL.start = startLesson; HPL.go = goToLesson; HPL.pick = pick;   // test hooks
+  HPL.openPicker = openPicker;
 })();
