@@ -5,6 +5,32 @@
 (function (HPI) {
   const T = HPI.T, L = HPI.L;
 
+  // ---- a still-life "fruit bowl" painting for the secret kitchen passage ----
+  function pearTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = '#2a2016'; g.fillRect(0, 0, 128, 128);
+    g.fillStyle = '#6a4a2a';
+    g.beginPath(); g.moveTo(26, 78); g.quadraticCurveTo(64, 116, 102, 78); g.lineTo(96, 78); g.quadraticCurveTo(64, 104, 32, 78); g.closePath(); g.fill();
+    g.beginPath(); g.ellipse(64, 80, 40, 12, 0, 0, 7); g.fill();
+    g.font = '38px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('🍎', 46, 60); g.fillText('🍇', 82, 58); g.fillText('🍐', 64, 46);
+    return new T.CanvasTexture(c);
+  }
+  function buildSecretPainting(scene) {
+    const g = new T.Group(); g.position.set(-23, 3.2, L.GH.z0 + 0.32);
+    const gold = new T.MeshStandardMaterial({ color: 0xc9a23a, metalness: 0.5, roughness: 0.45, emissive: 0x3a2c08, emissiveIntensity: 0.4 });
+    const fw = 2.0, fh = 2.4;
+    [[0, fh / 2, fw, 0.28], [0, -fh / 2, fw, 0.28], [-fw / 2, 0, 0.28, fh], [fw / 2, 0, 0.28, fh]].forEach(([x, y, w, h]) => {
+      const b = new T.Mesh(new T.BoxGeometry(w, h, 0.34), gold); b.position.set(x, y, 0); g.add(b);
+    });
+    const canvasM = new T.Mesh(new T.PlaneGeometry(fw - 0.3, fh - 0.3),
+      new T.MeshStandardMaterial({ map: pearTex(), roughness: 0.9, emissive: 0x15110a, emissiveIntensity: 0.5 }));
+    canvasM.position.z = 0.04; g.add(canvasM);
+    const glow = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xffe59a, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
+    glow.scale.set(3.4, 3.4, 1); glow.position.set(0, 0, 0.3); g.add(glow);
+    scene.add(g); return { group: g, glow };
+  }
+
   HPI.build = function (ctx) {
     HPI.nav.reset(); HPI.builders.length = 0; HPI.teachers.length = 0;
     const scene = new T.Scene();
@@ -93,6 +119,25 @@
       npcs.push({ ...d, chibi: c, done: false, wave: 0, y });
     });
 
+    // ---- secret passage: tickle the pear still-life in the Great Hall to slip down to the
+    //      Kitchens (a hidden shortcut; the frame glows when you're close). ----
+    const secret = buildSecretPainting(scene);
+    const secretState = { used: false };
+    function secretUpdate(player, t, dt) {
+      const sx = -23, sz = L.GH.z0;
+      const d = Math.hypot(player.position.x - sx, player.position.z - sz);
+      const tgt = d < 4.5 ? (0.5 + 0.4 * Math.sin(t * 3)) : 0;        // pulse brighter when near
+      secret.glow.material.opacity += (tgt - secret.glow.material.opacity) * Math.min(1, dt * 5);
+      if (d < 2.3 && !secretState.used) {
+        secretState.used = true;
+        try { HP.sfx.whoosh && HP.sfx.whoosh(); HP.sfx.sparkle && HP.sfx.sparkle(); } catch (e) {}
+        ctx.fx.burst(new T.Vector3(sx, 3.2, sz + 0.5), [0xffe59a, 0xffffff, 0xffd76a], 28, 6, 0.8);
+        try { localStorage.setItem('hpSecret1', '1'); } catch (e) {}
+        setTimeout(() => { try { window.__game && __game.fastTravel && __game.fastTravel({ world: 'inside', key: 'kitchens', yaw: 0, pitch: 0.1 }); } catch (e) {} }, 220);
+        setTimeout(() => { secretState.used = false; }, 2600);        // re-arm after a cooldown
+      }
+    }
+
     // fire position for audio proximity (common-room hearth)
     const firePos = new T.Vector3(17, L.UP, L.CR.z0 + 0.7);
     const tmp = new T.Vector3();
@@ -150,6 +195,7 @@
       light.update(player, t, dt);
       pickups(player, t, dt);
       npcUpdate(player, t, dt, camera);
+      secretUpdate(player, t, dt);
       if (audio) audio.update(dt, moving, speed, player.position.distanceTo(firePos));
     }
 
@@ -159,6 +205,7 @@
       floorH: (x, z) => HPI.nav.floorH(x, z),
       collide: (p, r) => HPI.nav.collide(p, r),
       update, items, npcs, teachers: HPI.teachers,
+      secret: { x: -23, z: L.GH.z0, to: 'kitchens' },
     };
   };
 })(window.HPI);
