@@ -50,7 +50,7 @@
     // build a swish-and-flick path for this round; more points + looping = harder.
     // difficulty ramps with level AND round (later rounds are harder than earlier ones).
     function makePath(r) {
-      const diff = (L - 1) + r;            // overall difficulty for this round, 0..~11
+      const diff = (host.lvl() - 1) + r;   // live difficulty for this round (rises with success)
       const mx = 46, my = 38, iw = W - mx * 2, ih = H - my * 2;
       // base control points, then densify → waypoint count 4..9
       const n = Math.min(9, 4 + Math.floor(diff * 0.7));
@@ -111,14 +111,14 @@
 
     // count a flub (early lift / timeout) and bail to a gentle retry if it piles up
     function flub() {
-      retries++;
+      retries++; host.hit(false);   // a miss/timeout eases the next path (never a dead end)
       if (retries > MAX_RESETS) { stopTimer(); return host.fail('קֶסֶם קָשֶׁה היום — ננסה שוב?'), true; }
       return false;
     }
 
     function stopTimer() { if (roundTimer) { roundTimer.stop(); roundTimer = null; } }
     // time budget scales with path length but shrinks with level → real pressure up top
-    function timeMs() { return Math.max(3200, 4200 + pts.length * 520 - L * 360 - round * 300); }
+    function timeMs() { return Math.max(3200, 4200 + pts.length * 520 - host.lvl() * 360 - round * 300); }
     function armTimer() {
       if (!TIMED) return;
       stopTimer();
@@ -154,7 +154,7 @@
     }
 
     function finishRound() {
-      done = true; dragging = false; stopTimer(); draw();
+      done = true; dragging = false; stopTimer(); host.hit(true); draw();
       const w = pts[pts.length - 1];
       const pr = host.stage.getBoundingClientRect(), cr = cv.getBoundingClientRect();
       host.good(cr.left - pr.left + w.x * (cr.width / W), cr.top - pr.top + w.y * (cr.height / H));

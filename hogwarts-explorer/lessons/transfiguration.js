@@ -39,7 +39,8 @@
 
     // how many buttons this round: ramps with level AND within the lesson (later rounds harder)
     function choiceCount() {
-      const base = 3 + (L >= 3 ? 1 : 0) + (L >= 6 ? 1 : 0); // 3..5 by level
+      const lv = host.lvl();                                 // live level: rises with success
+      const base = 3 + (lv >= 3 ? 1 : 0) + (lv >= 6 ? 1 : 0); // 3..5 by level
       const ramp = i >= N - 2 ? 1 : 0;                       // last two rounds add one more
       return Math.min(6, base + ramp);
     }
@@ -59,8 +60,9 @@
       host.setProgress(i, N);
       if (i >= N) return finish();
       const [src, tgt, srcW, tgtW] = order[i];
-      // reverse prompts appear from level 4, mixed in on the harder (later) rounds
-      const reverse = REVERSE && i >= 1 && host.rnd(0, 1) === 0;
+      // reverse prompts appear from level 4 (or once an in-session streak lifts you there),
+      // mixed in on the harder (later) rounds
+      const reverse = (REVERSE || host.lvl() >= 4) && i >= 1 && host.rnd(0, 1) === 0;
       // morph always shows source -> target; in reverse mode the child picks the SOURCE,
       // so we keep the source hidden until the morph plays and start from the target shown.
       if (reverse) {
@@ -79,8 +81,8 @@
       row.innerHTML = '';
       // gentle timed bonus on harder rounds (level 5+, later rounds): timeout forfeits bonus only
       if (tmr) { tmr.stop(); tmr = null; }
-      if (L >= 5 && i >= 2) {
-        tmr = host.timer(6000 - Math.min(2000, (L - 5) * 400), () => { tmr = null; });
+      if (host.lvl() >= 5 && i >= 2) {
+        tmr = host.timer(6000 - Math.min(2000, (host.lvl() - 5) * 400), () => { tmr = null; });
       }
       makeChoices(correct, col, need).forEach((choice) => {
         const b = el('button', { class: 'lsnBtn' }, choice);
@@ -89,9 +91,10 @@
             row.style.pointerEvents = 'none';
             if (tmr && tmr.left() > 0) { bonus++; } // beat the clock → bonus toward stars
             if (tmr) { tmr.stop(); tmr = null; }
+            host.hit(true);
             morphTo(reverse);
           } else {
-            misses++; host.bad(); host.say('לא בדיוק... נסו שוב 🐱');
+            misses++; host.bad(); host.hit(false); host.say('לא בדיוק... נסו שוב 🐱');
             b.animate([{ transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], 300);
           }
         });

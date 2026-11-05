@@ -70,8 +70,8 @@
       sky.querySelectorAll('.lsnStar').forEach((n) => n.remove());
       if (roundTimer) { roundTimer.stop(); roundTimer = null; }
 
-      // difficulty for THIS round = base level + how deep we are in the lesson
-      const heat = L + round; // 1..~14
+      // difficulty for THIS round = live level (rises with success) + how deep we are
+      const heat = host.lvl() + round; // 1..~15
       // withhold the live "next pulses" hint from ~heat 7; show only a brief memory flash from ~5
       const liveHint = heat < 7;
       const memoryFlash = !liveHint && heat < 10; // flash the sequence once, then hide
@@ -118,7 +118,7 @@
       function tap(idx) {
         if (locked) return;
         if (idx !== next) {
-          wrong++; host.bad();
+          wrong++; host.bad(); host.hit(false);
           host.say('לא הכוכב הזה — הקשיבו לסדר ✦');
           const d = dots[idx]; d.animate([{ transform: 'translate(-50%,-50%) scale(1)' }, { transform: 'translate(-50%,-50%) scale(1.25)' }, { transform: 'translate(-50%,-50%) scale(1)' }], 300);
           if (wrong > maxWrong) return darken();
@@ -140,7 +140,7 @@
       }
 
       function complete() {
-        locked = true;
+        locked = true; host.hit(true);   // a constellation finished → one notch harder on a roll
         HPL._starNext = () => null;
         if (roundTimer) { roundTimer.stop(); roundTimer = null; }
         // sparkle the whole shape

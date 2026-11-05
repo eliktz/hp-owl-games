@@ -48,23 +48,26 @@
         { name: 'פְּרוֹטֶגוֹ', emoji: '🛡️', dir: [0, -40], dummy: false,
           pts: [[180, 60], [120, 110], [140, 190], [230, 190], [250, 110], [180, 60]] },
       ].slice(0, NSP);
-      // longer trace the higher the level: 4 → up to 8 waypoints
-      return base.map((s, idx) => ({ ...s, pts: densify(s.pts, Math.min(8, 4 + (L - 1) + idx)) }));
+      // keep the raw control points so start() can re-length the pattern as skill climbs
+      return base.map((s, idx) => ({ ...s, basePts: s.pts, pts: densify(s.pts, Math.min(8, 4 + (L - 1) + idx)) }));
     }
     const spells = paths();
 
     let cur, hit, trail, down = false;
 
-    function timeMs() { return Math.max(3000, 4200 + cur.pts.length * 480 - L * 340); }
+    function timeMs() { return Math.max(3000, 4200 + cur.pts.length * 480 - host.lvl() * 340); }
     function armTimer() { if (spellTimer) spellTimer.stop(); spellTimer = host.timer(timeMs(), onTimeout); }
     function onTimeout() {
-      retries++; trail = []; hit = cur.pts.map(() => false); down = false; host.bad();
+      retries++; trail = []; hit = cur.pts.map(() => false); down = false; host.bad(); host.hit(false);
       if (retries > NSP + 4) { if (spellTimer) spellTimer.stop(); return host.fail('קצת מהיר היום — ננסה שוב?'); }
       host.say('מהר יותר! ✨'); draw(); armTimer();
     }
 
     function start(idx) {
-      cur = spells[idx]; hit = cur.pts.map(() => false); trail = []; down = false;
+      cur = spells[idx];
+      // lengthen the pattern when the child is on a roll this session (rises with success)
+      cur.pts = densify(cur.basePts, Math.min(9, 4 + (host.lvl() - 1) + idx));
+      hit = cur.pts.map(() => false); trail = []; down = false;
       nameEl.textContent = cur.name;
       host.setProgress(idx, NSP);
       host.say(cur.dummy ? 'כוון לבובה הידידותית! 🙂' : 'מהר ובעדינות — עקוב אחרי הנקודות!');
@@ -122,7 +125,7 @@
     function end(e) {
       if (!down) return; e.preventDefault(); down = false;
       if (hit.indexOf(false) >= 0) { // lifted early
-        retries++; trail = []; hit = cur.pts.map(() => false); host.bad();
+        retries++; trail = []; hit = cur.pts.map(() => false); host.bad(); host.hit(false);
         host.say('נסה שוב, תנופה ושליפה!'); draw();
       }
     }
@@ -147,6 +150,7 @@
       // a quick gold pulse on the spell name — "you cast it!"
       try { nameEl.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 480, easing: 'cubic-bezier(.2,1.5,.4,1)' }); } catch (e) {}
       if (spellTimer) spellTimer.stop();
+      host.hit(true);                              // a spell cast cleanly → one notch harder on a roll
       if (cur.dummy) reactDummy();                 // the friendly target gets happily zapped
       si++; host.setProgress(si, NSP);
       if (si >= NSP) host.after(900, finish);

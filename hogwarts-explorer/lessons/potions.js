@@ -21,7 +21,20 @@
     pot.appendChild(brew); cauldron.appendChild(pot);
     const card = el('div', { style: 'font-size:44px;font-weight:bold;color:#fff;background:rgba(255,245,220,.12);border:3px solid #ffd76a;border-radius:16px;padding:8px 22px', dir: 'ltr' }, '');
     const vials = el('div', { class: 'lsnRow' });
-    host.stage.appendChild(cauldron); host.stage.appendChild(card); host.stage.appendChild(vials);
+    // a simple recipe strip: one slot per step, each revealing its ingredient as you solve it
+    const ING = ['🍄', '🌿', '🐌', '🦎', '🕷️', '🌰', '🫐', '🐸'];
+    const recipe = el('div', { class: 'lsnRow', style: 'gap:6px;margin-top:-4px' });
+    const slots = [];
+    for (let k = 0; k < N; k++) {
+      const s = el('div', { style: 'width:34px;height:34px;border-radius:9px;border:2px solid rgba(255,215,106,.5);background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:22px;opacity:.5' }, '·');
+      slots.push(s); recipe.appendChild(s);
+    }
+    host.stage.appendChild(cauldron); host.stage.appendChild(recipe); host.stage.appendChild(card); host.stage.appendChild(vials);
+    function fillSlot(k) {
+      if (k >= slots.length) return;
+      const s = slots[k]; s.textContent = ING[k % ING.length]; s.style.opacity = '1'; s.style.borderColor = '#9effa0'; s.style.background = 'rgba(120,240,160,.2)';
+      s.animate([{ transform: 'scale(.3)' }, { transform: 'scale(1.3)' }, { transform: 'scale(1)' }], { duration: 360, easing: 'cubic-bezier(.2,1.5,.4,1)' });
+    }
 
     function bubble() {
       const b = el('div', { style: 'position:absolute;bottom:30px;left:' + (40 + Math.random() * 60) + 'px;width:' + (8 + Math.random() * 10) + 'px;height:' + (8 + Math.random() * 10) + 'px;border-radius:50%;background:rgba(255,255,255,.6);transition:all .8s ease-out' });
@@ -30,15 +43,15 @@
     }
     const bubbleTimer = setInterval(bubble, 420);
 
-    // effective difficulty: mastery/school-day level + a within-brew ramp
-    function diff() { return L + Math.floor(i / 2); }
+    // effective difficulty: live in-session level (rises with success) + a within-brew ramp
+    function diff() { return host.lvl() + Math.floor(i / 2); }
 
     // pick a question kind allowed at this difficulty
     function pickKind(d) {
       const kinds = ['add', 'sub'];
       if (d >= 2) kinds.push('times');
-      if (d >= 3) kinds.push('missing', 'two');
-      if (d >= 4) kinds.push('times', 'two');   // weight the harder kinds higher
+      if (d >= 3) kinds.push('missing', 'two', 'div');
+      if (d >= 4) kinds.push('times', 'two', 'div');   // weight the harder kinds higher
       return kinds[host.rnd(0, kinds.length - 1)];
     }
 
@@ -51,6 +64,11 @@
         const a = host.rnd(2, Math.min(3 + d, 9)), b = host.rnd(2, Math.min(5 + Math.floor(d / 2), 10));
         ans = a * b; display = a + ' × ' + b + ' = ?'; prompt = 'לוח הכפל: ' + a + ' כפול ' + b + '!';
         timed = d >= 4;
+      } else if (kind === 'div') {
+        // clean division: build from a known quotient so it always divides evenly
+        const b = host.rnd(2, Math.min(3 + Math.floor(d / 2), 9)), q = host.rnd(2, Math.min(3 + d, 9));
+        ans = q; display = (b * q) + ' ÷ ' + b + ' = ?'; prompt = 'חלקו שווה בשווה! ' + (b * q) + ' למושבות של ' + b;
+        timed = d >= 5;
       } else if (kind === 'missing') {
         const b = host.rnd(2, addMax), c = host.rnd(b + 1, b + addMax); ans = c - b;   // b + ? = c
         display = b + ' + ? = ' + c; prompt = 'כמה טיפות חסרות?'; timed = d >= 5;
@@ -95,10 +113,11 @@
             const r = v.getBoundingClientRect(), pr = host.stage.getBoundingClientRect();
             host.good(r.left - pr.left + 40, r.top - pr.top);
             if (q.timed && beat) { bonus++; host.good(pr.width / 2, 40); host.say('מהיר! בונוס ⚡'); }
+            fillSlot(i); host.hit(true);
             for (let k = 0; k < 6; k++) host.after(k * 40, bubble);
             i++; host.setProgress(i, N); host.after(650, ask);
           } else {
-            misses++; host.bad();
+            misses++; host.bad(); host.hit(false);
             v.animate([{ transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], 300);
             host.say('כמעט! נסו שוב 😊');
           }

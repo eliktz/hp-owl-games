@@ -10,9 +10,12 @@
 
   HPL.games.herbology = function (host) {
     const el = HPL.el;
-    const L = host.level;                               // 1..8, bigger = harder
+    const L = host.level;                               // 1..8, bigger = harder (sets lesson length)
     const rounds = 5 + Math.floor(L / 2);              // 5..9 rounds
-    const cap = L <= 1 ? 5 : L <= 2 ? 8 : L <= 3 ? 12 : L <= 5 ? 18 : 25; // seedling cap
+    const cap = L <= 1 ? 5 : L <= 2 ? 8 : L <= 3 ? 12 : L <= 5 ? 18 : 25; // base seedling cap
+    // live difficulty that rises with success this session (eases after misses)
+    const heat = () => host.lvl();
+    const capNow = () => Math.min(30, cap + Math.max(0, host.dyn()) * 3);
     const seeds = ['🌱', '🪴', '🌸', '🌻'];
     const maxMistakes = rounds + 3;                    // over this → fail(), no pity win
     let i = 0, misses = 0;
@@ -30,7 +33,7 @@
     function next() { i++; host.setProgress(i, rounds); host.after(650, play); }
 
     function miss(msg, b) {
-      misses++; host.bad(); host.say(msg || 'כמעט! נסו שוב 🌱');
+      misses++; host.bad(); host.hit(false); host.say(msg || 'כמעט! נסו שוב 🌱');
       if (b) b.animate([{ transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], 300);
       if (misses > maxMistakes) { stopTimer(); host.after(500, () => host.fail('אופס, הצמחים קצת התבלבלו — ננסה שוב! 🌿')); return true; }
       return false;
@@ -39,14 +42,14 @@
     function stopTimer() { if (curTimer) { curTimer.stop(); curTimer = null; } }
 
     // how many choice buttons to show (correct + distractors), grows with level
-    function choiceCount() { return L <= 2 ? 3 : L <= 4 ? 4 : 5; }
+    function choiceCount() { const h = heat(); return h <= 2 ? 3 : h <= 4 ? 4 : 5; }
 
     // build a set of near distractors around the answer
     function distractors(answer, hi) {
       const set = new Set([answer]);
       let guard = 0;
       while (set.size < choiceCount() && guard++ < 60) {
-        const spread = L <= 3 ? 2 : 3;
+        const spread = heat() <= 3 ? 2 : 3;
         const d = answer + host.rnd(-spread, spread);
         if (d >= 1 && d <= hi + 4 && d !== answer) set.add(d);
       }
@@ -63,7 +66,7 @@
         const b = el('button', { class: 'lsnBtn', dir: 'ltr' }, String(c));
         b.addEventListener('click', () => {
           if (c === answer) {
-            stopTimer();
+            stopTimer(); host.hit(true);
             [...row.querySelectorAll('button')].forEach((x) => (x.style.pointerEvents = 'none'));
             const r = b.getBoundingClientRect(), pr = host.stage.getBoundingClientRect();
             host.good(r.left - pr.left + 40, r.top - pr.top);
@@ -82,8 +85,8 @@
 
     // optionally start a gentle timed bonus on a round (only mid/high level, some rounds)
     function maybeTimer() {
-      if (L >= 3 && Math.random() < 0.5) {
-        const ms = Math.max(5000, 11000 - L * 700);
+      if (heat() >= 3 && Math.random() < 0.5) {
+        const ms = Math.max(5000, 11000 - heat() * 700);
         curTimer = host.timer(ms, () => { curTimer = null; host.say('הזמן נגמר — אבל אפשר עדיין לענות! ⏳'); });
       }
     }
@@ -98,11 +101,12 @@
       // ramp: later rounds pull from the harder end of the unlocked pool
       const frac = i / rounds;                          // 0..~1 through the lesson
       const pool = [];
+      const h = heat();                                 // unlocks can open mid-lesson on a streak
       pool.push('count');                               // always available
-      if (L >= 2) { pool.push('add'); pool.push('plant'); }
-      if (L >= 3) pool.push('which');
-      if (L >= 4) pool.push('sub');
-      if (L >= 5) pool.push('mult');
+      if (h >= 2) { pool.push('add'); pool.push('plant'); }
+      if (h >= 3) pool.push('which');
+      if (h >= 4) pool.push('sub');
+      if (h >= 5) pool.push('mult');
 
       let type;
       if (i === 0) type = 'count';                      // warm up
@@ -125,17 +129,19 @@
 
     // ---- Round: count the seedlings shown ----
     function countRound(frac) {
-      const lo = Math.max(2, Math.floor(cap * 0.3 * frac));
-      const n = host.rnd(Math.max(2, lo), cap);
+      const C = capNow();
+      const lo = Math.max(2, Math.floor(C * 0.3 * frac));
+      const n = host.rnd(Math.max(2, lo), C);
       host.say('כמה פרחים? ספרו! 🌼');
       maybeTimer();
       scatter(board, n, seeds[host.rnd(0, seeds.length - 1)], n > 14 ? 34 : 44);
-      numberButtons(n, cap);
+      numberButtons(n, C);
     }
 
     // ---- Round: addition / subtraction of two seedling groups ----
     function opRound(op, frac) {
-      const top = Math.max(4, Math.floor(cap * (0.5 + 0.5 * frac)));
+      const C = capNow();
+      const top = Math.max(4, Math.floor(C * (0.5 + 0.5 * frac)));
       let a, b, answer;
       if (op === '+') {
         a = host.rnd(1, Math.max(2, Math.floor(top / 2)));
@@ -156,12 +162,13 @@
       const sign = el('div', { style: 'font-size:48px;color:#fff;font-weight:bold' }, op);
       board.style.fontSize = '0';
       board.appendChild(g1); board.appendChild(sign); board.appendChild(g2);
-      numberButtons(answer, Math.max(cap, a + b));
+      numberButtons(answer, Math.max(C, a + b));
     }
 
     // ---- Round: which pot-group has exactly N ----
     function whichRound(frac) {
-      const target = host.rnd(Math.max(2, Math.floor(cap * 0.3)), cap);
+      const C = capNow();
+      const target = host.rnd(Math.max(2, Math.floor(C * 0.3)), C);
       host.say('איזו קבוצה יש בה בדיוק ' + target + '? 🪴');
       maybeTimer();
       big.textContent = String(target);
@@ -182,7 +189,7 @@
         for (let k = 0; k < cnt; k++) g.appendChild(el('span', {}, emo));
         g.addEventListener('click', () => {
           if (cnt === target) {
-            stopTimer();
+            stopTimer(); host.hit(true);
             [...board.querySelectorAll('button')].forEach((x) => (x.style.pointerEvents = 'none'));
             const r = g.getBoundingClientRect(), pr = host.stage.getBoundingClientRect();
             host.good(r.left - pr.left + 40, r.top - pr.top); next();
@@ -194,8 +201,9 @@
 
     // ---- Round: multiplication shown as rows × columns ----
     function multRound(frac) {
-      const r = host.rnd(2, Math.min(5, 2 + Math.floor(L / 2)));
-      const c = host.rnd(2, Math.min(6, 2 + Math.floor(L / 2)));
+      const h = heat();
+      const r = host.rnd(2, Math.min(5, 2 + Math.floor(h / 2)));
+      const c = host.rnd(2, Math.min(6, 2 + Math.floor(h / 2)));
       const answer = r * c;
       host.say(r + ' שורות של ' + c + ' — כמה פרחים? ✖️');
       maybeTimer();
@@ -204,16 +212,17 @@
       const grid = el('div', { style: 'display:grid;grid-template-columns:repeat(' + c + ',1fr);gap:6px;font-size:' + (answer > 15 ? 26 : 34) + 'px' });
       for (let k = 0; k < answer; k++) grid.appendChild(el('span', { style: 'line-height:1' }, '🌻'));
       board.appendChild(grid);
-      numberButtons(answer, Math.max(cap, answer));
+      numberButtons(answer, Math.max(capNow(), answer));
     }
 
     // ---- Round: plant exactly the target number (missing-number variant up top) ----
     function plantRound(frac) {
-      const top = Math.max(4, Math.floor(cap * (0.5 + 0.5 * frac)));
+      const C = capNow();
+      const top = Math.max(4, Math.floor(C * (0.5 + 0.5 * frac)));
       const target = host.rnd(3, top);
       // missing-number variant at high level: start with some pre-planted pots
-      const preset = L >= 5 && Math.random() < 0.5 ? host.rnd(1, Math.max(1, target - 1)) : 0;
-      const pots = Math.min(30, Math.max(target + 4, Math.max(8, cap)));
+      const preset = heat() >= 5 && Math.random() < 0.5 ? host.rnd(1, Math.max(1, target - 1)) : 0;
+      const pots = Math.min(30, Math.max(target + 4, Math.max(8, C)));
       if (preset) host.say('כבר יש ' + preset + ' — שתלו עד ' + target + '! 🌿');
       else host.say('שתלו בדיוק ' + target + ' זרעים! 🌱');
       HPL._herbAnswer = () => ({ plant: target });
@@ -235,7 +244,7 @@
             host.good(r.left - pr.left + 40, r.top - pr.top);
           }
           counter.textContent = planted + ' / ' + target;
-          if (planted === target) { stopTimer(); cells.forEach((c) => (c.style.pointerEvents = 'none')); host.say('מעולה! 🌿'); next(); }
+          if (planted === target) { stopTimer(); host.hit(true); cells.forEach((c) => (c.style.pointerEvents = 'none')); host.say('מעולה! 🌿'); next(); }
           else if (planted > target) { if (!miss('יותר מדי! הורידו אחד 🌱')) { /* keep playing */ } }
         });
         cells.push(pot); board.appendChild(pot);

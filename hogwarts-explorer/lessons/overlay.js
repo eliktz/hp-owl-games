@@ -138,12 +138,31 @@
     stageEl.appendChild(box);
   }
 
+  // a wordless "ooh, harder now!" cue when the child is on a roll (minimal text)
+  function levelUp() {
+    try { HP.sfx.sparkle && HP.sfx.sparkle(); } catch (e) {}
+    moodT = 0.8; mood = 1;
+    spark(panel.clientWidth / 2, 52, ['⬆️', '🔥', '✨', '💪']);
+  }
+
   function makeHost(def) {
     const base = (HPL.progress && HPL.progress.level(def.key)) || 1;
     const day = (window.HPSchedule && HPSchedule.state) ? HPSchedule.state().day : 0;
     const level = Math.min(8, base + Math.floor(day / 2));   // mastery + ramps across the week
+    // in-session dynamic difficulty: climbs as the child succeeds, eases after misses, so a
+    // confident child gets harder questions and a struggling one gets a break — never a dead end.
+    let streak = 0, dyn = 0;
     const host = {
       stage: stageEl, subject: def.subject, color: def.color, teacher: def.teacher, key: def.key, level, day,
+      // record an answer: two in a row right → one notch harder (capped); any miss → one notch
+      // easier (floored). Lessons fold host.lvl()/host.dyn() into their per-round difficulty.
+      hit(ok) {
+        if (ok) { streak++; if (streak >= 2 && dyn < 3) { dyn++; streak = 0; levelUp(); } }
+        else { streak = 0; if (dyn > -2) dyn--; }
+        return dyn;
+      },
+      dyn() { return dyn; },
+      lvl() { return Math.max(1, Math.min(9, level + dyn)); },   // effective difficulty right now
       say(t, m) { sayEl.textContent = t; moodT = Math.max(0.3, (t || '').length * 0.045); mood = 1; },
       setProgress(cur, total) {
         pipsEl.innerHTML = '';
