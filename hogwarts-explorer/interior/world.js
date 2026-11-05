@@ -94,8 +94,9 @@
 
     // ---- hidden chocolate-frog cards: one per not-yet-found card, tucked across the castle.
     //      All are placed near guaranteed-reachable spawn points (see the reachability test). ----
-    const cardSpots = { merlin: [42, 30], star: [46, -22], owl: [35, -48], dragon: [53, -8], potion: [-45, -12],
-      cat: [20, -37], herb: [20, -22], broom: [22, 10], ghost: [64, -8] };
+    // tucked a few metres off each room's spawn so they're found by walking, not auto-grabbed on arrival
+    const cardSpots = { merlin: [42, 30], star: [52, -26], owl: [16, -50], dragon: [46, -10], potion: [-50, -8],
+      cat: [14, -40], herb: [26, -26], broom: [28, 12], ghost: [64, -14] };
     if (window.HPICards) HPICards.CATALOG.forEach((c) => {
       if (HPICards.has(c.id)) return;                 // already collected → don't respawn
       const sp = cardSpots[c.id]; if (!sp) return;
