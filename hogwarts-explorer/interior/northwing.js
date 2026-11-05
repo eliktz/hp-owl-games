@@ -72,8 +72,11 @@
     // south wall carries the one doorway to the north corridor; other three are solid
     kit.wallNav(scene, { axis: 'z', c: R.z1, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL, gap: [33, 38] }, stone);
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL }, stone);
-    kit.wallNav(scene, { axis: 'x', c: R.x0, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone);
+    // west wall carries a single doorway to the hidden Room of Requirement; east is solid
+    kit.wallNav(scene, { axis: 'x', c: R.x0, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL, gap: [-53, -49] }, stone);
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone);
+    // a wayfinding sign by the hidden west door: the room that is whatever you need
+    F.sign(scene, R.x0 + 0.3, 4, -51, Math.PI / 2, 'חדר הבקשות', '✨');
     light.enchantedCeiling((R.x0 + R.x1) / 2, (R.z0 + R.z1) / 2, R.x1 - R.x0, R.z1 - R.z0, CEIL - 0.3);
     // a big round night-window on the north wall: a dark starry sky pane with a softly
     //      shaded moon (not a flat blown-out disc), set behind a stone ring frame

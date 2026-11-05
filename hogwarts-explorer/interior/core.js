@@ -31,6 +31,7 @@ window.HPI = (function () {
     TRO: { x0: 40, x1: 58, z0: -14, z1: 2 },     // Trophy room (east of NCOR, north of Library)
     CLK: { x0: 58, x1: 70, z0: -18, z1: 2 },     // Clock tower (east strip, reached north from the Library)
     OWL: { x0: 8,  x1: 58, z0: -58, z1: -44 },   // Owlery (open roost across the castle's north top)
+    ROR: { x0: -14, x1: 8, z0: -58, z1: -44 },   // Room of Requirement (hidden west of the Owlery; décor changes each visit)
     UP: 7,                                        // upper-floor height
     DN: -6,                                       // dungeon floor height (below ground)
     dunFloorZ: -3,                                // dungeon ramp bottoms out here
