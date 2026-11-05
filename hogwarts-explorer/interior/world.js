@@ -76,7 +76,7 @@
       spells: { x: 50, z: -38, y: 0 },
       trophy: { x: 53, z: -6, y: 0 },
       owlery: { x: 35, z: -50, y: 0 },
-      roomReq: { x: -3, z: -50, y: 0 },
+      roomReq: { x: 5, z: -50, y: 0 },
       clocktower: { x: 64, z: -8, y: 0 },
     };
 
