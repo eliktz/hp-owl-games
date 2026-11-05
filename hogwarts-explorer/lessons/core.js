@@ -206,7 +206,7 @@
     const t = (__game.inside && __game.inside.teachers || []).find((x) => x.key === l.key);
     return t ? { x: t.x, z: t.z } : null;
   }
-  let nearKey = null, armed = {};
+  let nearKey = null, armed = {}, lastPos = null;
   function startLesson(key) {
     const l = byKey[key]; if (!l || (__game && __game.modal)) return;   // every room is always open now
     hideStart(); arrowEl.classList.remove('on'); armed[key] = false;
@@ -221,9 +221,15 @@
   function frame() {
     requestAnimationFrame(frame);
     const g = window.__game;
-    if (!g || !g.started || g.modal) { hideStart(); arrowEl.classList.remove('on'); return; }
-    if (!tipDone) maybeTip();   // first frame of real play → show the coach tip once
+    if (!g || !g.started) { hideStart(); arrowEl.classList.remove('on'); return; }
     const world = g.world, pp = g.player.position;
+    // detect a fast-travel teleport (big jump / world change): on arrival we show the ▶
+    // start prompt rather than auto-begin, so landing on a teacher is a calm choice, not a
+    // jarring instant start. A physical walk-up (small steps) still auto-begins.
+    const teleported = !lastPos || lastPos.world !== world || Math.hypot(pp.x - lastPos.x, pp.z - lastPos.z) > 6;
+    lastPos = { x: pp.x, z: pp.z, world };
+    if (g.modal) { hideStart(); arrowEl.classList.remove('on'); return; }
+    if (!tipDone) maybeTip();   // first frame of real play → show the coach tip once
     // nearest triggerable lesson in this world
     let best = null, bd = 1e9;
     for (const l of LESSONS) {
@@ -236,8 +242,9 @@
     if (best && bd < range) {
       nearKey = best.key;
       showStart(best);
+      if (teleported && bd < 3) armed[best.key] = false;   // just warped in → wait for a tap, don't auto-start
       // walked right up → auto-begin (classrooms are always open)
-      if (bd < 2.6 && armed[best.key] !== false) startLesson(best.key);
+      if (!teleported && bd < 2.6 && armed[best.key] !== false) startLesson(best.key);
       if (bd > 3) armed[best.key] = true;           // re-arm after stepping back
     } else { nearKey = null; hideStart(); if (best) armed[best.key] = true; }
     updateArrow(g, world);
