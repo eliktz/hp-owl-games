@@ -4,6 +4,20 @@
  * ripped art: every face is generic and procedurally posed. */
 (function (HPI) {
   const T = HPI.T, L = HPI.L, kit = HPI.kit;
+  // short, icon-heavy lines the portraits say when a child walks up (minimal Hebrew, RTL)
+  const LINES = ['👋 שָׁלוֹם!', '🤫 סוֹד לְמַעְלָה 🪜', '📚 לַסִּפְרִיָּה ➡️', '✨ כָּל הַכָּבוֹד!', '🃏 אָסַפְתָּ כַּרְטִיסִים?'];
+  function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  // a billboard speech bubble (gold-rimmed violet, house style) baked to a sprite texture
+  function talkTex(line) {
+    const c = document.createElement('canvas'); c.width = 340; c.height = 120; const g = c.getContext('2d');
+    g.fillStyle = 'rgba(40,25,90,.94)'; roundRect(g, 8, 8, 324, 88, 20); g.fill();
+    g.strokeStyle = '#ffd76a'; g.lineWidth = 6; roundRect(g, 8, 8, 324, 88, 20); g.stroke();
+    g.fillStyle = 'rgba(40,25,90,.94)'; g.beginPath(); g.moveTo(150, 94); g.lineTo(190, 94); g.lineTo(170, 116); g.closePath(); g.fill();
+    g.fillStyle = '#fff'; g.font = 'bold 44px Rubik,Arial,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    try { g.direction = 'rtl'; } catch (e) {}
+    g.fillText(line, 170, 50);
+    return new T.CanvasTexture(c);
+  }
   const PAL = [
     { robe: 0x5a2740, skin: 0xe8b98a, hair: 0x2a1d12, bg: '#2a1830' },
     { robe: 0x234a6b, skin: 0xd9a26e, hair: 0x8a8a90, bg: '#162436' },
@@ -77,6 +91,9 @@
       const p = makePortrait(PAL[k % PAL.length]);
       p.position.set(x, 3.2, north ? COR.z0 + 0.4 : COR.z1 - 0.4);
       p.rotation.y = north ? 0 : Math.PI; scene.add(p); portraits.push(p);
+      // a walk-up speech bubble above the frame (hidden until a child comes close)
+      const bub = new T.Sprite(new T.SpriteMaterial({ map: talkTex(LINES[k % LINES.length]), transparent: true, depthWrite: false, opacity: 0, fog: false }));
+      bub.scale.set(3.4, 1.2, 1); bub.position.set(0, 2.05, 0.5); bub.renderOrder = 5; p.add(bub); p.userData.bubble = bub;
       light.addTorch(x, 4.2, north ? COR.z1 - 0.4 : COR.z0 + 0.4, 0xffa848, 5);
       k++;
     }
@@ -90,13 +107,20 @@
     light.addDust((COR.x0 + COR.x1) / 2, 2, (COR.z0 + COR.z1) / 2, COR.x1 - COR.x0, 5, 7, 90);
 
     HPI.builders.push((t, dt) => {
+      // which portrait is the child standing closest to? (only that one speaks)
+      const g = window.__game, pp = (g && g.world === 'inside' && g.player) ? g.player.position : null;
+      let near = null, nd = 1e9;
+      if (pp) for (const p of portraits) { const d = Math.hypot(pp.x - p.position.x, pp.z - p.position.z); if (d < nd) { nd = d; near = p; } }
       for (const p of portraits) {
         const u = p.userData;
-        u.arm.rotation.z = 0.5 + Math.sin(t * 3 + u.wavePh) * 0.6;   // friendly wave
+        const talking = (p === near && nd < 6.5);
+        u.arm.rotation.z = 0.5 + Math.sin(t * (talking ? 6 : 3) + u.wavePh) * (talking ? 0.9 : 0.6);  // waves harder when talking
         u.winkT -= dt;
         if (u.winkT <= 0) { u.winking = 0.3; u.winkT = 3 + Math.random() * 5; }
         if (u.winking > 0) { u.winking -= dt; const w = Math.sin((1 - u.winking / 0.3) * Math.PI); u.eyes[0].scale.y = u.lidBase + w * 1.6; }
         else u.eyes[0].scale.y = u.lidBase;
+        // fade the speech bubble in/out
+        const b = u.bubble; if (b) b.material.opacity += ((talking ? 1 : 0) - b.material.opacity) * Math.min(1, dt * 10);
       }
     });
   };
