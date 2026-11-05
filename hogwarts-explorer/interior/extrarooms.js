@@ -108,20 +108,23 @@
     const loaf = F.mesh(new T.SphereGeometry(0.3, 10, 8), new T.MeshStandardMaterial({ color: 0xc08a46, roughness: 0.9 }), R.x0 + 2.6, FY + 1.3, -11); loaf.scale.set(1.5, 0.8, 1); scene.add(loaf);
     scene.add(F.mesh(new T.CylinderGeometry(0.34, 0.34, 0.22, 16), new T.MeshStandardMaterial({ color: 0xe8c860, roughness: 0.7 }), R.x0 + 2.6, FY + 1.25, -15));
 
-    // ---- a hanging pot rack over the aisle: a tidy row of copper pots, with flat-bottomed
-    //      pans hung edge-on by the handle to the sides (so they read as pans, not dark discs) ----
-    const rail = F.mesh(new T.CylinderGeometry(0.06, 0.06, 11, 8), ironM, cx, FY + 5.3, -13); rail.rotation.x = Math.PI / 2; scene.add(rail);
-    for (let i = 0; i < 5; i++) {
-      const z = -18 + i * 2.5;
-      scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.5, 6), ironM, cx, FY + 5.0, z));
-      scene.add(F.mesh(new T.CylinderGeometry(0.3, 0.26, 0.42, 12), copper, cx, FY + 4.5, z)); // pot (rounded, reads well)
-    }
-    [-1, 1].forEach((s) => [-16, -11].forEach((z) => {
-      const px = cx + s * 1.8;
-      scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.6, 6), ironM, px, FY + 4.95, z));
-      const pan = F.mesh(new T.CylinderGeometry(0.32, 0.32, 0.07, 14), copper, px, FY + 4.5, z); pan.rotation.z = Math.PI / 2; scene.add(pan); // face along x → edge-on from the aisle
-      const handle = F.mesh(new T.BoxGeometry(0.06, 0.5, 0.06), ironM, px, FY + 4.78, z); scene.add(handle);
-    }));
+    // ---- hanging pot racks over the two work tables (NOT the central aisle): tucked high
+    //      near the ceiling and off-centre so they never read into the top HUD, and the
+    //      sightline down the aisle to the hearth stays clear ----
+    [R.x0 + 2.6, R.x1 - 2.6].forEach((tx) => {
+      const rail = F.mesh(new T.CylinderGeometry(0.06, 0.06, 11, 8), ironM, tx, FY + 6.0, -13); rail.rotation.x = Math.PI / 2; scene.add(rail);
+      for (let i = 0; i < 4; i++) {
+        const z = -17 + i * 2.6;
+        scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.4, 6), ironM, tx, FY + 5.75, z));
+        scene.add(F.mesh(new T.CylinderGeometry(0.3, 0.26, 0.42, 12), copper, tx, FY + 5.35, z)); // pot (rounded, reads well)
+      }
+      // a couple of flat-bottomed pans hung edge-on by the handle between the pots
+      [-14.5, -10].forEach((z) => {
+        scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.5, 6), ironM, tx, FY + 5.7, z));
+        const pan = F.mesh(new T.CylinderGeometry(0.3, 0.3, 0.07, 14), copper, tx, FY + 5.3, z); pan.rotation.z = Math.PI / 2; scene.add(pan); // edge-on from the aisle
+        scene.add(F.mesh(new T.BoxGeometry(0.06, 0.45, 0.06), ironM, tx, FY + 5.55, z)); // handle
+      });
+    });
 
     // ---- stacked barrels in the SE corner ----
     [[R.x1 - 2, -24, 0], [R.x1 - 3.4, -24, 0], [R.x1 - 2.7, -23, 1.4]].forEach(([x, z, up]) => scene.add(F.mesh(new T.CylinderGeometry(0.6, 0.6, 1.4, 12), darkW, x, FY + 0.7 + up, z)));
