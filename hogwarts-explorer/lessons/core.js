@@ -291,7 +291,7 @@
     tmp.set(tp.x, fy, tp.z).project(g.camera);
     const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
     let sx = tmp.x, sy = tmp.y; if (tmp.z > 1) { sx = -sx; sy = -sy; }       // behind camera → flip
-    const ang = Math.atan2(-sy, sx);
+    const ang = Math.atan2(sy, sx);   // screen-space bearing, y up (was mirrored: a target ahead showed the arrow pointing down)
     const rad = Math.min(window.innerWidth, window.innerHeight) * 0.3;
     arrowEl.style.left = (cx + Math.cos(ang) * rad) + 'px';
     arrowEl.style.top = (cy - Math.sin(ang) * rad) + 'px';
