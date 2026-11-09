@@ -4,7 +4,7 @@
  * nothing can go wrong and it wears off by itself. Try three for the 🫘 sticker. */
 (function () {
   const F = window.HPFun, T = window.THREE;
-  const BOWLS = [{ x: 17, z: -7, y: 0.82 }, { x: -40, z: 22, y: 1.25, stand: true }, { x: -23.5, z: -4, y: 1.25, stand: true }];
+  const BOWLS = [{ x: 17, z: -7, y: 0.82 }, { x: -40, z: 22, y: 1.25, stand: true }, { x: -26.5, z: -22.5, y: 1.25, stand: true }];
   const FLAVOURS = [['🍓', 'תּוּת!', 1], ['🍫', 'שׁוֹקוֹלָד!', 1], ['🍋', 'חָמוּץ!!', 0], ['🧦', 'גַּרְבַּיִם?! אִיכְס', 0], ['🌶️', 'חָרִיף!!!', 0], ['🧀', 'גְּבִינָה מַסְרִיחָה', 0],
     ['🍉', 'אֲבַטִּיחַ!', 1], ['🥦', 'בְּרוֹקוֹלִי...', 0], ['🍿', 'פּוֹפְּקוֹרְן!', 1], ['🐟', 'דָּג?! בְּלֶע', 0], ['🍭', 'סֻכָּרִיָּה!', 1], ['👃', 'אוֹי לֹא... נַזֶּלֶת', 0]];
   const EFFECTS = ['giant', 'tiny', 'bouncy', 'rainbow', 'zoom', 'hiccup', 'glitter'];

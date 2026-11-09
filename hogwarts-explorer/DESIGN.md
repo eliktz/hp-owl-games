@@ -62,3 +62,29 @@ wind pad, collect chimes, a whoosh on take-off. The existing 🔇 button mutes e
 Playwright headless with swiftshader, iPad Pro 11 **portrait + landscape**: assert no
 console errors and that a simulated **touch-drag on the joystick actually moves the player**,
 then capture screenshots and iterate on the look.
+
+## Castle interior, lessons and delight (the "fable" pass)
+The castle is the heart of the game now, so this pass spent its boldness there.
+
+- **Light you can feel.** Every flame "bakes" a warm pool on the floor and a wash on its wall
+  (all pools live in ONE additive mesh, clipped against the nav walls so light never leaks
+  next door); stained glass throws coloured patches; characters get soft blob shadows; a
+  candle-lit vignette frames the screen indoors. No extra real lights, no shadow maps.
+- **Room culling** (`interior/cull.js`). Objects are bucketed per room; only the room you
+  are in, doorway-adjacent rooms and near second-ring rooms are drawn. Adjacency is derived
+  from the nav walls. Indoor draw calls fell from ~1,500–2,700 to ~450–1,200.
+- **Touch feel.** The joystick ring follows the thumb (instant reversing), radial dead-zone
+  + response curve, look-drag is queued and eased per frame with a little flick inertia,
+  HUD touches never steer, fingers are released when an overlay opens.
+- **Delight systems** (`delight/*.js`, each self-contained, all persisted in `hpFun1`):
+  the 🪄 wand (enchant armour, ghosts, candles, books, cauldrons, portraits, friends…),
+  the Sorting Hat ceremony + four house hourglasses fed by lesson points, wearable hats
+  (wardrobe in the sticker screen), Pip the owlet (follows + hints), Peeves the prankster,
+  every-flavour beans (silly temporary spells), Trevor hide-and-seek, the Mirror of Wishes,
+  a secret book passage Library ⇄ Common Room, a gramophone + wizard chess, daily owl post.
+- **Lessons.** Seven subjects, always open from the 🔔 picker. Difficulty is a per-subject
+  skill rating (1–8) that moves with how each lesson actually went, plus the in-lesson
+  streak ramp; combos, professors who react in character, ranks, a level bar and little
+  prizes on the reward. New: Care of Magical Creatures (a listen-and-repeat memory game).
+- **Rules kept.** No timetable, nothing locked, no fail states that end play, every spot
+  reachable on foot (`_test/reachability.js` checks every delight point too).
