@@ -192,6 +192,7 @@
     scene.add(g);
     const ph = Math.random() * 7;
     HPI.builders.push((t) => { halo.material.opacity = 0.45 + 0.18 * Math.sin(t * 6 + ph); g.rotation.z = Math.sin(t * 0.5 + ph) * 0.03; });
+    if (HPI.light && HPI.light.addPool) HPI.light.addPool(x, z, 5.2, color, 0.3);   // warm spill on the floor below
     return g;
   }
 

@@ -79,6 +79,10 @@
     padding:10px 26px;border-radius:30px;background:rgba(40,25,90,.82);border:3px solid #ffd76a;color:#fff;
     font-size:30px;font-weight:bold;z-index:12;opacity:0;transition:opacity .2s;pointer-events:none;text-shadow:0 2px 0 #000}
   #enterHint.on{opacity:1}
+  /* candle-lit vignette: darkens the screen edges indoors so the warm light pools glow */
+  #vig{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .6s;
+    background:radial-gradient(ellipse at 50% 46%,rgba(0,0,0,0) 52%,rgba(18,8,30,.34) 78%,rgba(8,3,18,.66) 100%)}
+  body.inside #vig{opacity:1}
 </style>
 </head>
 <body>
@@ -503,6 +507,10 @@
   });
 
   fxIn = new HP.Particles(inside.scene, 420);
+  const vig = document.createElement('div'); vig.id = 'vig'; document.body.appendChild(vig);
+  // soft blob shadow under the hero (hops between the two scenes with him)
+  const pShadow = inside.light.blobShadow(scene, 0, 0, 0, 1.2);
+  let shownWorld = null;
   const fade = document.createElement('div'); fade.id = 'fade'; document.body.appendChild(fade);
   const enterHint = document.createElement('div'); enterHint.id = 'enterHint'; document.body.appendChild(enterHint);
 
@@ -952,6 +960,18 @@
       if (show && dEnter < 4.5 && !transiting) enter();
     }
 
+    if (shownWorld !== world) {       // one-time swap of per-world presentation
+      shownWorld = world; document.body.classList.toggle('inside', !outside);
+      (outside ? scene : inside.scene).add(pShadow);
+      camera.far = outside ? 620 : 170; camera.updateProjectionMatrix();
+    }
+    {
+      const gy0 = outside ? terrainH(player.position.x, player.position.z) : inside.floorH(player.position.x, player.position.z);
+      const hh = Math.max(0, player.position.y - gy0);
+      pShadow.position.set(player.position.x, gy0 + 0.09, player.position.z);
+      pShadow.scale.setScalar(Math.max(0.35, 1 - hh * 0.07) * player.scale.x / 1.15);
+      pShadow.visible = hh < 12;
+    }
     for (const h of frameHooks) { try { h(dt, t, world, playing); } catch (e) { if (!h._warned) { h._warned = 1; console.warn('[hook]', e); } } }
     updateCamera(dt);
     if (outside) fx.update(dt); else fxIn.update(dt);

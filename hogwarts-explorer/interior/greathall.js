@@ -61,10 +61,11 @@
     chair.position.set(GH.x0 + 3, 0.5, (GH.z0 + GH.z1) / 2); scene.add(chair);
 
     // ---- tall stained-glass windows on both long walls + a rose window at the head end ----
+    // (they sit on the two long walls, which run along x — between the wall torches)
     const hues = [12, 48, 210, 150, 300];
-    for (let z = 8, k = 0; z <= 36; z += 7, k++) {
-      stainedWindow(scene, light, GH.z0 + 0.3, 11, z, hues[k % hues.length], 'z', 1);
-      stainedWindow(scene, light, GH.z1 - 0.3, 11, z, hues[(k + 2) % hues.length], 'z', -1);
+    for (let x = -46, k = 0; x <= -20; x += 8, k++) {
+      stainedWindow(scene, light, x, 11, GH.z0 + 0.3, hues[k % hues.length], 1);
+      stainedWindow(scene, light, x, 11, GH.z1 - 0.3, hues[(k + 2) % hues.length], -1);
     }
     const rose = new T.Mesh(new T.CircleGeometry(4, 24),
       new T.MeshBasicMaterial({ map: HPI.tex.stained(270), transparent: true, opacity: 0.95, side: T.DoubleSide, fog: false }));
@@ -74,7 +75,7 @@
     // ---- four house banners between the windows ----
     HPI.HOUSES.forEach((h, i) => {
       const tex = HPI.tex.banner(h.field, h.crest);
-      kit.banner(scene, tex, -24 - i * 7, 11, i % 2 ? GH.z1 - 0.6 : GH.z0 + 0.6, 2.6, 6, 0);
+      kit.banner(scene, tex, -42 + i * 8, 12.5, i % 2 ? GH.z1 - 0.45 : GH.z0 + 0.45, 2.6, 6, 1);   // flat on the long walls, above the torches
     });
 
     // ---- floating candles hovering between tables + aisle ----
@@ -90,6 +91,7 @@
       halo.scale.setScalar(0.9); scene.add(halo); candles[i].halo = halo;
     }
     light.addDust((GH.x0 + GH.x1) / 2, 2, (GH.z0 + GH.z1) / 2, 40, 12, 36, 200);
+    for (let x = -48; x <= -18; x += 10) light.addPool(x, 22, 9, 0xffc878, 0.2);   // candle-glow down the centre aisle
 
     // ---- warm hall lighting: the enchanted ceiling is night, so the candles alone left
     //      the floor murky. Wall torches down both long walls + two braziers flanking the
@@ -118,10 +120,13 @@
   };
 
   function mkBox(x, y, z, w, h, d, m) { const b = new T.Mesh(new T.BoxGeometry(w, h, d), m); b.position.set(x, y, z); return b; }
-  function stainedWindow(scene, light, c, y, z, hue, axis, dir) {
+  // dir = +1 on the z0 wall (room is toward +z), -1 on the z1 wall
+  function stainedWindow(scene, light, x, y, c, hue, dir) {
     const m = new T.Mesh(new T.PlaneGeometry(3, 9),
       new T.MeshBasicMaterial({ map: HPI.tex.stained(hue), transparent: true, opacity: 0.95, side: T.DoubleSide, fog: false }));
-    m.position.set(c, y, z); m.rotation.y = Math.PI / 2; scene.add(m);
-    if (Math.random() < 0.6) light.addShaft(c - dir * 3, y - 1, z, 12, 1.8, dir * 0.4);
+    m.position.set(x, y, c); scene.add(m);
+    const sh = light.addShaft(x, y - 2.5, c + dir * 3.2, 13, 2, 0); sh.rotation.x = -dir * 0.42;
+    // the coloured glass throws a soft patch of its own hue onto the flagstones
+    light.addPool(x, c + dir * 5.5, 3.6, new T.Color().setHSL(hue / 360, 0.85, 0.55).getHex(), 0.42);
   }
 })(window.HPI);

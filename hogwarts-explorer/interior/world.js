@@ -36,6 +36,7 @@
     const scene = new T.Scene();
     scene.fog = new T.Fog(0x1a1626, 18, 96);
     const light = HPI.Lighting(scene, { pool: 5 }); // +hemi +ambient; a bigger castle, a touch more light
+    HPI.light = light;
     const audio = ctx.audio;
 
     HPI.buildEntranceHall(scene, light);
@@ -118,9 +119,11 @@
     defs.forEach((d) => {
       const c = HP.makeChibi(d.who); c.scale.setScalar(1.2);
       const y = d.y || 0; c.position.set(d.pos[0], y, d.pos[1]); c.rotation.y = d.face;
-      scene.add(c);
+      scene.add(c); light.blobShadow(scene, d.pos[0], y, d.pos[1], 1.25);
       npcs.push({ ...d, chibi: c, done: false, wave: 0, y });
     });
+
+    HPI.teachers.forEach((tc) => light.blobShadow(scene, tc.x, HPI.nav.floorH(tc.x, tc.z), tc.z, 1.25));
 
     // ---- secret passage: tickle the pear still-life in the Great Hall to slip down to the
     //      Kitchens (a hidden shortcut; the frame glows when you're close). ----

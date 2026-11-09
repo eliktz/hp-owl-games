@@ -11,7 +11,7 @@
     const sources = [];                 // {pos, color, pri, flame, flicker}
     const POOL = opts.pool || 5;        // real point-lights (plus one hemi below)
     const pool = [];
-    const hemi = new T.HemisphereLight(0x5e5888, 0x262232, 1.15);
+    const hemi = new T.HemisphereLight(0x6a64a0, 0x2a2030, 0.88);   // a touch dimmer + cooler so the warm flame pools read
     scene.add(hemi);
     const fill = new T.AmbientLight(0x322e46, 0.35); scene.add(fill); // soft floor-level fill
     for (let i = 0; i < POOL; i++) {
@@ -95,7 +95,87 @@
     }
     const ceilUni = [];
 
+    // ---- "baked" light pools: every flame washes its wall and spills a warm pool on the
+    //      floor. All of them live in ONE additive mesh (a single draw call) built lazily on
+    //      the first frame, once every room has registered its walls — each quad is clipped
+    //      against nearby walls so light never leaks into the room next door. ----
+    const poolTex = (function () {
+      const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+      const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)');
+      gr.addColorStop(0.7, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new T.CanvasTexture(c);
+    })();
+    const extraPools = [];              // {x,z,r,color,a,y?} explicit pools (stained-glass patches…)
+    function addPool(x, z, r, color, a = 0.5, y = null) { extraPools.push({ x, z, r, color, a, y }); }
+    let poolMesh = null;
+    const tc = new T.Color();
+    function bakePools() {
+      const pos = [], uv = [], col = [], idx = [];
+      const nav = HPI.nav;
+      function quad(p0, p1, p2, p3, u0, v0, u1, v1, color, a) {
+        const n = pos.length / 3;
+        pos.push(...p0, ...p1, ...p2, ...p3);
+        uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
+        tc.setHex(color); for (let i = 0; i < 4; i++) col.push(tc.r * a, tc.g * a, tc.b * a);
+        idx.push(n, n + 1, n + 2, n, n + 2, n + 3, n, n + 2, n + 1, n, n + 3, n + 2);   // both windings
+      }
+      // a floor pool centred (x,z), radius r, clipped to the walls around the sample point
+      function floorPool(x, z, r, color, a, fy, sx, sz) {
+        let x0 = x - r, x1 = x + r, z0 = z - r, z1 = z + r;
+        for (const w of nav.wallsX) { if (sz < w.lo - 0.2 || sz > w.hi + 0.2) continue; if (w.c <= sx && w.c > x0 - 0.3) x0 = Math.max(x0, w.c + 0.3); if (w.c > sx && w.c < x1 + 0.3) x1 = Math.min(x1, w.c - 0.3); }
+        for (const w of nav.wallsZ) { if (sx < w.lo - 0.2 || sx > w.hi + 0.2) continue; if (w.c <= sz && w.c > z0 - 0.3) z0 = Math.max(z0, w.c + 0.3); if (w.c > sz && w.c < z1 + 0.3) z1 = Math.min(z1, w.c - 0.3); }
+        if (x1 - x0 < 0.4 || z1 - z0 < 0.4) return;
+        const U = (v) => (v - (x - r)) / (2 * r), V = (v) => (v - (z - r)) / (2 * r);
+        quad([x0, fy, z0], [x1, fy, z0], [x1, fy, z1], [x0, fy, z1], U(x0), V(z0), U(x1), V(z1), color, a);
+      }
+      for (const s of sources) {
+        const px = s.pos.x, pz = s.pos.z, r = s.fire ? 7.5 : 4.6;
+        // nearest wall within reach → this flame is wall-mounted: note the wall + its room-side normal
+        let wall = null, bd = 1.5;
+        for (const w of nav.wallsX) if (pz >= w.lo - 0.3 && pz <= w.hi + 0.3 && Math.abs(px - w.c) < bd) { bd = Math.abs(px - w.c); wall = { axis: 'x', c: w.c, n: px >= w.c ? 1 : -1 }; }
+        for (const w of nav.wallsZ) if (px >= w.lo - 0.3 && px <= w.hi + 0.3 && Math.abs(pz - w.c) < bd) { bd = Math.abs(pz - w.c); wall = { axis: 'z', c: w.c, n: pz >= w.c ? 1 : -1 }; }
+        const sx = wall && wall.axis === 'x' ? wall.c + wall.n * 0.9 : px, sz = wall && wall.axis === 'z' ? wall.c + wall.n * 0.9 : pz;
+        const fy = nav.floorH(sx, sz), h = s.pos.y - fy;
+        const fa = (s.fire ? 0.72 : 0.52) * HPI.clamp(1.25 - h / 9, 0.25, 1);
+        floorPool(px, pz, r + Math.max(0, h - 4) * 0.35, s.color, fa, fy + 0.075, sx, sz);
+        if (wall && !s.fire) {                    // wall wash behind the torch
+          const wr = 3.1, y0 = Math.max(fy + 0.05, s.pos.y - wr - 0.4), y1 = s.pos.y + wr - 0.4, off = wall.c + wall.n * 0.29;
+          const V0 = (y0 - (s.pos.y - wr - 0.4)) / (2 * wr);
+          if (wall.axis === 'x') quad([off, y0, pz - wr], [off, y0, pz + wr], [off, y1, pz + wr], [off, y1, pz - wr], 0, V0, 1, 1, s.color, 0.44);
+          else quad([px - wr, y0, off], [px + wr, y0, off], [px + wr, y1, off], [px - wr, y1, off], 0, V0, 1, 1, s.color, 0.44);
+        }
+      }
+      for (const e of extraPools) floorPool(e.x, e.z, e.r, e.color, e.a, (e.y != null ? e.y : nav.floorH(e.x, e.z)) + 0.085, e.x, e.z);
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+      geo.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+      geo.setIndex(idx);
+      poolMesh = new T.Mesh(geo, new T.MeshBasicMaterial({ map: poolTex, vertexColors: true, transparent: true, depthWrite: false,
+        blending: T.AdditiveBlending, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      poolMesh.frustumCulled = false; poolMesh.renderOrder = 2; poolMesh.userData.cullSkip = true;
+      poolMesh.raycast = function () {};          // never blocks the camera arm
+      scene.add(poolMesh);
+    }
+
+    // ---- soft blob shadow that grounds a character on the floor (cheap fake contact shadow) ----
+    const shadowTex = (function () {
+      const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+      const gr = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(0.55, 'rgba(0,0,0,.28)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new T.CanvasTexture(c);
+    })();
+    const shadowMat = new T.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    function blobShadow(parentScene, x, y, z, r = 1.1) {
+      const m = new T.Mesh(new T.PlaneGeometry(2 * r, 2 * r), shadowMat);
+      m.rotation.x = -Math.PI / 2; m.position.set(x, y + 0.09, z); m.renderOrder = 3; m.raycast = function () {};
+      (parentScene || scene).add(m); return m;
+    }
+
     function update(player, t, dt) {
+      if (!poolMesh) bakePools();
+      poolMesh.material.color.setScalar(0.9 + 0.07 * Math.sin(t * 7.3) + 0.04 * Math.sin(t * 17.1));   // the whole castle breathes with the flames
       // flicker flames + halos
       for (const s of sources) {
         const f = 0.8 + 0.2 * Math.sin(t * 12 + s.ph) + 0.08 * Math.sin(t * 27 + s.ph * 2);
@@ -126,6 +206,6 @@
       for (const u of ceilUni) u.t.value = t;
     }
 
-    return { addTorch, addFire, addShaft, addDust, enchantedCeiling, update, hemi, sources };
+    return { addTorch, addFire, addShaft, addDust, enchantedCeiling, addPool, blobShadow, update, hemi, fill, sources };
   };
 })(window.HPI);
