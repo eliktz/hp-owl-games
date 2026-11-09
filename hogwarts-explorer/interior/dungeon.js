@@ -26,10 +26,15 @@
     const bubbles = [];
     for (let i = 0; i < 5; i++) { const b = new T.Mesh(new T.SphereGeometry(0.07, 8, 6), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, fog: false })); b.userData.ph = Math.random() * 1; g.add(b); bubbles.push(b); }
     scene.add(g);
-    builders.push((t) => {
+    let burpT = 0;
+    HPI.enchantables.push({ id: 'cauldron', obj: g, r: 2.6, cast() { burpT = 2.2; return '🫧'; } });
+    builders.push((t, dt) => {
+      if (burpT > 0) burpT -= dt;
+      const bk = burpT > 0 ? 1 + Math.sin((2.2 - burpT) * 6) * 0.5 + 0.8 : 1;
+      glow.scale.setScalar(2.2 * bk); brew.scale.setScalar(burpT > 0 ? 1.12 : 1);
       glow.material.opacity = 0.45 + 0.2 * Math.sin(t * 4 + x);
       fire.scale.setScalar(1.0 + 0.2 * Math.abs(Math.sin(t * 9 + z)));
-      for (const b of bubbles) { const k = (t * 0.6 + b.userData.ph) % 1; b.position.set((Math.random() - 0.5) * 0.3, 1.12 + k * 0.6, (Math.random() - 0.5) * 0.3); b.material.opacity = 0.7 * (1 - k); b.scale.setScalar(1 - k * 0.5); }
+      for (const b of bubbles) { const k = (t * (burpT > 0 ? 1.6 : 0.6) + b.userData.ph) % 1; b.position.set((Math.random() - 0.5) * (burpT > 0 ? 0.9 : 0.3), 1.12 + k * (burpT > 0 ? 2.6 : 0.6), (Math.random() - 0.5) * 0.3); b.material.opacity = 0.7 * (1 - k); b.scale.setScalar(1 - k * 0.5); }
     });
     return g;
   }

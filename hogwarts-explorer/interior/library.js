@@ -82,8 +82,13 @@
     }
     light.addDust((LIB.x0 + LIB.x1) / 2, 2, (LIB.z0 + LIB.z1) / 2, 26, 11, 34, 180);
 
-    HPI.builders.push((t) => {
+    let whirlT = 0;
+    HPI.enchantables.push({ id: 'books', x: 55, y: 2, z: 20, r: 15, cast() { whirlT = 5; return '📚'; } });
+    HPI.builders.push((t, dt) => {
+      if (whirlT > 0) whirlT -= dt;
+      const wk = whirlT > 0 ? Math.min(1, whirlT, 5 - whirlT) : 0;   // eased 0..1 while the books whirl
       for (const b of books) {
+        if (wk > 0) { const a = t * 2.2 + b.ph * 0.9, r = 4 + (b.ph % 3); b.g.position.set(55 + Math.cos(a) * r, b.base * (1 - wk * 0.4) + Math.sin(t * 3 + b.ph) * 0.4, 20 + Math.sin(a) * r); b.g.rotation.y = -a; const fl = 0.3 + 0.7 * Math.abs(Math.sin(t * 9 + b.ph)); b.L1.rotation.y = fl; b.R1.rotation.y = -fl; continue; }
         b.g.position.set(b.x + Math.sin(t * 0.3 + b.ph) * b.dx, b.base + Math.sin(t * 0.8 + b.ph) * 0.5, b.z + Math.cos(t * 0.25 + b.ph) * b.dz);
         b.g.rotation.y = t * 0.3 + b.ph;
         const flap = 0.4 + 0.5 * Math.abs(Math.sin(t * 3 + b.ph));

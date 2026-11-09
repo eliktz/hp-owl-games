@@ -114,5 +114,5 @@ window.HPI = (function () {
   const materialCache = {};
   function mat(key, make) { return materialCache[key] || (materialCache[key] = make()); }
 
-  return { T, L, nav, clamp, inside, mat, builders: [], teachers: [] };
+  return { T, L, nav, clamp, inside, mat, builders: [], teachers: [], enchantables: [] };
 })();

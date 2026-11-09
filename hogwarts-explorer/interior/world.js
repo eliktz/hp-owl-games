@@ -32,7 +32,7 @@
   }
 
   HPI.build = function (ctx) {
-    HPI.nav.reset(); HPI.builders.length = 0; HPI.teachers.length = 0;
+    HPI.nav.reset(); HPI.builders.length = 0; HPI.teachers.length = 0; HPI.enchantables.length = 0;
     const scene = new T.Scene();
     scene.fog = new T.Fog(0x1a1626, 18, 96);
     const light = HPI.Lighting(scene, { pool: 5 }); // +hemi +ambient; a bigger castle, a touch more light
@@ -59,6 +59,7 @@
     HPI.buildOwlery(scene, light);
     const roomReqUpdate = HPI.buildRoomOfRequirement(scene, light, ctx);
     HPI.buildClockTower(scene, light);
+    if (HPI.buildDecor) HPI.buildDecor(scene, light);   // feast, pumpkins, chandelier, lamps…
 
     const spawns = {
       entrance: { x: 0, z: 20, y: 0 },

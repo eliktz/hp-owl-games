@@ -59,13 +59,13 @@
   #badges.on{display:flex}
   .bpanel{background:rgba(40,25,90,.9);border:5px solid #ffd76a;border-radius:28px;padding:22px 20px 26px;
     width:min(92vw,620px);box-sizing:border-box;box-shadow:0 10px 40px rgba(0,0,0,.6)}
-  .btitle{text-align:center;color:#ffd76a;font-size:40px;font-weight:bold;margin:0 0 16px;
+  .btitle{text-align:center;color:#ffd76a;font-size:34px;font-weight:bold;margin:0 0 12px;
     text-shadow:0 3px 0 #7a3b00}
-  .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px;max-height:62vh;overflow:auto;padding:4px}
+  .bgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:2px}
   .badge{aspect-ratio:1;border-radius:20px;border:4px solid rgba(255,215,106,.4);background:rgba(20,12,50,.6);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-    font-size:46px;filter:grayscale(1) brightness(.45);transition:all .25s}
-  .badge .bn{font-size:17px;color:#cbbce8}
+    font-size:min(7.4vw,40px);filter:grayscale(1) brightness(.45);transition:all .25s}
+  .badge .bn{font-size:min(3vw,15px);white-space:nowrap;color:#cbbce8}
   .badge.got{filter:none;border-color:#ffd76a;background:rgba(80,55,150,.55);
     box-shadow:0 0 22px rgba(255,210,90,.5)}
   .badge.got .bn{color:#ffe9a8}
@@ -79,6 +79,8 @@
     padding:10px 26px;border-radius:30px;background:rgba(40,25,90,.82);border:3px solid #ffd76a;color:#fff;
     font-size:30px;font-weight:bold;z-index:12;opacity:0;transition:opacity .2s;pointer-events:none;text-shadow:0 2px 0 #000}
   #enterHint.on{opacity:1}
+  /* the big celebration banner: gold, bold, never wraps */
+  .hp-banner{color:#ffd76a;font-weight:bold;white-space:nowrap;font-size:min(11vw,92px) !important;text-shadow:0 5px 0 #7a3b00,0 0 30px rgba(255,215,106,.8) !important;top:56% !important}
   /* candle-lit vignette: darkens the screen edges indoors so the warm light pools glow */
   #vig{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .6s;
     background:radial-gradient(ellipse at 50% 46%,rgba(0,0,0,0) 52%,rgba(18,8,30,.34) 78%,rgba(8,3,18,.66) 100%)}
@@ -111,6 +113,7 @@
 <script src="interior/cards.js"></script>
 <script src="interior/audio.js"></script>
 <script src="interior/cull.js"></script>
+<script src="interior/decor.js"></script>
 <script src="interior/world.js"></script>
 <script>
 (() => {
@@ -753,7 +756,7 @@
         const dyn = new Set([player, hedwig,
           ...(inside.npcs || []).map(n => n.chibi), ...(inside.items || []).map(it => it.o)]);
         insideSolids = [];
-        inside.scene.children.forEach(o => { if (!dyn.has(o)) o.traverse(m => { if (m.isMesh) insideSolids.push(m); }); });
+        inside.scene.children.forEach(o => { if (!dyn.has(o) && !o.userData.noCam) o.traverse(m => { if (m.isMesh) insideSolids.push(m); }); });
       }
       arm.obstacles = insideSolids;
       if (!arm.indoor) arm.setIndoor(true);
@@ -1068,9 +1071,9 @@
         }
       }
     },
-    toggleFly, openBadges,
+    toggleFly, openBadges, jump: doJump,
     // ---- hooks for the delight systems (delight/*.js) ----
-    scene, fx: fxAny, award, ui, tune, hooks: frameHooks, BADGES, bubble, renderer, terrainH,
+    playerMats, scene, fx: fxAny, award, ui, tune, hooks: frameHooks, BADGES, bubble, renderer, terrainH,
     cheer(sec) { cheerT = Math.max(cheerT, sec || 2); },
     give(type, n) { inv[type] += n; collected[type] += n; updInv(); bump(type === 'snitch' ? invS : invF); if (collected.snitch >= 6) award('snitch'); if (collected.frog >= 6) award('frog'); },
     get facing() { return facing; }, get grounded() { return grounded; },
@@ -1093,5 +1096,16 @@
 <script src="lessons/astronomy.js"></script>
 <script src="lessons/schedule.js"></script>
 <script src="lessons/core.js"></script>
+<!-- delight: wand, sorting hat + hourglasses, hats, Pip the owlet, Peeves, beans, Trevor, secrets, owl post -->
+<script src="delight/core.js"></script>
+<script src="delight/magic.js"></script>
+<script src="delight/hats.js"></script>
+<script src="delight/sorting.js"></script>
+<script src="delight/pet.js"></script>
+<script src="delight/peeves.js"></script>
+<script src="delight/beans.js"></script>
+<script src="delight/trevor.js"></script>
+<script src="delight/secrets.js"></script>
+<script src="delight/gift.js"></script>
 </body>
 </html>

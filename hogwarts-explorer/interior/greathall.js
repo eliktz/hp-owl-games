@@ -113,10 +113,15 @@
         d.position.set(c.x, y, c.z); d.updateMatrix(); im.setMatrixAt(i, d.matrix);
         c.halo.position.set(c.x, y + 0.45, c.z);
         c.halo.material.opacity = 0.82 + 0.18 * Math.sin(t * 9 + c.ph);
+        if (rainbowT > 0) c.halo.material.color.setHSL((t * 0.25 + c.ph * 0.14) % 1, 1, 0.6); else if (rainbowWas) c.halo.material.color.setHex(0xffd27a);
         c.halo.scale.setScalar(1.0 + 0.14 * Math.sin(t * 11 + c.ph));
       }
       im.instanceMatrix.needsUpdate = true;
+      rainbowWas = rainbowT > 0; if (rainbowT > 0) rainbowT -= 1 / 60;
     });
+    // wave a wand under the candles and they blaze every colour for a while
+    let rainbowT = 0, rainbowWas = false;
+    HPI.enchantables.push({ id: 'candles', x: -34, y: 2, z: 22, r: 16, cast() { rainbowT = 9; return '🕯️'; } });
   };
 
   function mkBox(x, y, z, w, h, d, m) { const b = new T.Mesh(new T.BoxGeometry(w, h, d), m); b.position.set(x, y, z); return b; }

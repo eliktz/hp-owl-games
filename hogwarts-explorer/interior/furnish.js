@@ -66,12 +66,15 @@
     halo.scale.setScalar(4); halo.position.y = 1.4; g.add(halo);
     scene.add(g);
     const ph = Math.random() * 7;
-    HPI.builders.push((t) => {
+    HPI.builders.push((t, dt) => {
       const u = (t * 0.06 + ph) % 1, i = Math.floor(u * pts.length), a = pts[i], b = pts[(i + 1) % pts.length], f = u * pts.length - i;
       g.position.set(a[0] + (b[0] - a[0]) * f, floorY + 1.4 + Math.sin(t * 1.3 + ph) * 0.4, a[1] + (b[1] - a[1]) * f);
       g.rotation.y = Math.atan2(b[0] - a[0], b[1] - a[1]);
-      gm.opacity = 0.22 + 0.12 * Math.sin(t * 2 + ph);
+      gm.opacity = 0.22 + 0.12 * Math.sin(t * 2 + ph) + (flipT > 0 ? 0.3 : 0);
+      if (flipT > 0) { flipT -= dt; g.rotation.x = (1 - flipT / 1.6) * Math.PI * 4; g.position.y += Math.sin((1 - flipT / 1.6) * Math.PI) * 1.2; } else g.rotation.x = 0;
     });
+    let flipT = 0;
+    HPI.enchantables.push({ id: 'ghost', obj: g, r: 3, cast() { flipT = 1.6; return '👻'; } });
     return g;
   }
 
@@ -96,7 +99,15 @@
       arm.rotation.z = waving ? Math.sin((1.2 - waveT) * 9) * 0.9 : -0.1;
       if (waveT <= 0) waveT = 4 + Math.random() * 7;
       g.position.y = y + Math.sin(t * 0.8 + ph) * 0.02;
+      if (danceT > 0) {           // enchanted! a clanky little jig
+        danceT -= dt; const k = 3 - danceT;
+        g.rotation.y = (rotY || 0) + Math.sin(k * 7) * 0.7; g.position.y = y + Math.abs(Math.sin(k * 9)) * 0.35;
+        arm.rotation.z = 2.2 + Math.sin(k * 14) * 0.6;
+        if (danceT <= 0) g.rotation.y = rotY || 0;
+      }
     });
+    let danceT = 0;
+    HPI.enchantables.push({ id: 'armour', obj: g, r: 3, cast() { danceT = 3; return '🛡️'; } });
     return g;
   }
 
@@ -119,6 +130,7 @@
       if (show > 0) { show -= dt; bubble.material.opacity = Math.min(1, show) * Math.min(1, (3.2 - show) * 4); }
       else bubble.material.opacity = 0;
     });
+    HPI.enchantables.push({ id: 'portrait', obj: g, r: 3, cast() { sayT = 0; return '🖼️'; } });
     return g;
   }
   function faceTex() {
