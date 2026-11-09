@@ -18,6 +18,7 @@
     { key: 'spells', subject: 'הֲגַנָּה', teacher: 'defence', icon: '🪄', color: '#9fd0ff', sticker: '🪄', world: 'inside', room: 'spells', greet: 'שלוף שרביט! נלמד לומוס, וינגרדיום וחיסול.' },
     { key: 'transfiguration', subject: 'שינוי צורה', teacher: 'mcgon', icon: '🐱', color: '#ffd0a0', sticker: '🐱', world: 'inside', room: 'transfiguration', greet: 'ריכוז! נהפוך חפץ לחפץ אחר.' },
     { key: 'astronomy', subject: 'כוכבים', teacher: 'sinistra', icon: '🔭', color: '#9fb0ff', sticker: '🔭', world: 'inside', room: 'astronomy', greet: 'הלילה יפה. בוא נחבר את הכוכבים לציור.' },
+    { key: 'creatures', subject: 'יצורי פלא', teacher: 'hagrid', icon: '🐉', color: '#ffb070', sticker: '🐉', world: 'outside', room: 'hagrid', trigger: { x: 68, z: 14 }, dest: { world: 'outside', x: 67, z: 22, face: 3.0, yaw: 3.0 + Math.PI }, greet: 'בוא תכיר את החברים שלי! הם רעבים...' },
   ];
   HPL.LESSONS = LESSONS;
   const byKey = {}; LESSONS.forEach((l) => (byKey[l.key] = l));
@@ -32,14 +33,31 @@
   store.pday = store.pday || {};      // points earned per weekday index (kept internal)
   store.done = store.done || {};      // subjects completed on the current calendar day
   store.doneDate = store.doneDate || '';
+  store.skill = store.skill || {};    // per-subject skill rating 1..8 — the real difficulty driver
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
   function todayStamp() { try { return new Date().toDateString(); } catch (e) { return 'day'; } }
   // roll the "done today" set over at a real calendar-day boundary
   function doneReset() { const d = todayStamp(); if (store.doneDate !== d) { store.doneDate = d; store.done = {}; save(); } }
   doneReset();
   HPL.progress = {
-    // base mastery level 1..6 from stars earned + times attended → ramps gently
-    level(key) { const s = store.stars[key] || 0, a = store.att[key] || 0; return Math.max(1, Math.min(6, 1 + Math.floor((s + a) / 2))); },
+    // Difficulty follows a per-subject SKILL RATING that moves with how each lesson actually
+    // went (see rate()): sail through → it climbs, struggle → it eases. So every subject
+    // settles at the child's own level and keeps stretching them a little — truly adaptive,
+    // across visits, not just a counter of times played.
+    skill(key) {
+      if (store.skill[key] == null) { const s = store.stars[key] || 0, a = store.att[key] || 0; store.skill[key] = Math.max(1, Math.min(6, 1 + (s + a) / 2)); }
+      return store.skill[key];
+    },
+    level(key) { return Math.max(1, Math.min(8, Math.round(this.skill(key)))); },
+    // outcome: stars 1..3 on a finish, 0 on a fail screen; dyn = where the in-lesson difficulty ended (−2..3)
+    rate(key, stars, dyn) {
+      const before = this.level(key);
+      const d = stars >= 3 ? (dyn >= 1 ? 0.8 : 0.5) : stars === 2 ? 0.2 : stars === 1 ? -0.35 : -0.6;
+      store.skill[key] = Math.max(1, Math.min(8, this.skill(key) + d)); save();
+      return { before, after: this.level(key), up: this.level(key) > before };
+    },
+    // a friendly title for the child's level in a subject (shown on the reward + picker)
+    rank(key) { const l = this.level(key); return l >= 7 ? { e: '🏆', n: 'אַלּוּף' } : l >= 5 ? { e: '🥇', n: 'אָשָׁף' } : l >= 3 ? { e: '🥈', n: 'קוֹסֵם' } : { e: '🥉', n: 'שׁוּלְיָה' }; },
     stars(key) { return store.stars[key] || 0; },
     att(key) { return store.att[key] || 0; },
     points() { return store.points; },
@@ -56,6 +74,7 @@
       store.points += pts; store.pday[day] = (store.pday[day] || 0) + pts;
       this.award(key, stars); return pts;
     },
+    bonus(pts) { const day = (SCH && SCH.state) ? SCH.state().day : 0; store.points += pts; store.pday[day] = (store.pday[day] || 0) + pts; save(); },
   };
 
   // ---- CSS ----
@@ -70,11 +89,14 @@
   /* ---- the friendly lesson picker ---- */
   #pickOv{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(8,6,24,.82);font-family:'Rubik',sans-serif;direction:rtl}
   #pickOv.on{display:flex}
-  .pickP{width:min(94vw,620px);max-height:92vh;overflow:auto;background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:28px;padding:18px 18px 20px}
+  .pickP{width:min(94vw,700px);max-height:92vh;overflow:auto;background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:28px;padding:18px 18px 20px}
   .pickT{text-align:center;color:#ffd76a;font-size:30px;font-weight:bold;text-shadow:0 2px 0 #7a3b00;margin:0 0 4px}
   .pickSub{text-align:center;color:#eadcff;font-size:17px;margin:0 0 12px}
-  .pickGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-  @media (max-width:520px){.pickGrid{grid-template-columns:repeat(2,1fr)}}
+  .pickGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media (max-aspect-ratio:1/1){.pickGrid{grid-template-columns:repeat(2,1fr)}}
+  .pickCard .rk{position:absolute;top:4px;inset-inline-start:6px;font-size:20px}
+  .pickCard .lv{display:flex;gap:3px;justify-content:center;height:8px}
+  .pickCard .lv i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18)} .pickCard .lv i.on{background:#ffd76a;box-shadow:0 0 6px #ffd76a}
   .pickCard{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,.07);
     border:3px solid rgba(255,215,106,.45);border-radius:20px;padding:12px 8px 10px;cursor:pointer;font-family:inherit;
     touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .1s}
@@ -167,8 +189,11 @@
       const status = done
         ? '<span class="done">✓ ' + ('⭐'.repeat(Math.max(1, stn))) + '</span>'
         : ('⭐'.repeat(stn) + '☆'.repeat(3 - stn));
-      card.innerHTML = '<div class="ic">' + l.icon + '</div>'
-        + '<div class="nm">' + l.subject + '</div>'
+      const lv = HPL.progress.level(l.key), rk = HPL.progress.rank(l.key);
+      let dots = ''; for (let i = 1; i <= 8; i++) dots += '<i class="' + (i <= lv ? 'on' : '') + '"></i>';
+      card.dataset.lv = lv;
+      card.innerHTML = '<div class="rk">' + rk.e + '</div><div class="ic">' + l.icon + '</div>'
+        + '<div class="nm">' + l.subject + '</div><div class="lv">' + dots + '</div>'
         + '<div class="st">' + status + '</div>'
         + '<div class="go"><span class="ar">➤</span> ללכת</div>';
       card.addEventListener('click', (e) => { e.stopPropagation(); pick(l.key); });

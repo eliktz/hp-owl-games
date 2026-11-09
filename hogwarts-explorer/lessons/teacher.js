@@ -9,6 +9,7 @@
     sinistra: { skin: '#b98a66', hair: '#15100c', robe: '#1b2456', mouth: '#7a4030', stars: true },
     mcgon:    { skin: '#e6c3a0', hair: '#2a1d16', robe: '#1a4030', mouth: '#8a3f3c', glasses: true, hat: '#14110c', bun: true },
     defence:  { skin: '#e8c6a0', hair: '#bf9a5a', robe: '#5a4a32', mouth: '#9a5540' },
+    hagrid:   { skin: '#d9a26e', hair: '#2a1d12', robe: '#5a3d26', mouth: '#7a3a2a', long: true, beard: true, brows: true },
   };
 
   // mood: 0 = calm, up to ~1 = talking (mouth opens + tiny bob handled by caller)

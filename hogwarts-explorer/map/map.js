@@ -48,7 +48,7 @@
   // ---- lesson state, painted straight onto the classroom markers (no floating layer, so
   //      nothing ever overlaps the title banner). Each lesson key maps to its destination. ----
   const LESSON_DEST = { potions: 'dungeon', charms: 'charms', transfiguration: 'transfiguration',
-    spells: 'spells', astronomy: 'astronomy', herbology: 'greenhouse' };
+    spells: 'spells', astronomy: 'astronomy', herbology: 'greenhouse', creatures: 'hagrid' };
 
   // every classroom is always open now — paint each lesson marker open (green ring), never shut
   function refreshLessons() {
