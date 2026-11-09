@@ -58,14 +58,14 @@
     background:radial-gradient(ellipse at center,rgba(30,20,80,.55),rgba(5,3,25,.85))}
   #badges.on{display:flex}
   .bpanel{background:rgba(40,25,90,.9);border:5px solid #ffd76a;border-radius:28px;padding:22px 20px 26px;
-    max-width:min(92vw,560px);box-shadow:0 10px 40px rgba(0,0,0,.6)}
+    width:min(92vw,620px);box-sizing:border-box;box-shadow:0 10px 40px rgba(0,0,0,.6)}
   .btitle{text-align:center;color:#ffd76a;font-size:40px;font-weight:bold;margin:0 0 16px;
     text-shadow:0 3px 0 #7a3b00}
-  .bgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px;max-height:62vh;overflow:auto;padding:4px}
   .badge{aspect-ratio:1;border-radius:20px;border:4px solid rgba(255,215,106,.4);background:rgba(20,12,50,.6);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-    font-size:min(14vw,58px);filter:grayscale(1) brightness(.45);transition:all .25s}
-  .badge .bn{font-size:20px;color:#cbbce8}
+    font-size:46px;filter:grayscale(1) brightness(.45);transition:all .25s}
+  .badge .bn{font-size:17px;color:#cbbce8}
   .badge.got{filter:none;border-color:#ffd76a;background:rgba(80,55,150,.55);
     box-shadow:0 0 22px rgba(255,210,90,.5)}
   .badge.got .bn{color:#ffe9a8}
@@ -106,6 +106,7 @@
 <script src="interior/clocktower.js"></script>
 <script src="interior/cards.js"></script>
 <script src="interior/audio.js"></script>
+<script src="interior/cull.js"></script>
 <script src="interior/world.js"></script>
 <script>
 (() => {
@@ -381,6 +382,7 @@
   const inv = { snitch: 0, frog: 0 };
   const collected = { snitch: 0, frog: 0 };
   const earned = new Set();
+  try { JSON.parse(localStorage.getItem('hpBadges1') || '[]').forEach((id) => earned.add(id)); } catch (e) {}   // stickers persist between visits
   const BADGES = [
     { id: 'harry', e: '🦁', n: 'הארי' },
     { id: 'ron', e: '🧹', n: 'רון' },
@@ -431,6 +433,7 @@
     title: 'הוגוורטס – טיול קסום', icon: '🎖️', hint: '🕹️ לזוז &nbsp; 🦉 לעוף &nbsp; ⬆️ לקפוץ',
     onStart() { playing = true; HP.sfx.hoot(); HP.sfx.music(true); },
   });
+  if (earned.size) ui.setScore(earned.size);
   const invEl = document.createElement('div');
   invEl.id = 'inv';
   invEl.innerHTML = '<span>✨</span><span id="invS">0</span><span>🐸</span><span id="invF">0</span>';
@@ -466,12 +469,17 @@
   badgesEl.querySelector('#bclose').addEventListener('pointerdown', (e) => { e.stopPropagation(); closeBadges(); });
   badgesEl.addEventListener('pointerdown', (e) => { if (e.target === badgesEl) closeBadges(); });
 
+  let cheerT = 0;                     // >0 → the hero does a happy arms-up dance
+  const tune = { speed: 1, jump: 1 }; // silly-effect multipliers (Bertie Bott's beans etc.)
+  const frameHooks = [];              // extra per-frame systems: fn(dt, t, world, playing)
   const bubble = document.createElement('div'); bubble.id = 'bubble'; document.body.appendChild(bubble);
 
   function award(id) {
     if (earned.has(id)) return;
     earned.add(id);
-    ui.setScore(earned.size);
+    try { localStorage.setItem('hpBadges1', JSON.stringify([...earned])); } catch (e) {}
+    ui.setScore(earned.size); cheerT = 2.6;
+    if (window.HPFun && HPFun.confetti) HPFun.confetti();
     const b = BADGES.find((x) => x.id === id);
     ui.banner((b ? b.e : '🎖️') + ' מדבקה!');
     HP.sfx.fanfare();
@@ -480,12 +488,21 @@
   /* ---------------- walkable castle interior ---------------- */
   let world = 'outside', transiting = false;
   const audio = HPI.Audio();
+  // particles must live in whichever scene is on screen: route bursts to an indoor pool
+  // while inside (the old shared pool sat in the outdoor scene, so castle sparkles never showed)
+  let fxIn = null;
+  const fxAny = {
+    burst(...a) { (world === 'inside' && fxIn ? fxIn : fx).burst(...a); },
+    trail(...a) { (world === 'inside' && fxIn ? fxIn : fx).trail(...a); },
+    fireworks(...a) { (world === 'inside' && fxIn ? fxIn : fx).fireworks(...a); },
+  };
   const inside = HPI.build({
-    fx, inv, collected,
+    fx: fxAny, inv, collected,
     onInvChange: (type) => { updInv(); bump(type === 'snitch' ? invS : invF); },
     award, bubble, makeFrog, makeSnitch: HP.makeSnitch, audio,
   });
 
+  fxIn = new HP.Particles(inside.scene, 420);
   const fade = document.createElement('div'); fade.id = 'fade'; document.body.appendChild(fade);
   const enterHint = document.createElement('div'); enterHint.id = 'enterHint'; document.body.appendChild(enterHint);
 
@@ -580,16 +597,27 @@
 
   // right-side / mouse pointers that drive look + pinch-zoom (joystick is tracked separately)
   const camPtrs = new Map();
+  // look deltas are queued here and eased out per-frame (no jitter from uneven touch
+  // events), with a little flick inertia after the finger lifts
+  const lookSm = { px: 0, py: 0, vx: 0, vy: 0 };
+  const JOY_R = 62;
+  function joyShow(on) { joyBase.classList.toggle('on', on); joyKnob.classList.toggle('on', on); }
+  function joyPlace() { joyBase.style.left = joy.bx + 'px'; joyBase.style.top = joy.by + 'px'; }
+  function releaseAll() {            // drop every finger (overlay opened / app backgrounded)
+    joy.id = null; joy.x = joy.y = 0; joyShow(false);
+    camPtrs.clear(); pinch.dist = 0; lookSm.px = lookSm.py = lookSm.vx = lookSm.vy = 0; climbHold = false;
+  }
   function onDown(e) {
     if (!ui.started() || badgesOpen || modal) return;
-    if (e.target && e.target.closest && e.target.closest('.gamebtn')) return;
+    // only touches that land on the 3D view steer — HUD buttons/panels never start a stick or a look-drag
+    if (e.target !== renderer.domElement) return;
     const left = e.clientX < window.innerWidth * 0.5;
     if (e.pointerType === 'touch' && left && joy.id === null) {
       joy.id = e.pointerId; joy.bx = e.clientX; joy.by = e.clientY; joy.x = 0; joy.y = 0;
-      joyBase.style.left = e.clientX + 'px'; joyBase.style.top = e.clientY + 'px'; joyBase.classList.add('on');
-      joyKnob.style.left = e.clientX + 'px'; joyKnob.style.top = e.clientY + 'px'; joyKnob.classList.add('on');
+      joyPlace(); joyKnob.style.left = e.clientX + 'px'; joyKnob.style.top = e.clientY + 'px'; joyShow(true);
     } else {
       camPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      lookSm.vx = lookSm.vy = 0;                      // a new touch catches any coasting spin
       if (camPtrs.size === 2) pinch.dist = _pinchDist();
     }
   }
@@ -599,11 +627,17 @@
   }
   function onMove(e) {
     if (e.pointerId === joy.id) {
-      const dx = e.clientX - joy.bx, dy = e.clientY - joy.by, R = 55;
-      const len = Math.hypot(dx, dy) || 1, cl = Math.min(len, R);
+      let dx = e.clientX - joy.bx, dy = e.clientY - joy.by;
+      let len = Math.hypot(dx, dy) || 1;
+      // the ring trails the thumb once it leaves the rim, so reversing direction is instant
+      // and a drifting thumb never "loses" the stick
+      if (len > JOY_R) { const over = len - JOY_R; joy.bx += (dx / len) * over; joy.by += (dy / len) * over; joyPlace(); dx = e.clientX - joy.bx; dy = e.clientY - joy.by; len = JOY_R; }
       const nx = dx / len, ny = dy / len;
-      joy.x = nx * (cl / R); joy.y = ny * (cl / R);
-      joyKnob.style.left = (joy.bx + nx * cl) + 'px'; joyKnob.style.top = (joy.by + ny * cl) + 'px';
+      // radial dead-zone + a soft response curve: tiny wobbles rest, small tilts tiptoe, full tilt runs
+      const m = len / JOY_R, DZ = 0.16;
+      const k = m <= DZ ? 0 : Math.pow((m - DZ) / (1 - DZ), 1.3);
+      joy.x = nx * k; joy.y = ny * k;
+      joyKnob.style.left = (joy.bx + dx) + 'px'; joyKnob.style.top = (joy.by + dy) + 'px';
       return;
     }
     const p = camPtrs.get(e.pointerId); if (!p) return;
@@ -613,15 +647,31 @@
       const d = _pinchDist();
       if (pinch.dist) arm.zoom((d - pinch.dist) * 0.03);
       pinch.dist = d;
-    } else {                           // one finger / mouse drag → orbit
-      arm.orbit(dx, dy);
+    } else {                           // one finger / mouse drag → orbit (eased in applyLook)
+      lookSm.px += dx; lookSm.py += dy;
     }
   }
   function onUp(e) {
-    if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; joyBase.classList.remove('on'); joyKnob.classList.remove('on'); }
+    if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; joyShow(false); }
     camPtrs.delete(e.pointerId);
-    if (camPtrs.size === 2) pinch.dist = _pinchDist();
+    if (camPtrs.size === 2) pinch.dist = _pinchDist(); else pinch.dist = 0;
   }
+  // ease queued look deltas into the camera each frame + coast briefly after a flick
+  function applyLook(dt) {
+    const k = 1 - Math.exp(-dt * 30);
+    let ax = lookSm.px * k, ay = lookSm.py * k;
+    lookSm.px -= ax; lookSm.py -= ay;
+    if (camPtrs.size === 1) {
+      const a = Math.min(1, dt * 12), inv = 1 / Math.max(dt, 0.008);
+      lookSm.vx += (clamp(ax * inv, -1400, 1400) - lookSm.vx) * a; lookSm.vy += (clamp(ay * inv, -900, 900) - lookSm.vy) * a;
+    } else if (camPtrs.size === 0 && (Math.abs(lookSm.vx) > 30 || Math.abs(lookSm.vy) > 30)) {
+      ax += lookSm.vx * dt * 0.6; ay += lookSm.vy * dt * 0.6;
+      const d = Math.exp(-dt * 7); lookSm.vx *= d; lookSm.vy *= d;
+    } else { lookSm.vx = lookSm.vy = 0; }
+    if (Math.abs(ax) + Math.abs(ay) > 0.02) arm.orbit(ax, ay);
+  }
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
   window.addEventListener('pointerdown', onDown);
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -638,7 +688,7 @@
     if (keys['w'] || keys['arrowup']) y += 1;
     if (keys['s'] || keys['arrowdown']) y -= 1;
     let l = Math.hypot(x, y);
-    if (l < 0.12) { x = y = 0; l = 0; }          // dead-zone
+    if (l < 0.05) { x = y = 0; l = 0; }          // dead-zone (the stick has its own radial one)
     if (l > 1) { x /= l; y /= l; }
     const now = performance.now(), dt = Math.min((now - moveLastT) / 1000, 0.05); moveLastT = now;
     const rate = l > Math.hypot(moveSm.x, moveSm.y) ? 14 : 10; // accelerate fast, ease off slower
@@ -650,7 +700,7 @@
 
   // mode: 'walk' | 'fly' | 'landing'
   let mode = 'walk';
-  function doJump() { if (mode === 'walk' && grounded && ui.started() && !modal) { vy = 8.5; grounded = false; HP.sfx.boing(); } }
+  function doJump() { if (mode === 'walk' && grounded && ui.started() && !modal) { vy = 8.5 * tune.jump; grounded = false; HP.sfx.boing(); } }
   function toggleFly() {
     if (!ui.started() || world === 'inside' || modal) return; // no flying indoors or mid-lesson
     if (mode === 'walk') { mode = 'fly'; hedwig.visible = true; HP.sfx.whoosh(); HP.sfx.hoot(); flyY = player.position.y + 2; }
@@ -705,6 +755,7 @@
       if (arm.indoor) arm.setIndoor(false);
       camTarget.set(player.position.x, player.position.y + (mode === 'walk' ? 2.0 : 2.6), player.position.z);
     }
+    applyLook(dt);
     arm.update(dt, camTarget, facing + Math.PI, playing && moveActive);
     // never let the lens dip below the terrain outdoors
     if (world === 'outside') {
@@ -736,7 +787,7 @@
     if (moving) { move.normalize(); facing = Math.atan2(move.x, move.z); }
 
     if (mode === 'walk') {
-      const spd = 11;
+      const spd = 11 * tune.speed;
       if (playing && moving) {
         const dx = move.x * spd * dt * ax.l, dz = move.z * spd * dt * ax.l;
         if (outside) {
@@ -770,8 +821,9 @@
       lastP.copy(player.position);
       if (!grounded) { vy -= 20 * dt; player.position.y += vy * dt; if (player.position.y <= gy) { player.position.y = gy; vy = 0; grounded = true; HP.sfx.soft(); } }
       else player.position.y = gy;
-      HP.animateChibi(player, dt, t, 0);
-      player.rotation.y = lerp(player.rotation.y, facing, 1 - Math.pow(0.002, dt));
+      if (cheerT > 0) cheerT -= dt;
+      HP.animateChibi(player, dt, t, cheerT > 0 ? 1 : 0);
+      { let dr = ((facing - player.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; player.rotation.y += dr * (1 - Math.pow(0.002, dt)); }   // shortest-arc turn (no 360° spin-around)
       player.userData.root.position.y = (grounded ? Math.abs(Math.sin(t * 9)) * 0.08 * (moving ? 1 : 0) : 0);
       hedwig.visible = false;
     } else {
@@ -900,8 +952,9 @@
       if (show && dEnter < 4.5 && !transiting) enter();
     }
 
+    for (const h of frameHooks) { try { h(dt, t, world, playing); } catch (e) { if (!h._warned) { h._warned = 1; console.warn('[hook]', e); } } }
     updateCamera(dt);
-    fx.update(dt);
+    if (outside) fx.update(dt); else fxIn.update(dt);
     renderer.render(outside ? scene : inside.scene, camera);
     requestAnimationFrame(frame);
   }
@@ -926,7 +979,7 @@
     player, hedwig, camera, items, NPCS, inv, collected, earned,
     get mode() { return mode; },
     get world() { return world; },
-    get modal() { return modal; }, setModal(v) { modal = !!v; },
+    get modal() { return modal; }, setModal(v) { modal = !!v; if (modal) releaseAll(); },
     get started() { return ui.started(); },
     get camYaw() { return arm.yaw; }, set camYaw(v) { arm.yaw = v; },
     inside, enter, exit: exitCastle,
@@ -996,6 +1049,11 @@
       }
     },
     toggleFly, openBadges,
+    // ---- hooks for the delight systems (delight/*.js) ----
+    scene, fx: fxAny, award, ui, tune, hooks: frameHooks, BADGES, bubble, renderer, terrainH,
+    cheer(sec) { cheerT = Math.max(cheerT, sec || 2); },
+    give(type, n) { inv[type] += n; collected[type] += n; updInv(); bump(type === 'snitch' ? invS : invF); if (collected.snitch >= 6) award('snitch'); if (collected.frog >= 6) award('frog'); },
+    get facing() { return facing; }, get grounded() { return grounded; },
   };
   frame();
 })();

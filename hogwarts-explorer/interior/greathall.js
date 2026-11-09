@@ -81,7 +81,7 @@
     const NC = Math.round(44 * (HP.perf.quality || 1));
     const geo = new T.CylinderGeometry(0.07, 0.09, 0.6, 6);
     const im = new T.InstancedMesh(geo, new T.MeshStandardMaterial({ color: 0xfff2d6, emissive: 0x6a5020, emissiveIntensity: 0.6, roughness: 0.8 }), 44);
-    scene.add(im);
+    im.userData.room = 'GH'; im.frustumCulled = false; scene.add(im);   // instances live far from the mesh origin
     const candles = []; const d = new T.Object3D();
     for (let i = 0; i < 44; i++) {
       const x = -50 + Math.random() * 34, z = 4 + Math.random() * 34, base = 7 + Math.random() * 6;

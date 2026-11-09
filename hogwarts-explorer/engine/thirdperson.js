@@ -41,7 +41,7 @@ window.HPX = (function () {
       this.idle += dt;
       if (!this.userControlled && moving && this.idle > this.recenterAfter) {
         let d = ((behindYaw - this.yaw + PI) % (2 * PI)) - PI; if (d < -PI) d += 2 * PI;
-        this.yaw += d * (1 - Math.pow(0.05, dt));
+        this.yaw += d * (1 - Math.pow(0.22, dt));   // a calm drift back behind the hero (no whip-pan)
       }
       if (this.userControlled && this.idle > this.recenterAfter) this.userControlled = false;
 

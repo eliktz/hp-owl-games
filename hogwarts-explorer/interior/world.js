@@ -193,7 +193,12 @@
       } else b.classList.remove('on');
     }
 
+    // room visibility culling (built last so every room's objects are bucketed)
+    const cull = HPI.Cull ? HPI.Cull(scene) : null;
+    HPI.cull = cull;
+
     function update(player, t, dt, moving, speed, camera) {
+      if (cull) cull.update(player.position);
       for (const fn of HPI.builders) fn(t, dt);
       light.update(player, t, dt);
       pickups(player, t, dt);
@@ -204,7 +209,7 @@
     }
 
     return {
-      scene, spawns, light,
+      scene, spawns, light, cull,
       spawn: L.spawn, exit: L.exit,
       floorH: (x, z) => HPI.nav.floorH(x, z),
       collide: (p, r) => HPI.nav.collide(p, r),
