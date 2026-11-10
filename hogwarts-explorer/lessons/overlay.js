@@ -32,8 +32,11 @@
     .lsnPip{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid #ffd76a}
     .lsnPip.on{background:#ffd76a;box-shadow:0 0 10px #ffd76a}
     .lsnStage{flex:1;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;position:relative}
-    .lsnClose{position:absolute;top:-6px;inset-inline-end:-6px;width:44px;height:44px;border-radius:50%;border:3px solid #ffd76a;
-      background:#3a2060;color:#fff;font-size:22px;cursor:pointer;z-index:3}
+    .lsnClose{position:absolute;top:8px;inset-inline-end:8px;width:54px;height:54px;border-radius:50%;border:3px solid #ffd76a;
+      background:#3a2060;color:#fff;font-size:24px;cursor:pointer;z-index:4;padding:0;touch-action:manipulation}
+    /* the ✕ sits fully INSIDE the panel (it used to straddle the rounded, clipped corner, where a
+       small finger could land on the panel instead) and the header keeps clear of it */
+    .lsnHead{padding-inline-end:58px}
     .lsnBtn{min-width:86px;min-height:86px;padding:8px 20px;border-radius:22px;border:4px solid #fff;
       background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;font-size:42px;font-weight:bold;cursor:pointer;
       box-shadow:0 5px 0 #b9842f;display:flex;align-items:center;justify-content:center;font-family:inherit;touch-action:manipulation}
@@ -47,7 +50,7 @@
     .lsnStars{font-size:64px;letter-spacing:6px}
     .lsnReward{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;color:#fff}
     .lsnReward .big{font-size:44px;color:#ffd76a;font-weight:bold;text-shadow:0 3px 0 #7a3b00}
-    .lsnCombo{position:absolute;top:10px;inset-inline-end:58px;background:linear-gradient(#ff9a3c,#e8352e);color:#fff;font-weight:bold;font-size:22px;
+    .lsnCombo{position:absolute;top:66px;inset-inline-end:8px;background:linear-gradient(#ff9a3c,#e8352e);color:#fff;font-weight:bold;font-size:22px;
       border:3px solid #ffd76a;border-radius:20px;padding:2px 12px;transform:scale(0);transition:transform .25s cubic-bezier(.3,1.8,.5,1);z-index:3;direction:ltr}
     .lsnCombo.on{transform:scale(1)} .lsnCombo.bump{animation:lsnPawB .3s}
     .lsnReact{position:absolute;top:-10px;inset-inline-start:-10px;font-size:40px;pointer-events:none;opacity:0;transform:scale(.3)}
