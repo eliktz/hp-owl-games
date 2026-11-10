@@ -85,6 +85,7 @@
 
   // ---- the paddock by Hagrid's hut (pure scenery + the lesson's walk-up spot) ----
   (function buildPaddock() {
+    if (window.__hd) return;                     // the HD game builds its own paddock (src/lessons.js)
     const g = window.__game, T = window.THREE;
     if (!g || !g.scene || !g.terrainH || !T) return void setTimeout(buildPaddock, 150);
     const CX = 68, CZ = 14, y0 = g.terrainH(CX, CZ);
