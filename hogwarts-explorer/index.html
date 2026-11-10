@@ -479,6 +479,7 @@
   let cheerT = 0;                     // >0 → the hero does a happy arms-up dance
   const tune = { speed: 1, jump: 1 }; // silly-effect multipliers (Bertie Bott's beans etc.)
   const frameHooks = [];              // extra per-frame systems: fn(dt, t, world, playing)
+  let takeover = null;                // a mini-game that owns the hero + camera for a while (Quidditch): {update, action, boost}
   const bubble = document.createElement('div'); bubble.id = 'bubble'; document.body.appendChild(bubble);
 
   function award(id) {
@@ -711,9 +712,9 @@
 
   // mode: 'walk' | 'fly' | 'landing'
   let mode = 'walk';
-  function doJump() { if (mode === 'walk' && grounded && ui.started() && !modal) { vy = 8.5 * tune.jump; grounded = false; HP.sfx.boing(); } }
+  function doJump() { if (takeover) { if (takeover.boost) takeover.boost(); return; } if (mode === 'walk' && grounded && ui.started() && !modal) { vy = 8.5 * tune.jump; grounded = false; HP.sfx.boing(); } }
   function toggleFly() {
-    if (!ui.started() || world === 'inside' || modal) return; // no flying indoors or mid-lesson
+    if (!ui.started() || world === 'inside' || modal || takeover) return; // no flying indoors, mid-lesson or mid-match
     if (mode === 'walk') { mode = 'fly'; hedwig.visible = true; HP.sfx.whoosh(); HP.sfx.hoot(); flyY = player.position.y + 2; }
     else if (mode === 'fly') { mode = 'landing'; }
   }
@@ -789,6 +790,16 @@
     if (outside) { sky.update(t); dusk = cycle(t); lakeMat.uniforms.t.value = t; }
 
     const ax = moveAxis();
+    if (takeover) {                   // the match drives the hero + camera; the world keeps living around it
+      takeover.update(dt, t, ax, playing);
+      if (shownWorld !== world) { shownWorld = world; document.body.classList.toggle('inside', false); scene.add(pShadow); camera.far = 620; camera.updateProjectionMatrix(); }
+      pShadow.position.set(player.position.x, terrainH(player.position.x, player.position.z) + 0.09, player.position.z); pShadow.visible = true; pShadow.scale.setScalar(0.8);
+      for (const h of frameHooks) { try { h(dt, t, world, playing); } catch (e) { if (!h._warned) { h._warned = 1; console.warn('[hook]', e); } } }
+      fx.update(dt);
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+      return;
+    }
     // camera-relative movement on the ground plane (uses the spring-arm's live yaw)
     const fwd = new THREE.Vector3(-Math.sin(arm.yaw), 0, -Math.cos(arm.yaw));
     const right = new THREE.Vector3(Math.cos(arm.yaw), 0, -Math.sin(arm.yaw));
@@ -1077,6 +1088,8 @@
     cheer(sec) { cheerT = Math.max(cheerT, sec || 2); },
     give(type, n) { inv[type] += n; collected[type] += n; updInv(); bump(type === 'snitch' ? invS : invF); if (collected.snitch >= 6) award('snitch'); if (collected.frog >= 6) award('frog'); },
     get facing() { return facing; }, get grounded() { return grounded; },
+    get takeover() { return takeover; }, setTakeover(o) { takeover = o || null; if (takeover) { releaseAll(); mode = 'walk'; hedwig.visible = false; } },
+    axis: moveAxis,
   };
   frame();
 })();
@@ -1108,5 +1121,7 @@
 <script src="delight/trevor.js"></script>
 <script src="delight/secrets.js"></script>
 <script src="delight/gift.js"></script>
+<!-- Quidditch: a full match over the pitch (broom flight, Quaffle, Bludgers, Snitch, crowd) -->
+<script src="quidditch/match.js"></script>
 </body>
 </html>

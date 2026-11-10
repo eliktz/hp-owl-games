@@ -41,6 +41,7 @@
       return list;
     }
     function cast() {
+      if (g.takeover) { if (g.started && !g.modal && g.takeover.action) g.takeover.action(); return false; }   // in a match the wand button throws the Quaffle
       if (!g.started || g.modal || cool > 0) return false;
       const p = g.player.position, world = g.world, f = g.facing;
       cool = 0.55; btn.classList.add('cool');

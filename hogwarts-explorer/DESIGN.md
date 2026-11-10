@@ -88,3 +88,18 @@ The castle is the heart of the game now, so this pass spent its boldness there.
   prizes on the reward. New: Care of Magical Creatures (a listen-and-repeat memory game).
 - **Rules kept.** No timetable, nothing locked, no fail states that end play, every spot
   reachable on foot (`_test/reachability.js` checks every delight point too).
+
+## Quidditch (`quidditch/match.js`)
+A full match over the pitch, started from the 🧹 broom stand on the pitch or the Quidditch
+card in the lesson picker. The page lends its loop via `__game.setTakeover()`; the match
+owns the hero + a chase camera. Stick steers (camera-relative), height is automatic (eases
+toward what you chase), ⬆️ boosts, the wand button throws. Quaffle → three hoops with a
+Keeper who shadows your aim (+10), a rival Chaser who steals/shoots, two Bludgers that warn
+then charge (a hit only spins you), and the Golden Snitch (+150, ends the match) with a
+bouncing instanced crowd, fireworks and a trophy screen. Difficulty rises with wins.
+
+## Lessons, second pass (for a sharp 7-year-old)
+Herbology is three skills per plant (seed sums → timed watering → squash pests, spare
+friends); Transfiguration is study-then-recall memory with fresh pairs every round; Defence
+ends in a colour-shield reaction duel; Potions adds number patterns; newcomers start at
+level 3.
