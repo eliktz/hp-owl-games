@@ -5,7 +5,7 @@
  * target the spell is a little firework, so pressing the button is never a dud. */
 (function () {
   const F = window.HPFun, T = window.THREE;
-  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend'];
+  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse'];
   const NEED = 5;
   F.boot(function (g) {
     F.badge('wand', '🪄', 'קוסם');
@@ -37,9 +37,21 @@
       if (world === 'inside') list = list.concat(HPI.enchantables);
       else list = list.concat(g.NPCS.map((n) => ({ id: 'friend', obj: n.chibi, r: 3, cast() { n.wave = 2.5; return '👋'; } })));
       if (world === 'inside') list = list.concat(g.inside.npcs.map((n) => ({ id: 'friend', obj: n.chibi, r: 3, cast() { n.wave = 2.5; return '👋'; } })));
+      if (world === 'outside') list = list.concat(OUTDOOR);
       for (const fn of extra) list = list.concat(fn(world) || []);
       return list;
     }
+    // ---- the grounds answer the wand too: the lake throws up a fountain, Hagrid's chimney
+    //      puffs rainbow smoke, the Quidditch hoops ring like bells, the greenhouse blooms ----
+    const V = (x, y, z) => new T.Vector3(x, y, z), gh = g.terrainH;
+    function shower(x, y, z, cols, n, up) { for (let i = 0; i < n; i++) setTimeout(() => g.fx.burst(V(x + (Math.random() - 0.5) * 3, y + i * up, z + (Math.random() - 0.5) * 3), cols, 14, 6, 0.7, 1.4, -3), i * 110); }
+    const OUTDOOR = [
+      { id: 'lake', x: -62, y: 0.5, z: 6, r: 14, cast() { shower(-66, 1, 6, [0x74e6ff, 0xffffff, 0x9fd0ff], 9, 1.3); F.sfx.noise(1.2, 0.2, 0, 1800, 0.6); return '⛲'; } },
+      { id: 'hut', x: 60, y: gh(60, 22) + 3, z: 22, r: 5, cast() { shower(62.2, gh(60, 22) + 8, 22, [0xff5a5a, 0xffd34d, 0x7cf07c, 0x7cf0ff, 0xc59bff], 8, 1.1); F.sfx.poof(); return '🌈'; } },
+      { id: 'hoops', x: 64, y: gh(44, 66) + 8, z: 66, r: 6, cast() { F.sfx.tune([784, 988, 1175, 1568, 1175, 1568], 0.13, 'sine'); shower(64, gh(44, 66) + 11, 66, [0xffd34d, 0xffffff], 5, 0.4); return '🔔'; } },
+      { id: 'hoops', x: 24, y: gh(44, 66) + 8, z: 66, r: 6, cast() { F.sfx.tune([784, 988, 1175, 1568, 1175, 1568], 0.13, 'sine'); shower(24, gh(44, 66) + 11, 66, [0xffd34d, 0xffffff], 5, 0.4); return '🔔'; } },
+      { id: 'greenhouse', x: -34, y: gh(-34, -16) + 2, z: -16, r: 5, cast() { shower(-34, gh(-34, -16) + 3, -16, [0x8cff9e, 0xff9ad5, 0xffe08a], 7, 0.6); F.sfx.giggle(true); return '🌸'; } },
+    ];
     function cast() {
       if (g.takeover) { if (g.started && !g.modal && g.takeover.action) g.takeover.action(); return false; }   // in a match the wand button throws the Quaffle
       if (!g.started || g.modal || cool > 0) return false;
