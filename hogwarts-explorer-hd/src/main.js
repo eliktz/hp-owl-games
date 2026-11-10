@@ -17,8 +17,11 @@ import { createQuests } from './quests.js';
 import { createMap } from './map.js';
 import { createInteriors } from './interiors.js';
 import { createAudio } from './audio.js';
-import { SPOTS, TIER } from './config.js';
+import { SPOTS, PLACES, TIER } from './config.js';
 import { blobShadow } from './atmosphere.js';
+import * as fun from './fun.js';
+import { createLessons } from './lessons.js';
+import { createQuidditch } from './quidditch.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -76,14 +79,18 @@ async function boot() {
   // Interiors (streamed) + the Hebrew map / fast-travel screen.
   const interiors = createInteriors({
     scene, env, player, terrainHeightAt: heightAt, homeSpot: SPOTS.courtyard,
-    onEnter: (id) => { setExit(true); toast('✨ נכנסת ל' + labelOf(id)); },
+    onEnter: (id) => { setExit(true); toast('✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); },
     onExit: () => setExit(false),
   });
+  // A full-screen overlay (lesson, picker, ceremony) owns the screen: the hero + camera freeze.
+  let modal = false, lessons = null;
+  function setModal(v) { modal = !!v; input.setEnabled(!modal); document.body.classList.toggle('modalOn', modal); }
+  fun.bindMute(() => audio.muted);
   const map = createMap({
     onTravel: (id, kind) => {
       audio.resume();
       if (kind === 'interior') interiors.enter(id);
-      else { if (interiors.active) interiors.exit(); if (SPOTS[id]) player.teleport(SPOTS[id].x, SPOTS[id].z); }
+      else { if (interiors.active) interiors.exit(); const sp = SPOTS[id] || PLACES[id]; if (sp) player.teleport(sp.x, sp.z); }
     },
   });
 
@@ -133,6 +140,12 @@ async function boot() {
   // through as a pale pixelated "tower" behind the tables. Toggling visibility is the robust
   // fix (and reclaims the exterior's draw calls / shadow pass while you're inside).
   const outdoorRoots = [castleGroup, terrain, lake, ...(quests.roots || [])];
+  lessons = createLessons({ scene, player, interiors, heightAt, registerOutdoor: (o) => outdoorRoots.push(o), setModal });
+  // A mini-game may take over the hero + camera for a while (the Quidditch match).
+  let takeover = null;
+  const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor: (o) => outdoorRoots.push(o),
+    setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal });
+  lessons.addPickerButton('🧹 קְוִוידִיץ׳ — מִשְׂחָק!', () => quidditch.start());
   // Friends are never frustum-culled per mesh (odd bounds), so cull each whole figure by one
   // sphere test instead: an off-screen friend costs no draw calls (and no shadow draws).
   const frustum = new Frustum(), pm = new Matrix4(), sph = new Sphere(new Vector3(), 3.2);
@@ -150,6 +163,7 @@ async function boot() {
     for (const pc of scenery.pieces || []) if (!on) pc.group.visible = false;
   }
 
+  const hooks = [];                      // extra per-frame systems (delight, quidditch): fn(dt, inside)
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -160,9 +174,12 @@ async function boot() {
     frames++; facc += dtMs;
     if (facc >= 500) { fps = Math.round(frames * 1000 / facc); frames = 0; facc = 0; hud.set('fps', fps + ' FPS'); }
 
-    player.update(dt, input);
-    const ax = input.axis();
-    if (Math.hypot(ax.x, ax.y) > 0.05) audio.step(dt);
+    if (takeover) { input.consumeLook(); input.consumeZoom(); takeover.update(dt, input.axis()); }
+    else {
+      player.update(dt, input);
+      const ax = input.axis();
+      if (Math.hypot(ax.x, ax.y) > 0.05) audio.step(dt);
+    }
     interiors.update(dt);
     const inside = !!interiors.active;
     setWorldVisible(!inside);
@@ -170,12 +187,16 @@ async function boot() {
     if (inside !== wasInside) { wasInside = inside; document.body.classList.toggle('inside', inside); }
     shadow.visible = inside;
     if (inside) shadow.position.set(player.pos.x, FLOOR_Y + 0.05, player.pos.z);
-    updateDoor(inside);
+    if (!takeover) updateDoor(inside);
     scenery.update(inside ? null : player.pos);
-    const near = inside ? null : characters.update(dt, player.pos);
+    const near = inside || takeover ? null : characters.update(dt, player.pos);
     quests.update(dt, inside ? null : player.pos, near);
     // cycle the dialogue line every few seconds while standing by a friend
     if (near) { bubbleT += dt; if (bubbleT > 3.2) { bubbleT = 0; bubbleLine++; } showBubble(near); } else showBubble(null);
+
+    if (!modal && !takeover) { lessons.update(dt); quidditch.idle(dt, inside); }
+    fun.tick(dt, camera);
+    for (const h of hooks) h(dt, inside);
 
     quality.sample(dtMs);
     renderer.render(scene, camera);
@@ -214,7 +235,10 @@ async function boot() {
       };
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
-    input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats,
+    input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
+    get modal() { return modal; }, setModal, quidditch, get takeover() { return takeover; },
+    give(type, n) { quests.bonus(n || 1); }, cheer() {},
+    registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
     // current yaw. Returns the remaining distance so tests can walk until they arrive.
     steer(x, z) {
@@ -271,7 +295,8 @@ async function boot() {
 }
 
 function labelOf(id) {
-  return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות הנעות', library: 'הספרייה', commonroom: 'חדר הטרקלין' }[id] || id;
+  return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות הנעות', library: 'הספרייה', commonroom: 'חדר הטרקלין',
+    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים' }[id] || id;
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 

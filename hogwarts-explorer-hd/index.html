@@ -148,6 +148,19 @@
     if (window.__game) { clearInterval(li); const l = document.getElementById('load'); if (l) l.classList.add('hide'); }
   }, 150);
 </script>
+<!-- The lesson mini-games + professor overlay + progress store are v1's own files (one source
+     of truth, shared progress). src/lessons.js gives them a place in the HD world. -->
+<script>window.__hd = true;</script>
+<script src="../hogwarts-explorer/lessons/progress.js"></script>
+<script src="../hogwarts-explorer/lessons/teacher.js"></script>
+<script src="../hogwarts-explorer/lessons/overlay.js"></script>
+<script src="../hogwarts-explorer/lessons/potions.js"></script>
+<script src="../hogwarts-explorer/lessons/charms.js"></script>
+<script src="../hogwarts-explorer/lessons/herbology.js"></script>
+<script src="../hogwarts-explorer/lessons/spells.js"></script>
+<script src="../hogwarts-explorer/lessons/transfiguration.js"></script>
+<script src="../hogwarts-explorer/lessons/astronomy.js"></script>
+<script src="../hogwarts-explorer/lessons/creatures.js"></script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

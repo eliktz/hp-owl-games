@@ -131,7 +131,7 @@ export class Player {
     if (zoom) this.cam.zoom(zoom);
 
     const ax = input.axis();
-    const speed = (ax.running ? WORLD.runSpeed : WORLD.walkSpeed);
+    const speed = (ax.running ? WORLD.runSpeed : WORLD.walkSpeed) * (this.speedMul || 1);   // speedMul: silly bean spells
     const moving = Math.hypot(ax.x, ax.y) > 0.05;
     if (moving) {
       // movement relative to the camera's current yaw

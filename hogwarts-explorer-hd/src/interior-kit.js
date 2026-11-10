@@ -111,12 +111,12 @@ export function candle(x, y, z) {
 }
 
 // Wall torch (bracket + flame) with a warm emissive back-glow so walls read as lit.
-export function torch(group, x, y, z) {
+export function torch(group, x, y, z, color = 0xff8a2a) {
   const g = new Group();
   const stick = new Mesh(new CylinderGeometry(0.03, 0.03, 0.4, 5), MAT.dark); stick.rotation.z = 0.5; g.add(stick);
-  const flame = new Mesh(new ConeGeometry(0.11, 0.34, 8), emissive(0xff8a2a, 2.4)); flame.position.set(0.12, 0.28, 0); g.add(flame);
-  const glow = new Mesh(new SphereGeometry(0.5, 8, 8), emissive(0xff8a2a, 0.18)); glow.position.set(0.12, 0.28, 0.1); g.add(glow);
-  g.position.set(x, y, z); g.userData.flame = flame; g.userData.light = { k: 'torch', c: 0xffa040 }; group.add(g); return g;
+  const flame = new Mesh(new ConeGeometry(0.11, 0.34, 8), emissive(color, 2.4)); flame.position.set(0.12, 0.28, 0); g.add(flame);
+  const glow = new Mesh(new SphereGeometry(0.5, 8, 8), emissive(color, 0.18)); glow.position.set(0.12, 0.28, 0.1); g.add(glow);
+  g.position.set(x, y, z); g.userData.flame = flame; g.userData.light = { k: 'torch', c: color === 0xff8a2a ? 0xffa040 : color }; group.add(g); return g;
 }
 
 // Long dining table with two benches, a house-colour runner and golden plates.

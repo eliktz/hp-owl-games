@@ -54,6 +54,7 @@ export function createQuests({ scene, heightAt, hud, onToast, sfx = {} }) {
 
   return {
     state, roots: [starIM, envIM, sealIM],
+    bonus(n) { state.stars += n; setHud(); },          // prizes from lessons / mini-games
     update(dt, playerPos, nearChar) {
       t += dt; deliverCd = Math.max(0, deliverCd - dt);
       stars.forEach((s, i) => {

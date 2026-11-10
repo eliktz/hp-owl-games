@@ -3,7 +3,7 @@
 // hidden pocket far BELOW the grounds (FLOOR_Y); dense warm fog hides the void. Each room
 // returns walkable `portals` (doorway zones) so you can stroll between rooms and back out.
 import {
-  Group, Mesh, BoxGeometry, MeshStandardMaterial, Color,
+  Group, Mesh, BoxGeometry, MeshStandardMaterial, Color, SphereGeometry, CylinderGeometry, CircleGeometry, TorusGeometry,
 } from 'three';
 import {
   MAT, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
@@ -90,6 +90,7 @@ function entranceHall() {
     { x: 0, z: D / 2 - 1.2, r: 1.6, to: 'out' },            // south doors -> grounds
     { x: -W / 2 + 1.2, z: 2, r: 1.5, to: 'greathall' },
     { x: W / 2 - 1.2, z: 2, r: 1.5, to: 'library' },
+    { x: 0, z: -D / 2 + 3.4, r: 1.7, to: 'staircase' },      // up the steps -> the grand staircase hall
   ];
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'entrancehall',
@@ -120,9 +121,10 @@ function greatHall() {
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
   for (const [x, z] of [[-W / 2 + 0.5, 13], [W / 2 - 0.5, 13]]) torch(g, x, 5, z);
+  archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
   return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
     id: 'greathall',
-    flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }],
+    flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.7, z: 3.5, r: 1.3, to: 'dungeon' }],
   });
 }
 
@@ -149,7 +151,7 @@ function library() {
 // ---- A cosy common room: hearth, armchairs, a warm rug ----------------------------------
 function commonRoom() {
   const g = new Group(); const cols = []; const W = 18, D = 18, H = 9.5;
-  shell(g, cols, W, D, H, { ceilColor: 0x47372a });        // warm timber ceiling, not a cold slab
+  shell(g, cols, W, D, H, { ceilColor: 0x47372a, open: ['s'] });   // warm timber ceiling; south door -> staircase hall
   for (let x = -W / 2 + 3; x <= W / 2 - 3; x += 4) {        // exposed oak beams across the ceiling
     const beam = new Mesh(new BoxGeometry(0.5, 0.5, D - 1), MAT.wood); beam.position.set(x, H - 0.4, 0); g.add(beam);
   }
@@ -161,7 +163,7 @@ function commonRoom() {
   for (const [x, z] of [[-W / 2 + 0.4, 2], [W / 2 - 0.4, 2]]) torch(g, x, 3.4, z);
   banner(g, 0, 3.6, -D / 2 + 0.3, HOUSE[0]);   // kept clear of the low (H=7) ceiling
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
-    id: 'commonroom',
+    id: 'commonroom', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
     update: (dt, t) => { hp.fire.material.emissiveIntensity = 1.7 + Math.sin(t * 7) * 0.35; },
   });
 }
@@ -169,7 +171,9 @@ function commonRoom() {
 // ---- The grand moving staircases --------------------------------------------------------
 function staircase() {
   const g = new Group(); const cols = []; const W = 20, D = 22, H = 22;
-  shell(g, cols, W, D, H, { floorColor: 0xa89a82, floorTile: 4 });
+  shell(g, cols, W, D, H, { floorColor: 0xa89a82, floorTile: 4, open: ['s', 'w', 'e'] });   // a hub: south->Entrance Hall, west->classrooms, east->Astronomy tower
+  archway(g, -W / 2 + 0.3, 0, Math.PI / 2); archway(g, W / 2 - 0.3, 0, -Math.PI / 2);
+  archway(g, -6.6, -D / 2 + 0.55, 0, { w: 2.6, h: 4.2 });   // north-west arch: the common room
   carpet(g, 0, 1, 5, 9, 0x6e1420);                         // runner up to the foot of the stairs
   // A grand central flight straight ahead, up to a landing with an archway to the floors above.
   for (let s = 0; s < 12; s++) {
@@ -195,6 +199,8 @@ function staircase() {
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 10, -5 + (i % 2) * 10, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'staircase',
+    portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'classrooms' },
+      { x: W / 2 - 1.2, z: 0, r: 1.5, to: 'tower' }, { x: -6.6, z: -D / 2 + 1.9, r: 1.3, to: 'commonroom' }],
     update: (dt, t) => {
       for (const fl of flights) fl.node.rotation.y = fl.base + Math.sin(t * 0.4 + fl.base) * fl.amp;
       for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4;
@@ -202,4 +208,59 @@ function staircase() {
   });
 }
 
-export const BUILDERS = { entrancehall: entranceHall, greathall: greatHall, staircase, library, commonroom: commonRoom };
+// ---- The Potions dungeon: a low cool cellar of bubbling cauldrons (down from the Great Hall) ----
+function dungeon() {
+  const g = new Group(); const cols = []; const W = 18, D = 20, H = 7.5;
+  shell(g, cols, W, D, H, { open: ['s'], floorColor: 0x6f7f78, floorTile: 3, ceilColor: 0x2c3a38 });
+  const iron = new MeshStandardMaterial({ color: 0x1b1b20, roughness: 0.7, metalness: 0.5 });
+  const brews = [0x7ef0a0, 0xa98aff, 0x8ad0ff, 0xffd86a, 0xff8ad0, 0x7ef0a0];
+  const pots = [];
+  [[-5, 3], [0, 3], [5, 3], [-5, -2], [0, -2], [5, -2], [0, -7]].forEach(([x, z], i) => {
+    const s = i === 6 ? 1.5 : 1, c = brews[i % brews.length];
+    const pot = new Mesh(new SphereGeometry(0.6 * s, 14, 10, 0, 6.3, 0, 2.1), iron); pot.scale.y = 0.85; pot.position.set(x, 0.62 * s, z); pot.castShadow = true; g.add(pot);
+    const brew = new Mesh(new CircleGeometry(0.5 * s, 16), emissive(c, 1.6)); brew.rotation.x = -Math.PI / 2; brew.position.set(x, 0.98 * s, z); g.add(brew);
+    brew.userData.light = { k: 'glow', c, r: 2.2 * s, a: 0.3 };
+    pots.push({ brew, x, z, s, c, burp: 0 });
+  });
+  g.userData.enchant = pots.map(p => ({ id: 'cauldron', obj: p.brew, cast() { p.burp = 2.2; return '🫧'; } }));
+  for (const sx of [-W / 2 + 0.8, W / 2 - 0.8]) bookshelf(g, sx, -3, sx > 0 ? 1 : -1, 4);       // shelves of ingredient jars
+  for (const [x, z] of [[-W / 2 + 0.4, 5], [-W / 2 + 0.4, -6], [W / 2 - 0.4, 5], [W / 2 - 0.4, -6]]) torch(g, x, 3.2, z, 0x6affb0);
+  return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {
+    id: 'dungeon', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'greathall' }],
+    update: (dt, t) => { for (const p of pots) { if (p.burp > 0) p.burp -= dt; p.brew.material.emissiveIntensity = 1.4 + Math.sin(t * 4 + p.x) * 0.4 + (p.burp > 0 ? 2.5 : 0); p.brew.scale.setScalar(p.burp > 0 ? 1 + Math.sin(p.burp * 14) * 0.25 : 1); } },
+  });
+}
+
+// ---- The classroom wing: one airy hall with three teaching corners (Charms, Transfiguration,
+//      Defence). The professors, boards and desks are placed by lessons.js. ----
+function classrooms() {
+  const g = new Group(); const cols = []; const W = 28, D = 18, H = 9;
+  shell(g, cols, W, D, H, { open: ['s'], floorColor: 0xa39884, floorTile: 3 });
+  [[-9, 0x223a6a], [0, 0x6a1f2c], [9, 0x2a4a3a]].forEach(([x, c]) => carpet(g, x, -2.5, 7, 7, c));
+  for (const x of [-4.5, 4.5]) { column(g, x, -D / 2 + 1.2, H, 0.4); column(g, x, 3, H, 0.4); }
+  for (const x of [-9, 0, 9]) window2(g, x, 5.4, -D / 2 + 0.25, 0, x < 0 ? 0x9fc0ff : x > 0 ? 0x9fe8b0 : 0xffc98a).scale.setScalar(0.62);
+  for (const [x, z] of [[-W / 2 + 0.4, -3], [W / 2 - 0.4, -3], [-W / 2 + 0.4, 5], [W / 2 - 0.4, 5]]) torch(g, x, 3.6, z);
+  const ch = chandelier(g, 0, H - 1.4, 1.5);
+  return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {
+    id: 'classrooms', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
+    update: (dt, t) => { for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4; },
+  });
+}
+
+// ---- The Astronomy tower: a round-feeling room open to the enchanted night sky ----
+function tower() {
+  const g = new Group(); const cols = []; const W = 16, D = 16, H = 13;
+  shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0x7c7a92, floorTile: 3 });
+  enchantedCeiling(g, W, D, H);
+  carpet(g, 0, -1, 8, 8, 0x1b2456, 0xd9b24a);
+  // a brass telescope on a tripod, aimed at the stars
+  const brass = MAT.gold, tele = new Group(); tele.position.set(4.6, 0, -4.2);
+  for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2, leg = new Mesh(new CylinderGeometry(0.05, 0.05, 1.9, 6), MAT.dark); leg.position.set(Math.cos(a) * 0.45, 0.9, Math.sin(a) * 0.45); leg.rotation.z = Math.cos(a) * 0.3; leg.rotation.x = -Math.sin(a) * 0.3; tele.add(leg); }
+  const tube = new Mesh(new CylinderGeometry(0.16, 0.24, 2.4, 14), brass); tube.position.y = 2.2; tube.rotation.z = -0.9; tube.castShadow = true; tele.add(tube);
+  const lens = new Mesh(new TorusGeometry(0.26, 0.05, 8, 16), brass); lens.position.set(0.95, 2.95, 0); lens.rotation.y = Math.PI / 2; lens.rotation.z = -0.9; tele.add(lens);
+  g.add(tele);
+  for (const [x, z] of [[-W / 2 + 0.4, -4], [W / 2 - 0.4, 4], [-W / 2 + 0.4, 4]]) torch(g, x, 3.6, z, 0x9fb0ff);
+  return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, { id: 'tower', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }] });
+}
+
+export const BUILDERS = { entrancehall: entranceHall, greathall: greatHall, staircase, library, commonroom: commonRoom, dungeon, classrooms, tower };

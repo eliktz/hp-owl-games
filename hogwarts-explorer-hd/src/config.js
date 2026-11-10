@@ -41,6 +41,13 @@ export const SPOTS = {
   bridge:   { x: 48,   y: 0, z: -8,  label: 'הגשר' },
   hut:      { x: 86,   y: 0, z: 36,  label: 'הבקתה של האגריד' },
 };
+// More places you can fast-travel to. Kept OUT of SPOTS (the screenshot harness walks every
+// SPOT) but used the same way by the map + lessons.
+export const PLACES = {
+  greenhouse: { x: -58, y: 0, z: 70, label: 'החממה' },
+  paddock:    { x: 74,  y: 0, z: 50, label: 'יצורי הפלא' },
+  pitch:      { x: 0,   y: 0, z: 96, label: 'מגרש הקווידיץ׳' },
+};
 
 export const WORLD = {
   groundSize: 420,
