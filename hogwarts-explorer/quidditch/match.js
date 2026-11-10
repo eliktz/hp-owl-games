@@ -298,7 +298,7 @@
           if (b.t <= 0) { b.dir.set(pp.x - b.pos.x, pp.y + 1 - b.pos.y, pp.z - b.pos.z).normalize(); b.state = 'charge'; b.t = 1.5; b.hit = false; }
         } else {
           b.pos.addScaledVector(b.dir, 30 * dt); warn.visible = false;
-          if (!b.hit && S.stun <= 0 && b.pos.distanceTo(tmp.set(pp.x, pp.y + 1, pp.z)) < 1.9) {
+          if (!b.hit && S.stun <= 0 && Math.hypot(b.pos.x - pp.x, (b.pos.y - pp.y - 1) * 0.5, b.pos.z - pp.z) < 1.9) {   // forgiving in height: the broom picks its own altitude
             b.hit = true; S.stun = 1.0; S.hits++; F.sfx.burp(); F.sfx.yelp(); g.fx.burst(pp, [0xffffff, 0xff8a5a], 16, 6, 0.6);
             if (S.holder === 'me') { S.holder = null; S.kick = 0.9; quaffle.position.set(pp.x + 3, pp.y, pp.z + 3); clampArena(quaffle.position); }
           }
