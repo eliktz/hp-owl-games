@@ -286,7 +286,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     if (!bludgers.some(b => b.state === 'aim')) warn.visible = false;
 
     // ---- Golden Snitch ----
-    if (!S.snitchOn && !S.over && (S.t > 55 || S.goals >= 3)) releaseSnitch();
+    if (!S.snitchOn && !S.over && !S.calm && (S.t > 55 || S.goals >= 3)) releaseSnitch();
     if (S.snitchOn && !S.over) {
       const ds = snitch.position.distanceTo(tmp.set(P.x, P.y + 1.2, P.z)); S.juke -= dt;
       if (snitch.position.distanceTo(S.snTarget) < 1.5 || (ds < 6 && S.juke <= 0)) {

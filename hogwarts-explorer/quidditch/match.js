@@ -309,7 +309,7 @@
       if (!bludgers.some((b) => b.state === 'aim')) warn.visible = false;
 
       // ---- Golden Snitch ----
-      if (!S.snitchOn && !S.over && (S.t > 55 || S.goals >= 3)) releaseSnitch();
+      if (!S.snitchOn && !S.over && !S.calm && (S.t > 55 || S.goals >= 3)) releaseSnitch();
       if (S.snitchOn && !S.over) {
         const ds = snitch.position.distanceTo(tmp.set(pp.x, pp.y + 1.2, pp.z));
         S.juke -= dt;
