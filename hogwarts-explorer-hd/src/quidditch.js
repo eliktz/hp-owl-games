@@ -324,7 +324,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     start, quit, boost, throwQuaffle, releaseSnitch, idle, stand: STAND, centre: C, goalX: GOAL_X, hoopZ: HOOP_DZ.map(z => C.z + z),
     state: () => ({ on: S.on, over: !!S.over, a: S.a, b: S.b, holder: S.holder, stun: S.stun > 0, snitch: !!S.snitchOn, t: S.t, aim: S.aim, hits: S.hits, dodges: S.dodges, saves: S.saves, level: st.qLevel, result: S.result || null,
       me: { x: P.x, y: P.y, z: P.z }, quaffle: { x: quaffle.position.x, y: quaffle.position.y, z: quaffle.position.z }, snitchPos: { x: snitch.position.x, y: snitch.position.y, z: snitch.position.z },
-      b0: { x: bludgers[0].pos.x, y: bludgers[0].pos.y, z: bludgers[0].pos.z, hit: bludgers[0].hit, t: bludgers[0].t }, keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map(b => b.state), inArena: Math.hypot((P.x - C.x) / AX, (P.z - C.z) / AZ) <= 1.001 }),
+      boosting: S.boost > 0, speed: Math.hypot(pv.x, pv.z), b0: { x: bludgers[0].pos.x, y: bludgers[0].pos.y, z: bludgers[0].pos.z, hit: bludgers[0].hit, t: bludgers[0].t }, keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map(b => b.state), inArena: Math.hypot((P.x - C.x) / AX, (P.z - C.z) / AZ) <= 1.001 }),
     _place(x, y, z, yw) { P.set(x, y, z); pv.set(0, 0, 0); if (yw != null) yaw = yw; },
     _quaffleAt(x, y, z) { S.holder = null; S.shot = null; S.kick = 0; quaffle.position.set(x, y, z); },
     _calm(on) { S.calm = !!on; }, _rivalAway() { rival.position.set(C.x - 20, gy + 6, C.z - 14); S.stealCd = 5; },

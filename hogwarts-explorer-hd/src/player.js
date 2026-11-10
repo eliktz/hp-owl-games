@@ -104,7 +104,9 @@ export class Player {
     this.pos.set(f.x, this.heightAt(f.x, f.z), f.z);
     this.smoothY = this.pos.y;
     this._lastPos.copy(this.pos); this._stuckT = 0;
-    this.cam && this.cam.reset(this.yaw);
+    // snap the lens to the new spot right now (no frame where the camera still looks at the old place)
+    if (this.cam) { this.cam.reset(this.yaw); this.cam.curDist = this.cam.dist; this.cam.update(0.016, this.pos, this.yaw, false); this.camera.updateMatrixWorld(true); }
+    if (this.model) this.model.position.copy(this.pos);
   }
 
   // Try the full move, then X-only and Z-only, keeping whichever makes the most progress.

@@ -1027,7 +1027,10 @@
       const toCam = new THREE.Vector3().subVectors(camera.position, head);
       const dist = toCam.length();
       const rc = new THREE.Raycaster(head, toCam.clone().normalize(), 0.1, Math.max(0.01, dist - 0.35));
-      const hits = rc.intersectObjects(arm.obstacles || [], true);
+      rc.camera = camera;               // sprites (glows, signs) hanging off a solid need the camera to be raycast
+      // only real, attached meshes count as walls — never sprites, never anything already removed from the scene
+      const walls = (arm.obstacles || []).filter((o) => o && o.isMesh && o.parent);
+      const hits = rc.intersectObjects(walls, true).filter((h) => h.object && h.object.isMesh);
       const camBehindWall = hits.some(h => h.distance > 0.02 && h.distance < dist - 0.4);
       const sp = head.clone().project(camera);
       return {

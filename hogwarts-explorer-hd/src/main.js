@@ -223,9 +223,11 @@ async function boot() {
       const head = new Vector3(player.pos.x, player.pos.y + player.cam.headY, player.pos.z);
       const toCam = new Vector3().subVectors(camera.position, head);
       const dist = toCam.length();
-      const rc = new Raycaster(head, toCam.clone().normalize(), 0.1, dist - 0.3);
-      const hits = rc.intersectObjects(player.cam.obstacles, true);
+      const rc = new Raycaster(head, toCam.clone().normalize(), 0.1, Math.max(0.01, dist - 0.3));
+      rc.camera = camera;
+      const hits = rc.intersectObjects((player.cam.obstacles || []).filter(o => o && o.parent), true).filter(h => h.object && h.object.isMesh);
       const camBehindWall = hits.length > 0 && hits[0].distance < dist - 0.35;
+      camera.updateMatrixWorld(true);   // judge against where the lens is NOW, not the last drawn frame
       const sp = head.clone().project(camera);
       const onScreen = sp.z < 1 && Math.abs(sp.x) <= 1 && Math.abs(sp.y) <= 1;
       return {
