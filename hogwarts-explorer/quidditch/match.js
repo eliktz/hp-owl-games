@@ -350,7 +350,7 @@
       const p = document.querySelector('#pickOv .pickP'); if (!p || p.querySelector('.qCard')) return;
       const b = document.createElement('button'); b.className = 'pickClose qCard'; b.type = 'button';
       b.style.cssText = 'background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;margin-top:12px;font-size:24px;padding:10px 34px';
-      b.textContent = '🧹 קְוִוידִיץ׳ — מִשְׂחָק!';
+      b.textContent = '🧹 קְוִוידִיץ׳ — מִשְׂחָק!' + (st.qWins ? '  🏆×' + st.qWins : '');
       b.addEventListener('click', (e) => { e.stopPropagation(); const c = p.querySelector('.pickClose:not(.qCard)'); if (c) c.click(); setTimeout(start, 60); });
       p.insertBefore(b, p.querySelector('.pickClose'));
     });

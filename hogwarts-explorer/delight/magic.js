@@ -14,10 +14,13 @@
     const css = document.createElement('style');
     css.textContent = `#wandBtn{right:calc(22px + env(safe-area-inset-right));bottom:calc(138px + env(safe-area-inset-bottom));
       background:radial-gradient(circle at 50% 35%,rgba(255,190,90,.95),rgba(150,70,20,.85))}
-      #wandBtn.cool{filter:saturate(.4) brightness(.8)}`;
+      #wandBtn.cool{filter:saturate(.4) brightness(.8)}
+      #wandBtn.try{animation:wandTry 1.1s ease-in-out infinite}
+      @keyframes wandTry{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 8px rgba(255,215,106,.55),0 0 28px rgba(255,215,106,.9)}}`;
     document.head.appendChild(css);
     const btn = document.createElement('div'); btn.className = 'gamebtn'; btn.id = 'wandBtn'; btn.textContent = '🪄';
     document.body.appendChild(btn);
+    if (!st.wandUsed) btn.classList.add('try');     // a gentle glow until the child has tried the wand once
     btn.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); cast(); });
     window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'e' || e.key === 'Enter') cast(); });
 
@@ -57,6 +60,7 @@
       if (!g.started || g.modal || cool > 0) return false;
       const p = g.player.position, world = g.world, f = g.facing;
       cool = 0.55; btn.classList.add('cool');
+      if (!st.wandUsed) { st.wandUsed = true; F.save(); } btn.classList.remove('try');
       F.sfx.zap(); g.cheer(0.45);
       from.set(p.x + Math.sin(f) * 0.6, p.y + 2.1 * g.player.scale.y / 1.15, p.z + Math.cos(f) * 0.6);
       // nearest enchantable: anything within reach, preferring what the hero faces
