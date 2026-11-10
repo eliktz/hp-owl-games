@@ -130,7 +130,12 @@
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
   function quit() { teardown(); if (curDone) curDone(0, true); }
   let curDone = null;
+  // Every lesson run gets a generation number. Closing a lesson bumps it, so anything the old
+  // mini-game still has in flight (a round timer, a late animation callback) finds its host
+  // stale and does nothing — it can never talk over, or fail, the NEXT lesson you open.
+  let gen = 0;
   function teardown() {
+    gen++;
     clearTimers(); cancelAnimationFrame(raf); raf = null;
     ov.classList.remove('on'); stageEl.innerHTML = '';
     try { window.__game && __game.setModal && __game.setModal(false); } catch (e) {}
@@ -185,11 +190,13 @@
     // in-session dynamic difficulty: climbs as the child succeeds, eases after misses, so a
     // confident child gets harder questions and a struggling one gets a break — never a dead end.
     let streak = 0, dyn = 0;
+    const myGen = gen, live = () => myGen === gen;
     const host = {
       stage: stageEl, subject: def.subject, color: def.color, teacher: def.teacher, key: def.key, level, day,
       // record an answer: two in a row right → one notch harder (capped); any miss → one notch
       // easier (floored). Lessons fold host.lvl()/host.dyn() into their per-round difficulty.
       hit(ok) {
+        if (!live()) return dyn;
         if (ok) {
           streak++; hits++; combo++; best = Math.max(best, combo); showCombo(combo);
           if (combo >= 2) { try { window.HPFun && HPFun.sfx.tink(Math.min(combo, 9)); } catch (e) {} }
@@ -203,26 +210,27 @@
       stats() { return { combo, best, hits, misses, dyn }; },
       dyn() { return dyn; },
       lvl() { return Math.max(1, Math.min(9, level + dyn)); },   // effective difficulty right now
-      say(t, m) { sayEl.textContent = t; moodT = Math.max(0.3, (t || '').length * 0.045); mood = 1; },
+      say(t, m) { if (!live()) return; sayEl.textContent = t; moodT = Math.max(0.3, (t || '').length * 0.045); mood = 1; },
       setProgress(cur, total) {
+        if (!live()) return;
         pipsEl.innerHTML = '';
         for (let i = 0; i < total; i++) { const p = document.createElement('div'); p.className = 'lsnPip' + (i < cur ? ' on' : ''); pipsEl.appendChild(p); }
       },
-      good(x, y) { try { HP.sfx.chime(); HP.sfx.sparkle(); } catch (e) {} spark(x, y, ['✨', '⭐', '🌟', '💫']); },
-      bad() { try { HP.sfx.soft(); } catch (e) {} panel.classList.remove('lsnShake'); void panel.offsetWidth; panel.classList.add('lsnShake'); },
-      confetti() { for (let i = 0; i < 18; i++) spark(10 + Math.random() * (panel.clientWidth - 20), 40 + Math.random() * (panel.clientHeight - 80), ['✨', '⭐', '🎉', '🌟', '💛']); },
-      after(ms, fn) { const id = setTimeout(fn, ms); timers.push(id); return id; },
+      good(x, y) { if (!live()) return; try { HP.sfx.chime(); HP.sfx.sparkle(); } catch (e) {} spark(x, y, ['✨', '⭐', '🌟', '💫']); },
+      bad() { if (!live()) return; try { HP.sfx.soft(); } catch (e) {} panel.classList.remove('lsnShake'); void panel.offsetWidth; panel.classList.add('lsnShake'); },
+      confetti() { if (!live()) return; for (let i = 0; i < 18; i++) spark(10 + Math.random() * (panel.clientWidth - 20), 40 + Math.random() * (panel.clientHeight - 80), ['✨', '⭐', '🎉', '🌟', '💛']); },
+      after(ms, fn) { const id = setTimeout(() => { if (live()) fn(); }, ms); timers.push(id); return id; },
       rnd(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); },
       el,
-      win(stars) { reward(def, Math.max(1, Math.min(3, stars || 1)), host); },
-      fail(msg) { if (HPL.progress && HPL.progress.rate) HPL.progress.rate(def.key, 0, dyn); combo = 0; streak = 0; dyn = Math.min(dyn, 0); showCombo(0); failScreen(def, host, msg); },      // too many misses → gentle retry, no pity-win
+      win(stars) { if (!live()) return; reward(def, Math.max(1, Math.min(3, stars || 1)), host); },
+      fail(msg) { if (!live()) return; if (HPL.progress && HPL.progress.rate) HPL.progress.rate(def.key, 0, dyn); combo = 0; streak = 0; dyn = Math.min(dyn, 0); showCombo(0); failScreen(def, host, msg); },      // too many misses → gentle retry, no pity-win
       // a shrinking timer bar for timed-bonus rounds; returns { stop, left() }
       timer(ms, onEnd) {
         const bar = el('div', { style: 'width:70%;max-width:320px;height:14px;border-radius:8px;background:rgba(255,255,255,.15);border:2px solid #ffd76a;overflow:hidden' });
         const fill = el('div', { style: 'height:100%;width:100%;background:linear-gradient(90deg,#9effa0,#ffe48a,#ff8a5a);transition:width .2s linear' });
         bar.appendChild(fill); stageEl.appendChild(bar);
         const t0 = performance.now(); let stopped = false;
-        const tick = () => { if (stopped) return; const k = Math.max(0, 1 - (performance.now() - t0) / ms); fill.style.width = (k * 100) + '%';
+        const tick = () => { if (stopped) return; if (!live()) { stopped = true; return; } const k = Math.max(0, 1 - (performance.now() - t0) / ms); fill.style.width = (k * 100) + '%';
           if (k <= 0) { stopped = true; bar.remove(); onEnd && onEnd(); } else requestAnimationFrame(tick); };
         requestAnimationFrame(tick);
         return { stop() { stopped = true; bar.remove(); }, left() { return Math.max(0, ms - (performance.now() - t0)); } };

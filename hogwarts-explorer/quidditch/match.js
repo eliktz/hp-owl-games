@@ -129,7 +129,7 @@
     function reset() {
       const lv = st.qLevel;
       Object.assign(S, { t: 0, a: 0, b: 0, holder: null, stun: 0, boost: 0, boostCd: 0, snitchOn: false, snitchSpd: 13 + lv * 0.9, juke: 0, goals: 0, over: false, throwT: 0, shot: null,
-        rivalSpd: 9.5 + lv * 1.3, keepSpd: 2.6 + lv * 0.55, save: Math.max(0.25, 0.6 - lv * 0.05), bludGap: Math.max(5, 12 - lv), cheer: 0, kick: 1.6, stealCd: 0, snTarget: v(), rivalShot: 0, aim: 1, hits: 0, dodges: 0, calm: false });
+        rivalSpd: 9.5 + lv * 1.3, keepSpd: 2.6 + lv * 0.55, save: Math.max(0.25, 0.6 - lv * 0.05), bludGap: Math.max(5, 12 - lv), cheer: 0, kick: 1.6, stealCd: 0, snTarget: v(), rivalShot: 0, aim: 1, hits: 0, dodges: 0, saves: 0, calm: false });
       P.position.set(C.x - 10, gy + 5, C.z); yaw = Math.PI / 2; pv.set(0, 0, 0);
       quaffle.position.set(C.x, gy + 7, C.z);
       rival.position.set(C.x + 12, gy + 6, C.z); keepA.position.set(GOAL_X - 2.2, gy + 11, C.z); keepB.position.set(HOME_X + 2.2, gy + 11, C.z);
@@ -251,7 +251,7 @@
         const s = S.shot; s.t += dt; const k = Math.min(1, s.t / s.dur);
         quaffle.position.lerpVectors(s.from, s.to, k); quaffle.position.y += Math.sin(k * Math.PI) * 1.6;
         if (k >= 1) {
-          if (s.by === 'me') { const kd = Math.abs(keepA.position.z - s.to.z); if (kd < 2.4) { S.shot = null; S.holder = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); F.sfx.boing(); F.toast('🧤', '', 800); setHint('הַשּׁוֹעֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; } else goal(true); }
+          if (s.by === 'me') { const kd = Math.abs(keepA.position.z - s.to.z); if (kd < 2.4) { S.shot = null; S.holder = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); F.sfx.boing(); F.toast('🧤', '', 800); S.saves++; setHint('הַשּׁוֹעֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; } else goal(true); }
           else { if (Math.random() < S.save) { S.shot = null; quaffle.position.set(HOME_X + 7, gy + 8, C.z); F.sfx.boing(); S.kick = 0.5; } else goal(false); }
         }
       } else if (S.holder === 'me') {
@@ -358,7 +358,7 @@
 
     F.mods.quidditch = {
       start, quit, boost, throwQuaffle, releaseSnitch, stand: STAND, centre: C, goalX: GOAL_X, hoopZ: HOOP_Z,
-      state: () => ({ on: S.on, over: !!S.over, a: S.a, b: S.b, holder: S.holder, stun: S.stun > 0, snitch: !!S.snitchOn, t: S.t, aim: S.aim, hits: S.hits, dodges: S.dodges, level: st.qLevel, result: S.result || null,
+      state: () => ({ on: S.on, over: !!S.over, a: S.a, b: S.b, holder: S.holder, stun: S.stun > 0, snitch: !!S.snitchOn, t: S.t, aim: S.aim, hits: S.hits, dodges: S.dodges, saves: S.saves, level: st.qLevel, result: S.result || null,
         me: { x: P.position.x, y: P.position.y, z: P.position.z }, quaffle: { x: quaffle.position.x, y: quaffle.position.y, z: quaffle.position.z }, snitchPos: { x: snitch.position.x, y: snitch.position.y, z: snitch.position.z },
         keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map((b) => b.state), inArena: Math.hypot((P.position.x - C.x) / AX, (P.position.z - C.z) / AZ) <= 1.001 }),
       // test helpers: put things somewhere exact (the match logic itself still runs for real)
