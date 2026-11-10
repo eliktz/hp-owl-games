@@ -43,6 +43,8 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   css.textContent = `
   #wandBtn{right:calc(114px + env(safe-area-inset-right));bottom:calc(32px + env(safe-area-inset-bottom));background:radial-gradient(circle at 50% 35%,rgba(255,190,90,.95),rgba(150,70,20,.85))}
   #wandBtn.cool{filter:saturate(.4) brightness(.8)}
+  #wandBtn.try{animation:wandTry 1.1s ease-in-out infinite}
+  @keyframes wandTry{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 8px rgba(255,215,106,.55),0 0 28px rgba(255,215,106,.9)}}
   #sortOv{position:fixed;inset:0;z-index:47;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;
     background:radial-gradient(ellipse at center,rgba(40,24,90,.75),rgba(5,3,25,.94));font-family:'Rubik',sans-serif;direction:rtl;text-align:center}
   #sortOv.on{display:flex}
@@ -57,6 +59,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   document.head.appendChild(css);
   const wandBtn = document.createElement('button'); wandBtn.id = 'wandBtn'; wandBtn.className = 'gamebtn'; wandBtn.textContent = '🪄'; wandBtn.setAttribute('aria-label', 'שרביט');
   document.body.appendChild(wandBtn);
+  if (!st.wandUsed) wandBtn.classList.add('try');   // a gentle glow until the child has tried the wand once
   const bolt = mk(scene, new SphereGeometry(0.22, 10, 8), new MeshBasicMaterial({ color: 0xfff0a0 })); bolt.visible = false; bolt.raycast = () => {};
   let cool = 0, fly = null;
   const from = new Vector3(), to = new Vector3();
@@ -71,6 +74,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   function cast() {
     if (isModal() || cool > 0 || window.__game.takeover) return false;
     cool = 0.55; wandBtn.classList.add('cool'); fun.sfx.zap();
+    if (!st.wandUsed) { st.wandUsed = true; fun.save(); } wandBtn.classList.remove('try');
     const f = player.yaw;
     from.set(pos.x + Math.sin(f) * 0.5, pos.y + 1.5, pos.z + Math.cos(f) * 0.5);
     let best = null, bs = 1e9;

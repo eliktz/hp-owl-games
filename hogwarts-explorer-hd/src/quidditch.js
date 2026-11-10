@@ -315,6 +315,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     T += dt;
     const dd = Math.hypot(player.pos.x - C.x, player.pos.z - C.z);
     pitch.visible = dd < 150;                        // far from the pitch it costs nothing
+    stand.visible = Math.hypot(player.pos.x - STAND.x, player.pos.z - STAND.z) < 38;   // the little broom stand only when you are near it
     if (sign) { sign.position.y = 4.6 + Math.sin(T * 2) * 0.2; sign.rotation.y += dt * 0.8; }
     const k = Math.hypot(player.pos.x - STAND.x, player.pos.z - STAND.z);
     if (k < 5 && !isModal()) fun.offer('quidditch', '🧹', k, start);

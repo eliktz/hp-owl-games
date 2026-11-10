@@ -81,7 +81,10 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     mk(house, new BoxGeometry(7, 3.6, 5), glass, 0, 1.8, 0);
     const roof = mk(house, new ConeGeometry(5.2, 2.2, 4), glass, 0, 4.7, 0); roof.rotation.y = Math.PI / 4;
     const frame = M(0x4a6a3e);
-    for (const sx of [-3.5, 3.5]) for (const sz of [-2.5, 2.5]) mk(house, new BoxGeometry(0.2, 3.6, 0.2), frame, sx, 1.8, sz);
+    // the four corner posts are one instanced mesh (the greenhouse is in view from the gates)
+    const postsIM = new InstancedMesh(new BoxGeometry(0.2, 3.6, 0.2), frame, 4), pd = new Object3D();
+    [[-3.5, -2.5], [-3.5, 2.5], [3.5, -2.5], [3.5, 2.5]].forEach(([sx, sz], i) => { pd.position.set(sx, 1.8, sz); pd.updateMatrix(); postsIM.setMatrixAt(i, pd.matrix); });
+    house.add(postsIM);
     mk(house, new BoxGeometry(7.2, 0.2, 5.2), frame, 0, 3.6, 0);
     const plants = new InstancedMesh(new SphereGeometry(0.4, 10, 8), M(0xffffff, { roughness: 0.6 }), 8), d = new Object3D(), c = new Color();
     [0x8cff9e, 0xff9ad5, 0xffe08a, 0x9fd0ff].forEach((col, i) => { for (let k = 0; k < 2; k++) { d.position.set(-2.4 + i * 1.6, 0.7 + k * 0.9, k ? -1 : 1); d.scale.setScalar(k ? 0.8 : 1.1); d.updateMatrix(); plants.setMatrixAt(i * 2 + k, d.matrix); plants.setColorAt(i * 2 + k, c.setHex(col)); } });
@@ -169,7 +172,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       grid.appendChild(card);
     });
     p.appendChild(grid);
-    for (const x of extras) { const b = document.createElement('button'); b.type = 'button'; b.className = 'pickClose qCard'; b.textContent = x.label; b.addEventListener('click', e => { e.stopPropagation(); closePicker(); setTimeout(x.fn, 60); }); p.appendChild(b); }
+    for (const x of extras) { const b = document.createElement('button'); b.type = 'button'; b.className = 'pickClose qCard'; b.textContent = x.label + (fun.store.qWins ? '  🏆×' + fun.store.qWins : ''); b.addEventListener('click', e => { e.stopPropagation(); closePicker(); setTimeout(x.fn, 60); }); p.appendChild(b); }
     const close = document.createElement('button'); close.className = 'pickClose'; close.textContent = 'סגור'; close.addEventListener('click', e => { e.stopPropagation(); closePicker(); }); p.appendChild(close);
     ov.innerHTML = ''; ov.appendChild(p); ov.classList.add('on'); setModal(true); fun.sfx.flip();
   }
