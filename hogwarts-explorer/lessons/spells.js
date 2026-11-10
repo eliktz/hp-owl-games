@@ -64,7 +64,8 @@
     }
 
     function start(idx) {
-      cur = spells[idx];
+      if (idx >= NSP) return;
+      busy = false; cur = spells[idx];
       // lengthen the pattern when the child is on a roll this session (rises with success)
       cur.pts = densify(cur.basePts, Math.min(9, 4 + (host.lvl() - 1) + idx));
       hit = cur.pts.map(() => false); trail = []; down = false;
@@ -109,7 +110,8 @@
       return { x: (t.clientX - r.left) * 360 / r.width, y: (t.clientY - r.top) * 260 / r.height };
     }
 
-    function begin(e) { e.preventDefault(); if (!cur || si >= NSP) return; down = true; trail = []; move(e); }
+    let busy = false;                            // between a finished cast and the next spell: ignore the finger
+    function begin(e) { e.preventDefault(); if (!cur || busy || si >= NSP) return; down = true; trail = []; move(e); }
     function move(e) {
       if (!down || !cur) return; e.preventDefault();
       const p = pos(e); trail.push(p);
@@ -120,7 +122,7 @@
         if (Math.hypot(p.x - w[0], p.y - w[1]) <= HIT) { hit[n] = true; try { HP.sfx.soft(); } catch (e2) {} }
       }
       draw();
-      if (hit.indexOf(false) < 0) { down = false; success(); }
+      if (hit.indexOf(false) < 0 && !busy) { down = false; busy = true; success(); }
     }
     function end(e) {
       if (!down) return; e.preventDefault(); down = false;
