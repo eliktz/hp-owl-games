@@ -92,7 +92,14 @@ export function buildChibi(opts = {}) {
   g.scale.setScalar(scale);
   g.userData.rig = { armL, armR, legL, legR, head: headGrp, t: 0 };
   // Cheap figures with merged/odd bounds shouldn't be frustum-culled at screen edges.
-  g.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+  g.traverse(o => {
+    if (!o.isMesh) return;
+    o.frustumCulled = false;
+    // Only the big shapes cast a shadow. Eyes, hands, scarf ends, the wand… are invisible in
+    // the shadow map but each cost a whole extra draw call in the shadow pass.
+    o.geometry.computeBoundingSphere();
+    if (o.geometry.boundingSphere.radius < 0.24) o.castShadow = false;
+  });
   return g;
 }
 

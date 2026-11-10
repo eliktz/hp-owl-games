@@ -53,8 +53,8 @@ export class SpringCamera {
   // Snap the orbit directly behind the player and re-enable auto-follow.
   reset(playerYaw) {
     this.yaw = this._behind(playerYaw);
-    this.pitch = this.indoor ? 0.14 : 0.30;
-    this.dist = this.indoor ? 5 : 9;
+    this.pitch = this.indoor ? 0.1 : 0.30;      // indoors: a lower, flatter lens so you see the room, not the floor
+    this.dist = this.indoor ? 6 : 9;
     this.userControlled = false; this.idle = this.recenterAfter;
   }
 
@@ -62,7 +62,7 @@ export class SpringCamera {
     this.indoor = on;
     this.maxDist = on ? 8 : 14;
     this.dist = clamp(this.dist, this.minDist, on ? 6 : this.maxDist);
-    this.eyeLift = on ? 1.2 : 2.0;
+    this.eyeLift = on ? 0.45 : 2.0;
   }
 
   // Yaw that places the camera behind a player facing `playerYaw` (model faces +dx,+dz).
@@ -75,7 +75,7 @@ export class SpringCamera {
       const goal = this._behind(playerYaw);
       let d = ((goal - this.yaw + PI) % (2 * PI)) - PI;
       if (d < -PI) d += 2 * PI;
-      this.yaw += d * (1 - Math.pow(0.04, dt));
+      this.yaw += d * (1 - Math.pow(0.2, dt));    // a calm drift back behind the hero (no whip-pan)
     }
     if (this.userControlled && this.idle > this.recenterAfter) this.userControlled = false;
 

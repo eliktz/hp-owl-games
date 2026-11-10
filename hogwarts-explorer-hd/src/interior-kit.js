@@ -22,12 +22,28 @@ export async function ensureTex() {
 }
 
 // A cloned, independently-tiled copy of a source map (shares the image, cheap).
+// Tiled copies and the materials that use them are CACHED by (map, repeat, colour): rooms are
+// rebuilt every time you walk in, and uncached clones used to pile up (56 → 139 textures after
+// five rooms). Now a revisit allocates nothing new, and equal surfaces share one material.
+const _tiles = new Map(), _mats = new Map();
+const q = (v) => Math.round(v * 4) / 4;
 function tile(src, rx, ry) {
   if (!src) return null;
-  const t = src.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(rx, ry); return t;
+  rx = q(rx) || 0.25; ry = q(ry) || 0.25;
+  const key = src.uuid + '|' + rx + '|' + ry;
+  let t = _tiles.get(key);
+  if (!t) { t = src.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(rx, ry); _tiles.set(key, t); }
+  return t;
 }
-const stoneMat = (rx, ry, color = 0x8f8a80) => new MeshStandardMaterial({ color, map: tile(_tex?.wall, rx, ry), roughness: 0.96 });
-const woodMat = (rx = 1, ry = 1, color = 0x6a4428) => new MeshStandardMaterial({ color, map: tile(_tex?.wood, rx, ry), roughness: 0.85 });
+function cached(kind, rx, ry, color, make) {
+  const key = kind + '|' + q(rx) + '|' + q(ry) + '|' + color;
+  let m = _mats.get(key);
+  if (!m) { m = make(); _mats.set(key, m); }
+  return m;
+}
+const stoneMat = (rx, ry, color = 0x8f8a80) => cached('stone', rx, ry, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, rx, ry), roughness: 0.96 }));
+const woodMat = (rx = 1, ry = 1, color = 0x6a4428) => cached('wood', rx, ry, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wood, rx, ry), roughness: 0.85 }));
+export const kitStats = () => ({ tiles: _tiles.size, mats: _mats.size });
 
 export const MAT = {
   get stone() { return stoneMat(1.5, 1.5); },
@@ -42,7 +58,7 @@ export function floor(group, w, d, color = 0x9a8f7e, tileM = 2.5) {
   // Warm flagstone: the castle-wall map (not the near-black slate) tiled per ~tileM metres so
   // the floor reads as lit stone, not a flat dark void. Bigger tiles (larger tileM) read as a
   // grand hall's flagstones rather than a busy outdoor cobble yard.
-  const m = new Mesh(new PlaneGeometry(w, d), new MeshStandardMaterial({ color, map: tile(_tex?.wall, w / tileM, d / tileM), roughness: 0.92 }));
+  const m = new Mesh(new PlaneGeometry(w, d), cached('floor', w / tileM, d / tileM, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, w / tileM, d / tileM), roughness: 0.92 })));
   m.rotation.x = -Math.PI / 2; m.receiveShadow = true; group.add(m); return m;
 }
 
@@ -54,7 +70,7 @@ export function wall(group, x, z, w, h, t, rotY = 0, color = 0x8f8a80) {
 }
 
 export function ceiling(group, w, d, y, color = 0x3c3850) {
-  const m = new Mesh(new PlaneGeometry(w, d), new MeshStandardMaterial({ color, map: tile(_tex?.wall, w / 5, d / 5), roughness: 0.97 }));
+  const m = new Mesh(new PlaneGeometry(w, d), cached('ceil', w / 5, d / 5, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, w / 5, d / 5), roughness: 0.97 })));
   m.rotation.x = Math.PI / 2; m.position.y = y; group.add(m); return m;
 }
 
@@ -91,7 +107,7 @@ export function candle(x, y, z) {
   g.add(new Mesh(new CylinderGeometry(0.04, 0.05, 0.4, 6), new MeshStandardMaterial({ color: 0xf3e6c0, roughness: 0.7 })));
   const flame = new Mesh(new SphereGeometry(0.08, 8, 8), emissive(0xffb34d, 2.2));
   flame.position.y = 0.3; flame.scale.y = 1.6; g.add(flame);
-  g.position.set(x, y, z); g.userData.flame = flame; g.userData.baseY = y; return g;
+  g.position.set(x, y, z); g.userData.flame = flame; g.userData.baseY = y; g.userData.light = { k: 'candle', c: 0xffc070 }; return g;
 }
 
 // Wall torch (bracket + flame) with a warm emissive back-glow so walls read as lit.
@@ -100,7 +116,7 @@ export function torch(group, x, y, z) {
   const stick = new Mesh(new CylinderGeometry(0.03, 0.03, 0.4, 5), MAT.dark); stick.rotation.z = 0.5; g.add(stick);
   const flame = new Mesh(new ConeGeometry(0.11, 0.34, 8), emissive(0xff8a2a, 2.4)); flame.position.set(0.12, 0.28, 0); g.add(flame);
   const glow = new Mesh(new SphereGeometry(0.5, 8, 8), emissive(0xff8a2a, 0.18)); glow.position.set(0.12, 0.28, 0.1); g.add(glow);
-  g.position.set(x, y, z); g.userData.flame = flame; group.add(g); return g;
+  g.position.set(x, y, z); g.userData.flame = flame; g.userData.light = { k: 'torch', c: 0xffa040 }; group.add(g); return g;
 }
 
 // Long dining table with two benches, a house-colour runner and golden plates.
@@ -135,6 +151,7 @@ export function window2(group, x, y, z, rotY = 0, hue = 0x7fb0ff) {
   // at grazing angles). The dark surround behind it frames the arch.
   const top = new Mesh(new CircleGeometry(1.1, 18, 0, Math.PI), emissive(hue, 0.42)); top.material.side = DoubleSide;
   top.position.y = 2.5; g.add(top);
+  g.userData.light = { k: 'window', c: hue };            // the glass throws a patch of its colour on the floor
   group.add(g); return g;
 }
 

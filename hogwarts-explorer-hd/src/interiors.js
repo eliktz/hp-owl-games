@@ -9,6 +9,7 @@ import { BUILDERS, FLOOR_Y } from './rooms.js';
 export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot, onEnter, onExit }) {
   let active = null, t = 0, cooldown = 0;
   let savedAmb = 0, savedHemi = 0, savedColliders = null, savedObstacles = null;
+  let savedAmbC = 0xffffff, savedHemiC = 0xbcd2ec, savedHemiG = 0x56503f;
 
   async function enter(id) {
     const build = BUILDERS[id]; if (!build) return;
@@ -30,7 +31,10 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     cooldown = 0.6;                            // ignore portals briefly after arriving
     if (!wasInside) {
       savedAmb = env.amb.intensity; savedHemi = env.hemi.intensity;
-      env.amb.intensity = 1.15; env.hemi.intensity = 0.6;
+      // candle-lit, not floodlit: a lower warm ambient so the baked flame pools + washes read
+      savedAmbC = env.amb.color.getHex(); savedHemiC = env.hemi.color.getHex(); savedHemiG = env.hemi.groundColor.getHex();
+      env.amb.intensity = 0.78; env.amb.color.setHex(0xffe6cc);
+      env.hemi.intensity = 0.62; env.hemi.color.setHex(0x9a90c8); env.hemi.groundColor.setHex(0x4a3628);
       scene.fog.density = 0.012; scene.fog.color = new Color(0x1a1230);
       scene.background = new Color(0x0a0710);
     }
@@ -55,6 +59,7 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     player.cam.setIndoor(false);
     player.heightAt = terrainHeightAt;
     env.amb.intensity = savedAmb; env.hemi.intensity = savedHemi;
+    env.amb.color.setHex(savedAmbC); env.hemi.color.setHex(savedHemiC); env.hemi.groundColor.setHex(savedHemiG);
     env.setTime(env.time);                    // restores fog + sky for the current time of day
     const h = homeSpot || { x: 0, z: 26 };
     player.teleport(h.x, h.z);
@@ -78,6 +83,7 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
   return {
     enter, exit,
     get active() { return active ? active.id : null; },
+    get room() { return active; },
     update(dt) { t += dt; if (cooldown > 0) cooldown -= dt; if (active) { active.update(dt, t); checkPortals(); } },
   };
 }

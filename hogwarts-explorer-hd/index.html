@@ -82,6 +82,10 @@
     justify-content:center;gap:18px;background:radial-gradient(ellipse at 50% 35%,rgba(43,29,107,.97),rgba(5,6,13,.98));
     -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
   #map.on{display:flex}
+  /* candle-lit vignette indoors: darker screen edges so the warm light pools glow */
+  #vig{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .6s;
+    background:radial-gradient(ellipse at 50% 46%,rgba(0,0,0,0) 52%,rgba(18,8,30,.34) 78%,rgba(8,3,18,.66) 100%)}
+  body.inside #vig{opacity:1}
   #map h2{color:#ffd76a;font-size:30px;margin:0;text-shadow:0 2px 0 #000}
   #map .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;
     width:min(760px,90vw);max-height:62vh;overflow:auto;padding:4px}
@@ -96,6 +100,7 @@
 </head>
 <body>
 <canvas id="view"></canvas>
+<div id="vig"></div>
 <div id="load">✨ טוען את הטירה… ✨</div>
 <div id="fps" class="pill">— FPS</div>
 <div id="tier" class="pill">—</div>

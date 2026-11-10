@@ -1,6 +1,6 @@
 // Entry point: builds the scene, wires the HUD/quests/map/interiors, runs the loop, and
 // exposes window.__game test hooks.
-import { Scene, PerspectiveCamera, Vector3, Raycaster } from 'three';
+import { Scene, PerspectiveCamera, Vector3, Raycaster, Frustum, Matrix4, Sphere } from 'three';
 import { createRenderer, backendName } from './renderer.js';
 import { QualityManager } from './quality.js';
 import { Environment } from './environment.js';
@@ -18,6 +18,9 @@ import { createMap } from './map.js';
 import { createInteriors } from './interiors.js';
 import { createAudio } from './audio.js';
 import { SPOTS, TIER } from './config.js';
+import { blobShadow } from './atmosphere.js';
+import { kitStats } from './interior-kit.js';
+import { FLOOR_Y } from './rooms.js';
 
 const hud = { set(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; } };
 
@@ -129,16 +132,26 @@ async function boot() {
   // is fragile — the Great Hall has no solid ceiling, so on WebGPU the real castle bled
   // through as a pale pixelated "tower" behind the tables. Toggling visibility is the robust
   // fix (and reclaims the exterior's draw calls / shadow pass while you're inside).
-  const outdoorRoots = [castleGroup, terrain, lake];
+  const outdoorRoots = [castleGroup, terrain, lake, ...(quests.roots || [])];
+  // Friends are never frustum-culled per mesh (odd bounds), so cull each whole figure by one
+  // sphere test instead: an off-screen friend costs no draw calls (and no shadow draws).
+  const frustum = new Frustum(), pm = new Matrix4(), sph = new Sphere(new Vector3(), 3.2);
+  function cullFriends() {
+    pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    frustum.setFromProjectionMatrix(pm, camera.coordinateSystem);
+    for (const c of characters.characters || []) { sph.center.set(c.group.position.x, c.group.position.y + 1.2, c.group.position.z); c.group.visible = frustum.intersectsSphere(sph); }
+  }
   let worldShown = true;
   function setWorldVisible(on) {
     if (on === worldShown) return;
     worldShown = on;
     for (const o of outdoorRoots) o.visible = on;
-    for (const c of characters.characters || []) c.group.visible = on;
+    if (!on) for (const c of characters.characters || []) c.group.visible = false;
     for (const pc of scenery.pieces || []) if (!on) pc.group.visible = false;
   }
 
+  const shadow = blobShadow(scene);
+  let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
   function loop() {
     const now = performance.now();
@@ -153,6 +166,10 @@ async function boot() {
     interiors.update(dt);
     const inside = !!interiors.active;
     setWorldVisible(!inside);
+    if (!inside) cullFriends();
+    if (inside !== wasInside) { wasInside = inside; document.body.classList.toggle('inside', inside); }
+    shadow.visible = inside;
+    if (inside) shadow.position.set(player.pos.x, FLOOR_Y + 0.05, player.pos.z);
     updateDoor(inside);
     scenery.update(inside ? null : player.pos);
     const near = inside ? null : characters.update(dt, player.pos);
@@ -197,6 +214,7 @@ async function boot() {
       };
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
+    input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats,
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
     // current yaw. Returns the remaining distance so tests can walk until they arrive.
     steer(x, z) {

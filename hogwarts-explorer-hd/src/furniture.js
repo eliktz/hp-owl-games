@@ -70,6 +70,7 @@ export function fireplace(group, x, z, rotY = 0) {
   // a few small ember logs; no big glow ball — the fire box + bloom carry the warmth
   for (const sx of [-0.5, 0.5]) { const log = new Mesh(new CylinderGeometry(0.16, 0.16, 1.6, 6), MAT.dark); log.rotation.z = Math.PI / 2; log.position.set(sx * 0.3, 0.5, 0.5); g.add(log); }
   g.traverse(o => { if (o.isMesh && o.material === stone) o.castShadow = true; });
+  g.userData.light = { k: 'fire', dz: 1.2 };
   group.add(g); return { group: g, fire };
 }
 
@@ -97,5 +98,5 @@ export function chandelier(group, x, y, z, r = 1.6) {
     const f = new Mesh(new ConeGeometry(0.1, 0.34, 8), emissive(0xffb34d, 2.2));
     f.position.set(Math.cos(a) * r, 0.2, Math.sin(a) * r); g.add(f); flames.push(f);
   }
-  g.userData.flames = flames; group.add(g); return g;
+  g.userData.flames = flames; g.userData.light = { k: 'chandelier', c: 0xffc070 }; group.add(g); return g;
 }

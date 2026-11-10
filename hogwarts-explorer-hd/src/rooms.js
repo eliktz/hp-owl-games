@@ -10,6 +10,8 @@ import {
   enchantedCeiling, emissive,
 } from './interior-kit.js';
 import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier } from './furniture.js';
+import { bakeLight } from './atmosphere.js';
+import { decorate } from './decor.js';
 
 export const FLOOR_Y = -200;
 // Gryffindor red, Ravenclaw blue, Hufflepuff gold, Slytherin green.
@@ -49,13 +51,16 @@ function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e
 }
 
 // Shared wrapper: parks the room at FLOOR_Y, animates candles/fires, exposes portals.
-function room(g, cols, spawn, { flames = [], portals = [], update } = {}) {
+function room(g, cols, spawn, { flames = [], portals = [], update, id } = {}) {
   g.position.y = FLOOR_Y;
   for (const p of portals) p.armed = false;
+  const extra = id ? decorate(id, g, cols) : null;          // feast, pumpkins, armour, lamps… (decor.js)
+  const light = bakeLight(g, cols);                          // flame pools + wall washes, one draw call
   return {
     group: g, colliders: cols, portals,
     spawn: { x: spawn.x, z: spawn.z, y: FLOOR_Y, yaw: spawn.yaw ?? 0 },
     update(dt, t) {
+      light.update(t); if (extra) extra(dt, t);
       for (const c of flames) {
         c.position.y = c.userData.baseY + Math.sin(t * 3 + c.position.x) * 0.15;
         c.userData.flame.material.emissiveIntensity = 2 + Math.sin(t * 9 + c.position.z) * 0.4;
@@ -87,6 +92,7 @@ function entranceHall() {
     { x: W / 2 - 1.2, z: 2, r: 1.5, to: 'library' },
   ];
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
+    id: 'entrancehall',
     flames, portals,
     update: (dt, t) => { for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4; },
   });
@@ -115,6 +121,7 @@ function greatHall() {
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
   for (const [x, z] of [[-W / 2 + 0.5, 13], [W / 2 - 0.5, 13]]) torch(g, x, 5, z);
   return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
+    id: 'greathall',
     flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }],
   });
 }
@@ -133,6 +140,7 @@ function library() {
   for (const [x, z] of [[-W / 2 + 0.5, 8], [W / 2 - 0.5, -8], [W / 2 - 0.5, 8]]) torch(g, x, 4, z);
   const ch = chandelier(g, 0, H - 1.5, 0);
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
+    id: 'library',
     flames, portals: [{ x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'entrancehall' }],
     update: (dt, t) => { for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.z) * 0.4; },
   });
@@ -153,6 +161,7 @@ function commonRoom() {
   for (const [x, z] of [[-W / 2 + 0.4, 2], [W / 2 - 0.4, 2]]) torch(g, x, 3.4, z);
   banner(g, 0, 3.6, -D / 2 + 0.3, HOUSE[0]);   // kept clear of the low (H=7) ceiling
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
+    id: 'commonroom',
     update: (dt, t) => { hp.fire.material.emissiveIntensity = 1.7 + Math.sin(t * 7) * 0.35; },
   });
 }
@@ -185,6 +194,7 @@ function staircase() {
   for (const [x, z] of [[-W / 2 + 0.3, -6], [-W / 2 + 0.3, 6], [W / 2 - 0.3, -6], [W / 2 - 0.3, 6]]) torch(g, x, 4, z);
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 10, -5 + (i % 2) * 10, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
+    id: 'staircase',
     update: (dt, t) => {
       for (const fl of flights) fl.node.rotation.y = fl.base + Math.sin(t * 0.4 + fl.base) * fl.amp;
       for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4;
