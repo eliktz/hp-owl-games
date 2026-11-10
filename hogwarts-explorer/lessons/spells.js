@@ -109,9 +109,9 @@
       return { x: (t.clientX - r.left) * 360 / r.width, y: (t.clientY - r.top) * 260 / r.height };
     }
 
-    function begin(e) { e.preventDefault(); down = true; trail = []; move(e); }
+    function begin(e) { e.preventDefault(); if (!cur || si >= NSP) return; down = true; trail = []; move(e); }
     function move(e) {
-      if (!down) return; e.preventDefault();
+      if (!down || !cur) return; e.preventDefault();
       const p = pos(e); trail.push(p);
       // next unhit waypoint must be reached in order
       const n = hit.indexOf(false);
@@ -153,7 +153,7 @@
       host.hit(true);                              // a spell cast cleanly → one notch harder on a roll
       if (cur.dummy) reactDummy();                 // the friendly target gets happily zapped
       si++; host.setProgress(si, NSP);
-      if (si >= NSP) host.after(900, finish);
+      if (si >= NSP) host.after(900, duel);          // spells learned → now USE them in a duel
       else host.after(1100, () => start(si));
     }
 
@@ -171,6 +171,77 @@
         ctx.font = '26px serif'; ctx.fillText('🪄', 300 + k * 60, 150 - k * 70);
         if (k < 1) requestAnimationFrame(spin);
       })(t0);
+    }
+
+    // ---- the duel: a reaction + rule game. The friendly training dummy fires coloured
+    //      hexes; raise the shield of the SAME colour before the hex lands. Hexes speed up
+    //      with host.lvl(), a fourth colour joins at level 4, and from level 5 a sneaky hex
+    //      changes colour mid-flight. A hit or a wrong shield costs a retry (never the game). ----
+    let duelRaf = 0, duelBtn = null;
+    HPL._duelNext = () => duelBtn;
+    let duelOn = false;
+    function duel() {
+      if (duelOn) return; duelOn = true;          // a stray extra trace must never start two duels
+      if (spellTimer) spellTimer.stop();
+      canvas.style.display = 'none'; fx.style.opacity = '0'; cur = null;
+      nameEl.textContent = 'דּוּ־קְרָב! 🛡️';
+      const COLS = [['🔴', '#e8352e'], ['🔵', '#2e7de8'], ['🟢', '#2ecf6a'], ['🟡', '#f2c21a']].slice(0, host.lvl() >= 4 ? 4 : 3);
+      const NB = Math.min(8, 5 + Math.floor(host.lvl() / 2));
+      let blocked = 0;
+      const arena = el('div', { style: 'position:relative;width:340px;max-width:92%;height:120px;border-radius:20px;border:4px solid #ffd76a;background:radial-gradient(ellipse at center,#1a1640,#07061e);overflow:hidden', dir: 'ltr' });
+      const foe = el('div', { style: 'position:absolute;left:10px;top:28px;font-size:60px;line-height:1' }, '🤖');
+      const me = el('div', { style: 'position:absolute;right:10px;top:28px;font-size:60px;line-height:1' }, '🧙');
+      const orb = el('div', { style: 'position:absolute;top:36px;font-size:44px;line-height:1;margin-left:-22px;display:none;will-change:left' }, '');
+      arena.appendChild(foe); arena.appendChild(me); arena.appendChild(orb);
+      const tally = el('div', { style: 'font-size:24px;letter-spacing:3px;min-height:30px' }, '◌'.repeat(NB));
+      const row = el('div', { class: 'lsnRow' });
+      const btns = COLS.map(([e, c], i) => {
+        const b = el('button', { class: 'lsnBtn', style: 'min-width:96px;min-height:96px;font-size:48px;background:' + c + ';box-shadow:0 5px 0 rgba(0,0,0,.45)' }, '🛡️');
+        b.dataset.c = i; b.addEventListener('click', () => guard(i, b)); row.appendChild(b); return b;
+      });
+      host.stage.appendChild(arena); host.stage.appendChild(tally); host.stage.appendChild(row);
+      host.setProgress(0, NB);
+      let col = 0, t0 = 0, T = 0, flying = false, swapAt = 0;
+      function fire() {
+        if (blocked >= NB) return;
+        const lv = host.lvl();
+        col = host.rnd(0, COLS.length - 1); T = Math.max(1100, 2700 - lv * 190); t0 = performance.now(); flying = true;
+        swapAt = lv >= 5 && host.rnd(0, 2) === 0 ? 0.42 : 0;
+        orb.textContent = COLS[col][0]; orb.style.display = 'block'; duelBtn = btns[col];
+        host.say(swapAt ? 'זהירות — הכישוף מתחלף!' : 'איזה מגן? מהר!');
+        foe.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], 220);
+        cancelAnimationFrame(duelRaf);
+        (function loop(now) {
+          if (!flying) return;
+          const k = (now - t0) / T;
+          if (swapAt && k >= swapAt) { swapAt = 0; let n; do { n = host.rnd(0, COLS.length - 1); } while (n === col); col = n; orb.textContent = COLS[col][0]; duelBtn = btns[col]; orb.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], 200); }
+          orb.style.left = (16 + k * 68) + '%';
+          if (k >= 1) return ouch('אאוץ! המגן איחר');
+          duelRaf = requestAnimationFrame(loop);
+        })(t0);
+      }
+      function ouch(msg) {
+        flying = false; duelBtn = null; orb.style.display = 'none';
+        retries++; host.bad(); host.hit(false); host.say(msg);
+        me.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-25deg)' }, { transform: 'rotate(0)' }], 320);
+        if (retries > NSP + 6) return host.fail('קצת מהיר היום — ננסה שוב?');
+        host.after(900, fire);
+      }
+      function guard(i, b) {
+        if (!flying) return;
+        if (i !== col) return ouch('מגן לא נכון!');
+        flying = false; duelBtn = null; blocked++; host.hit(true);
+        try { HP.sfx.pop(); } catch (e) {}
+        b.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.2)' }, { transform: 'scale(1)' }], 200);
+        orb.textContent = '✨'; foe.textContent = blocked >= NB ? '😵' : '🤖';
+        orb.animate([{ left: orb.style.left }, { left: '14%' }], { duration: 260, fill: 'forwards' });
+        const r = arena.getBoundingClientRect(), pr = host.stage.getBoundingClientRect();
+        host.good(r.left - pr.left + r.width * 0.75, r.top - pr.top + 40);
+        tally.textContent = '🛡️'.repeat(blocked) + '◌'.repeat(NB - blocked); host.setProgress(blocked, NB);
+        if (blocked >= NB) { host.after(700, () => { orb.style.display = 'none'; finish(); }); }
+        else host.after(650, () => { orb.style.display = 'none'; fire(); });
+      }
+      host.after(700, fire);
     }
 
     function finish() {

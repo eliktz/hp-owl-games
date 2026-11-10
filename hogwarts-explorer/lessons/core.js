@@ -45,7 +45,7 @@
     // settles at the child's own level and keeps stretching them a little — truly adaptive,
     // across visits, not just a counter of times played.
     skill(key) {
-      if (store.skill[key] == null) { const s = store.stars[key] || 0, a = store.att[key] || 0; store.skill[key] = Math.max(1, Math.min(6, 1 + (s + a) / 2)); }
+      if (store.skill[key] == null) { const s = store.stars[key] || 0, a = store.att[key] || 0; store.skill[key] = Math.max(2.5, Math.min(6, 1 + (s + a) / 2)); }   // newcomers start at level 3, not baby-easy
       return store.skill[key];
     },
     level(key) { return Math.max(1, Math.min(8, Math.round(this.skill(key)))); },

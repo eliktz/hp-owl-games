@@ -49,7 +49,7 @@
     // pick a question kind allowed at this difficulty
     function pickKind(d) {
       const kinds = ['add', 'sub'];
-      if (d >= 2) kinds.push('times');
+      if (d >= 2) kinds.push('times', 'pattern');
       if (d >= 3) kinds.push('missing', 'two', 'div');
       if (d >= 4) kinds.push('times', 'two', 'div');   // weight the harder kinds higher
       return kinds[host.rnd(0, kinds.length - 1)];
@@ -60,7 +60,13 @@
       const kind = pickKind(d);
       const addMax = Math.min(9 + d * 3, 45);
       let ans, display, prompt, timed = false;
-      if (kind === 'times') {
+      if (kind === 'pattern') {
+        // what comes next? a skip-counting / shrinking run (2,4,6,? … 30,25,20,?)
+        const stp = host.rnd(2, Math.min(3 + d, 9)), down = d >= 3 && host.rnd(0, 1) === 1;
+        const start = down ? stp * host.rnd(5, 8) : host.rnd(1, 6 + d);
+        const seq = [0, 1, 2].map((k) => start + (down ? -1 : 1) * stp * k);
+        ans = start + (down ? -1 : 1) * stp * 3; display = seq.join(', ') + ', ?'; prompt = 'מה הבא בתור?'; timed = d >= 5;
+      } else if (kind === 'times') {
         const a = host.rnd(2, Math.min(3 + d, 9)), b = host.rnd(2, Math.min(5 + Math.floor(d / 2), 10));
         ans = a * b; display = a + ' × ' + b + ' = ?'; prompt = 'לוח הכפל: ' + a + ' כפול ' + b + '!';
         timed = d >= 4;
