@@ -30,6 +30,10 @@ WebGL backend.
 - **iPad-first performance** — quality tiers, a triangle/memory budget (≤300 MB target), and
   area streaming so only what you can see is loaded.
 - **Audio** — soft ambience, footsteps and chimes (mutable).
+- **Lessons** — seven always-open Hogwarts lessons (shared with v1, same progress), picked
+  from the 🔔 or by walking up to a professor.
+- **Quidditch** — a full match (Quaffle, Bludgers, Golden Snitch) on a pitch south of the gates.
+- **Delight** — a wand that wakes things up, the Sorting Hat, Pip the owlet, silly beans, Trevor.
 
 ## Credits & licences
 Engine, CC0 textures/HDRIs and procedural art: **[CREDITS.md](CREDITS.md)**.

@@ -276,7 +276,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
         if (b.t <= 0) { b.dir.set(P.x - b.pos.x, P.y + 1 - b.pos.y, P.z - b.pos.z).normalize(); b.state = 'charge'; b.t = 1.5; b.hit = false; }
       } else {
         b.pos.addScaledVector(b.dir, 30 * dt); warn.visible = false;
-        if (!b.hit && S.stun <= 0 && b.pos.distanceTo(tmp.set(P.x, P.y + 1, P.z)) < 1.9) {
+        if (!b.hit && S.stun <= 0 && Math.hypot(b.pos.x - P.x, (b.pos.y - P.y - 1) * 0.5, b.pos.z - P.z) < 1.9) {   // forgiving in height: the broom picks its own altitude
           b.hit = true; S.stun = 1.0; S.hits++; fun.sfx.burp(); fun.sfx.yelp();
           if (S.holder === 'me') { S.holder = null; S.kick = 0.9; quaffle.position.set(P.x + 3, P.y, P.z + 3); clampArena(quaffle.position); }
         }
@@ -324,12 +324,12 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     start, quit, boost, throwQuaffle, releaseSnitch, idle, stand: STAND, centre: C, goalX: GOAL_X, hoopZ: HOOP_DZ.map(z => C.z + z),
     state: () => ({ on: S.on, over: !!S.over, a: S.a, b: S.b, holder: S.holder, stun: S.stun > 0, snitch: !!S.snitchOn, t: S.t, aim: S.aim, hits: S.hits, dodges: S.dodges, saves: S.saves, level: st.qLevel, result: S.result || null,
       me: { x: P.x, y: P.y, z: P.z }, quaffle: { x: quaffle.position.x, y: quaffle.position.y, z: quaffle.position.z }, snitchPos: { x: snitch.position.x, y: snitch.position.y, z: snitch.position.z },
-      keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map(b => b.state), inArena: Math.hypot((P.x - C.x) / AX, (P.z - C.z) / AZ) <= 1.001 }),
+      b0: { x: bludgers[0].pos.x, y: bludgers[0].pos.y, z: bludgers[0].pos.z, hit: bludgers[0].hit, t: bludgers[0].t }, keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map(b => b.state), inArena: Math.hypot((P.x - C.x) / AX, (P.z - C.z) / AZ) <= 1.001 }),
     _place(x, y, z, yw) { P.set(x, y, z); pv.set(0, 0, 0); if (yw != null) yaw = yw; },
     _quaffleAt(x, y, z) { S.holder = null; S.shot = null; S.kick = 0; quaffle.position.set(x, y, z); },
     _calm(on) { S.calm = !!on; }, _rivalAway() { rival.position.set(C.x - 20, gy + 6, C.z - 14); S.stealCd = 5; },
     _keeperTo(z) { keepA.position.z = z; },
-    _bludger() { const b = bludgers[0]; b.state = 'aim'; b.t = 0.05; b.pos.set(P.x + 8, P.y + 1, P.z); },
+    _bludger() { const b = bludgers[0]; b.pos.set(P.x + pv.x * 0.2 + 7, P.y + 1, P.z + pv.z * 0.2); b.dir.set(-1, 0, 0); b.state = 'charge'; b.t = 1.5; b.hit = false; },   // tests: a Bludger already charging at you
     _snitchTo(x, y, z) { snitch.position.set(x, y, z); S.snTarget.set(x, y, z); S.juke = 5; },
   };
   fun.mods.quidditch = api;

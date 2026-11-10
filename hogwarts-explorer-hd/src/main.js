@@ -22,6 +22,7 @@ import { blobShadow } from './atmosphere.js';
 import * as fun from './fun.js';
 import { createLessons } from './lessons.js';
 import { createQuidditch } from './quidditch.js';
+import { createDelight } from './delight.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -79,11 +80,11 @@ async function boot() {
   // Interiors (streamed) + the Hebrew map / fast-travel screen.
   const interiors = createInteriors({
     scene, env, player, terrainHeightAt: heightAt, homeSpot: SPOTS.courtyard,
-    onEnter: (id) => { setExit(true); toast('✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); },
+    onEnter: (id) => { setExit(true); toast('✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); if (delight) delight.roomEntered(id, interiors.room.group); },
     onExit: () => setExit(false),
   });
   // A full-screen overlay (lesson, picker, ceremony) owns the screen: the hero + camera freeze.
-  let modal = false, lessons = null;
+  let modal = false, lessons = null, delight = null;
   function setModal(v) { modal = !!v; input.setEnabled(!modal); document.body.classList.toggle('modalOn', modal); }
   fun.bindMute(() => audio.muted);
   const map = createMap({
@@ -145,6 +146,7 @@ async function boot() {
   let takeover = null;
   const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor: (o) => outdoorRoots.push(o),
     setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal });
+  delight = createDelight({ scene, camera, player, interiors, heightAt, setModal, isModal: () => modal });
   lessons.addPickerButton('🧹 קְוִוידִיץ׳ — מִשְׂחָק!', () => quidditch.start());
   // Friends are never frustum-culled per mesh (odd bounds), so cull each whole figure by one
   // sphere test instead: an off-screen friend costs no draw calls (and no shadow draws).
@@ -195,6 +197,7 @@ async function boot() {
     if (near) { bubbleT += dt; if (bubbleT > 3.2) { bubbleT = 0; bubbleLine++; } showBubble(near); } else showBubble(null);
 
     if (!modal && !takeover) { lessons.update(dt); quidditch.idle(dt, inside); }
+    if (!takeover) delight.update(dt, inside);
     fun.tick(dt, camera);
     for (const h of hooks) h(dt, inside);
 
@@ -236,7 +239,7 @@ async function boot() {
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
-    get modal() { return modal; }, setModal, quidditch, get takeover() { return takeover; },
+    get modal() { return modal; }, setModal, quidditch, delight, get takeover() { return takeover; },
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's

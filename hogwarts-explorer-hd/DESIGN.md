@@ -1,6 +1,7 @@
 # Hogwarts Explorer HD — Design & Art Bible
 
-A more realistic-looking sibling of `../hogwarts-explorer/` (v1). v1 is **never** modified.
+A more realistic-looking sibling of `../hogwarts-explorer/` (v1). The lesson mini-games are
+shared with v1 (see "Lessons, Quidditch and delight" below); otherwise the two are independent.
 This is a private, non-commercial project for Elik and his son. No copyrighted
 Harry Potter / Warner Bros. assets are committed — the committed world is CC0 + procedural.
 
@@ -62,3 +63,28 @@ budgets + RTL, and saves screenshots.
 Done: **2** scaffold, **3** assets, **4** renderer core + harness, **5** exterior.
 Next: 6 post-processing (bloom/GTAO/FXAA + NaN clamp), 7 refined player, 8 area streaming + map,
 9–13 interiors/grounds/characters/polish.
+
+## Lessons, Quidditch and delight (the "fable" pass)
+- **Atmosphere** (`atmosphere.js`): no runtime lights — every flame bakes a floor pool, a wall
+  wash and a crossed-quad halo into ONE additive mesh per room, clipped by the wall colliders;
+  stained glass throws colour; blob shadow + CSS vignette indoors; lower warm ambient and a
+  flatter indoor camera so you see the room rather than the floor. `decor.js` dresses rooms
+  with instanced props (feast, pumpkins, armour, lamps, globe).
+- **Performance**: outdoor draw calls 257 → ~162 (instanced stars/letters, only big chibi
+  parts cast shadows, whole-figure frustum culling, far lesson spots/pitch hidden), so the
+  180 budget in `_test/run.mjs` holds again. Tiled textures + materials are cached by
+  (map, repeat, colour): revisiting rooms allocates nothing.
+- **Touch** (`input.js`): thumb-following stick with radial dead-zone + curve, queued/eased
+  look with flick inertia, HUD touches never steer, `setEnabled(false)` while an overlay is up.
+- **Castle**: three new rooms (Potions dungeon, classroom wing, Astronomy tower); the
+  staircase hall is a hub; every room has a doorway out (`_test/upgrade.mjs` checks the graph).
+- **Lessons** (`lessons.js`): the seven mini-games, the professor overlay and the progress
+  store are v1's files loaded by `index.html` (`../hogwarts-explorer/lessons/*.js`,
+  `localStorage` key `hpLessons1`) — one source of truth, shared progress. This module adds
+  professors in the rooms/grounds, the walk-up ▶ prompt and the always-open 🔔 picker.
+- **Quidditch** (`quidditch.js`): the v1 match on a pitch south of the gates; takes over the
+  hero + camera through `takeover` in `main.js`. Instanced pitch + crowd, no shadows.
+- **Delight** (`delight.js`, `fun.js`): 🪄 wand + enchantable props, Sorting Hat + house
+  hourglasses, Pip the owlet, every-flavour beans, Trevor hide-and-seek. Save key `hpFun1`
+  is shared with v1 (your house and pet carry over).
+- **Tests**: `_test/upgrade.mjs [controls,rooms,lessons,quidditch,delight]`.
