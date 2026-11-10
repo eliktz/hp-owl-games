@@ -200,5 +200,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       fun.say(head.set(best.x, best.y + (best.chibi ? 2.6 : 3), best.z), def.icon + ' ' + def.subject, 0.25, 'lesson');
     }
   }
-  return { update, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
+  // visibility only (used while a mini-game owns the frame)
+  function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < 55; if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } }
+  return { update, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
 }

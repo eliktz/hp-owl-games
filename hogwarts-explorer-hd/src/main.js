@@ -154,7 +154,7 @@ async function boot() {
   function cullFriends() {
     pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(pm, camera.coordinateSystem);
-    for (const c of characters.characters || []) { sph.center.set(c.group.position.x, c.group.position.y + 1.2, c.group.position.z); c.group.visible = frustum.intersectsSphere(sph); }
+    for (const c of characters.characters || []) { sph.center.set(c.group.position.x, c.group.position.y + 1.2, c.group.position.z); c.group.visible = Math.hypot(c.group.position.x - player.pos.x, c.group.position.z - player.pos.z) < 85 && frustum.intersectsSphere(sph); }
   }
   let worldShown = true;
   function setWorldVisible(on) {
@@ -198,6 +198,7 @@ async function boot() {
 
     if (!modal && !takeover) { lessons.update(dt); quidditch.idle(dt, inside); }
     if (!takeover) delight.update(dt, inside);
+    else lessons.cull();                // a match is on: far lesson spots must not cost draw calls
     fun.tick(dt, camera);
     for (const h of hooks) h(dt, inside);
 
