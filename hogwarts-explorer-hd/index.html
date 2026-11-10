@@ -25,6 +25,10 @@
   #tier{right:calc(100px + env(safe-area-inset-right))}
   #backend{left:calc(12px + env(safe-area-inset-left))}
   #time{left:50%;transform:translateX(-50%)}
+  /* FPS / backend / quality read-outs are for grown-ups: shown only with ?debug=1 */
+  body:not(.debug) #fps,body:not(.debug) #tier,body:not(.debug) #backend{display:none}
+  body:not(.debug) #quest{top:calc(10px + env(safe-area-inset-top))}
+  body:not(.debug) #bellBtn{top:calc(14px + env(safe-area-inset-top)) !important}
   .gamebtn{position:fixed;width:84px;height:84px;border-radius:50%;border:4px solid #ffd76a;
     background:rgba(40,25,90,.72);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;
     z-index:11;box-shadow:0 4px 14px rgba(0,0,0,.4);touch-action:none}
@@ -140,6 +144,7 @@
 }
 </script>
 <script>
+  if (/[?&]debug=1/.test(location.search)) document.body.classList.add('debug');
   // block pinch / double-tap zoom so little fingers don't get lost
   ['gesturestart','gesturechange','gestureend'].forEach(ev =>
     document.addEventListener(ev, e => e.preventDefault(), { passive: false }));

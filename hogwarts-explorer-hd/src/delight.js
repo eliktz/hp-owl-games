@@ -285,7 +285,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     if (Math.abs(ns - sc) > 1e-4) player.model.scale.setScalar(ns);
     if (fx) { fxLeft -= dt; if (fx === 'rainbow') robeMats.forEach(m => m.color.setHSL((t * 0.6) % 1, 0.85, 0.55)); if (fxLeft <= 0) endBean(); }
     // Trevor
-    const tv = trevor; tv.G.visible = tv.room === room && Math.hypot(pos.x - tv.G.position.x, pos.z - tv.G.position.z) < 45;
+    const tv = trevor; tv.G.visible = tv.room === room && Math.hypot(pos.x - tv.G.position.x, pos.z - tv.G.position.z) < 30;
     if (tv.G.visible) {
       tv.throat.scale.setScalar(1 + Math.max(0, Math.sin(t * 5)) * 0.35);
       const d = Math.hypot(pos.x - tv.G.position.x, pos.z - tv.G.position.z);

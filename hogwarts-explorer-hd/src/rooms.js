@@ -141,7 +141,7 @@ function library() {
   }
   for (const [x, z] of [[-W / 2 + 0.5, 8], [W / 2 - 0.5, -8], [W / 2 - 0.5, 8]]) torch(g, x, 4, z);
   const ch = chandelier(g, 0, H - 1.5, 0);
-  return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
+  return room(g, cols, { x: 4, z: D / 2 - 3.6, yaw: Math.PI }, {      // beside the reading table (the old spawn stood inside it)
     id: 'library',
     flames, portals: [{ x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'entrancehall' }],
     update: (dt, t) => { for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.z) * 0.4; },
