@@ -17,7 +17,9 @@
 import {
   Group, Mesh, SphereGeometry, CylinderGeometry, BoxGeometry, ConeGeometry, TorusGeometry, PlaneGeometry,
   MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, Color, Vector3, DoubleSide, SRGBColorSpace,
+  Matrix4, Quaternion, Euler, BufferAttribute,
 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FLOOR_Y } from './rooms.js';
 import * as fun from './fun.js';
 
@@ -189,11 +191,22 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
 
   // ================= Pip the owlet =================
   const owl = new Group(); owl.name = 'pip';
-  mk(owl, new SphereGeometry(0.2, 12, 10), M(0x7a706c), 0, 0, 0).scale.set(1, 1.15, 0.95);
-  mk(owl, new SphereGeometry(0.15, 10, 8), M(0xbdb2a6), 0, -0.03, 0.08);
-  const eyeM = M(0xffb020, { emissive: new Color(0x6a4000) });      // few parts: Pip follows you everywhere, so he must stay cheap
-  for (const s of [-1, 1]) mk(owl, new SphereGeometry(0.06, 8, 8), eyeM, s * 0.08, 0.07, 0.16);
-  mk(owl, new ConeGeometry(0.035, 0.08, 5), M(0xffb020), 0, 0.01, 0.21).rotation.x = Math.PI / 2;
+  // Pip follows you everywhere, so he must be cheap: body, belly, eyes and beak are ONE merged,
+  // vertex-coloured mesh (plus two wings that flap) — 3 draw calls instead of 7.
+  {
+    const parts = [], m4 = new Matrix4(), q = new Quaternion(), c = new Color();
+    const part = (geo, color, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0) => {
+      geo.applyMatrix4(m4.compose(new Vector3(x, y, z), q.setFromEuler(new Euler(rx, 0, 0)), new Vector3(sx, sy, sz)));
+      c.setHex(color); const n = geo.attributes.position.count, col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+      geo.setAttribute('color', new BufferAttribute(col, 3)); parts.push(geo);
+    };
+    part(new SphereGeometry(0.2, 12, 10), 0x7a706c, 0, 0, 0, 1, 1.15, 0.95);
+    part(new SphereGeometry(0.15, 10, 8), 0xbdb2a6, 0, -0.03, 0.08);
+    for (const sgn of [-1, 1]) part(new SphereGeometry(0.06, 8, 8), 0xffb020, sgn * 0.08, 0.07, 0.16);
+    part(new ConeGeometry(0.035, 0.08, 5), 0xff8a10, 0, 0.01, 0.21, 1, 1, 1, Math.PI / 2);
+    owl.add(new Mesh(mergeGeometries(parts), new MeshStandardMaterial({ vertexColors: true, roughness: 0.75 })));
+  }
   const owlWings = [-1, 1].map(s => { const w = mk(owl, new BoxGeometry(0.26, 0.05, 0.16), M(0x6a605c), s * 0.26, 0.02, 0); w.userData.s = s; return w; });
   owl.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.raycast = () => {}; } });
   owl.visible = !!st.pet; scene.add(owl);
@@ -340,8 +353,17 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   }
   function roomLeft() { roomLive.enchant = []; roomLive.hat = null; roomLive.perch = null; roomLive.bowl = null; }
 
+  // a friendly hello the first time you play each day (with your 🔥 streak, if you have one)
+  let helloDone = st.helloDay === fun.today();
+  function hello() {
+    helloDone = true; st.helloDay = fun.today(); fun.save();
+    const h = new Date().getHours(), part = h < 12 ? ['🌅', 'בֹּקֶר טוֹב!'] : h < 18 ? ['☀️', 'צָהֳרַיִם טוֹבִים!'] : ['🌙', 'עֶרֶב טוֹב!'];
+    let n = 0; try { n = window.HPLessons.progress.streak(); } catch { /* lessons not loaded */ }
+    fun.toast(part[0] + '🦉', part[1] + (n >= 2 ? '  🔥×' + n : ''), 2600); fun.sfx.hoot();
+  }
   function update(dt, inside) {
     T += dt; const t = T, room = interiors.active || null;
+    if (!helloDone && T > 1.2 && !isModal()) hello();
     if (!room && (roomLive.hat || roomLive.enchant.length || roomLive.bowl || roomLive.perch)) roomLeft();
     if (cool > 0) { cool -= dt; if (cool <= 0) wandBtn.classList.remove('cool'); }
     if (fly) { fly.t += dt; const k = Math.min(1, fly.t / fly.dur); bolt.visible = true; bolt.position.lerpVectors(from, to, k); bolt.position.y += Math.sin(k * Math.PI) * 0.6; bolt.scale.setScalar(1 + Math.sin(fly.t * 40) * 0.3); if (k >= 1) { land(); fly = null; bolt.visible = false; } }
@@ -399,7 +421,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
   const api = {
-    update, roomEntered, cast, lastCast, found: () => st.magic.slice(),
+    update, roomEntered, cast, lastCast, helloDay: () => st.helloDay, found: () => st.magic.slice(),
     sorting: { open: openSort, pos: HAT, house: () => st.house, housePts },
     pet: { perch: PERCH, has: () => !!st.pet, owl, looping: () => pipLoop > 0 },
     beans: { eat, end: endBean, bowl: BOWL, current: () => fx, count: () => st.beans },
