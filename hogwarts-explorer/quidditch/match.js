@@ -227,7 +227,7 @@
         const camYaw = Math.atan2(pp.x - camPos.x, pp.z - camPos.z);
         const mx = ax.y * Math.sin(camYaw) - ax.x * Math.cos(camYaw), mz = ax.y * Math.cos(camYaw) + ax.x * Math.sin(camYaw);   // forward + right of the camera
         const spd = (S.boost > 0 ? 31 : 20) * (S.holder === 'me' ? 0.92 : 1);
-        const want = ax.l > 0.05 ? spd * ax.l : 2.5;              // the broom always drifts forward a little
+        const want = ax.l > 0.05 ? spd * ax.l : (S.calm ? 0 : 2.5);   // (practice/calm mode: the broom hovers in place)              // the broom always drifts forward a little
         if (ax.l > 0.05) { const wy = Math.atan2(mx, mz); let d = ((wy - yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; yaw += d * Math.min(1, dt * 5.5); bank += (-d * 0.9 - bank) * Math.min(1, dt * 6); }
         else bank *= 1 - Math.min(1, dt * 4);
         pv.x += (Math.sin(yaw) * want - pv.x) * Math.min(1, dt * 4); pv.z += (Math.cos(yaw) * want - pv.z) * Math.min(1, dt * 4);

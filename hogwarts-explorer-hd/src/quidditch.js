@@ -212,7 +212,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     else if (!S.over) {
       const cy = Math.atan2(P.x - camPos.x, P.z - camPos.z);
       const mx = ax.y * Math.sin(cy) - ax.x * Math.cos(cy), mz = ax.y * Math.cos(cy) + ax.x * Math.sin(cy);
-      const spd = (S.boost > 0 ? 31 : 20) * (S.holder === 'me' ? 0.92 : 1), want = l > 0.05 ? spd * l : 2.5;
+      const spd = (S.boost > 0 ? 31 : 20) * (S.holder === 'me' ? 0.92 : 1), want = l > 0.05 ? spd * l : (S.calm ? 0 : 2.5);   // (practice/calm mode: the broom hovers in place)
       if (l > 0.05) { const wy = Math.atan2(mx, mz); const dd = ((wy - yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; yaw += dd * Math.min(1, dt * 5.5); bank += (-dd * 0.9 - bank) * Math.min(1, dt * 6); }
       else bank *= 1 - Math.min(1, dt * 4);
       pv.x += (Math.sin(yaw) * want - pv.x) * Math.min(1, dt * 4); pv.z += (Math.cos(yaw) * want - pv.z) * Math.min(1, dt * 4);
