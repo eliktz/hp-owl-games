@@ -4,7 +4,7 @@
 // without adding runtime lights (iPad rule). Call `await ensureTex()` before building a room.
 import {
   Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, ConeGeometry,
-  CircleGeometry, MeshStandardMaterial, Color, DoubleSide, RepeatWrapping,
+  CircleGeometry, MeshStandardMaterial, Color, DoubleSide, RepeatWrapping, InstancedMesh, Object3D,
 } from 'three';
 import { loadTexture } from './assets.js';
 
@@ -168,11 +168,10 @@ export function banner(group, x, y, z, color, rotY = 0) {
 export function enchantedCeiling(group, w, d, y) {
   const sky = new Mesh(new PlaneGeometry(w, d), new MeshStandardMaterial({ color: 0x0a0f24, emissive: new Color(0x141c44), emissiveIntensity: 0.6, side: DoubleSide }));
   sky.rotation.x = Math.PI / 2; sky.position.y = y; group.add(sky);
-  const starMat = emissive(0xfff4c2, 2.0);
-  for (let i = 0; i < 70; i++) {
-    const s = new Mesh(new SphereGeometry(0.07, 6, 6), starMat);
-    s.position.set(Math.sin(i * 12.9) * 0.46 * w, y - 0.3, Math.cos(i * 7.3) * 0.46 * d); group.add(s);
-  }
+  // the 70 stars are one instanced mesh (they used to be 70 draw calls)
+  const stars = new InstancedMesh(new SphereGeometry(0.07, 6, 6), emissive(0xfff4c2, 2.0), 70), o = new Object3D();
+  for (let i = 0; i < 70; i++) { o.position.set(Math.sin(i * 12.9) * 0.46 * w, y - 0.3, Math.cos(i * 7.3) * 0.46 * d); o.updateMatrix(); stars.setMatrixAt(i, o.matrix); }
+  stars.frustumCulled = false; stars.name = 'ceiling-stars'; group.add(stars);
   return sky;
 }
 

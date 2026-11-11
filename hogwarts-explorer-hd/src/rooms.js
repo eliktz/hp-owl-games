@@ -4,6 +4,7 @@
 // returns walkable `portals` (doorway zones) so you can stroll between rooms and back out.
 import {
   Group, Mesh, BoxGeometry, MeshStandardMaterial, Color, SphereGeometry, CylinderGeometry, CircleGeometry, TorusGeometry,
+  InstancedMesh, Object3D,
 } from 'three';
 import {
   MAT, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
@@ -55,16 +56,35 @@ function room(g, cols, spawn, { flames = [], portals = [], update, id } = {}) {
   g.position.y = FLOOR_Y;
   for (const p of portals) p.armed = false;
   const extra = id ? decorate(id, g, cols) : null;          // feast, pumpkins, armour, lamps… (decor.js)
+  // All the candles of a room become TWO instanced meshes (wax + flame) instead of two draw
+  // calls each — the Great Hall alone drops ~66 calls. A bare marker stays at each spot so the
+  // baked light pools/halos still find it.
+  let candleTick = null;
+  if (flames.length) {
+    const n = flames.length, d = new Object3D();
+    const wax = new InstancedMesh(new CylinderGeometry(0.04, 0.05, 0.4, 6), new MeshStandardMaterial({ color: 0xf3e6c0, roughness: 0.7 }), n);
+    const fl = new InstancedMesh(new SphereGeometry(0.08, 8, 8), emissive(0xffb34d, 2.2), n);
+    wax.frustumCulled = fl.frustumCulled = false; wax.name = 'candles'; fl.name = 'candle-flames';
+    const spots = flames.map((c) => { g.remove(c); const o = new Object3D(); o.position.copy(c.position); o.userData.light = c.userData.light; g.add(o); return { x: c.position.x, y: c.position.y, z: c.position.z }; });
+    g.add(wax, fl);
+    candleTick = (t) => {
+      for (let i = 0; i < n; i++) {
+        const p = spots[i], y = p.y + (p.y > 3 ? Math.sin(t * 3 + p.x) * 0.15 : 0);   // only the floating ones bob
+        d.position.set(p.x, y, p.z); d.scale.set(1, 1, 1); d.updateMatrix(); wax.setMatrixAt(i, d.matrix);
+        d.position.y = y + 0.3; d.scale.set(1, 1.6, 1); d.updateMatrix(); fl.setMatrixAt(i, d.matrix);
+      }
+      wax.instanceMatrix.needsUpdate = true; fl.instanceMatrix.needsUpdate = true;
+      fl.material.emissiveIntensity = 2 + Math.sin(t * 9) * 0.4;
+    };
+    candleTick(0);
+  }
   const light = bakeLight(g, cols);                          // flame pools + wall washes, one draw call
   return {
     group: g, colliders: cols, portals,
     spawn: { x: spawn.x, z: spawn.z, y: FLOOR_Y, yaw: spawn.yaw ?? 0 },
     update(dt, t) {
       light.update(t); if (extra) extra(dt, t);
-      for (const c of flames) {
-        c.position.y = c.userData.baseY + Math.sin(t * 3 + c.position.x) * 0.15;
-        c.userData.flame.material.emissiveIntensity = 2 + Math.sin(t * 9 + c.position.z) * 0.4;
-      }
+      if (candleTick) candleTick(t);
       update && update(dt, t);
     },
   };
