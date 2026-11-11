@@ -61,6 +61,8 @@
     .lsnRank .bar i{display:block;height:100%;background:linear-gradient(90deg,#9effa0,#ffe48a);transition:width .9s ease-out}
     .lsnUp{font-size:26px;color:#9effa0;font-weight:bold;animation:lsnPop .5s}
     .lsnReward{gap:8px !important}
+    .lsnAv.joy{animation:lsnJoy .55s ease-in-out 4}
+    @keyframes lsnJoy{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-12px) rotate(-8deg)}70%{transform:translateY(-6px) rotate(8deg)}}
     .lsnSticker{font-size:90px;filter:drop-shadow(0 0 20px #ffd76a);animation:lsnPop .5s}
     @keyframes lsnPop{0%{transform:scale(0)}60%{transform:scale(1.3)}100%{transform:scale(1)}}`;
     document.head.appendChild(s);
@@ -272,6 +274,7 @@
     const sticker = def.sticker || def.icon || '⭐';
     const fun = window.HPFun, house = fun && fun.store.house && window.HPI ? HPI.HOUSES.find((h) => h.key === fun.store.house) : null;
     const rk = P && P.rank ? P.rank(def.key) : { e: '🥉', n: '' }, skill = P && P.skill ? P.skill(def.key) : 1;
+    if (stars >= 3) { avCanvas.classList.remove('joy'); void avCanvas.offsetWidth; avCanvas.classList.add('joy'); }   // the professor hops for joy
     const bye = BYE[def.teacher];
     sayEl.textContent = bye ? bye[stars >= 3 ? 0 : 1] : 'כל הכבוד! 🎉'; moodT = 1.6; mood = 1;   // the professor signs off in character
     const fill = el('i', { style: 'width:0%' });

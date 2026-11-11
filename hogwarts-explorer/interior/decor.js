@@ -25,6 +25,16 @@
       }
     });
     food.count = n; food.userData.room = 'GH'; food.frustumCulled = false; scene.add(food);
+    // wave the wand at a table and the whole feast hops and jiggles for a few seconds
+    const base = []; { const m = new T.Matrix4(); for (let i = 0; i < n; i++) { food.getMatrixAt(i, m); base.push(m.clone()); } }
+    let danceT = 0; const mm = new T.Matrix4(), hop = new T.Matrix4();
+    [7, 15, 29, 37].forEach((z) => HPI.enchantables.push({ id: 'feast', x: -33, y: 0.4, z, r: 4, cast() { danceT = 3.2; try { window.HPFun.sfx.munch(); } catch (e) {} return '🍗'; } }));
+    HPI.builders.push((t, dt) => {
+      if (danceT <= 0) return;
+      danceT -= dt; const k = danceT > 0 ? Math.min(1, danceT) : 0;
+      for (let i = 0; i < n; i++) { hop.makeTranslation(0, k * Math.abs(Math.sin(t * 9 + i * 1.3)) * 0.55, 0); mm.multiplyMatrices(hop, base[i]); food.setMatrixAt(i, mm); }
+      food.instanceMatrix.needsUpdate = true;
+    });
 
     // a royal-purple runner down the centre aisle
     const run = F.rug(scene, -33, 22, 34, 3.4, 0, '#3b2370', '#d9b24a');
