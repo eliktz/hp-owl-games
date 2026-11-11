@@ -45,7 +45,9 @@
     if (HPI.light) HPI.light.blobShadow(g.inside.scene, HAT.x, fy, HAT.z, 1.3);
     F.poi('sortingHat', HAT.x, HAT.z + 1.8);
     const headPos = new T.Vector3(HAT.x, fy + 3.6, HAT.z);
-    let talkT = 0, quipT = 3;
+    let talkT = 0, quipT = 3, tickleT = 0;
+    // the hat is ticklish: zap it with the wand and it squirms and protests
+    if (F.enchant) F.enchant((world) => (world === 'inside' ? [{ id: 'hat', x: HAT.x, y: fy + 1.2, z: HAT.z, r: 1.5, cast() { tickleT = 1.6; talkT = 1.6; F.say(headPos, 'הֵי! זֶה מְדַגְדֵּג! 🎩', 2, 'hat'); F.sfx.giggle(); return '🎩'; } }] : []));
 
     // ---------------- the four hourglasses by the grand stair ----------------
     const glasses = {};
@@ -182,6 +184,7 @@
       // the hat fidgets, and mutters when someone wanders near
       tipG.rotation.z = Math.sin(t * 1.3) * 0.12; tipG.rotation.x = Math.sin(t * 0.9) * 0.08;
       hat.scale.y = 1 + Math.sin(t * 2.2) * 0.025;
+      if (tickleT > 0) { tickleT -= dt; hat.rotation.z = Math.sin(t * 30) * 0.18; hat.position.y = 1.24 + Math.abs(Math.sin(t * 14)) * 0.18; } else { hat.rotation.z = 0; hat.position.y = 1.24; }
       if (talkT > 0) { talkT -= dt; mouth.scale.y = 1 + Math.abs(Math.sin(t * 16)) * 2.6; } else mouth.scale.y = 1;
       halo.material.opacity = 0.25 + 0.12 * Math.sin(t * 3);
       if (d < 9) {
@@ -196,6 +199,6 @@
       if (d < 3.4) F.offer('sort', '🎩', d, open);
       tickGlasses(dt, t, p);
     });
-    F.mods.sorting = { open, pick(key) { const h = HOUSES.find((x) => x.key === key); if (!ov.classList.contains('on')) open(); choose(h, ov.querySelector('.hat'), ov.querySelector('.q'), ov.querySelector('.row')); }, house: () => st.house, housePts, glasses, pos: HAT };
+    F.mods.sorting = { open, pick(key) { const h = HOUSES.find((x) => x.key === key); if (!ov.classList.contains('on')) open(); choose(h, ov.querySelector('.hat'), ov.querySelector('.q'), ov.querySelector('.row')); }, house: () => st.house, housePts, glasses, pos: HAT, tickled: () => tickleT > 0 };
   });
 })();
