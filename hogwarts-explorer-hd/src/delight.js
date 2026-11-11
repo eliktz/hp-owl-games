@@ -81,7 +81,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   function targets() {
     const list = [];
     if (!interiors.active) for (const o of OUT) if (Math.hypot(o.x - pos.x, o.z - pos.z) < 16) list.push({ id: o.id, x: pos.x + (o.x - pos.x) * 0.5, y: pos.y + 2, z: pos.z + (o.z - pos.z) * 0.5, cast: o.cast });
-    for (const e of roomLive.enchant) { e.obj.getWorldPosition(tmp2); list.push({ id: e.id, x: tmp2.x, y: tmp2.y, z: tmp2.z, cast: e.cast }); }
+    for (const e of roomLive.enchant) { e.obj.getWorldPosition(tmp2); if (e.r && Math.hypot(tmp2.x - pos.x, tmp2.z - pos.z) > e.r) continue; /* only from close by */ list.push({ id: e.id, x: tmp2.x, y: tmp2.y, z: tmp2.z, cast: e.cast }); }
     if (roomLive.hat) list.push({ id: 'hat', x: HAT.x, y: FLOOR_Y + 1.5, z: HAT.z, cast: () => { roomLive.hat.talk = 2; fun.say(tmp.set(HAT.x, FLOOR_Y + 3.4, HAT.z), 'הֵי! זֶה מְדַגְדֵּג! 🎩', 2, 'hat'); return '🎩'; } });
     if (st.pet) list.push({ id: 'pip', x: owlPos.x, y: owlPos.y - 0.6, z: owlPos.z, cast: () => { pipLoop = 1.2; fun.sfx.heart(); fun.sfx.tweet(); return '💛'; } });
     if (pv.state === 'taunt') list.push({ id: 'peeves', x: pv.G.position.x, y: pv.G.position.y, z: pv.G.position.z, cast: () => { catchPeeves(); return '🤡'; } });

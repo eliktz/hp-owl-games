@@ -103,6 +103,10 @@ function entranceHall() {
     step.position.set(0, 0.2 + s * 0.4, -D / 2 + 1 + s * 1.1); step.castShadow = true; g.add(step);
   }
   const ch = chandelier(g, 0, H - 0.6, -2);
+  // stand under the chandelier and wave the wand: it rocks and jingles and its candles flare
+  let swing = 0;
+  (g.userData.enchant = g.userData.enchant || []).push({ id: 'chandelier', obj: ch, r: 4.5, cast() { swing = 4; try { window.HPFun.sfx.tune([1568, 1319, 1568, 1047, 1319, 1568, 2093], 0.11, 'sine'); } catch { /* no audio yet */ } return '🕯️'; } });
+  g.userData.chandelierSwing = () => swing;
   for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 4.4, z);
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 7, -4 + (i % 2) * 8, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   const flames = [];
@@ -115,7 +119,12 @@ function entranceHall() {
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'entrancehall',
     flames, portals,
-    update: (dt, t) => { for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4; },
+    update: (dt, t) => {
+      if (swing > 0) swing -= dt;
+      const k = swing > 0 ? Math.min(1, swing / 1.5) : 0;        // rocks hard, then settles
+      ch.rotation.z = k * Math.sin(t * 2.7) * 0.2; ch.rotation.x = k * Math.cos(t * 2.2) * 0.12;
+      for (const f of ch.userData.flames) { f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4 + k * 2.5; f.scale.setScalar(1 + k * (0.5 + 0.4 * Math.sin(t * 13 + f.position.x * 3))); }
+    },
   });
 }
 
