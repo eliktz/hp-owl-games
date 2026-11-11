@@ -67,8 +67,17 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   let cool = 0, fly = null;
   const from = new Vector3(), to = new Vector3();
   const lastCast = { target: null };
+  // out on the grounds the lake splashes, Hagrid's chimney puffs a rainbow, the hoops ring and
+  // the greenhouse blooms — all emoji rain + sound, so they cost the scene nothing
+  const OUT = [
+    { id: 'lake', x: -52, z: -10, cast() { fun.confetti(['💦', '💧', '✨', '🐟'], 22); fun.sfx.noise(1.2, 0.2, 0, 1800, 0.6); return '⛲'; } },
+    { id: 'hut', x: 86, z: 42, cast() { fun.confetti(['🌈', '☁️', '✨', '💜'], 20); fun.sfx.poof(); return '🌈'; } },
+    { id: 'hoops', x: 0, z: 112, cast() { fun.sfx.tune([784, 988, 1175, 1568, 1175, 1568], 0.13, 'sine'); fun.confetti(['🔔', '✨', '⭐'], 14); return '🔔'; } },
+    { id: 'greenhouse', x: -58, z: 63, cast() { fun.confetti(['🌸', '🌼', '🌿', '🦋'], 20); fun.sfx.giggle(true); return '🌸'; } },
+  ];
   function targets() {
     const list = [];
+    if (!interiors.active) for (const o of OUT) if (Math.hypot(o.x - pos.x, o.z - pos.z) < 16) list.push({ id: o.id, x: pos.x + (o.x - pos.x) * 0.5, y: pos.y + 2, z: pos.z + (o.z - pos.z) * 0.5, cast: o.cast });
     for (const e of roomLive.enchant) { e.obj.getWorldPosition(tmp2); list.push({ id: e.id, x: tmp2.x, y: tmp2.y, z: tmp2.z, cast: e.cast }); }
     if (roomLive.hat) list.push({ id: 'hat', x: HAT.x, y: FLOOR_Y + 1.5, z: HAT.z, cast: () => { roomLive.hat.talk = 2; fun.say(tmp.set(HAT.x, FLOOR_Y + 3.4, HAT.z), 'הֵי! זֶה מְדַגְדֵּג! 🎩', 2, 'hat'); return '🎩'; } });
     if (pv.state === 'taunt') list.push({ id: 'peeves', x: pv.G.position.x, y: pv.G.position.y, z: pv.G.position.z, cast: () => { catchPeeves(); return '🤡'; } });
