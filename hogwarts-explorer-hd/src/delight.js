@@ -66,7 +66,8 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   document.body.appendChild(wandBtn);
   if (!st.wandUsed) wandBtn.classList.add('try');   // a gentle glow until the child has tried the wand once
   const bolt = mk(scene, new SphereGeometry(0.22, 10, 8), new MeshBasicMaterial({ color: 0xfff0a0 })); bolt.visible = false; bolt.raycast = () => {};
-  let cool = 0, fly = null;
+  let cool = 0, fly = null, duds = 0;
+  const SILLY = [['🦆', ['🦆', '💦', '✨']], ['🦋', ['🦋', '🌸', '✨']], ['🫧', ['🫧', '🧼', '✨']], ['🍭', ['🍭', '🍬', '✨']]];
   const from = new Vector3(), to = new Vector3();
   const lastCast = { target: null };
   // out on the grounds the lake splashes, Hagrid's chimney puffs a rainbow, the hoops ring and
@@ -111,6 +112,10 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     if (tg) {
       const emoji = tg.cast() || '✨'; fun.sfx.giggle(true); fun.sfx.sparkle();
       if (!st.magic.includes(tg.id)) { st.magic.push(tg.id); fun.save(); fun.toast(emoji, 'קֶסֶם חָדָשׁ! ' + st.magic.length); }
+    } else if (++duds % 6 === 0) {
+      // oops! every sixth cast with nothing to enchant goes hilariously wrong
+      const [e, set] = SILLY[(duds / 6) % SILLY.length | 0];
+      fun.toast(e, 'אוּפְּס!', 1500); fun.confetti(set, 22); fun.sfx.squeak(); setTimeout(() => fun.sfx.giggle(true), 300);
     } else { fun.sfx.boom(); fun.sfx.sparkle(); }
   }
 
