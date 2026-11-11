@@ -110,7 +110,17 @@
     }
     ch.add(cand); cand.frustumCulled = false; scene.add(ch);
     light.addPool(0, 21, 9, 0xffc878, 0.42);
-    HPI.builders.push((t) => { ch.rotation.y = Math.sin(t * 0.3) * 0.06; for (let i = 0; i < halos.length; i++) halos[i].material.opacity = 0.7 + 0.25 * Math.sin(t * 9 + i * 1.9); });
+    // stand under the great chandelier and wave the wand: it rocks and jingles and its candles flare
+    let swingT = 0;
+    const underCh = () => { const g = window.__game, p = g && g.player.position; return !!p && Math.hypot(p.x, p.z - 21) < 4.5; };
+    HPI.enchantables.push({ id: 'chandelier', get x() { return underCh() ? 0 : 1e6; }, y: 6.4, z: 21, r: 3, cast() { swingT = 4; try { window.HPFun.sfx.tune([1568, 1319, 1568, 1047, 1319, 1568, 2093], 0.11, 'sine'); } catch (e) {} return '🕯️'; } });
+    HPI.chandelierSwing = () => swingT;
+    HPI.builders.push((t, dt) => {
+      if (swingT > 0) swingT -= dt;
+      const k = swingT > 0 ? Math.min(1, swingT / 1.5) : 0;      // rocks hard, then settles
+      ch.rotation.y = Math.sin(t * 0.3) * 0.06; ch.rotation.z = k * Math.sin(t * 2.7) * 0.2; ch.rotation.x = k * Math.cos(t * 2.2) * 0.12;
+      for (let i = 0; i < halos.length; i++) { halos[i].material.opacity = Math.min(1, 0.7 + 0.25 * Math.sin(t * 9 + i * 1.9) + k * 0.3); halos[i].scale.setScalar(0.9 * (1 + k * (0.6 + 0.4 * Math.sin(t * 13 + i)))); }
+    });
     F.armour(scene, -5.2, 0, EH.z1 - 1.6, Math.PI); F.armour(scene, 5.2, 0, EH.z1 - 1.6, Math.PI);
 
     // ---------------- Library: green reading lamps + a slowly spinning globe ----------------
