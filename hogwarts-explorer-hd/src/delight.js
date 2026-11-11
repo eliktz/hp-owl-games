@@ -381,6 +381,15 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
       const d = Math.hypot(pos.x - HAT.x, pos.z - HAT.z);
       if (d < 8 && !modal) { H.quip -= dt; if (H.quip <= 0) { H.quip = 7 + Math.random() * 5; H.talk = 1.6; const h = HOUSES.find(x => x.key === st.house); fun.say(tmp.set(HAT.x, FLOOR_Y + 3.2, HAT.z), h ? h.crest + ' ' + h.name + '!' : 'פְּסְסְט... בּוֹא נְמַיֵּן אוֹתְךָ! 🎩', 2.6, 'hat'); } }
       if (d < 3.2 && !modal) fun.offer('sort', '🎩', d, openSort);
+      // by the hourglasses when YOUR house is in the lead: a little house-cup moment (once a day)
+      if (!modal && st.house && st.cupDay !== fun.today() && pos.z < -5) {
+        const mine = housePts(st.house);
+        if (mine > 0 && HOUSES.every(h => h.key === st.house || housePts(h.key) < mine)) {
+          st.cupDay = fun.today(); fun.save();
+          const h = HOUSES.find(x => x.key === st.house);
+          fun.toast('🏆' + h.crest, h.name + ' מוֹבִיל!', 2800); fun.confetti([h.crest, '🏆', '✨', '⭐'], 26); fun.sfx.tada();
+        }
+      }
     }
     // Pip
     if (!st.pet) {
