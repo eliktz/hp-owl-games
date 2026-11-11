@@ -328,6 +328,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
       me: { x: P.x, y: P.y, z: P.z }, quaffle: { x: quaffle.position.x, y: quaffle.position.y, z: quaffle.position.z }, snitchPos: { x: snitch.position.x, y: snitch.position.y, z: snitch.position.z },
       shot: !!S.shot, boosting: S.boost > 0, speed: Math.hypot(pv.x, pv.z), b0: { x: bludgers[0].pos.x, y: bludgers[0].pos.y, z: bludgers[0].pos.z, hit: bludgers[0].hit, t: bludgers[0].t }, keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map(b => b.state), inArena: Math.hypot((P.x - C.x) / AX, (P.z - C.z) / AZ) <= 1.001 }),
     _place(x, y, z, yw) { P.set(x, y, z); pv.set(0, 0, 0); if (yw != null) yaw = yw; },
+    _give() { S.holder = 'me'; S.shot = null; S.kick = 0; },      // tests: you are holding the Quaffle
     _quaffleAt(x, y, z) { S.holder = null; S.shot = null; S.kick = 0; quaffle.position.set(x, y, z); },
     _calm(on) { S.calm = !!on; }, _rivalAway() { rival.position.set(C.x - 20, gy + 6, C.z - 14); S.stealCd = 5; },
     _keeperTo(z) { keepA.position.z = z; },

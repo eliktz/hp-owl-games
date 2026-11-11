@@ -365,6 +365,7 @@
         shot: !!S.shot, boosting: S.boost > 0, speed: Math.hypot(pv.x, pv.z), keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map((b) => b.state), inArena: Math.hypot((P.position.x - C.x) / AX, (P.position.z - C.z) / AZ) <= 1.001 }),
       // test helpers: put things somewhere exact (the match logic itself still runs for real)
       _place(x, y, z, yw) { P.position.set(x, y, z); pv.set(0, 0, 0); if (yw != null) yaw = yw; },
+      _give() { S.holder = 'me'; S.shot = null; S.kick = 0; },      // tests: you are holding the Quaffle
       _quaffleAt(x, y, z) { S.holder = null; S.shot = null; S.kick = 0; quaffle.position.set(x, y, z); },
       _calm(on) { S.calm = !!on; },                     // tests: rival + Bludgers hold off unless told (so each rule is checked on its own)
       _rivalAway() { rival.position.set(C.x - 20, gy + 6, C.z - 14); S.stealCd = 5; },
