@@ -76,6 +76,8 @@
       HP.animateOwl(owl, dt, t, 1, 5);
       tweetT -= dt; if (tweetT <= 0) { tweetT = 14 + Math.random() * 16; try { HP.sfx.tweet(); } catch (e) {} }
     });
-    F.mods.pet = { owl, perch: PERCH, has: () => !!st.pet, adopt, hinting: () => hintT > 0 };
+    // the wand works on Pip too: a happy loop-the-loop and a chirp (so a cast is never a dud once he's with you)
+    if (F.enchant) F.enchant(() => (st.pet ? [{ id: 'pip', obj: owl, r: 1, cast() { loopT = 1.2; F.sfx.heart(); try { HP.sfx.tweet(); } catch (e) {} return '💛'; } }] : []));
+    F.mods.pet = { owl, perch: PERCH, has: () => !!st.pet, adopt, hinting: () => hintT > 0, looping: () => loopT > 0 };
   });
 })();
