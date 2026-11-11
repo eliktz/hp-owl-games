@@ -169,7 +169,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       const stn = P.stars(l.key), lv = P.level(l.key), rk = P.rank(l.key);
       let dots = ''; for (let i = 1; i <= 8; i++) dots += '<i class="' + (i <= lv ? 'on' : '') + '"></i>';
       const card = document.createElement('button'); card.type = 'button'; card.className = 'pickCard'; card.dataset.k = l.key;
-      card.innerHTML = '<div class="rk">' + rk.e + '</div><div class="ic">' + l.icon + '</div><div class="nm">' + l.subject + '</div><div class="lv">' + dots + '</div><div class="st">' + '⭐'.repeat(stn) + '☆'.repeat(3 - stn) + '</div><div class="go">➤ ללכת</div>';
+      card.innerHTML = '<div class="rk">' + rk.e + '</div><div class="ic">' + l.icon + '</div><div class="nm">' + l.subject + '</div><div class="lv">' + dots + '</div><div class="st">' + (P.doneToday(l.key) ? '<span style="color:#9effa0;font-weight:bold">✓ </span>' : '') + '⭐'.repeat(stn) + '☆'.repeat(3 - stn) + '</div><div class="go">➤ ללכת</div>';
       card.addEventListener('click', e => { e.stopPropagation(); closePicker(); go(l.key); });
       grid.appendChild(card);
     });
