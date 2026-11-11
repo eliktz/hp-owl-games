@@ -80,6 +80,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     if (!interiors.active) for (const o of OUT) if (Math.hypot(o.x - pos.x, o.z - pos.z) < 16) list.push({ id: o.id, x: pos.x + (o.x - pos.x) * 0.5, y: pos.y + 2, z: pos.z + (o.z - pos.z) * 0.5, cast: o.cast });
     for (const e of roomLive.enchant) { e.obj.getWorldPosition(tmp2); list.push({ id: e.id, x: tmp2.x, y: tmp2.y, z: tmp2.z, cast: e.cast }); }
     if (roomLive.hat) list.push({ id: 'hat', x: HAT.x, y: FLOOR_Y + 1.5, z: HAT.z, cast: () => { roomLive.hat.talk = 2; fun.say(tmp.set(HAT.x, FLOOR_Y + 3.4, HAT.z), 'הֵי! זֶה מְדַגְדֵּג! 🎩', 2, 'hat'); return '🎩'; } });
+    if (st.pet) list.push({ id: 'pip', x: owlPos.x, y: owlPos.y - 0.6, z: owlPos.z, cast: () => { pipLoop = 1.2; fun.sfx.heart(); fun.sfx.tweet(); return '💛'; } });
     if (pv.state === 'taunt') list.push({ id: 'peeves', x: pv.G.position.x, y: pv.G.position.y, z: pv.G.position.z, cast: () => { catchPeeves(); return '🤡'; } });
     if (trevor.here()) list.push({ id: 'toad', x: trevor.G.position.x, y: trevor.G.position.y, z: trevor.G.position.z, cast: () => { trevor.hop = 0.8; fun.sfx.ribbit(1.4); return '🐸'; } });
     return list;
@@ -197,6 +198,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   owl.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.raycast = () => {}; } });
   owl.visible = !!st.pet; scene.add(owl);
   const owlPos = new Vector3(pos.x, pos.y + 2.5, pos.z);
+  let pipLoop = 0;                       // >0 → Pip is doing a happy loop-the-loop (wand cast at him)
   function buildPerch(g) {
     const s = new Group(); s.position.set(PERCH.x, 0, PERCH.z); const wood = M(0x5a3a1e);
     mk(s, new CylinderGeometry(0.06, 0.09, 1.6, 8), wood, 0, 0.8, 0); const bar = mk(s, new CylinderGeometry(0.05, 0.05, 0.9, 8), wood, 0, 1.6, 0); bar.rotation.z = Math.PI / 2;
@@ -368,7 +370,9 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
       const f = player.yaw, s = player.model.scale.y;
       tmp.set(pos.x + Math.cos(f) * 0.7 - Math.sin(f) * 0.3, pos.y + 2.25 * s + Math.sin(t * 2.4) * 0.12, pos.z - Math.sin(f) * 0.7 - Math.cos(f) * 0.3);
       if (owlPos.distanceTo(tmp) > 30) owlPos.copy(tmp); else owlPos.lerp(tmp, 1 - Math.exp(-dt * 5));
-      owl.position.copy(owlPos); owl.rotation.y += (((f - owl.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI) * Math.min(1, dt * 6);
+      owl.position.copy(owlPos);
+      if (pipLoop > 0) { pipLoop -= dt; const a = (1 - pipLoop / 1.2) * Math.PI * 2; owl.position.y += Math.sin(a) * 0.7; owl.rotation.z = a; } else owl.rotation.z = 0;
+      owl.rotation.y += (((f - owl.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI) * Math.min(1, dt * 6);
     }
     for (const w of owlWings) w.rotation.z = w.userData.s * (st.pet ? Math.sin(t * 22) * 0.9 : 0.2);
     // beans
@@ -397,7 +401,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   const api = {
     update, roomEntered, cast, lastCast, found: () => st.magic.slice(),
     sorting: { open: openSort, pos: HAT, house: () => st.house, housePts },
-    pet: { perch: PERCH, has: () => !!st.pet, owl },
+    pet: { perch: PERCH, has: () => !!st.pet, owl, looping: () => pipLoop > 0 },
     beans: { eat, end: endBean, bowl: BOWL, current: () => fx, count: () => st.beans },
     peeves: { spawn: spawnPeeves, caught: catchPeeves, state: () => pv.state, pos: pv.G.position, count: () => st.peeves || 0, soon(sec) { pv.timer = sec == null ? 0.1 : sec; } },
     gift: { open: openGift, state: () => gift.state, drop: DROP, reset() { gift.state = 'wait'; st.giftDay = ''; } },
