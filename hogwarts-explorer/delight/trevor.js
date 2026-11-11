@@ -39,6 +39,11 @@
       return true;
     }
     if (F.petHint) F.petHint((world) => (world === 'inside' && found <= 0 && F.dist(g.player.position, G.position.x, G.position.z) < 13 ? [G.position] : []));
+    // a wand cast when he is hiding nearby makes Trevor leap high with a loud ribbit — a playful
+    // way to flush him out of his nook (as in the HD game)
+    if (F.enchant) F.enchant((world) => (world === 'inside' && found <= 0 && F.dist(g.player.position, G.position.x, G.position.z) < 12
+      ? [{ id: 'toad', obj: G, r: 1, cast() { hop = 0.9; leap = 2.2; F.sfx.ribbit(1.5); return '🐸'; } }] : []));
+    let leap = 0.7;
     F.inside(function (dt, t, player) {
       const p = player.position, d = F.dist(p, G.position.x, G.position.z);
       throat.scale.setScalar(1 + Math.max(0, Math.sin(t * 5)) * 0.35);
@@ -50,7 +55,7 @@
         return;
       }
       hopT -= dt; if (hopT <= 0) { hopT = 2 + Math.random() * 3; hop = 0.45; }
-      if (hop > 0) { hop -= dt; G.position.y = base + Math.sin((1 - hop / 0.45) * Math.PI) * 0.7; } else G.position.y = base;
+      if (hop > 0) { hop -= dt; G.position.y = base + Math.sin(Math.max(0, Math.min(1, 1 - hop / (leap > 1 ? 0.9 : 0.45))) * Math.PI) * leap; if (hop <= 0) leap = 0.7; } else G.position.y = base;
       if (d < 18 && Math.abs(p.y - base) < 5) {
         ribT -= dt;
         if (ribT <= 0) {
