@@ -291,7 +291,11 @@
       try { __game.give(prize, n); } catch (e) {}
       box.appendChild(el('div', { class: 'lsnPrize', style: 'font-size:24px;color:#ffe9a8;font-weight:bold' }, '🎁 +' + n + ' ' + (prize === 'snitch' ? '✨' : '🐸')));
     }
-    box.appendChild(el('button', { class: 'lsnBtn wide', onclick: () => { teardown(); if (curDone) curDone(stars, false); if (fun && stars >= 2) { try { fun.confetti([sticker, '⭐', '✨'], 14); __game.cheer(2.5); } catch (e) {} } } }, 'המשך ✨'));
+    // "continue" (first, so it stays the default) + a small 🔁 to play the same lesson again at
+    // once — children love an encore, and the next run starts at their freshly updated level
+    box.appendChild(el('div', { class: 'lsnRow', style: 'gap:12px;margin-top:2px' },
+      el('button', { class: 'lsnBtn wide', onclick: () => { teardown(); if (curDone) curDone(stars, false); if (fun && stars >= 2) { try { fun.confetti([sticker, '⭐', '✨'], 14); __game.cheer(2.5); } catch (e) {} } } }, 'המשך ✨'),
+      el('button', { class: 'lsnBtn lsnAgain', style: 'min-width:70px;min-height:70px;font-size:34px;border-radius:50%;padding:0;background:linear-gradient(#cdbfe8,#9a86c8)', 'aria-label': 'עוד פעם', onclick: () => { const h2 = makeHost(def); h2.say(def.greet || 'שלום!'); runGame(def, h2, 250); } }, '🔁')));
     stageEl.appendChild(box);
     timers.push(setTimeout(() => { fill.style.width = Math.round(((skill - 1) / 7) * 100) + '%'; }, 120));
     HPL._lastReward = { key: def.key, stars, pts, bonus, prize, level: rated, record, best: st.best };
