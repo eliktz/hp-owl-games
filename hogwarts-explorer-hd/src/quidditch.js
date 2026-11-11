@@ -280,7 +280,8 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
           b.hit = true; S.stun = 1.0; S.hits++; fun.sfx.burp(); fun.sfx.yelp();
           if (S.holder === 'me') { S.holder = null; S.kick = 0.9; quaffle.position.set(P.x + 3, P.y, P.z + 3); clampArena(quaffle.position); }
         }
-        if (b.t <= 0) { if (!b.hit) S.dodges++; b.state = 'roam'; b.t = S.bludGap * (0.7 + Math.random() * 0.6); b.m.material.emissiveIntensity = 0; }
+        if (b.t <= 0) { if (!b.hit) { S.dodges++; if (!S.over) { roar(false); fun.toast('💨', 'אוֹלֶה!', 800); } }   // the crowd loves a good dodge
+          b.state = 'roam'; b.t = S.bludGap * (0.7 + Math.random() * 0.6); b.m.material.emissiveIntensity = 0; }
       }
     }
     if (!bludgers.some(b => b.state === 'aim')) warn.visible = false;
