@@ -271,6 +271,8 @@
       el('div', { style: 'font-size:24px;color:#9effa0;font-weight:bold' }, '🏆 +' + pts + (house ? ' ' + house.crest : ' נקודות בית') + (st.best >= 3 ? '   🔥×' + st.best : '')),
       el('div', { class: 'lsnRank' }, el('span', {}, rk.e + ' ' + rk.n), el('div', { class: 'bar' }, fill), el('span', {}, String(rated.after))));
     if (rated.up) box.appendChild(el('div', { class: 'lsnUp' }, '⬆️ רָמָה ' + rated.after + '!'));
+    const record = !!(P && P.record && P.record(def.key, st.best));
+    if (record) box.appendChild(el('div', { class: 'lsnUp lsnRec', style: 'color:#ffb866' }, '🏅 שִׂיא חָדָשׁ! 🔥×' + st.best));
     // a perfect lesson shakes a little prize out of the professor's pocket (feeds the castle quests)
     let prize = null;
     if (stars >= 3 && window.__game && __game.give) {
@@ -281,7 +283,7 @@
     box.appendChild(el('button', { class: 'lsnBtn wide', onclick: () => { teardown(); if (curDone) curDone(stars, false); if (fun && stars >= 2) { try { fun.confetti([sticker, '⭐', '✨'], 14); __game.cheer(2.5); } catch (e) {} } } }, 'המשך ✨'));
     stageEl.appendChild(box);
     timers.push(setTimeout(() => { fill.style.width = Math.round(((skill - 1) / 7) * 100) + '%'; }, 120));
-    HPL._lastReward = { key: def.key, stars, pts, bonus, prize, level: rated };
+    HPL._lastReward = { key: def.key, stars, pts, bonus, prize, level: rated, record, best: st.best };
     try { HP.sfx.fanfare(); HP.cheer && HP.cheer(); } catch (e) {}
     for (let i = 0; i < 20; i++) setTimeout(() => spark(10 + Math.random() * (panel.clientWidth - 20), 40 + Math.random() * 160, ['✨', '⭐', '🎉', '🌟']), i * 70);
   }

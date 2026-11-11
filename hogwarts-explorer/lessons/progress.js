@@ -63,6 +63,9 @@
     doneToday(key) { doneReset(); return !!store.done[key]; },
     award(key, stars) { store.stars[key] = Math.max(store.stars[key] || 0, stars); store.got[key] = true; save(); refreshBell(); return byKey[key] ? byKey[key].sticker : '⭐'; },
     // a lesson finished: record attendance, mark it done today + book house points
+    // personal best streak-of-right-answers per subject; returns true when this run beat it
+    record(key, combo) { store.best = store.best || {}; if (combo >= 3 && combo > (store.best[key] || 0)) { store.best[key] = combo; save(); return true; } return false; },
+    best(key) { return (store.best && store.best[key]) || 0; },
     // 🔥 day streak: how many days in a row at least one lesson was finished. Shown on the picker
     // in both games — a gentle reason to come back tomorrow (missing a day just restarts at 1).
     streak() {
