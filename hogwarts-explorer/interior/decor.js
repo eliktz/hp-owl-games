@@ -54,7 +54,7 @@
     let cam = null, spinT = 0;
     // wave the wand up the middle of the hall and the jack-o'-lanterns whirl about, cackling
     // (they float overhead, so the target is "straight above you" whenever you stand in the centre aisle)
-    const inAisle = () => { const g = window.__game, p = g && g.player.position; return p && p.x > -52 && p.x < -15 && Math.abs(p.z - 22) < 3.4 ? p : null; };
+    const inAisle = () => { const g = window.__game, p = g && g.player.position; return p && p.x > -41 && p.x < -15 && Math.abs(p.z - 22) < 3.4 ? p : null; };
     HPI.enchantables.push({ id: 'pumpkins', get x() { const p = inAisle(); return p ? p.x : 1e6; }, y: 5, get z() { const p = inAisle(); return p ? p.z : 1e6; }, r: 3, cast() { spinT = 3.5; try { window.HPFun.sfx.giggle(); setTimeout(() => window.HPFun.sfx.giggle(true), 500); } catch (e) {} return '🎃'; } });
     HPI.builders.push((t, dt) => {
       if (spinT > 0) spinT -= dt;
@@ -76,10 +76,21 @@
     const lec = new T.Group(); lec.position.set(GH.x0 + 8.5, 0, 22);
     mk(lec, new T.CylinderGeometry(0.5, 0.75, 0.3, 14), gold, 0, 0.15, 0);
     mk(lec, new T.CylinderGeometry(0.13, 0.18, 1.6, 10), gold, 0, 1.1, 0);
-    const ob = mk(lec, new T.SphereGeometry(0.42, 14, 12), gold, 0, 2.15, 0); ob.scale.set(0.9, 1.15, 0.8);
-    mk(lec, new T.SphereGeometry(0.3, 12, 10), gold, 0, 2.75, 0.06);
-    [-1, 1].forEach((s) => { const w = mk(lec, new T.BoxGeometry(1.1, 0.75, 0.08), gold, s * 0.72, 2.35, -0.05); w.rotation.z = s * 0.5; w.rotation.y = s * -0.3; mk(lec, new T.ConeGeometry(0.07, 0.16, 6), gold, s * 0.11, 3.0, 0.06); });
-    mk(lec, new T.ConeGeometry(0.06, 0.14, 6), M(0x5a3a00), 0, 2.72, 0.36).rotation.x = Math.PI / 2;
+    const owl = new T.Group(), wings = []; lec.add(owl);         // the bird is its own group so it can come alive
+    const ob = mk(owl, new T.SphereGeometry(0.42, 14, 12), gold, 0, 2.15, 0); ob.scale.set(0.9, 1.15, 0.8);
+    mk(owl, new T.SphereGeometry(0.3, 12, 10), gold, 0, 2.75, 0.06);
+    [-1, 1].forEach((s) => { const w = mk(owl, new T.BoxGeometry(1.1, 0.75, 0.08), gold, s * 0.72, 2.35, -0.05); w.rotation.z = s * 0.5; w.rotation.y = s * -0.3; w.userData.s = s; wings.push(w); mk(owl, new T.ConeGeometry(0.07, 0.16, 6), gold, s * 0.11, 3.0, 0.06); });
+    mk(owl, new T.ConeGeometry(0.06, 0.14, 6), M(0x5a3a00), 0, 2.72, 0.36).rotation.x = Math.PI / 2;
+    // a wand cast wakes the golden owl: it beats its wings, hops on its perch, looks about and hoots
+    let flapT = 0;
+    HPI.enchantables.push({ id: 'owl', obj: lec, r: 3, cast() { flapT = 2.8; try { HP.sfx.hoot(); setTimeout(() => HP.sfx.hoot(), 900); } catch (e) {} return '🦉'; } });
+    HPI.owlFlap = () => flapT;
+    HPI.builders.push((t, dt) => {
+      if (flapT <= 0) return;
+      flapT -= dt; const k = flapT > 0 ? Math.min(1, flapT * 2) : 0;
+      for (const w of wings) w.rotation.z = w.userData.s * (0.5 + k * (0.35 + Math.sin(t * 17) * 0.6));
+      owl.position.y = k * Math.abs(Math.sin(t * 7)) * 0.3; owl.rotation.y = k * Math.sin(t * 4.5) * 0.6;
+    });
     const lg = glow(0xffe08a, 4.5, 0.3); lg.position.y = 2.4; lec.add(lg); lec.rotation.y = Math.PI / 2;
     scene.add(lec);
     light.addPool(GH.x0 + 8.5, 22, 3.2, 0xffd76a, 0.35);

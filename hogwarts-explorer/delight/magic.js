@@ -5,7 +5,7 @@
  * target the spell is a little firework, so pressing the button is never a dud. */
 (function () {
   const F = window.HPFun, T = window.THREE;
-  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat'];
+  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl'];
   const NEED = 5;
   F.boot(function (g) {
     F.badge('wand', '🪄', 'קוסם');
