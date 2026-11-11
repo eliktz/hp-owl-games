@@ -33,7 +33,7 @@ function letterMeshes(n) {
 // Create the collectibles and quest state. `onToast(msg)` shows a child-friendly message.
 // update(dt, playerPos, nearChar) spins/bobs items, collects on proximity, delivers letters
 // to a nearby friend, and keeps the HUD counters in sync.
-export function createQuests({ scene, heightAt, hud, onToast, sfx = {} }) {
+export function createQuests({ scene, heightAt, hud, onToast, onAll, sfx = {} }) {
   const ding = (k) => { try { sfx[k] && sfx[k](); } catch { /* ignore */ } };
   const ground = (x, z) => (heightAt ? heightAt(x, z) : 0) + 1.1;
   const starIM = starMesh(STAR_SPOTS.length); scene.add(starIM);
@@ -54,15 +54,17 @@ export function createQuests({ scene, heightAt, hud, onToast, sfx = {} }) {
 
   return {
     state, roots: [starIM, envIM, sealIM],
-    bonus(n) { state.stars += n; setHud(); },          // prizes from lessons / mini-games
+    bonus(n) { state.stars += n; setHud(); },
+    spots: () => stars.filter(s => !s.got).map(s => ({ x: s.x, z: s.z })),   // tests: where the remaining stars are          // prizes from lessons / mini-games
     update(dt, playerPos, nearChar) {
       t += dt; deliverCd = Math.max(0, deliverCd - dt);
       stars.forEach((s, i) => {
         if (s.got) return put(starIM, i, s.x, -999, s.z, 0, 0.0001);
         put(starIM, i, s.x, ground(s.x, s.z) + Math.sin(t * 2 + s.x) * 0.12, s.z, t * 1.6, 1);
         if (playerPos && Math.hypot(playerPos.x - s.x, playerPos.z - s.z) < 1.8) {
-          s.got = true; state.stars++;
+          s.got = true; state.stars++; state.found = (state.found || 0) + 1;
           setHud(); onToast('⭐ כוכב קסם! אספת ' + state.stars); ding('chime');
+          if (state.found === total && !state.allFound) { state.allFound = true; onAll && onAll(); }   // every star on the grounds!
         }
       });
       letters.forEach((l, i) => {

@@ -142,6 +142,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   #pickOv.on{display:flex}
   .pickP{width:min(94vw,700px);background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:28px;padding:18px 18px 20px;box-sizing:border-box}
   .pickT{text-align:center;color:#ffd76a;font-size:30px;font-weight:bold;text-shadow:0 2px 0 #7a3b00;margin:0 0 10px}
+  .pickStreak{display:inline-block;background:linear-gradient(#ff9a3c,#e8352e);color:#fff;font-size:20px;border:2px solid #ffd76a;border-radius:14px;padding:0 9px;margin-inline-start:6px;direction:ltr;text-shadow:none;vertical-align:middle}
   .pickGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
   @media (max-aspect-ratio:1/1){.pickGrid{grid-template-columns:repeat(2,1fr)}}
   .pickCard{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,.07);border:3px solid rgba(255,215,106,.45);
@@ -161,7 +162,8 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   const extras = [];                     // extra picker buttons (Quidditch registers one)
   function openPicker() {
     const P = HPL.progress, p = document.createElement('div'); p.className = 'pickP';
-    p.innerHTML = '<div class="pickT">✨ בחרו שיעור ✨</div>';
+    const stk = P.streak ? P.streak() : 0;
+    p.innerHTML = '<div class="pickT">✨ בחרו שיעור ✨' + (stk ? ' <span class="pickStreak">🔥×' + stk + '</span>' : '') + '</div>';
     const grid = document.createElement('div'); grid.className = 'pickGrid';
     (HPL.LESSONS || []).forEach(l => {
       const stn = P.stars(l.key), lv = P.level(l.key), rk = P.rank(l.key);
