@@ -95,6 +95,13 @@
     const ph = Math.random() * 7; let waveT = 2 + Math.random() * 6;
     HPI.builders.push((t, dt) => {
       waveT -= dt;
+      // a guard notices you: walk up close and it snaps a clanky salute (once per approach)
+      const pl = window.__game && __game.world === 'inside' ? __game.player.position : null;
+      if (pl) {
+        const near = Math.hypot(pl.x - x, pl.z - z) < 3.4 && Math.abs(pl.y - y) < 2;
+        if (near && !greeted && danceT <= 0) { greeted = true; waveT = 1.2; HPI.salutes = (HPI.salutes || 0) + 1; try { window.HPFun && HPFun.sfx.clank(); } catch (e) {} }
+        else if (!near && Math.hypot(pl.x - x, pl.z - z) > 6) greeted = false;
+      }
       const waving = waveT < 1.2 && waveT > 0;
       arm.rotation.z = waving ? Math.sin((1.2 - waveT) * 9) * 0.9 : -0.1;
       if (waveT <= 0) waveT = 4 + Math.random() * 7;
@@ -106,7 +113,7 @@
         if (danceT <= 0) g.rotation.y = rotY || 0;
       }
     });
-    let danceT = 0;
+    let danceT = 0, greeted = false;
     HPI.enchantables.push({ id: 'armour', obj: g, r: 3, cast() { danceT = 3; return '🛡️'; } });
     return g;
   }
