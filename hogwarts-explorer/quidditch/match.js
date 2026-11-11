@@ -362,7 +362,7 @@
       start, quit, boost, throwQuaffle, releaseSnitch, stand: STAND, centre: C, goalX: GOAL_X, hoopZ: HOOP_Z,
       state: () => ({ on: S.on, over: !!S.over, a: S.a, b: S.b, holder: S.holder, stun: S.stun > 0, snitch: !!S.snitchOn, t: S.t, aim: S.aim, hits: S.hits, dodges: S.dodges, saves: S.saves, level: st.qLevel, result: S.result || null,
         me: { x: P.position.x, y: P.position.y, z: P.position.z }, quaffle: { x: quaffle.position.x, y: quaffle.position.y, z: quaffle.position.z }, snitchPos: { x: snitch.position.x, y: snitch.position.y, z: snitch.position.z },
-        boosting: S.boost > 0, speed: Math.hypot(pv.x, pv.z), keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map((b) => b.state), inArena: Math.hypot((P.position.x - C.x) / AX, (P.position.z - C.z) / AZ) <= 1.001 }),
+        shot: !!S.shot, boosting: S.boost > 0, speed: Math.hypot(pv.x, pv.z), keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map((b) => b.state), inArena: Math.hypot((P.position.x - C.x) / AX, (P.position.z - C.z) / AZ) <= 1.001 }),
       // test helpers: put things somewhere exact (the match logic itself still runs for real)
       _place(x, y, z, yw) { P.position.set(x, y, z); pv.set(0, 0, 0); if (yw != null) yaw = yw; },
       _quaffleAt(x, y, z) { S.holder = null; S.shot = null; S.kick = 0; quaffle.position.set(x, y, z); },
