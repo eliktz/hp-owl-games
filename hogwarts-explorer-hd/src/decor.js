@@ -88,7 +88,15 @@ export function decorate(id, g) {
     for (const s of suits) g.userData.enchant.push({ id: 'armour', obj: s.group, cast() { s.dance = 3; return '🛡️'; } });
     ticks.push((dt, t) => {
       for (const s of suits) {
-        s.wave -= dt; const waving = s.wave < 1.2 && s.wave > 0;
+        s.wave -= dt;
+        // a guard notices you: walk up close and it snaps a clanky salute (once per approach)
+        const pl = window.__game && window.__game.player ? window.__game.player.pos : null;
+        if (pl) {
+          const dd = Math.hypot(pl.x - s.group.position.x, pl.z - s.group.position.z);
+          if (dd < 3 && !s.greeted && s.dance <= 0) { s.greeted = true; s.wave = 1.2; g.userData.salutes = (g.userData.salutes || 0) + 1; try { window.HPFun.sfx.clank(); } catch { /* no audio yet */ } }
+          else if (dd > 5.5) s.greeted = false;
+        }
+        const waving = s.wave < 1.2 && s.wave > 0;
         s.arm.rotation.z = waving ? Math.sin((1.2 - s.wave) * 9) * 0.9 : -0.1;
         if (s.wave <= 0) s.wave = 4 + Math.random() * 7;
         if (s.dance > 0) { s.dance -= dt; const k = 3 - s.dance; s.group.rotation.y = s.rotY + Math.sin(k * 7) * 0.7; s.group.position.y = Math.abs(Math.sin(k * 9)) * 0.3; s.arm.rotation.z = 2.2 + Math.sin(k * 14) * 0.6; if (s.dance <= 0) { s.group.rotation.y = s.rotY; s.group.position.y = 0; } }
