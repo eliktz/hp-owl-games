@@ -61,6 +61,8 @@
   HPC.collect = function (id) {
     if (found.has(id)) return false;
     found.add(id); save(); refreshBtn(); popup(byId[id]);
+    // the whole deck! a proper celebration once the last card's own pop-up has had its moment
+    if (found.size === CATALOG.length) setTimeout(() => { try { const F = window.HPFun; F.toast('🃏', 'כָּל הַקְּלָפִים שֶׁלְּךָ!', 3000); F.confetti(['🃏', '🐸', '✨', '⭐', '🎉'], 34); F.sfx.tada(); window.__game.cheer(3); } catch (e) {} }, 2400);
     return true;
   };
 
