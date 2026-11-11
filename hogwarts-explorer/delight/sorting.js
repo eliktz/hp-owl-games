@@ -95,6 +95,15 @@
         }
         gl.glow.material.opacity = (k === st.house ? 0.5 : 0.22) + 0.1 * Math.sin(t * 2 + gl.x);
       }
+      // standing by the hourglasses when YOUR house is in the lead: a little house-cup moment (once a day)
+      if (near && st.house && glasses[st.house].shown === glasses[st.house].target && st.cupDay !== F.today()) {
+        const mine = housePts(st.house), lead = HOUSES.every((h) => h.key === st.house || housePts(h.key) < mine);
+        if (lead && mine > 0) {
+          st.cupDay = F.today(); F.save();
+          const h = HOUSES.find((x) => x.key === st.house);
+          F.toast('🏆' + h.crest, NAMES[h.key] + ' מוֹבִיל!', 2800); F.confetti([h.crest, '🏆', '✨', '⭐'], 26); F.sfx.tada(); g.cheer(3);
+        }
+      }
     }
 
     // ---------------- wearing the house colours ----------------
