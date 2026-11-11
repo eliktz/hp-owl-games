@@ -46,10 +46,16 @@ function pumpkins(g) {
   const face = new InstancedMesh(new ConeGeometry(0.1, 0.16, 3), M(0x2a1204, { emissive: new Color(0xffd070), emissiveIntensity: 1.6 }), N * 3);
   for (let i = 0; i < N; i++) P.push({ x: -6 + i * 2 + (i % 2) * 0.8, z: -12 + ((i * 11) % 24), y: 5 + (i % 3) * 0.9, ph: i * 1.7 });
   body.frustumCulled = face.frustumCulled = false; body.name = 'pumpkins'; g.add(body, face);
+  // wave the wand up the middle of the hall and the jack-o'-lanterns whirl about, cackling
+  let spin = 0; const spot = new Object3D(); spot.position.set(0, 5, -3); g.add(spot);
+  g.userData.enchant.push({ id: 'pumpkins', obj: spot, cast() { spin = 3.5; try { window.HPFun.sfx.giggle(); setTimeout(() => window.HPFun.sfx.giggle(true), 500); } catch { /* no audio yet */ } return '🎃'; } });
+  g.userData.pumpkinSpin = () => spin;
   return (dt, t) => {
+    if (spin > 0) spin -= dt;
+    const sp = spin > 0 ? Math.min(1, spin) : 0;
     for (let i = 0; i < N; i++) {
-      const p = P[i], x = p.x + Math.sin(t * 0.25 + p.ph) * 1.2, y = p.y + Math.sin(t * 0.9 + p.ph) * 0.3, z = p.z + Math.cos(t * 0.2 + p.ph) * 1.2;
-      const tilt = Math.sin(t * 0.7 + p.ph) * 0.12;
+      const p = P[i], x = p.x + Math.sin(t * 0.25 + p.ph) * 1.2, y = p.y + Math.sin(t * 0.9 + p.ph) * 0.3 + sp * Math.abs(Math.sin(t * 8 + p.ph)) * 0.7, z = p.z + Math.cos(t * 0.2 + p.ph) * 1.2;
+      const tilt = Math.sin(t * 0.7 + p.ph) * 0.12 + sp * Math.sin(t * 14 + p.ph) * 0.5;      // whirling = a mad wobble (faces stay toward the doors)
       d.position.set(x, y, z); d.scale.set(1, 0.82, 1); d.rotation.set(0, 0, tilt); d.updateMatrix(); body.setMatrixAt(i, d.matrix);
       // faces look down the hall toward the doors (+z), where you walk in
       [[-0.17, 0.1, 0], [0.17, 0.1, 0], [0, -0.14, Math.PI]].forEach(([fx, fy, rz], k) => {
