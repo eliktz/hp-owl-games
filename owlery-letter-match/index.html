@@ -163,6 +163,7 @@
   const LEVELS = [[3, 2], [4, 2], [4, 3], [4, 4]]; // columns x rows
   let level = 0;
   let cards = [], open = [], busy = false, cursor = 0;
+  let combo = 0;            // pairs found in a row without a miss
   const cardW = 3.2, cardD = 3.2, gap = 0.7;
   const cardGeo = new THREE.BoxGeometry(cardW, 0.18, cardD);
   const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.6, 40), new THREE.MeshBasicMaterial({ color: 0xffd76a, transparent: true, opacity: 0.0 }));
@@ -217,7 +218,10 @@
       if (a.userData.sym === b.userData.sym) {
         setTimeout(() => {
           HP.sfx.chime(); HP.sfx.sparkle();
-          [a, b].forEach((c) => fx.burst(c.position.clone().setY(1), [0xffd34d, 0xffffff, 0xff9ad5], 30, 6, 0.7));
+          combo++;
+          [a, b].forEach((c) => fx.burst(c.position.clone().setY(1), [0xffd34d, 0xffffff, 0xff9ad5], 30 + Math.min(combo - 1, 3) * 14, 6, 0.7));
+          // two or more pairs in a row: the notes keep climbing, a friend pops up to cheer and a 🔥 streak flashes
+          if (combo >= 2) { ui.banner('🔥×' + combo, 900); guests[combo % guests.length].pop(1.3); HP.sfx.sparkle(); }
           a.userData.done = b.userData.done = true;
           matches++;
           ui.setScore(matches);
@@ -226,7 +230,7 @@
         }, 450);
       } else {
         setTimeout(() => {
-          HP.sfx.soft();
+          HP.sfx.soft(); HP.sfx.resetChime(); combo = 0;      // a miss: the streak (and the climbing notes) start over
           owls.forEach((o) => (o.userData.wiggle = 1));
           a.userData.shake = b.userData.shake = 0.4;
         }, 700);
@@ -354,7 +358,7 @@
     requestAnimationFrame(frame);
   }
   deal();
-  window.__game = { get matches() { return matches; }, get cards() { return cards; }, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
+  window.__game = { get matches() { return matches; }, get combo() { return combo; }, get cards() { return cards; }, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
   frame();
 })();
 </script>
