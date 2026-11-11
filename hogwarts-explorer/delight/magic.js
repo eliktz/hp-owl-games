@@ -30,7 +30,8 @@
       if (!bolts[world]) { const s = F.glow(0xfff0a0, 1.6, 0); s.userData.noCam = true; (world === 'inside' ? g.inside.scene : g.scene).add(s); bolts[world] = s; }
       return bolts[world];
     }
-    let fly = null, cool = 0;
+    let fly = null, cool = 0, duds = 0;
+    const SILLY = [['🦆', ['🦆', '💦', '✨']], ['🦋', ['🦋', '🌸', '✨']], ['🫧', ['🫧', '🧼', '✨']], ['🍭', ['🍭', '🍬', '✨']]];
     const from = new T.Vector3(), to = new T.Vector3(), tmp = new T.Vector3();
     const extra = [];                       // modules may add live targets: fn(world) → [{id,obj|x,y,z,r,cast}]
     F.enchant = (fn) => extra.push(fn);
@@ -90,6 +91,10 @@
           F.toast(emoji, 'קסם חדש! ' + Math.min(st.magic.length, NEED) + '/' + NEED);
           if (st.magic.length >= NEED) setTimeout(() => F.award('wand'), 900);
         }
+      } else if (++duds % 6 === 0) {
+        // oops! every sixth cast with nothing to enchant goes hilariously wrong
+        const [e, set] = SILLY[(duds / 6) % SILLY.length | 0];
+        F.toast(e, 'אוּפְּס!', 1500); F.confetti(set, 22); F.sfx.squeak(); setTimeout(() => F.sfx.giggle(true), 300);
       } else {
         g.fx.burst(to, [[0xff5a5a, 0xffd34d], [0x7cf0ff, 0xffffff], [0xff9ad5, 0xc59bff], [0x8cff9e, 0xffff8a]][(Math.random() * 4) | 0], 34, 8, 0.8, 1.2, -3);
         try { HP.sfx.boom(); } catch (e) {}

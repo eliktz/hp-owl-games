@@ -77,6 +77,16 @@
     sinistra: { yay: ['🌟', '😍'], praise: ['כּוֹכָב עוֹלֶה!', 'הַשָּׁמַיִם גֵּאִים בְּךָ!', 'זוֹהֵר!'], oops: ['🌥️', '😯'] },
     hagrid:   { yay: ['🤗', '😄'], praise: ['וָואוּ! אַלּוּף!', 'הֵם מֵתִים עָלֶיךָ!', 'יוֹפִי שֶׁל עֲבוֹדָה!'], oops: ['😅', '🫣'] },
   };
+  // how each professor signs off: [after a great lesson (3★), after an ordinary one]
+  const BYE = {
+    snape:    ['...מַסְפִּיק טוֹב. אֲפִלּוּ מְצֻיָּן. 😏', 'נִסְבָּל. תִּתְאַמֵּן.'],
+    flitwick: ['מַדְהִים! אֵיזֶה קוֹסֵם! 🥳', 'יָפֶה מְאוֹד! עוֹד קְצָת סְוִישׁ!'],
+    sprout:   ['הַחֲמָמָה גֵּאָה בְּךָ! 🌻', 'יוֹפִי! הַצְּמָחִים מְחַכִּים לְךָ שׁוּב.'],
+    defence:  ['גִּבּוֹר אֲמִתִּי! ⚡', 'אֹמֶץ יָפֶה! נַמְשִׁיךְ לְהִתְאַמֵּן.'],
+    mcgon:    ['חָמֵשׁ נְקֻדּוֹת לְבֵיתְךָ. מְצֻיָּן. 🐱', 'עֲבוֹדָה טוֹבָה. רִכּוּז!'],
+    sinistra: ['כּוֹכָב אֲמִתִּי! 🌟', 'יָפֶה! הַשָּׁמַיִם מְחַכִּים.'],
+    hagrid:   ['וָואוּ! הֵם מֵתִים עָלֶיךָ! 🐉', 'יוֹפִי! תָּבוֹא שׁוּב לְהַאֲכִיל אוֹתָם.'],
+  };
   const pick = (a) => a[(Math.random() * a.length) | 0];
   function react(e) { if (!reactEl) return; reactEl.textContent = e; reactEl.classList.remove('on'); void reactEl.offsetWidth; reactEl.classList.add('on'); }
   function showCombo(n) {
@@ -262,7 +272,8 @@
     const sticker = def.sticker || def.icon || '⭐';
     const fun = window.HPFun, house = fun && fun.store.house && window.HPI ? HPI.HOUSES.find((h) => h.key === fun.store.house) : null;
     const rk = P && P.rank ? P.rank(def.key) : { e: '🥉', n: '' }, skill = P && P.skill ? P.skill(def.key) : 1;
-    sayEl.textContent = 'כל הכבוד! 🎉'; moodT = 1.2; mood = 1;
+    const bye = BYE[def.teacher];
+    sayEl.textContent = bye ? bye[stars >= 3 ? 0 : 1] : 'כל הכבוד! 🎉'; moodT = 1.6; mood = 1;   // the professor signs off in character
     const fill = el('i', { style: 'width:0%' });
     const box = el('div', { class: 'lsnReward' },
       el('div', { class: 'lsnStars' }, '⭐'.repeat(stars) + '☆'.repeat(3 - stars)),
