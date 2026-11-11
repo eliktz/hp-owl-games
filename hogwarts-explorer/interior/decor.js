@@ -55,7 +55,11 @@
     // wave the wand up the middle of the hall and the jack-o'-lanterns whirl about, cackling
     // (they float overhead, so the target is "straight above you" whenever you stand in the centre aisle)
     const inAisle = () => { const g = window.__game, p = g && g.player.position; return p && p.x > -41 && p.x < -15 && Math.abs(p.z - 22) < 3.4 ? p : null; };
-    HPI.enchantables.push({ id: 'pumpkins', get x() { const p = inAisle(); return p ? p.x : 1e6; }, y: 5, get z() { const p = inAisle(); return p ? p.z : 1e6; }, r: 3, cast() { spinT = 3.5; try { window.HPFun.sfx.giggle(); setTimeout(() => window.HPFun.sfx.giggle(true), 500); } catch (e) {} return '🎃'; } });
+    // …and the next wave from the aisle sets the floating candles alight in rainbow colours, turn and turn about
+    let turn = 0;
+    const aisle = (k) => { const p = turn === k ? inAisle() : null; return p || { x: 1e6, z: 1e6 }; };
+    HPI.enchantables.push({ id: 'candles', get x() { return aisle(1).x; }, y: 5, get z() { return aisle(1).z; }, r: 3, cast() { turn = 0; const c = HPI.enchantables.find((e) => e.id === 'candles' && e !== this); return c ? c.cast() : '🕯️'; } });
+    HPI.enchantables.push({ id: 'pumpkins', get x() { return aisle(0).x; }, y: 5, get z() { return aisle(0).z; }, r: 3, cast() { turn = 1; spinT = 3.5; try { window.HPFun.sfx.giggle(); setTimeout(() => window.HPFun.sfx.giggle(true), 500); } catch (e) {} return '🎃'; } });
     HPI.builders.push((t, dt) => {
       if (spinT > 0) spinT -= dt;
       if (HPI.cull && !HPI.cull.byKey.GH.on) return;
