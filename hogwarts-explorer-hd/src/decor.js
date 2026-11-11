@@ -7,7 +7,7 @@
 // decorate(id, group, colliders) returns an optional per-frame tick(dt, t).
 import {
   Group, Mesh, InstancedMesh, Object3D, Color, SphereGeometry, CylinderGeometry, BoxGeometry,
-  ConeGeometry, TorusGeometry, MeshStandardMaterial,
+  ConeGeometry, TorusGeometry, MeshStandardMaterial, Matrix4,
 } from 'three';
 
 const M = (color, o = {}) => new MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -26,6 +26,17 @@ function feast(g) {
   }
   im.count = n; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
   im.frustumCulled = false; im.name = 'feast'; g.add(im);
+  // wave the wand near a table and the whole feast hops and jiggles for a few seconds
+  const base = [], m = new Matrix4(), hop = new Matrix4(), mm = new Matrix4();
+  for (let i = 0; i < n; i++) { im.getMatrixAt(i, m); base.push(m.clone()); }
+  let dance = 0;
+  for (const tx of [-5, 5]) for (const tz of [-6, 9]) { const spot = new Object3D(); spot.position.set(tx, 1, tz); g.add(spot); g.userData.enchant.push({ id: 'feast', obj: spot, cast() { dance = 3.2; try { window.HPFun.sfx.munch(); } catch { /* no audio yet */ } return '🍗'; } }); }
+  return (dt, t) => {
+    if (dance <= 0) return;
+    dance -= dt; const k = dance > 0 ? Math.min(1, dance) : 0;
+    for (let i = 0; i < n; i++) { hop.makeTranslation(0, k * Math.abs(Math.sin(t * 9 + i * 1.3)) * 0.4, 0); mm.multiplyMatrices(hop, base[i]); im.setMatrixAt(i, mm); }
+    im.instanceMatrix.needsUpdate = true;
+  };
 }
 
 function pumpkins(g) {
@@ -82,7 +93,7 @@ export function decorate(id, g) {
   const ticks = [];
   g.userData.enchant = g.userData.enchant || [];       // things the wand can wake (delight.js)
   if (id === 'greathall') {
-    feast(g); ticks.push(pumpkins(g)); lectern(g, 0, -12.4);
+    ticks.push(feast(g)); ticks.push(pumpkins(g)); lectern(g, 0, -12.4);
   } else if (id === 'entrancehall') {
     const suits = [armour(g, -3.4, 9.4, Math.PI), armour(g, 3.4, 9.4, Math.PI)];
     for (const s of suits) g.userData.enchant.push({ id: 'armour', obj: s.group, cast() { s.dance = 3; return '🛡️'; } });
