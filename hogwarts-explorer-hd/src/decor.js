@@ -71,11 +71,22 @@ function lectern(g, x, z) {
   const L = new Group(); L.position.set(x, 0, z);
   mk(L, new CylinderGeometry(0.4, 0.6, 0.24, 14), gold, 0, 0.12, 0);
   mk(L, new CylinderGeometry(0.1, 0.14, 1.3, 10), gold, 0, 0.9, 0);
-  mk(L, new SphereGeometry(0.34, 14, 12), gold, 0, 1.75, 0).scale.set(0.9, 1.15, 0.8);
-  mk(L, new SphereGeometry(0.24, 12, 10), gold, 0, 2.25, 0.05);
-  for (const s of [-1, 1]) { const w = mk(L, new BoxGeometry(0.9, 0.6, 0.07), gold, s * 0.58, 1.9, -0.04); w.rotation.z = s * 0.5; w.rotation.y = s * -0.3; mk(L, new ConeGeometry(0.06, 0.13, 6), gold, s * 0.09, 2.45, 0.05); }
+  const owl = new Group(), wings = []; L.add(owl);            // the bird is its own group so it can come alive
+  mk(owl, new SphereGeometry(0.34, 14, 12), gold, 0, 1.75, 0).scale.set(0.9, 1.15, 0.8);
+  mk(owl, new SphereGeometry(0.24, 12, 10), gold, 0, 2.25, 0.05);
+  for (const s of [-1, 1]) { const w = mk(owl, new BoxGeometry(0.9, 0.6, 0.07), gold, s * 0.58, 1.9, -0.04); w.rotation.z = s * 0.5; w.rotation.y = s * -0.3; w.userData.s = s; wings.push(w); mk(owl, new ConeGeometry(0.06, 0.13, 6), gold, s * 0.09, 2.45, 0.05); }
   L.userData.light = { k: 'glow', c: 0xffd76a, r: 3, a: 0.32 };
   g.add(L);
+  // a wand cast wakes the golden owl: it beats its wings, hops on its perch, looks about and hoots
+  let flap = 0;
+  g.userData.enchant.push({ id: 'owl', obj: L, cast() { flap = 2.8; try { window.HPFun.sfx.hoot(); setTimeout(() => window.HPFun.sfx.hoot(), 900); } catch { /* no audio yet */ } return '🦉'; } });
+  g.userData.owlFlap = () => flap;
+  return (dt, t) => {
+    if (flap <= 0) return;
+    flap -= dt; const k = flap > 0 ? Math.min(1, flap * 2) : 0;
+    for (const w of wings) w.rotation.z = w.userData.s * (0.5 + k * (0.35 + Math.sin(t * 17) * 0.6));
+    owl.position.y = k * Math.abs(Math.sin(t * 7)) * 0.25; owl.rotation.y = k * Math.sin(t * 4.5) * 0.6;
+  };
 }
 
 function armour(g, x, z, rotY) {
@@ -99,7 +110,7 @@ export function decorate(id, g) {
   const ticks = [];
   g.userData.enchant = g.userData.enchant || [];       // things the wand can wake (delight.js)
   if (id === 'greathall') {
-    ticks.push(feast(g)); ticks.push(pumpkins(g)); lectern(g, 0, -12.4);
+    ticks.push(feast(g)); ticks.push(pumpkins(g)); ticks.push(lectern(g, 0, -12.4));
   } else if (id === 'entrancehall') {
     const suits = [armour(g, -3.4, 9.4, Math.PI), armour(g, 3.4, 9.4, Math.PI)];
     for (const s of suits) g.userData.enchant.push({ id: 'armour', obj: s.group, cast() { s.dance = 3; return '🛡️'; } });
