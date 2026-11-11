@@ -285,6 +285,9 @@
       el('div', { style: 'font-size:24px;color:#9effa0;font-weight:bold' }, '🏆 +' + pts + (house ? ' ' + house.crest : ' נקודות בית') + (st.best >= 3 ? '   🔥×' + st.best : '')),
       el('div', { class: 'lsnRank' }, el('span', {}, rk.e + ' ' + rk.n), el('div', { class: 'bar' }, fill), el('span', {}, String(rated.after))));
     if (rated.up) box.appendChild(el('div', { class: 'lsnUp' }, '⬆️ רָמָה ' + rated.after + '!'));
+    // a flawless lesson (three stars and not one slip) gets its own gem
+    const perfect = stars >= 3 && st.misses === 0 && st.hits > 0;
+    if (perfect) box.appendChild(el('div', { class: 'lsnUp lsnPerfect', style: 'color:#9fe8ff' }, '💎 מֻשְׁלָם! בְּלִי אַף טָעוּת'));
     const record = !!(P && P.record && P.record(def.key, st.best));
     if (record) box.appendChild(el('div', { class: 'lsnUp lsnRec', style: 'color:#ffb866' }, '🏅 שִׂיא חָדָשׁ! 🔥×' + st.best));
     // a perfect lesson shakes a little prize out of the professor's pocket (feeds the castle quests)
@@ -301,9 +304,9 @@
       el('button', { class: 'lsnBtn lsnAgain', style: 'min-width:70px;min-height:70px;font-size:34px;border-radius:50%;padding:0;background:linear-gradient(#cdbfe8,#9a86c8)', 'aria-label': 'עוד פעם', onclick: () => { const h2 = makeHost(def); h2.say(def.greet || 'שלום!'); runGame(def, h2, 250); } }, '🔁')));
     stageEl.appendChild(box);
     timers.push(setTimeout(() => { fill.style.width = Math.round(((skill - 1) / 7) * 100) + '%'; }, 120));
-    HPL._lastReward = { key: def.key, stars, pts, bonus, prize, level: rated, record, best: st.best };
+    HPL._lastReward = { key: def.key, stars, pts, bonus, prize, level: rated, record, best: st.best, perfect };
     try { HP.sfx.fanfare(); HP.cheer && HP.cheer(); } catch (e) {}
-    for (let i = 0; i < 20; i++) setTimeout(() => spark(10 + Math.random() * (panel.clientWidth - 20), 40 + Math.random() * 160, ['✨', '⭐', '🎉', '🌟']), i * 70);
+    for (let i = 0; i < (perfect ? 34 : 20); i++) setTimeout(() => spark(10 + Math.random() * (panel.clientWidth - 20), 40 + Math.random() * 160, perfect ? ['💎', '✨', '⭐', '🌟'] : ['✨', '⭐', '🎉', '🌟']), i * 70);
   }
 
   function el(tag, props, ...kids) {
