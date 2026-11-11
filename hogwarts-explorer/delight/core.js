@@ -190,8 +190,18 @@
   F.inside = (fn) => insideFns.push(fn);
   F.always = (fn) => alwaysFns.push(fn);
   F.boot = (fn) => boots.push(fn);
+  // a friendly hello the first time you play each day (with your 🔥 streak, if you have one)
+  let helloDone = store.helloDay === F.today(), helloT = 0;
+  function hello() {
+    helloDone = true; store.helloDay = F.today(); F.save();
+    const h = new Date().getHours(), part = h < 12 ? ['🌅', 'בֹּקֶר טוֹב!'] : h < 18 ? ['☀️', 'צָהֳרַיִם טוֹבִים!'] : ['🌙', 'עֶרֶב טוֹב!'];
+    let n = 0; try { n = window.HPLessons.progress.streak(); } catch (e) {}
+    F.toast(part[0] + '🦉', part[1] + (n >= 2 ? '  🔥×' + n : ''), 2600);
+    try { HP.sfx.hoot(); } catch (e) {}
+  }
   let lastModal = false;
   function tick(dt, t, world, playing) {
+    if (!helloDone && playing && !__game.modal) { helloT += dt; if (helloT > 1.2) hello(); }
     const g = __game, modal = g.modal;
     if (modal !== lastModal) { lastModal = modal; document.body.classList.toggle('modalOn', modal); }
     tickBubs(dt, world, g.camera);
