@@ -186,6 +186,10 @@ function commonRoom() {
   }
   carpet(g, 0, 1, 8, 6, 0x6a1420);
   const hp = fireplace(g, 0, -D / 2 + 0.8);
+  // wave the wand at the hearth: the flames roar up emerald green (Floo powder!), then settle back to orange
+  let green = 0, mix = 0; const fireFrom = hp.fire.material.emissive.clone(), fireTo = new Color(0x2fe070);
+  (g.userData.enchant = g.userData.enchant || []).push({ id: 'fire', obj: hp.fire, cast() { green = 5; try { window.HPFun.sfx.noise(1.4, 0.22, 0, 600, 0.5); window.HPFun.sfx.poof(); } catch { /* no audio yet */ } return '🔥'; } });
+  g.userData.greenFire = () => green;
   // Three wing chairs in a loose arc facing the hearth (seen on entry, fire glowing beyond).
   armchair(g, -3.6, -2.4, Math.PI - 0.35); armchair(g, 3.6, -2.4, Math.PI + 0.35); armchair(g, 0, -3.4, Math.PI);
   bookshelf(g, -W / 2 + 0.8, 5, 1); bookshelf(g, W / 2 - 0.8, 5, -1);
@@ -193,7 +197,14 @@ function commonRoom() {
   banner(g, 0, 3.6, -D / 2 + 0.3, HOUSE[0]);   // kept clear of the low (H=7) ceiling
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'commonroom', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
-    update: (dt, t) => { hp.fire.material.emissiveIntensity = 1.7 + Math.sin(t * 7) * 0.35; },
+    update: (dt, t) => {
+      if (green > 0) green -= dt;
+      mix = Math.max(0, Math.min(1, mix + (green > 0 ? dt * 4 : -dt * 1.2)));
+      const m = hp.fire.material;
+      m.emissiveIntensity = 1.7 + Math.sin(t * 7) * 0.35 + mix * 1.2;
+      m.emissive.copy(fireFrom).lerp(fireTo, mix); m.color.copy(m.emissive);
+      hp.fire.scale.set(1, 1 + mix * (0.7 + 0.2 * Math.sin(t * 11)), 1); hp.fire.position.y = 1.0 + (hp.fire.scale.y - 1) * 0.6;
+    },
   });
 }
 
