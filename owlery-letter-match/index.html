@@ -354,7 +354,7 @@
     requestAnimationFrame(frame);
   }
   deal();
-  window.__game = { get matches() { return matches; }, cards, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
+  window.__game = { get matches() { return matches; }, get cards() { return cards; }, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
   frame();
 })();
 </script>
