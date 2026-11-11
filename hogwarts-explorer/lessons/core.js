@@ -29,6 +29,7 @@
   .pickP{width:min(94vw,700px);max-height:92vh;overflow:auto;background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:28px;padding:18px 18px 20px}
   .pickT{text-align:center;color:#ffd76a;font-size:30px;font-weight:bold;text-shadow:0 2px 0 #7a3b00;margin:0 0 4px}
   .pickSub{text-align:center;color:#eadcff;font-size:17px;margin:0 0 12px}
+  .pickStreak{display:inline-block;background:linear-gradient(#ff9a3c,#e8352e);color:#fff;font-weight:bold;border:2px solid #ffd76a;border-radius:14px;padding:0 9px;margin-inline-start:6px;direction:ltr}
   .pickGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
   @media (max-aspect-ratio:1/1){.pickGrid{grid-template-columns:repeat(2,1fr)}}
   .pickCard .rk{position:absolute;top:4px;inset-inline-start:6px;font-size:20px}
@@ -115,7 +116,9 @@
   function renderPicker() {
     const p = document.createElement('div'); p.className = 'pickP';
     const head = document.createElement('div');
-    head.innerHTML = '<div class="pickT">✨ בחרו שיעור ✨</div><div class="pickSub">כל הכיתות פתוחות — בחרו מה שבא לכם!</div>';
+    const stk = HPL.progress.streak ? HPL.progress.streak() : 0;
+    head.innerHTML = '<div class="pickT">✨ בחרו שיעור ✨</div><div class="pickSub">כל הכיתות פתוחות — בחרו מה שבא לכם!'
+      + (stk ? ' <span class="pickStreak" title="ימים ברצף">🔥×' + stk + '</span>' : '') + '</div>';
     p.appendChild(head);
     const grid = document.createElement('div'); grid.className = 'pickGrid';
     LESSONS.forEach((l) => {

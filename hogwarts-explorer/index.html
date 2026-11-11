@@ -462,6 +462,7 @@
   const bgrid = badgesEl.querySelector('#bgrid');
   function renderBadges() {
     bgrid.innerHTML = '';
+    badgesEl.querySelector('.btitle').textContent = 'אוסף המדבקות שלי  ' + earned.size + '/' + BADGES.length;
     BADGES.forEach((b) => {
       const d = document.createElement('div');
       d.className = 'badge' + (earned.has(b.id) ? ' got' : '');

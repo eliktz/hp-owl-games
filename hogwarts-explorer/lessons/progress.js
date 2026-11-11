@@ -63,7 +63,16 @@
     doneToday(key) { doneReset(); return !!store.done[key]; },
     award(key, stars) { store.stars[key] = Math.max(store.stars[key] || 0, stars); store.got[key] = true; save(); refreshBell(); return byKey[key] ? byKey[key].sticker : '⭐'; },
     // a lesson finished: record attendance, mark it done today + book house points
+    // 🔥 day streak: how many days in a row at least one lesson was finished. Shown on the picker
+    // in both games — a gentle reason to come back tomorrow (missing a day just restarts at 1).
+    streak() {
+      const d = store.streakDay; if (!d) return 0;
+      const gap = Math.round((new Date(todayStamp()) - new Date(d)) / 86400000);
+      return gap <= 1 ? (store.streak || 0) : 0;
+    },
     attend(key, stars) {
+      const tday = todayStamp();
+      if (store.streakDay !== tday) { store.streak = this.streak() + 1; store.streakDay = tday; }
       store.att[key] = (store.att[key] || 0) + 1;
       doneReset(); store.done[key] = true;
       const day = (SCH && SCH.state) ? SCH.state().day : 0;
