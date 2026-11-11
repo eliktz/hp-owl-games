@@ -51,13 +51,19 @@
       p.halo = glow(0xff9a3a, 3, 0.4); p.halo.userData.room = 'GH'; scene.add(p.halo);
       pumps.push(p);
     }
-    let cam = null;
-    HPI.builders.push((t) => {
+    let cam = null, spinT = 0;
+    // wave the wand up the middle of the hall and the jack-o'-lanterns whirl about, cackling
+    // (they float overhead, so the target is "straight above you" whenever you stand in the centre aisle)
+    const inAisle = () => { const g = window.__game, p = g && g.player.position; return p && p.x > -52 && p.x < -15 && Math.abs(p.z - 22) < 3.4 ? p : null; };
+    HPI.enchantables.push({ id: 'pumpkins', get x() { const p = inAisle(); return p ? p.x : 1e6; }, y: 5, get z() { const p = inAisle(); return p ? p.z : 1e6; }, r: 3, cast() { spinT = 3.5; try { window.HPFun.sfx.giggle(); setTimeout(() => window.HPFun.sfx.giggle(true), 500); } catch (e) {} return '🎃'; } });
+    HPI.builders.push((t, dt) => {
+      if (spinT > 0) spinT -= dt;
       if (HPI.cull && !HPI.cull.byKey.GH.on) return;
       const g = window.__game; if (g && !cam) cam = g.camera;
       for (let i = 0; i < PN; i++) {
         const p = pumps[i], x = p.x + Math.sin(t * 0.25 + p.ph) * 1.6, y = p.y + Math.sin(t * 0.9 + p.ph) * 0.35, z = p.z + Math.cos(t * 0.2 + p.ph) * 1.6;
-        d.position.set(x, y, z); d.scale.set(1, 0.82, 1); d.rotation.set(0, 0, Math.sin(t * 0.7 + p.ph) * 0.12); d.updateMatrix(); pm.setMatrixAt(i, d.matrix);
+        const sp = spinT > 0 ? Math.min(1, spinT) : 0;            // enchanted: they whirl and bob like mad
+        d.position.set(x, y + sp * Math.abs(Math.sin(t * 8 + p.ph)) * 0.8, z); d.scale.set(1, 0.82, 1); d.rotation.set(0, sp * t * 9, Math.sin(t * 0.7 + p.ph) * 0.12); d.updateMatrix(); pm.setMatrixAt(i, d.matrix);
         // the carved face always grins toward the camera
         if (cam) { const dx = cam.position.x - x, dy = cam.position.y - y, dz = cam.position.z - z, l = Math.hypot(dx, dy, dz) || 1; p.face.position.set(x + dx / l * 0.6, y + dy / l * 0.6, z + dz / l * 0.6); }
         p.halo.position.set(x, y, z); p.halo.material.opacity = 0.32 + 0.12 * Math.sin(t * 7 + p.ph);
