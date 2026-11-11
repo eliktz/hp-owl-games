@@ -39,7 +39,20 @@
     fp.add(mk(0, 2.5, 0.5, 4.4, 0.4, 0.8, new T.MeshStandardMaterial({ color: 0x6a5230, roughness: 0.8 }))); // mantel
     [-1, 1].forEach((s) => fp.add(mk(s * 1.9, 1.1, 0.4, 0.5, 2.4, 0.5, brick))); // jambs
     scene.add(fp);
-    light.addFire(17, Y + 0.3, CR.z0 + 0.7, 1.3);
+    const fire = light.addFire(17, Y + 0.3, CR.z0 + 0.7, 1.3);
+    // wave the wand at the hearth: the flames roar up emerald green (Floo powder!), then settle back to orange
+    let greenT = 0, mix = 0;
+    const parts = fire.children.map((c) => ({ m: c.material, from: c.material.color.clone(), to: new T.Color(c.isSprite ? 0x3dff8a : (c.material.color.g > 0.6 ? 0xc8ffb0 : 0x2fe070)) }));
+    const upHere = () => { const g = window.__game, p = g && g.player.position; return !!p && p.y > Y - 1; };       // not through the floor from below
+    HPI.enchantables.push({ id: 'fire', get x() { return upHere() ? 17 : 1e6; }, y: Y, z: CR.z0 + 0.7, r: 3, cast() { greenT = 5; try { window.HPFun.sfx.noise(1.4, 0.22, 0, 600, 0.5); window.HPFun.sfx.poof(); } catch (e) {} return '🔥'; } });
+    HPI.greenFire = () => greenT;
+    HPI.builders.push((t, dt) => {
+      if (greenT <= 0 && mix <= 0) return;
+      if (greenT > 0) greenT -= dt;
+      mix = Math.max(0, Math.min(1, mix + (greenT > 0 ? dt * 4 : -dt * 1.2)));
+      for (const q of parts) q.m.color.copy(q.from).lerp(q.to, mix);
+      fire.scale.set(1 + mix * 0.25, 1 + mix * (0.7 + 0.2 * Math.sin(t * 11)), 1);
+    });
     // a couple of logs
     [-0.4, 0.3].forEach((o) => { const log = new T.Mesh(new T.CylinderGeometry(0.12, 0.12, 1.2, 8), new T.MeshStandardMaterial({ color: 0x2a1a10, roughness: 1 })); log.rotation.z = Math.PI / 2; log.position.set(17 + o, Y + 0.25, CR.z0 + 0.7); scene.add(log); });
 

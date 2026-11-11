@@ -5,7 +5,7 @@
  * target the spell is a little firework, so pressing the button is never a dud. */
 (function () {
   const F = window.HPFun, T = window.THREE;
-  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier'];
+  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire'];
   const NEED = 5;
   F.boot(function (g) {
     F.badge('wand', '🪄', 'קוסם');
@@ -69,6 +69,7 @@
       for (const tg of targets(world)) {
         const tx = tg.obj ? tg.obj.position.x : tg.x, tz = tg.obj ? tg.obj.position.z : tg.z;
         const d = Math.hypot(tx - p.x, tz - p.z), reach = 9 + (tg.r || 2);
+        if (tg.id === 'friend' && Math.abs(tg.obj.position.y - p.y) > 3) continue;      // not a friend on another floor
         if (d > reach) continue;
         const dot = d < 0.01 ? 1 : ((tx - p.x) * Math.sin(f) + (tz - p.z) * Math.cos(f)) / d;
         const score = d - dot * 4 - (tg.r > 8 ? -6 : 0);      // big area effects (candles/books) lose to a close prop
