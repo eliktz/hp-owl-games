@@ -192,7 +192,8 @@
       S.over = true; S.a += 150; elA.textContent = S.a; bumpEl(elA);
       snitch.visible = false; elSn.classList.remove('on'); S.holder = null;
       roar(true); F.sfx.tada(); F.confetti(['✨', '🏆', '🎉', '⭐', '💛'], 34); g.cheer(4);
-      for (let k = 0; k < 3; k++) setTimeout(() => g.fx.fireworks(new T.Vector3(C.x + (k - 1) * 14, gy + 16, C.z), 10, 6), k * 700);
+      // two volleys of four bursts: festive, but never hundreds of sprites on screen at once (iPad)
+      for (let k = 0; k < 2; k++) setTimeout(() => g.fx.fireworks(new T.Vector3(C.x + (k ? 12 : -12), gy + 16, C.z), 10, 4), k * 1100);
       const win = S.a > S.b; st.qWins += win ? 1 : 0;
       const stars = S.b === 0 && S.a >= 180 ? 3 : S.a - S.b >= 150 ? 3 : win ? 2 : 1;
       if (win && stars >= 2) st.qLevel = Math.min(8, st.qLevel + 1); F.save();
@@ -302,7 +303,8 @@
             b.hit = true; S.stun = 1.0; S.hits++; F.sfx.burp(); F.sfx.yelp(); g.fx.burst(pp, [0xffffff, 0xff8a5a], 16, 6, 0.6);
             if (S.holder === 'me') { S.holder = null; S.kick = 0.9; quaffle.position.set(pp.x + 3, pp.y, pp.z + 3); clampArena(quaffle.position); }
           }
-          if (b.t <= 0) { if (!b.hit) S.dodges++; b.state = 'roam'; b.t = S.bludGap * (0.7 + Math.random() * 0.6); b.gl.material.opacity = 0; }
+          if (b.t <= 0) { if (!b.hit) { S.dodges++; if (!S.over) { roar(false); F.toast('💨', 'אוֹלֶה!', 800); } }   // the crowd loves a good dodge
+            b.state = 'roam'; b.t = S.bludGap * (0.7 + Math.random() * 0.6); b.gl.material.opacity = 0; }
         }
         b.m.rotation.x += dt * 5;
       }
