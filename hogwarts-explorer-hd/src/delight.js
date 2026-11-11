@@ -10,6 +10,9 @@
 //   🫘 beans         a bowl in the common room: a random flavour + a silly spell (giant, tiny,
 //                    rainbow, zoom) that wears off by itself
 //   🐸 Trevor        the runaway toad hides somewhere new each time; follow the ribbits
+//   🤡 Peeves        a cackling poltergeist pops up indoors now and then, pulls faces and
+//                    dares you to catch him (run into him or zap him) for a shower of stars
+//   🎁 owl post      once a day a ribboned parcel drops into the Great Hall
 // Rooms stream in one at a time here, so each room's props are (re)built in roomEntered().
 import {
   Group, Mesh, SphereGeometry, CylinderGeometry, BoxGeometry, ConeGeometry, TorusGeometry, PlaneGeometry,
@@ -68,6 +71,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     const list = [];
     for (const e of roomLive.enchant) { e.obj.getWorldPosition(tmp2); list.push({ id: e.id, x: tmp2.x, y: tmp2.y, z: tmp2.z, cast: e.cast }); }
     if (roomLive.hat) list.push({ id: 'hat', x: HAT.x, y: FLOOR_Y + 1.5, z: HAT.z, cast: () => { roomLive.hat.talk = 2; fun.say(tmp.set(HAT.x, FLOOR_Y + 3.4, HAT.z), 'הֵי! זֶה מְדַגְדֵּג! 🎩', 2, 'hat'); return '🎩'; } });
+    if (pv.state === 'taunt') list.push({ id: 'peeves', x: pv.G.position.x, y: pv.G.position.y, z: pv.G.position.z, cast: () => { catchPeeves(); return '🤡'; } });
     if (trevor.here()) list.push({ id: 'toad', x: trevor.G.position.x, y: trevor.G.position.y, z: trevor.G.position.z, cast: () => { trevor.hop = 0.8; fun.sfx.ribbit(1.4); return '🐸'; } });
     return list;
   }
@@ -240,12 +244,88 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     return true;
   }
 
+  // ================= Peeves (indoors only, so he never costs the grounds a draw call) =================
+  const TAUNTS = ['לֹא תִּתְפֹּס אוֹתִי! 😜', 'בּוּ!! 👻', 'נָה נָה נָה 🎵', 'פְּרְרְרְ! 😝'];
+  const pv = { G: new Group(), state: 'gone', timer: 30, life: 0, spin: 0, pop: 0, razz: 0, vx: 0, vz: 0, b: null };
+  (function buildPeeves() {
+    const G = pv.G, skin = M(0xdff3ff, { emissive: new Color(0x4a6a8a), emissiveIntensity: 0.4 }), coat = M(0xff8a2a);
+    const body = mk(G, new ConeGeometry(0.45, 1.0, 12), coat, 0, 0.15, 0); body.rotation.x = Math.PI;
+    mk(G, new SphereGeometry(0.44, 14, 10), coat, 0, 0.65, 0).scale.set(1, 0.7, 0.9);
+    const head = new Group(); head.position.y = 1.18; G.add(head); pv.head = head;
+    mk(head, new SphereGeometry(0.4, 16, 12), skin);
+    for (const s of [-1, 1]) { mk(head, new SphereGeometry(0.11, 10, 8), M(0xffffff), s * 0.15, 0.07, 0.33); mk(head, new SphereGeometry(0.05, 8, 6), M(0x101018), s * 0.15 + 0.02, 0.07, 0.42); const h = mk(head, new ConeGeometry(0.16, 0.55, 8), M(s < 0 ? 0xe8352e : 0x2ecf6a), s * 0.2, 0.5, 0); h.rotation.z = -s * 0.8; }
+    pv.tongue = mk(head, new BoxGeometry(0.12, 0.2, 0.05), M(0xff6a9a), 0, -0.22, 0.38);
+    G.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.raycast = () => {}; } });
+    G.visible = false; G.name = 'peeves'; scene.add(G);
+  })();
+  function spawnPeeves() {
+    const rm = interiors.room; if (pv.state !== 'gone' || !rm) return false;
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (const c of rm.colliders || []) { x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x); z0 = Math.min(z0, c.z); z1 = Math.max(z1, c.z); }
+    pv.b = { x0: x0 + 1.6, x1: x1 - 1.6, z0: z0 + 1.6, z1: z1 - 1.6 };
+    const f = player.yaw, x = clamp(pos.x + Math.sin(f) * 5, pv.b.x0, pv.b.x1), z = clamp(pos.z + Math.cos(f) * 5, pv.b.z0, pv.b.z1);
+    pv.G.position.set(x, FLOOR_Y + 1, z); pv.G.visible = true; pv.G.scale.setScalar(0.01);
+    pv.state = 'taunt'; pv.life = 24; pv.pop = 0; pv.razz = 1.2; pv.room = interiors.active;
+    fun.sfx.poof(); setTimeout(() => fun.sfx.giggle(), 250);
+    return true;
+  }
+  function catchPeeves() {
+    if (pv.state !== 'taunt') return false;
+    pv.state = 'caught'; pv.spin = 1.5; st.peeves = (st.peeves || 0) + 1; fun.save(); fun.sfx.yelp();
+    fun.toast('🤡', 'תָּפַסְתָּ אֶת פִּיבְס!'); fun.confetti(['🤡', '✨', '🎉', '🍬'], 16);
+    try { window.__game.give('snitch', 2); } catch { /* no quests */ }
+    return true;
+  }
+  function leavePeeves() { pv.state = 'gone'; pv.G.visible = false; pv.timer = 40 + Math.random() * 40; fun.sfx.poof(); }
+  function tickPeeves(dt, t, room, modal) {
+    if (pv.state === 'gone') { if (room && !modal) { pv.timer -= dt; if (pv.timer <= 0 && !spawnPeeves()) pv.timer = 5; } return; }
+    if (room !== pv.room) return leavePeeves();
+    const P = pv.G.position, dx = P.x - pos.x, dz = P.z - pos.z, d = Math.hypot(dx, dz) || 1;
+    pv.pop = Math.min(1, pv.pop + dt * 4); pv.tongue.scale.y = 1 + Math.sin(t * 14) * 0.35; pv.head.rotation.z = Math.sin(t * 5) * 0.25;
+    if (pv.state === 'caught') { pv.spin -= dt; pv.G.rotation.y += dt * 22; pv.G.scale.setScalar(Math.max(0.01, pv.spin / 1.5)); P.y += dt * 1.2; if (pv.spin <= 0) leavePeeves(); return; }
+    pv.G.scale.setScalar(pv.pop); pv.life -= dt; pv.razz -= dt;
+    if (pv.razz <= 0 && !modal) { pv.razz = 4.5 + Math.random() * 3; fun.say(tmp.set(P.x, P.y + 2.2, P.z), TAUNTS[(Math.random() * TAUNTS.length) | 0], 2.2, 'peeves'); Math.random() < 0.5 ? fun.sfx.raspberry() : fun.sfx.giggle(); }
+    const flee = d < 8 ? 5.2 : 0, wob = Math.sin(t * 1.7) * 2;          // a touch slower than your walk, so he CAN be caught
+    pv.vx += ((dx / d) * flee - (dz / d) * wob - pv.vx) * Math.min(1, dt * 4); pv.vz += ((dz / d) * flee + (dx / d) * wob - pv.vz) * Math.min(1, dt * 4);
+    P.x = clamp(P.x + pv.vx * dt, pv.b.x0, pv.b.x1); P.z = clamp(P.z + pv.vz * dt, pv.b.z0, pv.b.z1);
+    P.y = FLOOR_Y + 0.9 + Math.sin(t * 3) * 0.3; pv.G.rotation.y = Math.atan2(-dx, -dz);
+    if (d < 1.9 && !modal) catchPeeves(); else if (pv.life <= 0) { fun.sfx.raspberry(); leavePeeves(); }
+  }
+
+  // ================= owl post (Great Hall, once a real day — the same day-stamp v1 uses) =================
+  const gift = { G: null, state: st.giftDay === fun.today() ? 'done' : 'wait', fall: 0 };
+  const DROP = { x: 0, z: 6 };
+  function buildGift(g) {
+    const B = new Group(); B.position.set(DROP.x, 9, DROP.z);
+    const rib = M(0xffd23f, { metalness: 0.4, roughness: 0.35 });
+    mk(B, new BoxGeometry(0.9, 0.75, 0.9), M([0xe8352e, 0x2e7de8, 0x2ecf6a, 0xb04de8][(Math.random() * 4) | 0]), 0, 0.38, 0);
+    mk(B, new BoxGeometry(0.94, 0.78, 0.18), rib, 0, 0.38, 0); mk(B, new BoxGeometry(0.18, 0.78, 0.94), rib, 0, 0.38, 0);
+    for (const s of [-1, 1]) { const bow = mk(B, new TorusGeometry(0.16, 0.06, 6, 12), rib, s * 0.16, 0.88, 0); bow.rotation.y = Math.PI / 2; bow.rotation.x = s * 0.5; }
+    g.add(B); gift.G = B; gift.state = 'fall'; gift.fall = 0; fun.sfx.hoot();
+  }
+  function openGift() {
+    if (gift.state !== 'landed') return false;
+    gift.state = 'done'; st.giftDay = fun.today(); st.gifts = (st.gifts || 0) + 1; fun.save();
+    if (gift.G) gift.G.visible = false;
+    fun.sfx.tada(); fun.confetti(['🎁', '🎉', '✨', '🍬', '⭐'], 26); fun.toast('🎁', 'דֹּאַר יַנְשׁוּפִים! מָחָר יַגִּיעַ עוֹד 🦉', 2800);
+    try { window.__game.give('snitch', 3); } catch { /* no quests */ }
+    return true;
+  }
+  function tickGift(dt, t, room) {
+    if (!gift.G || room !== 'greathall' || gift.state === 'done') return;
+    const B = gift.G;
+    if (gift.state === 'fall') { gift.fall += dt; const k = Math.min(1, gift.fall / 2.2); B.position.y = 9 * (1 - k * k); B.rotation.y = k * 9; if (k >= 1) { gift.state = 'landed'; B.position.y = 0; fun.sfx.boing(); } return; }
+    B.position.y = Math.abs(Math.sin(t * 2.2)) * 0.15; B.rotation.z = Math.sin(t * 9) * (Math.sin(t * 1.5) > 0.6 ? 0.12 : 0);
+    if (Math.hypot(pos.x - DROP.x, pos.z - DROP.z) < 1.7) openGift();
+  }
+
   // ================= room streaming + per-frame =================
   function roomEntered(id, g) {
     roomLive.enchant = (g.userData.enchant || []).slice(); roomLive.hat = null; roomLive.perch = null; roomLive.bowl = null;
     if (id === HAT.room) roomLive.hat = buildHat(g);
     if (id === PERCH.room && !st.pet) roomLive.perch = buildPerch(g);
     if (id === BOWL.room) roomLive.bowl = buildBowl(g);
+    gift.G = null; if (id === 'greathall' && gift.state !== 'done') buildGift(g);
   }
   function roomLeft() { roomLive.enchant = []; roomLive.hat = null; roomLive.perch = null; roomLive.bowl = null; }
 
@@ -288,6 +368,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     const want = fx === 'giant' ? 1.7 : fx === 'tiny' ? 0.45 : 1, sc = player.model.scale.x, ns = sc + (want - sc) * Math.min(1, dt * 6);
     if (Math.abs(ns - sc) > 1e-4) player.model.scale.setScalar(ns);
     if (fx) { fxLeft -= dt; if (fx === 'rainbow') robeMats.forEach(m => m.color.setHSL((t * 0.6) % 1, 0.85, 0.55)); if (fxLeft <= 0) endBean(); }
+    tickPeeves(dt, t, room, modal); tickGift(dt, t, room);
     // Trevor
     const tv = trevor; tv.G.visible = tv.room === room && Math.hypot(pos.x - tv.G.position.x, pos.z - tv.G.position.z) < 30;
     if (tv.G.visible) {
@@ -309,6 +390,8 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     sorting: { open: openSort, pos: HAT, house: () => st.house, housePts },
     pet: { perch: PERCH, has: () => !!st.pet, owl },
     beans: { eat, end: endBean, bowl: BOWL, current: () => fx, count: () => st.beans },
+    peeves: { spawn: spawnPeeves, caught: catchPeeves, state: () => pv.state, pos: pv.G.position, count: () => st.peeves || 0, soon(sec) { pv.timer = sec == null ? 0.1 : sec; } },
+    gift: { open: openGift, state: () => gift.state, drop: DROP, reset() { gift.state = 'wait'; st.giftDay = ''; } },
     trevor: { find: findTrevor, where: () => ({ i: trevor.idx, room: trevor.room, x: trevor.G.position.x, z: trevor.G.position.z }), count: () => st.trevor },
   };
   fun.mods.delight = api;
