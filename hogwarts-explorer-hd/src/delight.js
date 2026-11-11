@@ -111,7 +111,11 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     const tg = fly.target;
     if (tg) {
       const emoji = tg.cast() || '✨'; fun.sfx.giggle(true); fun.sfx.sparkle();
-      if (!st.magic.includes(tg.id)) { st.magic.push(tg.id); fun.save(); fun.toast(emoji, 'קֶסֶם חָדָשׁ! ' + st.magic.length); }
+      if (!st.magic.includes(tg.id)) {
+        st.magic.push(tg.id); fun.save(); fun.toast(emoji, 'קֶסֶם חָדָשׁ! ' + st.magic.length);
+        // five different things enchanted: a proper "real wizard" moment (once)
+        if (st.magic.length >= 5 && !st.wizard) { st.wizard = true; fun.save(); setTimeout(() => { fun.toast('🪄🌟', 'קוֹסֵם אֲמִתִּי!', 3000); fun.confetti(['🪄', '✨', '⭐', '🌟'], 30); fun.sfx.tada(); }, 2300); }
+      }
     } else if (++duds % 6 === 0) {
       // oops! every sixth cast with nothing to enchant goes hilariously wrong
       const [e, set] = SILLY[(duds / 6) % SILLY.length | 0];
@@ -435,7 +439,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
   const api = {
-    update, roomEntered, cast, lastCast, helloDay: () => st.helloDay, found: () => st.magic.slice(),
+    update, roomEntered, cast, lastCast, helloDay: () => st.helloDay, wizard: () => !!st.wizard, found: () => st.magic.slice(),
     sorting: { open: openSort, pos: HAT, house: () => st.house, housePts },
     pet: { perch: PERCH, has: () => !!st.pet, owl, looping: () => pipLoop > 0 },
     beans: { eat, end: endBean, bowl: BOWL, current: () => fx, count: () => st.beans },
