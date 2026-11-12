@@ -111,9 +111,13 @@
 
   /* snitches */
   const snitches = [];
-  let wanted = 3;
-  function addSnitch() {
+  let wanted = 3, bonusCaught = 0;
+  // every so often a RAINBOW snitch turns up: bigger, shimmering through every colour, worth three
+  let spawned = 0;
+  function addSnitch(bonus) {
     const s = HP.makeSnitch();
+    spawned++;
+    if (bonus === true || spawned % 7 === 0) s.userData.bonus = true;
     s.position.set(rand(-12, 12), rand(0, 10), 0);
     s.userData.seed = rand(0, 100);
     s.userData.home = s.position.clone();
@@ -193,7 +197,8 @@
         continue;
       }
       u.in = Math.min(1, u.in + dt * 2);
-      s.scale.setScalar(u.in * 1.25);
+      s.scale.setScalar(u.in * (u.bonus ? 1.9 : 1.25));
+      if (u.bonus) { const m = s.children[0].material; m.color.setHSL((t * 0.6 + u.seed) % 1, 1, 0.6); m.emissive.setHSL((t * 0.6 + u.seed) % 1, 1, 0.3); if (Math.random() < 0.5) fx.trail(s.position, m.color.getHex(), 0.45); }
       const k = u.seed;
       s.position.x = u.home.x + Math.sin(t * 0.7 + k) * 3 + Math.sin(t * 1.9 + k * 2) * 1;
       s.position.y = u.home.y + Math.cos(t * 0.9 + k) * 2 + Math.sin(t * 2.3 + k) * 0.6;
@@ -205,11 +210,16 @@
       if (Math.random() < 0.15) fx.trail(s.position, 0xffd34d, 0.3);
       if (playing && d < 1.7) {
         u.caught = 0.25;
-        score++;
+        const before = score;
+        score += u.bonus ? 3 : 1;
         ui.setScore(score);
         HP.sfx.chime(); HP.sfx.sparkle();
-        fx.burst(s.position, [0xffd34d, 0xffffff, 0xffef9a], 35, 7, 0.7);
-        if (score % 5 === 0) party();
+        if (u.bonus) {                       // rainbow catch: a shower of every colour, Pig loops with joy
+          fx.burst(s.position, [0xff5a5a, 0xffd34d, 0x7cf07c, 0x7cf0ff, 0xc59bff, 0xff9ad5], 70, 9, 0.9);
+          ui.banner('🌈 +3', 900); spin = 1.2; HP.sfx.tweet(); setTimeout(() => { HP.sfx.chime(); HP.sfx.chime(); }, 120);
+          bonusCaught++;
+        } else fx.burst(s.position, [0xffd34d, 0xffffff, 0xffef9a], 35, 7, 0.7);
+        if (Math.floor(score / 5) > Math.floor(before / 5)) party();
         setTimeout(addSnitch, 700);
       }
     }
@@ -234,7 +244,7 @@
     wanted = Math.min(wanted + 1, 6);
     HP.sfx.resetChime();
   }
-  window.__game = { get score() { return score; }, pig, snitches, party };
+  window.__game = { get score() { return score; }, pig, snitches, party, addSnitch, camera, get bonusCaught() { return bonusCaught; } };
   frame();
 })();
 </script>
