@@ -109,6 +109,12 @@
           F.toast(emoji, 'קסם חדש! ' + (n <= NEED ? n + '/' + NEED : n + ' ✨'));      // past the sticker the count keeps climbing
           if (n >= NEED) setTimeout(() => F.award('wand'), 900);
           // ten different things enchanted: a proper "real wizard" moment (once)
+          // the whole spell book filled in: the grandest moment of all (once)
+          if (!st.archmage && KINDS.every((k) => st.magic.includes(k))) {
+            st.archmage = true; F.save();
+            setTimeout(() => { F.toast('🧙📖', 'כָּל הַקְּסָמִים!', 3600); F.confetti(KINDS.map((k) => ICON[k]), 44); F.sfx.tada(); setTimeout(() => F.sfx.tada(), 700); g.cheer(4);
+              for (let i = 0; i < 5; i++) setTimeout(() => g.fx.burst(to.clone().add(new T.Vector3((Math.random() - 0.5) * 6, 2 + Math.random() * 3, (Math.random() - 0.5) * 6)), [0xffd34d, 0xff9ad5, 0x9fd0ff, 0x8cff9e], 30, 8, 0.9, 1.3, -3), i * 260); }, 3200);
+          }
           if (n >= WIZARD && !st.wizard) { st.wizard = true; F.save(); setTimeout(() => { F.toast('🪄🌟', 'קוֹסֵם אֲמִתִּי!', 3000); F.confetti(['🪄', '✨', '⭐', '🌟'], 30); F.sfx.tada(); g.cheer(3); }, 2300); }
         }
       } else if (++duds % 6 === 0) {
@@ -131,6 +137,6 @@
       g.fx.trail(tmp, 0xfff0a0, 0.4);
       if (k >= 1) { land(); fly = null; b.material.opacity = 0; }
     });
-    F.mods.magic = { cast, kinds: KINDS, need: NEED, found: () => st.magic.slice(), wizard: () => !!st.wizard };
+    F.mods.magic = { cast, kinds: KINDS, need: NEED, found: () => st.magic.slice(), wizard: () => !!st.wizard, archmage: () => !!st.archmage };
   });
 })();
