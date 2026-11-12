@@ -735,17 +735,18 @@
      There is no manual control in the game; tests and previews can pin the hour with
      __game.setClock(h) (null = real clock) or the ?hour=21.5 URL parameter. */
   const C3 = (h) => new THREE.Color(h);
+  // (night is a bright, blue moonlit night on purpose: a child playing at bedtime must still see the paths and friends clearly)
   const SKY_KEYS = [   // hour, sky top/mid/bottom, fog, hemisphere light (colour, strength), sun/moon light (colour, strength), warm lamp, stars
-    { h: 0,    top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
-    { h: 5,    top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
+    { h: 0,    top: C3(0x070a26), mid: C3(0x1b2466), bot: C3(0x394090), fog: C3(0x2a3170), hemi: C3(0x97a4ea), hI: 0.9,  sun: C3(0xb4c2ff), sI: 0.58, warm: 1.0, stars: 1 },
+    { h: 5,    top: C3(0x070a26), mid: C3(0x1b2466), bot: C3(0x394090), fog: C3(0x2a3170), hemi: C3(0x97a4ea), hI: 0.9,  sun: C3(0xb4c2ff), sI: 0.58, warm: 1.0, stars: 1 },
     { h: 6.5,  top: C3(0x3a4a9a), mid: C3(0xc58ab0), bot: C3(0xffb07a), fog: C3(0xa890b0), hemi: C3(0xc9b6d8), hI: 0.98, sun: C3(0xffc08a), sI: 0.8,  warm: 0.6, stars: 0.25 },
     { h: 9,    top: C3(0x3f86d8), mid: C3(0x9fd0f2), bot: C3(0xfff3d8), fog: C3(0xc6dcf0), hemi: C3(0xe6efff), hI: 1.3,  sun: C3(0xfff6e0), sI: 1.05, warm: 0.3, stars: 0.03 },
     { h: 12,   top: C3(0x2f6fc0), mid: C3(0x8fc2ea), bot: C3(0xfff0cf), fog: C3(0xbcd3ea), hemi: C3(0xdfe9ff), hI: 1.35, sun: C3(0xfff3d6), sI: 1.1,  warm: 0.3, stars: 0.02 },
     { h: 16,   top: C3(0x2f6fc0), mid: C3(0x8fc2ea), bot: C3(0xfff0cf), fog: C3(0xbcd3ea), hemi: C3(0xdfe9ff), hI: 1.35, sun: C3(0xfff3d6), sI: 1.1,  warm: 0.3, stars: 0.02 },
     { h: 18,   top: C3(0x2a3a8a), mid: C3(0xb86a8a), bot: C3(0xff9a52), fog: C3(0x9a7090), hemi: C3(0xb89ac0), hI: 1.0,  sun: C3(0xffa860), sI: 0.85, warm: 0.7, stars: 0.3 },
     { h: 19.5, top: C3(0x1a1550), mid: C3(0x6a357f), bot: C3(0xff8a52), fog: C3(0x3a2a6a), hemi: C3(0x8a6fb0), hI: 0.8,  sun: C3(0xff9a52), sI: 0.6,  warm: 0.9, stars: 1 },
-    { h: 21,   top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
-    { h: 24,   top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
+    { h: 21,   top: C3(0x070a26), mid: C3(0x1b2466), bot: C3(0x394090), fog: C3(0x2a3170), hemi: C3(0x97a4ea), hI: 0.9,  sun: C3(0xb4c2ff), sI: 0.58, warm: 1.0, stars: 1 },
+    { h: 24,   top: C3(0x070a26), mid: C3(0x1b2466), bot: C3(0x394090), fog: C3(0x2a3170), hemi: C3(0x97a4ea), hI: 0.9,  sun: C3(0xb4c2ff), sI: 0.58, warm: 1.0, stars: 1 },
   ];
   const skyU = sky.sky.material.uniforms;
   let clockOverride = null;
