@@ -74,12 +74,12 @@
     // enchanted ceiling — dark sky with drifting cloud bands + twinkling stars,
     // painted by a shader on a big flat plane high over the Great Hall.
     function enchantedCeiling(cx, cz, w, d, y) {
-      const uni = { t: { value: 0 } };
+      const uni = { t: { value: 0 }, day: { value: 0 } };            // day: 0 = night sky … 1 = the daytime sky outside (set from HPI.nightness)
       const m = new T.Mesh(new T.PlaneGeometry(w, d),
         new T.ShaderMaterial({
           uniforms: uni, side: T.DoubleSide, fog: false, transparent: true,
           vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-          fragmentShader: `uniform float t; varying vec2 vUv;
+          fragmentShader: `uniform float t; uniform float day; varying vec2 vUv;
             float h(vec2 p){ return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5); }
             void main(){ vec2 p=vUv;
               vec3 c=mix(vec3(0.02,0.02,0.08), vec3(0.08,0.07,0.22), p.y);
@@ -88,6 +88,10 @@
               vec2 gp=floor(p*34.0); float st=h(gp);
               float tw=smoothstep(0.985,1.0,st)* (0.5+0.5*sin(t*2.0+st*30.0));
               c+=vec3(1.0,0.95,0.8)*tw;
+              // by day the ceiling shows the daytime sky: soft blue with drifting pale clouds, the stars faded out
+              vec3 dc=mix(vec3(0.36,0.60,0.90), vec3(0.62,0.80,0.96), p.y);
+              dc=mix(dc, vec3(0.97,0.97,1.0), smoothstep(0.25,1.0,cl)*0.75);
+              c=mix(c, dc, day);
               gl_FragColor=vec4(c,1.0);} `,
         }));
       m.rotation.x = Math.PI / 2; m.position.set(cx, y, cz); scene.add(m);
@@ -203,7 +207,9 @@
         }
         pa.needsUpdate = true;
       }
-      for (const u of ceilUni) u.t.value = t;
+      const day = Math.max(0, Math.min(1, 1 - (HPI.nightness == null ? 1 : HPI.nightness) * 1.3));      // the Great Hall ceiling shows the sky outside
+      for (const u of ceilUni) { u.t.value = t; u.day.value = day; }
+      HPI.ceilingDay = day;
     }
 
     return { addTorch, addFire, addShaft, addDust, enchantedCeiling, addPool, blobShadow, update, hemi, fill, sources };

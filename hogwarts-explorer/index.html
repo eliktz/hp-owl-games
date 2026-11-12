@@ -728,23 +728,51 @@
   jumpBtn.addEventListener('pointercancel', () => (climbHold = false));
   jumpBtn.addEventListener('pointerleave', () => (climbHold = false));
 
-  /* ---------------- day → dusk cycle ---------------- */
-  const DAY = { top: new THREE.Color(0x2f6fc0), mid: new THREE.Color(0x8fc2ea), bot: new THREE.Color(0xfff0cf), fog: new THREE.Color(0xbcd3ea), hemi: new THREE.Color(0xdfe9ff), sun: new THREE.Color(0xfff3d6) };
-  const DUSK = { top: new THREE.Color(0x1a1550), mid: new THREE.Color(0x6a357f), bot: new THREE.Color(0xff8a52), fog: new THREE.Color(0x3a2a6a), hemi: new THREE.Color(0x8a6fb0), sun: new THREE.Color(0xff9a52) };
+  /* ---------------- day and night follow the device's clock ----------------
+     The sky, fog and lights are keyed to the real local time: a pink dawn, a bright morning and
+     midday, a golden evening, dusk, and a starry moonlit night (kept bright enough to play in).
+     Colours blend smoothly between the key hours below, so the light shifts through the day.
+     There is no manual control in the game; tests and previews can pin the hour with
+     __game.setClock(h) (null = real clock) or the ?hour=21.5 URL parameter. */
+  const C3 = (h) => new THREE.Color(h);
+  const SKY_KEYS = [   // hour, sky top/mid/bottom, fog, hemisphere light (colour, strength), sun/moon light (colour, strength), warm lamp, stars
+    { h: 0,    top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
+    { h: 5,    top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
+    { h: 6.5,  top: C3(0x3a4a9a), mid: C3(0xc58ab0), bot: C3(0xffb07a), fog: C3(0xa890b0), hemi: C3(0xc9b6d8), hI: 0.98, sun: C3(0xffc08a), sI: 0.8,  warm: 0.6, stars: 0.25 },
+    { h: 9,    top: C3(0x3f86d8), mid: C3(0x9fd0f2), bot: C3(0xfff3d8), fog: C3(0xc6dcf0), hemi: C3(0xe6efff), hI: 1.3,  sun: C3(0xfff6e0), sI: 1.05, warm: 0.3, stars: 0.03 },
+    { h: 12,   top: C3(0x2f6fc0), mid: C3(0x8fc2ea), bot: C3(0xfff0cf), fog: C3(0xbcd3ea), hemi: C3(0xdfe9ff), hI: 1.35, sun: C3(0xfff3d6), sI: 1.1,  warm: 0.3, stars: 0.02 },
+    { h: 16,   top: C3(0x2f6fc0), mid: C3(0x8fc2ea), bot: C3(0xfff0cf), fog: C3(0xbcd3ea), hemi: C3(0xdfe9ff), hI: 1.35, sun: C3(0xfff3d6), sI: 1.1,  warm: 0.3, stars: 0.02 },
+    { h: 18,   top: C3(0x2a3a8a), mid: C3(0xb86a8a), bot: C3(0xff9a52), fog: C3(0x9a7090), hemi: C3(0xb89ac0), hI: 1.0,  sun: C3(0xffa860), sI: 0.85, warm: 0.7, stars: 0.3 },
+    { h: 19.5, top: C3(0x1a1550), mid: C3(0x6a357f), bot: C3(0xff8a52), fog: C3(0x3a2a6a), hemi: C3(0x8a6fb0), hI: 0.8,  sun: C3(0xff9a52), sI: 0.6,  warm: 0.9, stars: 1 },
+    { h: 21,   top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
+    { h: 24,   top: C3(0x05061c), mid: C3(0x161c52), bot: C3(0x2c2f72), fog: C3(0x1b2050), hemi: C3(0x7f8ad0), hI: 0.72, sun: C3(0x9fb0ff), sI: 0.42, warm: 1.0, stars: 1 },
+  ];
   const skyU = sky.sky.material.uniforms;
+  let clockOverride = null;
+  try { const q = new URLSearchParams(location.search).get('hour'); if (q !== null && q !== '' && isFinite(+q)) clockOverride = ((+q % 24) + 24) % 24; } catch (e) { /* no URL API */ }
+  function clockHour() { if (clockOverride !== null) return clockOverride; const d = new Date(); return d.getHours() + d.getMinutes() / 60; }
+  const phaseOf = (h) => (h >= 6 && h < 11 ? 'morning' : h >= 11 && h < 17 ? 'day' : h >= 17 && h < 20.5 ? 'evening' : 'night');
+  function cycleNightOnly() { const h = clockHour(); let i = 0; while (i < SKY_KEYS.length - 2 && h >= SKY_KEYS[i + 1].h) i++; const a = SKY_KEYS[i], b = SKY_KEYS[i + 1]; return lerp(a.stars, b.stars, clamp((h - a.h) / (b.h - a.h), 0, 1)); }
+  let nightness = 0;                                   // 0 = broad daylight … 1 = full night (drives stars, candles, fireflies, the enchanted ceilings)
   function cycle(t) {
-    const dusk = 0.5 - 0.5 * Math.cos(t * (Math.PI * 2 / 90)); // 0 day → 1 dusk, ~90s round trip
-    skyU.top.value.copy(DAY.top).lerp(DUSK.top, dusk);
-    skyU.mid.value.copy(DAY.mid).lerp(DUSK.mid, dusk);
-    skyU.bot.value.copy(DAY.bot).lerp(DUSK.bot, dusk);
-    scene.fog.color.copy(DAY.fog).lerp(DUSK.fog, dusk);
+    const h = clockHour();
+    let i = 0; while (i < SKY_KEYS.length - 2 && h >= SKY_KEYS[i + 1].h) i++;
+    const a = SKY_KEYS[i], b = SKY_KEYS[i + 1], k = clamp((h - a.h) / (b.h - a.h), 0, 1);
+    skyU.top.value.copy(a.top).lerp(b.top, k);
+    skyU.mid.value.copy(a.mid).lerp(b.mid, k);
+    skyU.bot.value.copy(a.bot).lerp(b.bot, k);
+    scene.fog.color.copy(a.fog).lerp(b.fog, k);
     renderer.setClearColor(scene.fog.color, 1);
-    hemi.color.copy(DAY.hemi).lerp(DUSK.hemi, dusk); hemi.intensity = lerp(1.35, 0.8, dusk);
-    sun.color.copy(DAY.sun).lerp(DUSK.sun, dusk); sun.intensity = lerp(1.1, 0.6, dusk);
-    warm.intensity = lerp(0.3, 0.9, dusk);
-    sky.stars.material.opacity = lerp(0.05, 1, dusk);
-    sky.moon.children[0].material.opacity = 1;
-    return dusk;
+    hemi.color.copy(a.hemi).lerp(b.hemi, k); hemi.intensity = lerp(a.hI, b.hI, k);
+    sun.color.copy(a.sun).lerp(b.sun, k); sun.intensity = lerp(a.sI, b.sI, k);
+    warm.intensity = lerp(a.warm, b.warm, k);
+    nightness = lerp(a.stars, b.stars, k);
+    sky.stars.material.opacity = nightness;
+    // the moon rises with the stars and is gone by day
+    const mo = clamp(nightness * 1.4 - 0.15, 0, 1);
+    sky.moon.visible = mo > 0.02;
+    sky.moon.children.forEach((c) => { c.material.transparent = true; c.material.opacity = (c.isSprite ? 0.55 : 1) * mo; });
+    return nightness;
   }
 
   /* ---------------- camera follow (spring-arm, raycast wall-avoidance) ---------------- */
@@ -790,6 +818,8 @@
     const outside = world === 'outside';
     let dusk = 0;
     if (outside) { sky.update(t); dusk = cycle(t); lakeMat.uniforms.t.value = t; }
+    else nightness = cycleNightOnly();                 // indoors: only the enchanted ceilings need to know how dark it is outside
+    if (window.HPI) window.HPI.nightness = nightness;
 
     const ax = moveAxis();
     if (takeover) {                   // the match drives the hero + camera; the world keeps living around it
@@ -1100,6 +1130,10 @@
     give(type, n) { inv[type] += n; collected[type] += n; updInv(); bump(type === 'snitch' ? invS : invF); if (collected.snitch >= 6) award('snitch'); if (collected.frog >= 6) award('frog'); },
     get facing() { return facing; }, get grounded() { return grounded; },
     courtyardDance() { if (courtT <= 0) courtT = COURT_T; }, get courtT() { return courtT; },
+    // day/night: pin the hour for tests and previews (null → the device clock again); clock() reports what the sky is showing
+    setClock(h) { clockOverride = h == null ? null : ((+h % 24) + 24) % 24; },
+    clock() { const h = clockHour(); return { hour: h, phase: phaseOf(h), night: nightness, pinned: clockOverride !== null,
+      sky: { top: skyU.top.value.getHex(), mid: skyU.mid.value.getHex(), bot: skyU.bot.value.getHex(), fog: scene.fog.color.getHex() }, hemi: hemi.intensity, sun: sun.intensity, stars: sky.stars.material.opacity, moon: sky.moon.visible }; },
     get takeover() { return takeover; }, setTakeover(o) { takeover = o || null; if (takeover) { releaseAll(); mode = 'walk'; hedwig.visible = false; } },
     axis: moveAxis,
   };
