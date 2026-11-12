@@ -89,6 +89,28 @@ export function grassTexture(repeat = 90) {
 }
 
 // Normal-ish map for the lake surface (cheap wavelets).
+// Calm lake ripples: a tileable sum of long, low sine swells encoded as a proper tangent-
+// space normal map (z always up). Smooth slopes keep the env reflection coherent instead of
+// the per-pixel sparkle of waterNormal() below.
+export function waterRipples(repeat = 6, strength = 1.0) {
+  const N = 256, { c, g } = makeCanvas(N), img = g.createImageData(N, N), r = rng(19);
+  const waves = [];                                     // integer frequencies => seamless tiling
+  for (let i = 0; i < 7; i++) waves.push({ fx: Math.round((r() - 0.5) * 10), fy: 1 + Math.round(r() * 6 + i), a: 1 / (1 + i * 0.6), p: r() * 6.283 });
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let dx = 0, dy = 0;
+    for (const w of waves) {
+      const k = 6.283 / N, ph = (w.fx * x + w.fy * y) * k + w.p, cs = Math.cos(ph) * w.a;
+      dx += cs * w.fx * k; dy += cs * w.fy * k;
+    }
+    let nx = -dx * strength * 3, ny = -dy * strength * 3, nz = 1;
+    const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+    const i = (y * N + x) * 4;
+    img.data[i] = (nx * 0.5 + 0.5) * 255; img.data[i + 1] = (ny * 0.5 + 0.5) * 255; img.data[i + 2] = (nz * 0.5 + 0.5) * 255; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return finish(c, { srgb: false, repeat });
+}
+
 export function waterNormal(repeat = 8) {
   const { c, g } = makeCanvas(256);
   const r = rng(71);

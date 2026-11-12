@@ -20,8 +20,8 @@ const HOUSE = [0x7a1020, 0x1a3a6a, 0xb08a1a, 0x1a5a2a];
 
 // Four axis-aligned walls + floor + ceiling; pushes box colliders. `open` lists wall sides
 // ('s'|'n'|'e'|'w') to leave as a walkable doorway gap (split into two stubs, no centre block).
-function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5, ceilColor = 0x3c3850 } = {}) {
-  floor(g, W, D, floorColor, floorTile);
+function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5, ceilColor = 0x3c3850, floorRough = 0.92 } = {}) {
+  floor(g, W, D, floorColor, floorTile, floorRough);
   if (ceil) ceiling(g, W, D, H, ceilColor);
   const t = 1, GAP = 3.6;
   const sides = {
@@ -131,8 +131,8 @@ function entranceHall() {
 // ---- The Great Hall: four long tables, a head table on a dais, floating candles ---------
 function greatHall() {
   const g = new Group(); const cols = []; const W = 20, D = 36, H = 15;
-  shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0xb6a284, floorTile: 4 });
-  enchantedCeiling(g, W, D, H);
+  shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0xb6a284, floorTile: 4, floorRough: 0.6 });   // polished flags: candle sheen
+  enchantedCeiling(g, W, D, H, { color: 0x141d3e, glow: 0x24315e, glowI: 0.7 });   // starry dusk blue
   carpet(g, 0, 0, 6, D - 5, 0x6e1420);                     // long crimson aisle runner
   const flames = [];
   // Four house tables framing the central aisle: benches, plates, and low candelabra.
@@ -146,8 +146,8 @@ function greatHall() {
   }
   for (let z = -D / 2 + 4; z <= D / 2 - 4; z += 7) { column(g, -W / 2 + 0.9, z, H); column(g, W / 2 - 0.9, z, H); }
   for (const sx of [-W / 2 + 0.2, W / 2 - 0.2]) for (const z of [-9, 0, 9])
-    window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+    window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a, 0.8);
+  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2, { lift: 0.12, crestGlow: 0.7 }));
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
   for (const [x, z] of [[-W / 2 + 0.5, 13], [W / 2 - 0.5, 13]]) torch(g, x, 5, z);
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon

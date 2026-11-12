@@ -4,7 +4,7 @@
 // without adding runtime lights (iPad rule). Call `await ensureTex()` before building a room.
 import {
   Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, ConeGeometry,
-  CircleGeometry, MeshStandardMaterial, Color, DoubleSide, RepeatWrapping, InstancedMesh, Object3D,
+  CircleGeometry, MeshStandardMaterial, Color, DoubleSide, RepeatWrapping, InstancedMesh, Object3D, SRGBColorSpace,
 } from 'three';
 import { loadTexture } from './assets.js';
 
@@ -54,11 +54,11 @@ export const MAT = {
 };
 const emissive = (c, i = 1) => new MeshStandardMaterial({ color: c, emissive: new Color(c), emissiveIntensity: i, roughness: 0.4 });
 
-export function floor(group, w, d, color = 0x9a8f7e, tileM = 2.5) {
+export function floor(group, w, d, color = 0x9a8f7e, tileM = 2.5, rough = 0.92) {
   // Warm flagstone: the castle-wall map (not the near-black slate) tiled per ~tileM metres so
   // the floor reads as lit stone, not a flat dark void. Bigger tiles (larger tileM) read as a
   // grand hall's flagstones rather than a busy outdoor cobble yard.
-  const m = new Mesh(new PlaneGeometry(w, d), cached('floor', w / tileM, d / tileM, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, w / tileM, d / tileM), roughness: 0.92 })));
+  const m = new Mesh(new PlaneGeometry(w, d), cached('floor' + rough, w / tileM, d / tileM, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, w / tileM, d / tileM), roughness: rough })));
   m.rotation.x = -Math.PI / 2; m.receiveShadow = true; group.add(m); return m;
 }
 
@@ -139,34 +139,42 @@ export function longTable(group, x, z, len = 14, runner = 0x7a1020) {
 }
 
 // Tall stained-glass window: a glowing coloured pane behind a dark stone mullion cross.
-export function window2(group, x, y, z, rotY = 0, hue = 0x7fb0ff) {
+export function window2(group, x, y, z, rotY = 0, hue = 0x7fb0ff, glow = 0.42) {
   // Tall arched stained glass. Kept at a gentle emissive so it reads as lit coloured glass
   // (not a blown-out white blob) — a dark stone surround + mullion cross frames the pane.
   const g = new Group(); g.position.set(x, y, z); g.rotation.y = rotY;
   const surround = new Mesh(new BoxGeometry(2.9, 7.4, 0.3), MAT.dark); surround.position.set(0, 0.2, -0.12); g.add(surround);
-  const pane = new Mesh(new PlaneGeometry(2.2, 5), emissive(hue, 0.42)); pane.material.side = DoubleSide; g.add(pane);
+  const pane = new Mesh(new PlaneGeometry(2.2, 5), emissive(hue, glow)); pane.material.side = DoubleSide; g.add(pane);
   g.add(new Mesh(new BoxGeometry(0.16, 5, 0.1), MAT.dark));
   for (const yy of [-1.5, 0, 1.5]) g.add(new Mesh(new BoxGeometry(2.2, 0.14, 0.1), MAT.dark)).position.y = yy;
   // Arched top as a flat half-disc coplanar with the pane (a 3D cone read as a torn triangle
   // at grazing angles). The dark surround behind it frames the arch.
-  const top = new Mesh(new CircleGeometry(1.1, 18, 0, Math.PI), emissive(hue, 0.42)); top.material.side = DoubleSide;
+  const top = new Mesh(new CircleGeometry(1.1, 18, 0, Math.PI), emissive(hue, glow)); top.material.side = DoubleSide;
   top.position.y = 2.5; g.add(top);
   g.userData.light = { k: 'window', c: hue };            // the glass throws a patch of its colour on the floor
   group.add(g); return g;
 }
 
 // A hanging house banner (coloured cloth + crest bar + pole) against a wall.
-export function banner(group, x, y, z, color, rotY = 0) {
+// opts.lift: cloth lightened + a faint self-glow so it reads in candle light; opts.crest: crest glow.
+export function banner(group, x, y, z, color, rotY = 0, { lift = 0, crestGlow = 0.22 } = {}) {
   const g = new Group(); g.position.set(x, y, z); g.rotation.y = rotY;
-  const cloth = new Mesh(new PlaneGeometry(2.4, 5.5), new MeshStandardMaterial({ color, roughness: 0.9, side: DoubleSide })); g.add(cloth);
-  const crest = new Mesh(new PlaneGeometry(1.4, 1.4), emissive(0xd9b24a, 0.22)); crest.material.side = DoubleSide; crest.position.z = 0.02; g.add(crest);
+  const cc = new Color(color);
+  if (lift) {                                  // lift in sRGB, then keep albedo <= 0.84 (no bloom)
+    const h = {}; cc.getHSL(h, SRGBColorSpace); cc.setHSL(h.h, Math.min(1, h.s + 0.04), h.l + lift, SRGBColorSpace);
+    const rgb = {}; cc.getRGB(rgb, SRGBColorSpace); const mx = Math.max(rgb.r, rgb.g, rgb.b);
+    if (mx > 0.84) cc.setRGB(rgb.r * 0.84 / mx, rgb.g * 0.84 / mx, rgb.b * 0.84 / mx, SRGBColorSpace);
+  }
+  const cloth = new Mesh(new PlaneGeometry(2.4, 5.5), new MeshStandardMaterial({ color: cc, roughness: 0.85, side: DoubleSide,
+    emissive: cc.clone(), emissiveIntensity: lift ? 0.22 : 0 })); g.add(cloth);
+  const crest = new Mesh(new PlaneGeometry(1.4, 1.4), emissive(0xd9b24a, crestGlow)); crest.material.side = DoubleSide; crest.position.z = 0.02; g.add(crest);
   g.add(new Mesh(new CylinderGeometry(0.07, 0.07, 2.8, 6), MAT.gold)).rotation.z = Math.PI / 2;
   group.add(g); return g;
 }
 
 // Enchanted ceiling: a dark night-sky dome sprinkled with emissive stars (Great Hall magic).
-export function enchantedCeiling(group, w, d, y) {
-  const sky = new Mesh(new PlaneGeometry(w, d), new MeshStandardMaterial({ color: 0x0a0f24, emissive: new Color(0x141c44), emissiveIntensity: 0.6, side: DoubleSide }));
+export function enchantedCeiling(group, w, d, y, { color = 0x0a0f24, glow = 0x141c44, glowI = 0.6 } = {}) {
+  const sky = new Mesh(new PlaneGeometry(w, d), new MeshStandardMaterial({ color, emissive: new Color(glow), emissiveIntensity: glowI, side: DoubleSide }));
   sky.rotation.x = Math.PI / 2; sky.position.y = y; group.add(sky);
   // the 70 stars are one instanced mesh (they used to be 70 draw calls)
   const stars = new InstancedMesh(new SphereGeometry(0.07, 6, 6), emissive(0xfff4c2, 2.0), 70), o = new Object3D();
