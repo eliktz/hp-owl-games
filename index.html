@@ -55,6 +55,12 @@
     if (b > 0 && card) { const t = document.createElement('div'); t.className = 'best'; t.dir = 'ltr'; t.textContent = e + ' ' + b; card.appendChild(t); }
   });
 
+  // the castle: how many stickers are in the collection so far
+  try {
+    const n = JSON.parse(localStorage.getItem('hpBadges1') || '[]').length, card = document.querySelector('a.card[href^="hogwarts-explorer/"]');
+    if (n > 0 && card) { const t = document.createElement('div'); t.className = 'best'; t.dir = 'ltr'; t.textContent = '🎖️ ' + n; card.appendChild(t); }
+  } catch (x) { /* private mode / old save */ }
+
   const c = document.getElementById('stars'), g = c.getContext('2d');
   const st = Array.from({ length: 160 }, () => ({ x: Math.random(), y: Math.random() * 0.8, r: Math.random() * 1.8 + 0.4, p: Math.random() * 6 }));
   function draw(t) {
