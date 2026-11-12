@@ -44,12 +44,29 @@
     // a shelf of coloured healing potions on the long wall
     const table = F.mesh(new T.BoxGeometry(R.x1 - R.x0 - 4, 0.2, 0.8), new T.MeshStandardMaterial({ map: HPI.tex.wood(2).map, roughness: 0.85 }), (R.x0 + R.x1) / 2, 1, R.z1 - 1);
     scene.add(table);
-    const pc = [0xff7a9a, 0x8cff9e, 0x9fd0ff, 0xffe08a, 0xc89aff];
+    const pc = [0xff7a9a, 0x8cff9e, 0x9fd0ff, 0xffe08a, 0xc89aff], bottles = [];
     for (let i = 0; i < 10; i++) {
       const c = pc[i % pc.length];
       const b = F.mesh(new T.CylinderGeometry(0.1, 0.13, 0.4, 8), new T.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.5, roughness: 0.5, transparent: true, opacity: 0.85 }), R.x0 + 2.5 + i * 1.3, 1.3, R.z1 - 1);
-      scene.add(b);
+      scene.add(b); bottles.push({ b, c: new T.Color(c), y: b.position.y });
     }
+    // wave the wand at the potion shelf: the bottles hop along in a wave, fizzing through every colour
+    let fizzT = 0;
+    const inWard = () => { const g = window.__game, p = g && g.player.position; return !!p && p.x > R.x0 && p.x < R.x1 && p.z > R.z0 && p.z < R.z1 && p.y < 4; };
+    HPI.enchantables.push({ id: 'potions', get x() { return inWard() ? (R.x0 + R.x1) / 2 : 1e6; }, y: 1.3, z: R.z1 - 1, r: 5, cast() {
+      fizzT = 3.5;
+      try { const S = window.HPFun.sfx; for (let i = 0; i < 10; i++) S.tone(520 + i * 70, 0.09, 'sine', 0.1, i * 0.09, 900 + i * 90); S.noise(1.2, 0.08, 0, 3200, 2); } catch (e) {}
+      return '🧪'; } });
+    HPI.potionsFizz = () => fizzT;
+    HPI.builders.push((t, dt) => {
+      if (fizzT <= 0) return;
+      fizzT -= dt; const k = fizzT > 0 ? Math.min(1, fizzT) : 0;
+      bottles.forEach((o, i) => {
+        o.b.position.y = o.y + k * Math.max(0, Math.sin(t * 7 - i * 0.7)) * 0.55; o.b.rotation.z = k * Math.sin(t * 9 + i) * 0.25;
+        if (k > 0) { o.b.material.color.setHSL((t * 0.5 + i * 0.1) % 1, 0.9, 0.62); o.b.material.emissive.copy(o.b.material.color); o.b.material.emissiveIntensity = 0.5 + k * 0.6; }
+        else { o.b.material.color.copy(o.c); o.b.material.emissive.copy(o.c); o.b.material.emissiveIntensity = 0.5; }
+      });
+    });
     // a hanging healing-lamp over the ward: a chain from the ceiling to a glowing glass
     //      globe (anchored, so it reads as a lamp and not a stray floating ball) ----
     const lcx = (R.x0 + R.x1) / 2, lcz = (R.z0 + R.z1) / 2, orbY = 5;
