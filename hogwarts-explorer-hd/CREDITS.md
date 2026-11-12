@@ -18,6 +18,8 @@ Addons used (all MIT, from three.js `examples/jsm`): `loaders/RGBELoader.js`,
 and for KTX2 (KHR_texture_basisu) textures: `loaders/KTX2Loader.js`, `utils/WorkerPool.js`,
 `math/ColorSpaces.js`, `libs/ktx-parse.module.js` (MIT, Don McCurdy) and
 `libs/zstddec.module.js` (MIT, Don McCurdy), all copied unmodified from three.js r187.
+Post-processing bloom: `tsl/display/BloomNode.js` (three.js, MIT), copied unmodified from the
+three@0.187.0 npm package (`examples/jsm/tsl/display/BloomNode.js`), used by `src/post.js`.
 
 | Item | License | Source |
 |---|---|---|

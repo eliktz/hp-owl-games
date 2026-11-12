@@ -99,11 +99,33 @@ async function boot() {
     },
   });
 
+  // Bloom post pipeline (step 6): HIGH and MEDIUM only. Loaded dynamically so a missing or
+  // broken post module can never stop the game from booting; null = render direct.
+  // ?post=0 disables it (A/B checks and a safety switch).
+  let post = null;
+  if (new URLSearchParams(location.search).get('post') !== '0') {
+    try { post = (await import('./post.js')).createPost(renderer, scene, camera); }
+    catch (e) { console.warn('[post] disabled:', e && e.message || e); post = null; }
+  }
+  let usePost = false;
   const quality = new QualityManager(renderer, {
-    onTier: (t) => hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t),
+    onTier: (t) => {
+      usePost = !!post && t !== TIER.LOW;
+      hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t);
+    },
   });
   quality.applyTier(TIER.HIGH);
+  // One frame through the pipeline; on any throw, fall back to renderer.render for good.
+  function renderFrame() {
+    if (usePost) {
+      try { post.render(); return; }
+      catch (e) { console.warn('[post] render failed, falling back:', e && e.message || e); post.dispose(); post = null; usePost = false; }
+    }
+    renderer.render(scene, camera);
+  }
 
+  // The post pipeline needs no resize call: PassNode and BloomNode read the renderer's
+  // drawing-buffer size every frame (also after quality.js changes the pixel ratio).
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
@@ -208,7 +230,7 @@ async function boot() {
     for (const h of hooks) h(dt, inside);
 
     quality.sample(dtMs);
-    renderer.render(scene, camera);
+    renderFrame();
   }
   renderer.setAnimationLoop(loop);
 
@@ -221,6 +243,8 @@ async function boot() {
     exitInterior: () => interiors.exit(),
     setTime: (k) => env.setTime(k),
     setQuality: (t) => quality.applyTier(t),
+    get post() { return post; },
+    postActive: () => usePost,
     spots: () => Object.keys(SPOTS),
     questState: () => quests.state,
     // Gameplay-test probe: player/camera world pos, whether a wall sits between the player

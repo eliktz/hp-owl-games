@@ -21,6 +21,7 @@ export const BLOOM = {
   strength: 0.42,
   radius: 0.5,
   maxAlbedo: 0.84,
+  clampMax: 64,   // post NaN/Inf guard also clamps scene radiance before the blur
 };
 
 // Quality tiers chosen by FPS sampling over the first few seconds.
