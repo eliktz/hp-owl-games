@@ -202,8 +202,11 @@
   document.body.appendChild(picker);
   let diff = 'easy', currentOp = 'add';
   const easyBtn = picker.querySelector('#diff-easy'), normBtn = picker.querySelector('#diff-norm');
-  easyBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); diff = 'easy'; easyBtn.classList.add('sel'); normBtn.classList.remove('sel'); HP.sfx.pop(); });
-  normBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); diff = 'norm'; normBtn.classList.add('sel'); easyBtn.classList.remove('sel'); HP.sfx.pop(); });
+  // the chosen level is remembered between visits, so the child doesn't have to pick it again every time
+  const setDiff = (d, quiet) => { diff = d; easyBtn.classList.toggle('sel', d === 'easy'); normBtn.classList.toggle('sel', d === 'norm'); try { localStorage.setItem('mathOwlDiff', d); } catch (e) { /* private mode */ } if (!quiet) HP.sfx.pop(); };
+  easyBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); setDiff('easy'); });
+  normBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); setDiff('norm'); });
+  try { if (localStorage.getItem('mathOwlDiff') === 'norm') setDiff('norm', true); } catch (e) { /* private mode */ }
   const opOf = { 'mode-add': 'add', 'mode-sub': 'sub', 'mode-mul': 'mul', 'mode-mix': 'mix' };
   Object.keys(opOf).forEach((id) => {
     const el = picker.querySelector('#' + id);
@@ -473,7 +476,7 @@
 
   /* ---- test / debug hooks ---- */
   window.__game = {
-    get score() { return score; }, get streak() { return streak; }, get best() { return best; }, get record() { return recordShown; },
+    get score() { return score; }, get streak() { return streak; }, get best() { return best; }, get diff() { return diff; }, get record() { return recordShown; },
     get question() { return q; }, get asking() { return asking; }, get playing() { return playing; },
     get boxes() { return boxes.filter((b) => b.active).map((b) => ({ value: b.value, correct: b.correct, dim: b.dim, x: b.baseX })); },
     begin, camera, owl,
