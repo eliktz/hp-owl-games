@@ -25,8 +25,8 @@
       @keyframes wandTry{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 8px rgba(255,215,106,.55),0 0 28px rgba(255,215,106,.9)}}`;
     document.head.appendChild(css);
     // ---- the spell book: a row in the 🎖️ sticker screen with every kind of magic found so far (❔ = still out there) ----
-    css.textContent += `.spellRow{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin:12px 0 0}
-      .spellRow span{width:30px;height:30px;font-size:21px;line-height:30px;text-align:center;border-radius:9px;background:rgba(20,12,50,.6)}
+    css.textContent += `.spellRow{display:flex;gap:3px;justify-content:center;flex-wrap:wrap;margin:10px 0 0}
+      .spellRow span{width:26px;height:27px;font-size:18px;line-height:27px;text-align:center;border-radius:8px;background:rgba(20,12,50,.6)}      /* sized so every kind of magic fits in two rows */
       .spellRow span.no{opacity:.35;filter:grayscale(1)} .spellRow span.no.hint{opacity:1;filter:none;transform:scale(1.35);background:rgba(255,215,106,.35)}
       .spellRow span{transition:transform .15s;touch-action:manipulation} .spellRow span.new{animation:spellNew .9s ease-out 3}
       @keyframes spellNew{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}`;
