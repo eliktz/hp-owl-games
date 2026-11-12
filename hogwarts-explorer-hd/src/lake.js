@@ -12,13 +12,21 @@ export function buildLake(scene) {
   geo.rotateX(-Math.PI / 2);
   // Calm, dark, glossy: a dielectric (metalness 0) lets Fresnel mirror the sky at the
   // grazing angles a child sees the lake from, and long gentle swells keep it coherent.
-  const normalMap = waterRipples(18);
+  const normalMap = waterRipples(7);           // ~17 m tile on the 120 m lake
   const mesh = new Mesh(geo, new MeshStandardMaterial({
     color: new Color(0x0a1d26),       // deep blue-teal, low albedo (no bloom)
     roughness: 0.06, metalness: 0.0,
     normalMap, envMapIntensity: 0.6,    // darker than the sky it mirrors
   }));
-  mesh.material.normalScale.set(0.1, 0.1);
+  mesh.material.normalScale.set(0.09, 0.09);
+  // per-time darkness (environment.js setTime -> onTime): cheap uniforms only
+  // The node-material renderer honours envMapIntensity only when material.envMap is set (else it
+  // uses scene.environmentIntensity), so the lake carries the current sky as its own envMap.
+  mesh.userData.setTime = (p, sky) => {
+    const m = mesh.material;
+    if (sky && m.envMap !== sky) { m.envMap = sky; m.needsUpdate = true; }
+    m.envMapIntensity = p.lakeEnv ?? 0.6; m.color.setHex(p.lakeColor ?? 0x0a1d26);
+  };
   mesh.position.set(-90, WORLD.waterLevel, -10);
   mesh.name = 'lake';
   scene.add(mesh);

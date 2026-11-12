@@ -144,6 +144,7 @@ export class Environment {
     this.scene.environmentIntensity = spec.env ?? p.env;
     this.scene.background = sky ? sky.tex : new Color(p.fog);
     this.scene.backgroundIntensity = sky ? (spec.bg ?? p.bg ?? 1) : 1;
+    this.onTime?.(key, p, this.scene.environment);   // cheap per-time uniforms elsewhere (the lake)
   }
 
   cycle() {

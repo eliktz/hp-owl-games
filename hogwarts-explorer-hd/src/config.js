@@ -30,11 +30,13 @@ export const TIER = { HIGH: 'high', MEDIUM: 'medium', LOW: 'low' };
 // exposure = renderer.toneMappingExposure outdoors; win = castle window emissiveIntensity
 // (day almost off, dusk warm, night glittering); bg = HDRI sky brightness (backgroundIntensity).
 // Fog colours sit near each HDRI's horizon. The film dusk/night 1K skies have a colour grade
-// baked in (night x(0.06,0.11,0.2) teal-blue, dusk x(0.62,0.5,0.44) warm), so env/bg assume them.
+// baked in (night x(0.06,0.11,0.2) teal-blue; the belfast dusk fallback x(0.62,0.5,0.44) warm), so
+// env/bg assume them. The golden kloppenheim dusk sky carries its own env/bg in HDRI_SKIES.
+// lakeEnv / lakeColor: the lake's envMapIntensity / base colour (default 0.6 / 0x0a1d26).
 export const TIMES = {
-  day:  { sun: 0xfff0d2, sunI: 2.6, elev: 52, azim: 135, fog: 0xc9d6e2, fogDensity: 0.0030, env: 1.0, amb: 0.5,  exposure: 1.0,  win: 0.25, bg: 1.0 },
-  dusk: { sun: 0xff9448, sunI: 2.4, elev: 9,  azim: 250, fog: 0xdc9e76, fogDensity: 0.0040, env: 0.9,  amb: 0.36, exposure: 1.05, win: 1.6,  bg: 0.95 },
-  night:{ sun: 0x9fb8ff, sunI: 1.0, elev: 24, azim: 300, fog: 0x22384e, fogDensity: 0.0056, env: 1.0,  amb: 0.30, exposure: 1.2,  win: 2.6,  bg: 0.6 },
+  day:  { sun: 0xfff0d2, sunI: 2.6, elev: 52, azim: 135, fog: 0xc9d6e2, fogDensity: 0.0030, env: 1.0, amb: 0.5,  exposure: 1.0,  win: 0.25, bg: 1.0, lakeEnv: 0.7 },
+  dusk: { sun: 0xff9448, sunI: 2.4, elev: 9,  azim: 250, fog: 0xdc9e76, fogDensity: 0.0040, env: 0.9,  amb: 0.36, exposure: 1.05, win: 1.6,  bg: 0.95, lakeEnv: 0.09, lakeColor: 0x0a1a2a },
+  night:{ sun: 0x9fb8ff, sunI: 1.0, elev: 24, azim: 300, fog: 0x34506c, fogDensity: 0.0056, env: 1.0,  amb: 0.30, exposure: 1.2,  win: 2.6,  bg: 0.6, lakeEnv: 1.0 },
 };
 // Indoor rooms are tuned at this exposure; the time button never changes it.
 export const INDOOR_EXPOSURE = 1.0;
@@ -49,7 +51,7 @@ export const INDOOR_SUN = { color: 0xffd8a8, intensity: 0.9, elev: 60, azim: 120
 // carry their own pre-film intensities.
 export const HDRI_SKIES = {
   day:   [{ file: 'kloofendal_day_1k.hdr' }],
-  dusk:  [{ file: 'belfast_sunset_puresky_1k.hdr' }, { file: 'dusk_1k.hdr', env: 0.7, bg: 1 }],
+  dusk:  [{ file: 'kloppenheim_06_puresky_1k.hdr', env: 0.85, bg: 0.38 }, { file: 'belfast_sunset_puresky_1k.hdr' }, { file: 'dusk_1k.hdr', env: 0.7, bg: 1 }],
   night: [{ file: 'qwantani_night_puresky_1k.hdr' }, { file: 'night_1k.hdr', env: 0.35, bg: 1 }],
 };
 export const PROCEDURAL_SKY = { day: { env: 1.0, bg: 1 }, dusk: { env: 0.7, bg: 1 }, night: { env: 0.35, bg: 1 } };

@@ -18,7 +18,7 @@ import { createQuests } from './quests.js';
 import { createMap } from './map.js';
 import { createInteriors } from './interiors.js';
 import { createAudio } from './audio.js';
-import { SPOTS, PLACES, TIER } from './config.js';
+import { SPOTS, PLACES, TIER, TIMES } from './config.js';
 import { blobShadow } from './atmosphere.js';
 import * as fun from './fun.js';
 import { createLessons } from './lessons.js';
@@ -56,6 +56,7 @@ async function boot() {
   await env.setTime('day');
   const terrain = buildTerrain(scene, { texture: grass });
   const lake = buildLake(scene);
+  env.onTime = (k, p, sky) => lake.userData.setTime(p, sky); lake.userData.setTime(TIMES[env.time] || TIMES.day, scene.environment);
   const { group: castleGroup, colliders } = buildCastle(scene, mats);
 
   // Published fan scenery (Hagrid's hut, Quidditch props), area-streamed by distance.

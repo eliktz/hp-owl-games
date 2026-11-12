@@ -89,23 +89,32 @@ export function grassTexture(repeat = 90) {
 }
 
 // Normal-ish map for the lake surface (cheap wavelets).
-// Calm lake ripples: a tileable sum of long, low sine swells encoded as a proper tangent-
-// space normal map (z always up). Smooth slopes keep the env reflection coherent instead of
-// the per-pixel sparkle of waterNormal() below.
+// Calm lake ripples: a tileable sum of many low swells encoded as a proper tangent-space
+// normal map (z always up). Integer wave vectors keep the tile seamless, but they are spread
+// over many directions and lengths with a 1/k^1.5 falloff, so no single sine dominates and
+// the surface reads as wind-ruffled water instead of a regular grid of dimples. The waves
+// lean along one axis (wind), which gives the long horizontal glints of the film lake.
 export function waterRipples(repeat = 6, strength = 1.0) {
-  const N = 256, { c, g } = makeCanvas(N), img = g.createImageData(N, N), r = rng(19);
-  const waves = [];                                     // integer frequencies => seamless tiling
-  for (let i = 0; i < 7; i++) waves.push({ fx: Math.round((r() - 0.5) * 10), fy: 1 + Math.round(r() * 6 + i), a: 1 / (1 + i * 0.6), p: r() * 6.283 });
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    let dx = 0, dy = 0;
-    for (const w of waves) {
-      const k = 6.283 / N, ph = (w.fx * x + w.fy * y) * k + w.p, cs = Math.cos(ph) * w.a;
-      dx += cs * w.fx * k; dy += cs * w.fy * k;
-    }
-    let nx = -dx * strength * 3, ny = -dy * strength * 3, nz = 1;
+  const N = 256, { c, g } = makeCanvas(N), img = g.createImageData(N, N), r = rng(23);
+  const waves = [], seen = new Set();
+  while (waves.length < 28) {
+    const k = 2 + r() * 13, th = (r() - 0.5) * 1.5;           // |k| 2..15 cycles per tile, +-43 deg of the wind
+    const fx = Math.round(k * Math.sin(th)), fy = Math.round(k * Math.cos(th));
+    if (seen.has(fx + ',' + fy) || Math.hypot(fx, fy) < 2) continue;
+    seen.add(fx + ',' + fy);
+    waves.push({ fx, fy, a: 1 / Math.pow(Math.hypot(fx, fy), 1.5), p: r() * 6.283 });
+  }
+  const sx = new Float32Array(N * N), sy = new Float32Array(N * N), k = 6.283 / N;
+  for (const w of waves) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const cs = Math.cos((w.fx * x + w.fy * y) * k + w.p) * w.a, i = y * N + x;
+    sx[i] += cs * w.fx * k; sy[i] += cs * w.fy * k;
+  }
+  let m = 0; for (let i = 0; i < N * N; i++) m = Math.max(m, Math.hypot(sx[i], sy[i]));
+  const gain = 1.4 * strength / (m || 1);                       // normalised: steepest slope ~ 54 deg
+  for (let i = 0; i < N * N; i++) {
+    let nx = -sx[i] * gain, ny = -sy[i] * gain, nz = 1;
     const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
-    const i = (y * N + x) * 4;
-    img.data[i] = (nx * 0.5 + 0.5) * 255; img.data[i + 1] = (ny * 0.5 + 0.5) * 255; img.data[i + 2] = (nz * 0.5 + 0.5) * 255; img.data[i + 3] = 255;
+    img.data[i * 4] = (nx * 0.5 + 0.5) * 255; img.data[i * 4 + 1] = (ny * 0.5 + 0.5) * 255; img.data[i * 4 + 2] = (nz * 0.5 + 0.5) * 255; img.data[i * 4 + 3] = 255;
   }
   g.putImageData(img, 0, 0);
   return finish(c, { srgb: false, repeat });
