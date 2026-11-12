@@ -215,6 +215,7 @@
   let asking = false, busy = false, playing = false;
   let helpLevel = 0;        // within-question hints (grows on each wrong answer)
   let easeLevel = 0;        // adaptive: 0..2, grows if the kid keeps erring, shrinks on a streak
+  let best0 = 0, recordShown = false;   // the best streak before this round, so beating it can be celebrated (once)
   let nextDelay = 550;      // pause after a correct answer before the next question
 
   function begin(op) {
@@ -222,6 +223,7 @@
     picker.style.display = 'none';
     playing = true;
     score = 0; streak = 0; easeLevel = 0;
+    best0 = best; recordShown = false;
     ui.setScore(0);
     HP.sfx.whoosh(); HP.sfx.music(true);
     setStreakChip();
@@ -329,7 +331,13 @@
     updatePanel(true);
     if (streak > 0 && streak % 3 === 0 && easeLevel > 0) easeLevel--; // reward: ramp difficulty back up
     const milestone = streak > 0 && streak % 5 === 0;
-    if (milestone) { bigCelebrate(); nextDelay = 1500; }
+    // beat your own best streak (from an earlier round): a 🏆 new-record moment, once per round
+    if (best0 >= 3 && streak > best0 && !recordShown) {
+      recordShown = true; nextDelay = 1700;
+      HP.sfx.fanfare(); HP.cheer(['שיא חדש!']); ui.banner('🏆 ' + streak + '!', 1500);
+      guests.forEach((g, i) => setTimeout(() => g.pop(2.8), i * 150));
+      fx.fireworks(new THREE.Vector3(0, 6.5, 0), 14, 8);
+    } else if (milestone) { bigCelebrate(); nextDelay = 1500; }
     else {
       nextDelay = 600;
       guests[ri(0, 2)].pop(1.6);
@@ -465,7 +473,7 @@
 
   /* ---- test / debug hooks ---- */
   window.__game = {
-    get score() { return score; }, get streak() { return streak; }, get best() { return best; },
+    get score() { return score; }, get streak() { return streak; }, get best() { return best; }, get record() { return recordShown; },
     get question() { return q; }, get asking() { return asking; }, get playing() { return playing; },
     get boxes() { return boxes.filter((b) => b.active).map((b) => ({ value: b.value, correct: b.correct, dim: b.dim, x: b.baseX })); },
     begin, camera, owl,
