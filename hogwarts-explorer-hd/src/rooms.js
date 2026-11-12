@@ -7,7 +7,7 @@ import {
   InstancedMesh, Object3D,
 } from 'three';
 import {
-  MAT, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
+  MAT, stoneMat, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
   enchantedCeiling, emissive,
 } from './interior-kit.js';
 import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier } from './furniture.js';
@@ -20,7 +20,7 @@ const HOUSE = [0x7a1020, 0x1a3a6a, 0xb08a1a, 0x1a5a2a];
 
 // Four axis-aligned walls + floor + ceiling; pushes box colliders. `open` lists wall sides
 // ('s'|'n'|'e'|'w') to leave as a walkable doorway gap (split into two stubs, no centre block).
-function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5, ceilColor = 0x3c3850, floorRough = 0.92 } = {}) {
+function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5, ceilColor = 0x3c3850, floorRough = 0.92, wallColor } = {}) {
   floor(g, W, D, floorColor, floorTile, floorRough);
   if (ceil) ceiling(g, W, D, H, ceilColor);
   const t = 1, GAP = 3.6;
@@ -35,18 +35,18 @@ function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e
       for (const sgn of [-1, 1]) {
         const cx = s.horizontal ? sgn * off : s.x, cz = s.horizontal ? s.z : sgn * off;
         const ww = s.horizontal ? stub : t, dd = s.horizontal ? t : stub;
-        wall(g, cx, cz, ww, H, dd, 0); cols.push({ type: 'box', x: cx, z: cz, hw: ww / 2, hd: dd / 2, angle: 0 });
+        wall(g, cx, cz, ww, H, dd, 0, wallColor); cols.push({ type: 'box', x: cx, z: cz, hw: ww / 2, hd: dd / 2, angle: 0 });
       }
       // Lintel over the gap so the doorway is door-height, not a full-height slot to the void.
       const lh = H - DH;
       if (lh > 0.2) {
         const lw = s.horizontal ? GAP : t, ld = s.horizontal ? t : GAP;
-        const lintel = new Mesh(new BoxGeometry(lw, lh, ld), MAT.stone);
+        const lintel = new Mesh(new BoxGeometry(lw, lh, ld), wallColor ? stoneMat(lw / 3, lh / 3, wallColor) : MAT.stone);
         lintel.position.set(s.horizontal ? 0 : s.x, DH + lh / 2, s.horizontal ? s.z : 0); g.add(lintel);
       }
     } else {
       const ww = s.horizontal ? s.w : t, dd = s.horizontal ? t : s.w;
-      wall(g, s.x, s.z, ww, H, dd, 0); cols.push({ type: 'box', x: s.x, z: s.z, hw: ww / 2, hd: dd / 2, angle: 0 });
+      wall(g, s.x, s.z, ww, H, dd, 0, wallColor); cols.push({ type: 'box', x: s.x, z: s.z, hw: ww / 2, hd: dd / 2, angle: 0 });
     }
   }
 }
@@ -131,7 +131,8 @@ function entranceHall() {
 // ---- The Great Hall: four long tables, a head table on a dais, floating candles ---------
 function greatHall() {
   const g = new Group(); const cols = []; const W = 20, D = 36, H = 15;
-  shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0xb6a284, floorTile: 4, floorRough: 0.6 });   // polished flags: candle sheen
+  shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0xb6a284, floorTile: 4, floorRough: 0.6,   // polished flags: candle sheen
+    wallColor: 0xb88c60 });   // warm honey stone: reads candle-lit at any outdoor time (fixed indoor IBL)
   enchantedCeiling(g, W, D, H, { color: 0x141d3e, glow: 0x24315e, glowI: 0.7 });   // starry dusk blue
   carpet(g, 0, 0, 6, D - 5, 0x6e1420);                     // long crimson aisle runner
   const flames = [];

@@ -38,6 +38,12 @@ export const TIMES = {
 };
 // Indoor rooms are tuned at this exposure; the time button never changes it.
 export const INDOOR_EXPOSURE = 1.0;
+// Indoors the IBL is one fixed pair whatever the outdoor time: the day sky (always loaded at
+// boot) at this intensity, so a room entered at night is lit exactly like one entered by day.
+export const INDOOR_ENV = 0.4;
+// ...and the (only) directional light gets one fixed warm setting too (restored by setTime on exit).
+export const INDOOR_SUN = { color: 0xffd8a8, intensity: 0.9, elev: 60, azim: 120 };
+
 // Sky files per time, tried in order. An entry without env/bg uses that time's TIMES env/bg
 // (tuned for the graded film skies); the older fallback files and the procedural gradient
 // carry their own pre-film intensities.

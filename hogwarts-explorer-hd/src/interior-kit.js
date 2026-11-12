@@ -41,7 +41,7 @@ function cached(kind, rx, ry, color, make) {
   if (!m) { m = make(); _mats.set(key, m); }
   return m;
 }
-const stoneMat = (rx, ry, color = 0x8f8a80) => cached('stone', rx, ry, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, rx, ry), roughness: 0.96 }));
+export const stoneMat = (rx, ry, color = 0x8f8a80) => cached('stone', rx, ry, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, rx, ry), roughness: 0.96 }));
 const woodMat = (rx = 1, ry = 1, color = 0x6a4428) => cached('wood', rx, ry, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wood, rx, ry), roughness: 0.85 }));
 export const kitStats = () => ({ tiles: _tiles.size, mats: _mats.size });
 

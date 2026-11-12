@@ -4,7 +4,7 @@ import {
   DirectionalLight, HemisphereLight, AmbientLight, FogExp2, Color,
   CanvasTexture, EquirectangularReflectionMapping, MathUtils, SRGBColorSpace,
 } from 'three';
-import { TIMES, INDOOR_EXPOSURE, HDRI_SKIES, PROCEDURAL_SKY } from './config.js';
+import { TIMES, INDOOR_EXPOSURE, INDOOR_ENV, INDOOR_SUN, HDRI_SKIES, PROCEDURAL_SKY } from './config.js';
 import { loadHDRI } from './assets.js';
 
 // Procedural equirect gradient sky used when no HDRI file is present.
@@ -55,6 +55,7 @@ export class Environment {
     this.fog = new FogExp2(0xbfd4e8, 0.004);
     scene.fog = this.fog;
     this.hdriCache = {};     // time key -> Promise<{ tex, spec } | null> (the promise, so one load per key)
+    this.savedEnv = null;
     this.skyDone = {};       // time key -> resolved value, for synchronous picks (indoor IBL)
     this.procSky = {};       // time key -> procedural gradient texture (built once)
     this.time = 'day';
@@ -63,9 +64,31 @@ export class Environment {
   // Interiors flip this on enter/exit. While indoors the time button only records the
   // choice (and the window glow); fog, sky, lights and IBL stay the room's until exit.
   setIndoor(v) {
+    const was = this.indoor;
     this.indoor = !!v;
-    if (this.indoor && this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE;
-    if (this.indoor) this.scene.backgroundIntensity = 1;
+    if (this.indoor) {
+      if (this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE;
+      this.scene.backgroundIntensity = 1;
+      if (!was) this.savedEnv = [this.scene.environment, this.scene.environmentIntensity];
+      // the sun is never re-added, only re-aimed: one fixed warm key so every visit looks alike
+      const u = INDOOR_SUN, el = MathUtils.degToRad(u.elev), az = MathUtils.degToRad(u.azim);
+      this.sun.position.set(150 * Math.cos(el) * Math.cos(az), 150 * Math.sin(el), 150 * Math.cos(el) * Math.sin(az));
+      this.sun.color.set(u.color); this.sun.intensity = u.intensity;
+      this.applyIndoorEnv();
+    } else if (was && this.savedEnv) {
+      // put the outdoor pair straight back; exit() then calls setTime() for the current time
+      [this.scene.environment, this.scene.environmentIntensity] = this.savedEnv;
+      this.savedEnv = null;
+    }
+  }
+
+  // One fixed indoor IBL: the day sky if loaded (it is, from boot), else any loaded sky,
+  // else the procedural day gradient; if the day file is still loading, swap it in on arrival.
+  applyIndoorEnv() {
+    const pick = this.skyDone.day || this.skyDone.dusk || this.skyDone.night;
+    this.scene.environment = pick ? pick.tex : this.proceduralFor('day');
+    this.scene.environmentIntensity = INDOOR_ENV;
+    if (!this.skyDone.day) this.loadSky('day').then(s => { if (this.indoor && s) this.scene.environment = s.tex; });
   }
 
   proceduralFor(key) {
