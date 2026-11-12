@@ -6,13 +6,19 @@
 import { Box3, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 
 const BASE = new URL('../assets/models/', import.meta.url).href;
 
 let _manifest = null;
 let _loader = null;
-const _cache = new Map();   // name -> Promise<gltf.scene | null>
+const _cache = new Map();   // name -> Promise<{scene, animations} | null>
+let _renderer = null;
+
+// main.js hands us the (already init()-ed) renderer so KTX2 textures can pick the best GPU
+// format per backend (ASTC/ETC2/BC, or plain RGBA). Call before the first loadModel.
+export function setRenderer(r) { _renderer = r; }
 
 async function manifest() {
   if (_manifest) return _manifest;
@@ -24,7 +30,18 @@ async function manifest() {
 }
 
 function loader() {
-  if (!_loader) { _loader = new GLTFLoader(); _loader.setMeshoptDecoder(MeshoptDecoder); }
+  if (!_loader) {
+    _loader = new GLTFLoader(); _loader.setMeshoptDecoder(MeshoptDecoder);
+    // KTX2 (KHR_texture_basisu) for the film-look characters. If anything here fails the
+    // loader still works for the Meshopt+WebP models; a KTX2 model then fails -> null -> fallback.
+    if (_renderer) {
+      try {
+        const ktx2 = new KTX2Loader().setTranscoderPath(new URL('../lib/addons/libs/basis/', import.meta.url).href);
+        ktx2.detectSupport(_renderer);
+        _loader.setKTX2Loader(ktx2);
+      } catch (e) { console.warn('[models] KTX2 unavailable -', e.message); }
+    }
+  }
   return _loader;
 }
 
@@ -49,7 +66,7 @@ async function loadSource(name) {
     try {
       const gltf = await loader().loadAsync(BASE + info.file);
       gltf.scene.updateMatrixWorld(true);
-      return gltf.scene;
+      return { scene: gltf.scene, animations: gltf.animations || [] };
     } catch (e) {
       console.warn('[models] failed:', name, '-', e.message);
       return null;
@@ -64,7 +81,15 @@ async function loadSource(name) {
 export async function loadModel(name) {
   const src = await loadSource(name);
   if (!src) return null;
-  return cloneSkeleton(src);
+  return cloneSkeleton(src.scene);
+}
+
+// Like loadModel but also hands back the animation clips (shared, read-only) for an
+// AnimationMixer. The clone SHARES geometry + materials with the cache: never dispose them.
+export async function loadAnimated(name) {
+  const src = await loadSource(name);
+  if (!src) return null;
+  return { obj: cloneSkeleton(src.scene), clips: src.animations };
 }
 
 // Uniformly scale an object to a target `height` (metres) OR `footprint` (max XZ span),

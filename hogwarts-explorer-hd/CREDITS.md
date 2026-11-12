@@ -14,7 +14,14 @@ and the fan models are **removed on request**.
 
 Addons used (all MIT, from three.js `examples/jsm`): `loaders/RGBELoader.js`,
 `loaders/HDRLoader.js`, `loaders/GLTFLoader.js`, `utils/BufferGeometryUtils.js`,
-`utils/SkeletonUtils.js`, `objects/WaterMesh.js`, `libs/meshopt_decoder.module.js`.
+`utils/SkeletonUtils.js`, `objects/WaterMesh.js`, `libs/meshopt_decoder.module.js`,
+and for KTX2 (KHR_texture_basisu) textures: `loaders/KTX2Loader.js`, `utils/WorkerPool.js`,
+`math/ColorSpaces.js`, `libs/ktx-parse.module.js` (MIT, Don McCurdy) and
+`libs/zstddec.module.js` (MIT, Don McCurdy), all copied unmodified from three.js r187.
+
+| Item | License | Source |
+|---|---|---|
+| Basis Universal transcoder (`lib/addons/libs/basis/basis_transcoder.js` + `.wasm`) | Apache-2.0 | https://github.com/BinomialLLC/basis_universal (as shipped in three.js r187 `examples/jsm/libs/basis/`) |
 
 ## Committed CC0 assets (Poly Haven — CC0 1.0, no attribution required; credited anyway)
 Fetched + optimised by `tools/fetch-assets.mjs`. Total ~7.5 MB.

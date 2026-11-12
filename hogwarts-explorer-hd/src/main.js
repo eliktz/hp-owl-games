@@ -2,6 +2,7 @@
 // exposes window.__game test hooks.
 import { Scene, PerspectiveCamera, Vector3, Raycaster, Frustum, Matrix4, Sphere } from 'three';
 import { createRenderer, backendName } from './renderer.js';
+import { setRenderer as setModelRenderer } from './models.js';
 import { QualityManager } from './quality.js';
 import { Environment } from './environment.js';
 import { buildTerrain, heightAt } from './terrain.js';
@@ -39,6 +40,7 @@ function toast(msg) {
 async function boot() {
   const canvas = document.getElementById('view');
   const renderer = await createRenderer(canvas);
+  setModelRenderer(renderer);                 // KTX2 format detection for the GLB loader
   const scene = new Scene();
   const camera = new PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
 
