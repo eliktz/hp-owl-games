@@ -108,9 +108,27 @@
       const x = R.x0 + 5 + i * 7, by = 5.2 + (i % 3) * 1.1;
       const beam = new T.Mesh(new T.BoxGeometry(2.4, 0.2, 0.2), beamM); beam.position.set(x, by, R.z0 + 1 + (i % 2) * 0.9); scene.add(beam);
       const owl = HP.makeOwl('hedwig'); owl.scale.setScalar(0.5); owl.position.set(x + (i % 2 ? 0.5 : -0.5), by + 0.4, beam.position.z); scene.add(owl);
-      owls.push({ owl, ph: Math.random() * 7 });
+      owls.push({ owl, ph: Math.random() * 7, home: owl.position.clone() });
     }
-    HPI.builders.push((t, dt) => owls.forEach((o) => HP.animateOwl(o.owl, dt, t + o.ph, 0, 0.6)));
+    // wave the wand in the Owlery: the whole flock takes off, wheels once round the roost hooting, and settles again
+    let flockT = 0; const FLOCK = 6, cz = (R.z0 + R.z1) / 2;
+    const inOwlery = () => { const g = window.__game, p = g && g.player.position; return !!p && p.x > R.x0 && p.x < R.x1 && p.z > R.z0 && p.z < R.z1 && p.y < 4; };
+    HPI.enchantables.push({ id: 'flock', get x() { return inOwlery() ? window.__game.player.position.x : 1e6; }, y: 5, z: R.z0 + 2, r: 6, cast() {
+      if (flockT <= 0) flockT = FLOCK;
+      try { for (let i = 0; i < 5; i++) setTimeout(() => HP.sfx.hoot(i % 2 === 0), i * 420); } catch (e) {}
+      return '🪶'; } });
+    HPI.flockFlying = () => flockT; HPI.flockHome = () => owls.every((o) => o.owl.position.distanceTo(o.home) < 0.01);
+    HPI.builders.push((t, dt) => {
+      if (flockT > 0) flockT -= dt;
+      const k = flockT > 0 ? Math.sin(Math.min(1, flockT / FLOCK) * Math.PI) : 0, e = Math.min(1, k * 2.2);     // ease out to the lap and back to the perch
+      owls.forEach((o, i) => {
+        HP.animateOwl(o.owl, dt, t + o.ph, e > 0.05 ? 1 : 0, e > 0.05 ? 3 : 0.6);
+        if (e <= 0) { if (o.owl.position.x !== o.home.x) { o.owl.position.copy(o.home); o.owl.rotation.y = 0; } return; }
+        const a = t * 1.5 + i * 0.9, lx = mx + Math.cos(a) * 16, ly = 5.6 + Math.sin(t * 2.3 + i) * 0.8, lz = cz + Math.sin(a) * 3.6;
+        o.owl.position.set(o.home.x + (lx - o.home.x) * e, o.home.y + (ly - o.home.y) * e, o.home.z + (lz - o.home.z) * e);
+        o.owl.rotation.y = e * (Math.atan2(-Math.sin(a) * 16, Math.cos(a) * 3.6));
+      });
+    });
     light.addDust((R.x0 + R.x1) / 2, 2, (R.z0 + R.z1) / 2, R.x1 - R.x0, 7, R.z1 - R.z0, 90);
   };
 
