@@ -55,12 +55,12 @@
     const tube = new T.Mesh(new T.CylinderGeometry(0.18, 0.26, 2.4, 14), brass); tube.rotation.z = 0.7; tube.position.y = 2; scope.add(tube);
     [0, 2.1, 4.2].forEach((a) => { const leg = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 2.1, 8), brass); leg.position.set(Math.cos(a) * 0.4, 0.9, Math.sin(a) * 0.4); leg.rotation.set(Math.sin(a) * 0.3, 0, Math.cos(a) * 0.3); scope.add(leg); });
     scene.add(scope);
-    // wave the wand at the telescope: it whirls round to scan the sky and a shower of shooting stars streaks across the dome
+    // wave the wand at the telescope: it whirls round to scan the sky and a shower of shooting stars streaks across the room below the dome
     let starT = 0, whirl = 0;
     const cxA = (R.x0 + R.x1) / 2, czA = (R.z0 + R.z1) / 2, shots = [];
     for (let i = 0; i < 7; i++) {
       const sp = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: i % 2 ? 0xfff2b0 : 0xbfe0ff, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
-      sp.scale.set(2.6, 0.7, 1); sp.visible = false; scene.add(sp); shots.push({ sp, t: -1 });
+      sp.scale.set(4.6, 1.2, 1); sp.visible = false; scene.add(sp); shots.push({ sp, t: -1 });
     }
     HPI.enchantables.push({ id: 'telescope', obj: scope, r: 3, cast() { starT = 4.5; try { window.HPFun.sfx.tune([1319, 1175, 988, 784, 0, 1568, 1319, 1047], 0.1, 'sine'); } catch (e) {} return '🌠'; } });
     HPI.shootingStars = () => starT;
@@ -70,10 +70,10 @@
       whirl += k * dt * 5; scope.rotation.y = Math.sin(t * 0.2) * 0.3 + whirl;
       for (let i = 0; i < shots.length; i++) {
         const s = shots[i];
-        if (s.t < 0) { if (starT > 0.8 && Math.random() < dt * 2.2) { s.t = 0; s.x = cxA - 7 + Math.random() * 8; s.z = czA - 6 + Math.random() * 12; s.sp.visible = true; } continue; }
-        s.t += dt * 1.3;
+        if (s.t < 0) { if (starT > 0.8 && Math.random() < dt * 3.5) { s.t = 0; s.x = cxA - 8 + Math.random() * 7; s.z = czA - 6 + Math.random() * 12; s.y = 7.5 + Math.random() * 2.5; s.sp.visible = true; } continue; }
+        s.t += dt * 1.1;
         if (s.t >= 1) { s.t = -1; s.sp.visible = false; continue; }
-        s.sp.position.set(s.x + s.t * 9, CEIL - 1.2 - s.t * 3.5, s.z); s.sp.material.opacity = Math.sin(s.t * Math.PI) * 0.95; s.sp.material.rotation = -0.37;
+        s.sp.position.set(s.x + s.t * 10, s.y - s.t * 4, s.z); s.sp.material.opacity = Math.min(1, Math.sin(s.t * Math.PI) * 1.6); s.sp.material.rotation = -0.38;      // low enough to cross the default camera view
       }
     });
     F.podium(scene, R.x0 + 1.6, 0, (R.z0 + R.z1) / 2, Math.PI / 2);
