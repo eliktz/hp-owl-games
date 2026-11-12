@@ -11,6 +11,7 @@
     kit.slab(scene, R, HPI.tex.stone(4, 'hall'), 0.02, true, 4);   // clean pale flagstones (no scribbly marble veins)
     kit.slab(scene, R, stone, CEIL, false, 3);
     kit.wallNav(scene, { axis: 'z', c: R.z0, lo: R.x0, hi: R.x1, y0: 0, y1: CEIL }, stone); // south (other 3 owned by EH/COR/NCOR)
+    const beds = [];
     const bedW = new T.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.85 });
     const frameM = new T.MeshStandardMaterial({ color: 0x8a7a6a, metalness: 0.4, roughness: 0.5 });
     for (let i = 0; i < 4; i++) {
@@ -20,8 +21,26 @@
       bed.add(F.mesh(new T.BoxGeometry(1.5, 0.3, 2.9), bedW, 0, 0.75, 0));
       bed.add(F.mesh(new T.BoxGeometry(1.4, 0.3, 0.6), bedW, 0, 0.95, -1)); // pillow
       bed.add(F.mesh(new T.BoxGeometry(1.5, 0.2, 1.4), new T.MeshStandardMaterial({ color: 0x8aa6c0, roughness: 0.85 }), 0, 0.85, 0.7)); // blanket
-      scene.add(bed);
+      scene.add(bed); beds.push({ x, z, bed, squish: 0 });
     }
+    // the beds are bouncy! jump right beside one and you spring much higher, with a boing and a puff of feathers
+    let wasUp = false;
+    HPI.bedBounces = 0;
+    HPI.builders.push((t, dt) => {
+      const g = window.__game; if (!g || !g.tune) return;
+      const p = g.player.position;
+      let near = null;
+      if (g.world === 'inside' && p.y < 4) for (const b of beds) if (Math.abs(p.x - b.x) < 2.3 && Math.abs(p.z - b.z) < 3) near = b;
+      g.tune.bounce = near ? 1.7 : 1;
+      const up = !g.grounded;
+      if (near && up && !wasUp) {
+        near.squish = 0.5; HPI.bedBounces++;
+        try { HP.sfx.boing(); window.HPFun.sfx.giggle(true); } catch (e) {}
+        g.fx.burst(new T.Vector3(near.x, 1.4, near.z), [0xffffff, 0xf2efe6, 0xdfe8f5], 22, 5, 0.9, 1.1, -2);
+      }
+      wasUp = up;
+      for (const b of beds) if (b.squish > 0) { b.squish -= dt; const k = Math.max(0, b.squish) / 0.5; b.bed.scale.y = 1 - Math.sin(k * Math.PI) * 0.35; } else b.bed.scale.y = 1;
+    });
     // a shelf of coloured healing potions on the long wall
     const table = F.mesh(new T.BoxGeometry(R.x1 - R.x0 - 4, 0.2, 0.8), new T.MeshStandardMaterial({ map: HPI.tex.wood(2).map, roughness: 0.85 }), (R.x0 + R.x1) / 2, 1, R.z1 - 1);
     scene.add(table);

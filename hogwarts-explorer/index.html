@@ -478,7 +478,7 @@
   badgesEl.addEventListener('pointerdown', (e) => { if (e.target === badgesEl) closeBadges(); });
 
   let cheerT = 0;                     // >0 → the hero does a happy arms-up dance
-  const tune = { speed: 1, jump: 1 }; // silly-effect multipliers (Bertie Bott's beans etc.)
+  const tune = { speed: 1, jump: 1, bounce: 1 }; // silly-effect multipliers (Bertie Bott's beans etc.)
   const frameHooks = [];              // extra per-frame systems: fn(dt, t, world, playing)
   let takeover = null;                // a mini-game that owns the hero + camera for a while (Quidditch): {update, action, boost}
   const bubble = document.createElement('div'); bubble.id = 'bubble'; document.body.appendChild(bubble);
@@ -713,7 +713,7 @@
 
   // mode: 'walk' | 'fly' | 'landing'
   let mode = 'walk';
-  function doJump() { if (takeover) { if (takeover.boost) takeover.boost(); return; } if (mode === 'walk' && grounded && ui.started() && !modal) { vy = 8.5 * tune.jump; grounded = false; HP.sfx.boing(); } }
+  function doJump() { if (takeover) { if (takeover.boost) takeover.boost(); return; } if (mode === 'walk' && grounded && ui.started() && !modal) { vy = 8.5 * tune.jump * tune.bounce; grounded = false; HP.sfx.boing(); } }
   function toggleFly() {
     if (!ui.started() || world === 'inside' || modal || takeover) return; // no flying indoors, mid-lesson or mid-match
     if (mode === 'walk') { mode = 'fly'; hedwig.visible = true; HP.sfx.whoosh(); HP.sfx.hoot(); flyY = player.position.y + 2; }
