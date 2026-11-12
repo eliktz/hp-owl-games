@@ -212,7 +212,9 @@
         u.caught = 0.25;
         const before = score;
         score += u.bonus ? 3 : 1;
-        ui.setScore(score); HP.best('pig', score);
+        ui.setScore(score);
+          // beat the best from an earlier visit: a 🏆 new-record flash, once per visit
+          if (HP.best('pig', score) && best0 > 0 && !recordShown) { recordShown = true; ui.banner('🏆 ' + score + '!', 1300); HP.sfx.fanfare(); }
         HP.sfx.chime(); HP.sfx.sparkle();
         if (u.bonus) {                       // rainbow catch: a shower of every colour, Pig loops with joy
           fx.burst(s.position, [0xff5a5a, 0xffd34d, 0x7cf07c, 0x7cf0ff, 0xc59bff, 0xff9ad5], 70, 9, 0.9);
@@ -244,7 +246,8 @@
     wanted = Math.min(wanted + 1, 6);
     HP.sfx.resetChime();
   }
-  window.__game = { get score() { return score; }, pig, snitches, party, addSnitch, camera, get bonusCaught() { return bonusCaught; } };
+  var best0 = HP.best('pig'), recordShown = false;      // (var: hoisted, the game loop above uses them)
+  window.__game = { get score() { return score; }, pig, snitches, party, get record() { return recordShown; }, addSnitch, camera, get bonusCaught() { return bonusCaught; } };
   frame();
 })();
 </script>

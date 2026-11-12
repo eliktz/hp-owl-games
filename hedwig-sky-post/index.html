@@ -220,7 +220,9 @@
       if (playing && u.type !== 'cloud' && d < 1.9) {
         if (u.type === 'letter') {
           score++;
-          ui.setScore(score); HP.best('hedwig', score);
+          ui.setScore(score);
+          // beat the best from an earlier visit: a 🏆 new-record flash, once per visit
+          if (HP.best('hedwig', score) && best0 > 0 && !recordShown) { recordShown = true; ui.banner('🏆 ' + score + '!', 1300); HP.sfx.fanfare(); }
           HP.sfx.chime();
           fx.burst(it.position, [0xffe2a0, 0xffffff, 0xff9ad5], 22, 5, 0.6);
           if (score % 10 === 0) celebrate();
@@ -263,7 +265,8 @@
     HP.sfx.resetChime();
   }
   // test hooks
-  window.__game = { get score() { return score; }, owl, items, celebrate, spawnLetter, spawnStar, get boost() { return boost; }, get pulled() { return pulled; } };
+  var best0 = HP.best('hedwig'), recordShown = false;      // (var: hoisted, the game loop above uses them)
+  window.__game = { get score() { return score; }, owl, items, celebrate, get record() { return recordShown; }, spawnLetter, spawnStar, get boost() { return boost; }, get pulled() { return pulled; } };
   frame();
 })();
 </script>

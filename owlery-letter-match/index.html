@@ -224,7 +224,9 @@
           if (combo >= 2) { ui.banner('🔥×' + combo, 900); guests[combo % guests.length].pop(1.3); HP.sfx.sparkle(); }
           a.userData.done = b.userData.done = true;
           matches++;
-          ui.setScore(matches); HP.best('owlery', matches);
+          ui.setScore(matches);
+          // beat the best from an earlier visit: a 🏆 new-record flash, once per visit
+          if (HP.best('owlery', matches) && best0 > 0 && !recordShown) { recordShown = true; ui.banner('🏆 ' + matches + '!', 1300); HP.sfx.fanfare(); }
           sendOwl([a, b]);
           open = []; busy = false;
         }, 450);
@@ -358,7 +360,8 @@
     requestAnimationFrame(frame);
   }
   deal();
-  window.__game = { get matches() { return matches; }, get combo() { return combo; }, get cards() { return cards; }, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
+  var best0 = HP.best('owlery'), recordShown = false;      // (var: hoisted, the game loop above uses them)
+  window.__game = { get matches() { return matches; }, get combo() { return combo; }, get record() { return recordShown; }, get cards() { return cards; }, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
   frame();
 })();
 </script>
