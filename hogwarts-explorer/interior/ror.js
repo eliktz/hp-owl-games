@@ -139,6 +139,15 @@
     // for tests: inspect + force the current wonder
     HPI.roomReq = { setTheme, count: THEMES.length, index: () => idx, name: () => THEMES[idx].n };
 
+    // wave the wand inside and the room re-imagines itself on the spot — wish again, as often as you like
+    const inRoom = () => { const g = window.__game, p = g && g.player.position; return !!p && p.x > R.x0 + 0.5 && p.x < R.x1 - 0.5 && p.z > R.z0 + 0.5 && p.z < R.z1 - 0.5 && p.y < 4; };
+    HPI.enchantables.push({ id: 'wish', get x() { return inRoom() ? cx : 1e6; }, y: 1.5, z: cz, r: 4, cast() {
+      setTheme(idx + 1);
+      try { localStorage.setItem('hpRoR1', String(idx)); } catch (e) {}
+      try { window.HPFun.sfx.poof(); HP.sfx.chime(); } catch (e) {}
+      if (ctx && ctx.fx) ctx.fx.burst(new T.Vector3(cx, 2.6, cz), [THEMES[idx].col, 0xffffff, 0xffe59a], 40, 8, 0.9);
+      return '💭'; } });
+
     // step in from the roost and the room re-imagines itself — once per entry
     let wasIn = false;
     return function rorUpdate(player) {
