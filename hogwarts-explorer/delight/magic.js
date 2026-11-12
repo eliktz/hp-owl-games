@@ -5,13 +5,13 @@
  * target the spell is a little firework, so pressing the button is never a dud. */
 (function () {
   const F = window.HPFun, T = window.THREE;
-  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire', 'globe', 'cup', 'pots', 'flock', 'clock'];
+  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire', 'globe', 'cup', 'pots', 'flock', 'clock', 'courtyard'];
   const WIZARD = 10;
   // where each kind of magic hides — the map icon of its place (a tap on a ❔ in the spell book shows it)
   const WHERE = { armour: '🚪', ghost: '⏰', candles: '🍽️', books: '📚', cauldron: '⚗️', portrait: '🖼️', peeves: '🏰', friend: '🧒', lake: '🌊', hut: '🏠', hoops: '🧹', greenhouse: '🌿',
-    pip: '🦉', feast: '🍽️', toad: '🐸', pumpkins: '🍽️', hat: '🚪', owl: '🍽️', chandelier: '🚪', fire: '🔥', globe: '📚', cup: '🏆', pots: '🍲', flock: '🦉', clock: '⏰' };
+    pip: '🦉', feast: '🍽️', toad: '🐸', pumpkins: '🍽️', hat: '🚪', owl: '🍽️', chandelier: '🚪', fire: '🔥', globe: '📚', cup: '🏆', pots: '🍲', flock: '🦉', clock: '⏰', courtyard: '⛲' };
   const ICON = { armour: '🛡️', ghost: '👻', candles: '🕯️', books: '📚', cauldron: '🫧', portrait: '🖼️', peeves: '🤡', friend: '👋', lake: '⛲', hut: '🌈', hoops: '🔔', greenhouse: '🌸',
-    pip: '💛', feast: '🍗', toad: '🐸', pumpkins: '🎃', hat: '🎩', owl: '🦉', chandelier: '🏮', fire: '🔥', globe: '🌍', cup: '🏆', pots: '🥘', flock: '🪶', clock: '🕰️' };
+    pip: '💛', feast: '🍗', toad: '🐸', pumpkins: '🎃', hat: '🎩', owl: '🦉', chandelier: '🏮', fire: '🔥', globe: '🌍', cup: '🏆', pots: '🥘', flock: '🪶', clock: '🕰️', courtyard: '🎇' };
   const NEED = 5;
   F.boot(function (g) {
     F.badge('wand', '🪄', 'קוסם');
@@ -77,6 +77,8 @@
       { id: 'hut', x: 60, y: gh(60, 22) + 3, z: 22, r: 5, cast() { shower(62.2, gh(60, 22) + 8, 22, [0xff5a5a, 0xffd34d, 0x7cf07c, 0x7cf0ff, 0xc59bff], 8, 1.1); F.sfx.poof(); return '🌈'; } },
       { id: 'hoops', x: 64, y: gh(44, 66) + 8, z: 66, r: 6, cast() { F.sfx.tune([784, 988, 1175, 1568, 1175, 1568], 0.13, 'sine'); shower(64, gh(44, 66) + 11, 66, [0xffd34d, 0xffffff], 5, 0.4); return '🔔'; } },
       { id: 'hoops', x: 24, y: gh(44, 66) + 8, z: 66, r: 6, cast() { F.sfx.tune([784, 988, 1175, 1568, 1175, 1568], 0.13, 'sine'); shower(24, gh(44, 66) + 11, 66, [0xffd34d, 0xffffff], 5, 0.4); return '🔔'; } },
+      // (overhead, so the target is "right above you" anywhere in the courtyard — but only while the candles are not already dancing, so friends there still get their wave)
+      { id: 'courtyard', get x() { const p = g.player.position; return g.courtT <= 0 && Math.hypot(p.x, p.z + 42) < 20 ? p.x : 1e6; }, y: 5, get z() { return g.player.position.z; }, r: 3, cast() { g.courtyardDance(); F.sfx.tune([659, 784, 988, 1175, 988, 1175, 1319, 1568], 0.14, 'sine'); return '🎇'; } },
       { id: 'greenhouse', x: -34, y: gh(-34, -16) + 2, z: -16, r: 5, cast() { shower(-34, gh(-34, -16) + 3, -16, [0x8cff9e, 0xff9ad5, 0xffe08a], 7, 0.6); F.sfx.giggle(true); return '🌸'; } },
     ];
     function cast() {
