@@ -48,7 +48,10 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     scene.remove(active.group);
     // Guard geometry disposal: the WebGPU backend throws ("Invalid unregisterToken") when a
     // geometry's attributes were never GPU-registered, which must never break walking back out.
-    active.group.traverse(o => { if (o.isMesh) { try { o.geometry?.dispose?.(); } catch { /* backend quirk */ } } });
+    // Animated GLB figures stop their mixers first; their geometry is shared with the models.js
+    // cache (userData.sharedGeo) and must survive for the next visit.
+    active.group.traverse(o => { if (o.userData.onTeardown) { try { o.userData.onTeardown(); } catch { /* keep going */ } } });
+    active.group.traverse(o => { if (o.isMesh && !o.userData.sharedGeo) { try { o.geometry?.dispose?.(); } catch { /* backend quirk */ } } });
     active = null;
   }
 

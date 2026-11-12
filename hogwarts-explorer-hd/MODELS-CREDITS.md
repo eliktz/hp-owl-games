@@ -25,6 +25,7 @@ Per the CC-BY-4.0 licence terms, the following authors **must be credited**:
 | Quidditch pitch props | Harry Potter props Homework 3 XYZ | **Kate Abaeva** | [Sketchfab](https://sketchfab.com/3d-models/harry-potter-props-homework-3-xyz-7a72bb34c22e4395a0b51301269455b9) | CC-BY-4.0 |
 | Hermione (character) | Hermione Granger | **zack_graham** | [Sketchfab](https://sketchfab.com/3d-models/hermione-granger-95714784f5bb4ac697040ec602b97932) | CC-BY-4.0 |
 | Ron (character) | Ronald Weasley | **zack_graham** | [Sketchfab](https://sketchfab.com/3d-models/ronald-weasley-d3419667f6a345a09987a6c57d936d0a) | CC-BY-4.0 |
+| Professor McGonagall (Transfiguration classroom, rigged + animated) | Professor Minerva McGonagall | **zack_graham** | [Sketchfab](https://sketchfab.com/3d-models/professor-minerva-mcgonagall-957f44df7b384272bf7cde7d0006285a) | CC-BY-4.0 (uploader's licence label) |
 
 ### Full CC-BY attribution strings
 
@@ -34,6 +35,7 @@ Per the CC-BY-4.0 licence terms, the following authors **must be credited**:
 - This work is based on ["Harry Potter props Homework 3 XYZ"](https://sketchfab.com/3d-models/harry-potter-props-homework-3-xyz-7a72bb34c22e4395a0b51301269455b9) by Kate Abaeva, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/).
 - This work is based on ["Hermione Granger"](https://sketchfab.com/3d-models/hermione-granger-95714784f5bb4ac697040ec602b97932) by zack_graham, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/).
 - This work is based on ["Ronald Weasley"](https://sketchfab.com/3d-models/ronald-weasley-d3419667f6a345a09987a6c57d936d0a) by zack_graham, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/).
+- This work is based on ["Professor Minerva McGonagall"](https://sketchfab.com/3d-models/professor-minerva-mcgonagall-957f44df7b384272bf7cde7d0006285a) by zack_graham, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/) (the uploader's licence label; the model is game-extracted from *Harry Potter: Hogwarts Mystery*). Use approved by Elik on 12 Nov 2026. Skeleton and the Idle/Walk/Talk/Cast animations: [Quaternius Universal Animation Library](https://quaternius.com) (CC0). Glasses and wand were made in our own art workspace. Optimised to Meshopt geometry + KTX2 (Basis) textures.
 
 Harry and Hagrid as walking characters are **drawn in code** (no fan model), to match the
 game's chibi style. "Great Hall Window" by Saandy and a duplicate "Hagrid's hut" were

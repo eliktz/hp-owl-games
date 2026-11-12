@@ -200,6 +200,7 @@ async function boot() {
     if (near) { bubbleT += dt; if (bubbleT > 3.2) { bubbleT = 0; bubbleLine++; } showBubble(near); } else showBubble(null);
 
     if (!modal && !takeover) { lessons.update(dt); quidditch.idle(dt, inside); }
+    else if (!takeover) lessons.anim(dt);   // GLB professors keep animating behind a lesson overlay
     if (!takeover) delight.update(dt, inside);
     else lessons.cull();                // a match is on: far lesson spots must not cost draw calls
     fun.tick(dt, camera);

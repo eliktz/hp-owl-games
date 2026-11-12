@@ -6,8 +6,10 @@
 import {
   Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, ConeGeometry, TorusGeometry,
   MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, Color, DoubleSide, InstancedMesh, Object3D, Vector3, SRGBColorSpace,
+  AnimationMixer, LoopOnce,
 } from 'three';
 import { buildChibi, animateChibi } from './chibi.js';
+import { loadAnimated } from './models.js';
 import { FLOOR_Y } from './rooms.js';
 import { PLACES } from './config.js';
 import * as fun from './fun.js';
@@ -21,6 +23,10 @@ const LOOK = {
   sinistra: { robe: 0x1b2456, trim: 0xb08a2e, hair: 0x14100c, skin: 0x8a5e44, house: 0x1b3a6b, hat: 0x1b2456 },
   sprout:   { robe: 0x5a4326, trim: 0x8a6a2a, hair: 0xb9b2a6, skin: 0xe9b58a, house: 0xb8902a, hat: 0x6a5330 },
 };
+// Film-look professors: a rigged GLB (feet origin, faces +Z like the chibi) swapped in over
+// the chibi once it streams in. The chibi is the instant placeholder AND the silent fallback.
+const GLB_PROF = { mcgon: { model: 'mcgonagall', scale: 1.3 } };   // 1.9 m -> 2.47 m: the chibi kids are 1.78 m (2.33 with hat)
+const FADE = 0.25;
 const GH = PLACES.greenhouse, PD = PLACES.paddock;
 export const STATIONS = {
   potions:         { room: 'dungeon',    x: -2.6, z: -7.2, board: '⚗️' },
@@ -44,13 +50,63 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   const HPL = window.HPLessons || {};
   const defs = {}; (HPL.LESSONS || []).forEach(l => (defs[l.key] = l));
   const live = [];                       // stations present right now: {key, x, z, y, chibi, world}
+  let openKey = null;                    // the lesson whose overlay is open right now
   const outdoor = [];
 
   function professor(key, par, x, y, z, faceYaw) {
     const def = defs[key]; if (!def) return null;
     const look = LOOK[def.teacher]; if (!look) return null;
     const c = buildChibi(look); c.position.set(x, y, z); c.rotation.y = faceYaw; par.add(c);
+    if (GLB_PROF[def.teacher]) upgradeProfessor(c, GLB_PROF[def.teacher]);
     return c;
+  }
+
+  // Swap the chibi for the rigged GLB when (if) it arrives. Any failure -> keep the chibi.
+  function upgradeProfessor(c, spec) {
+    loadAnimated(spec.model).then(r => {
+      let root = c; while (root.parent) root = root.parent;
+      if (!r || !root.isScene) return;                 // load failed, or the room was left meanwhile
+      const clip = n => r.clips.find(a => a.name === n);
+      if (!clip('Idle')) return;
+      const obj = r.obj; obj.scale.setScalar(spec.scale); obj.name = 'prof-' + spec.model;
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        o.frustumCulled = false; o.castShadow = false; o.receiveShadow = false;
+        o.userData.sharedGeo = true;                   // geometry is shared with the models.js cache
+      });
+      const mixer = new AnimationMixer(obj), acts = {};
+      for (const n of ['Idle', 'Talk', 'Cast']) { const a = clip(n); if (a) acts[n.toLowerCase()] = mixer.clipAction(a); }
+      if (acts.cast) { acts.cast.setLoop(LoopOnce, 1); acts.cast.clampWhenFinished = true; }
+      acts.idle.play();
+      const ud = c.userData;
+      mixer.addEventListener('finished', e => { if (e.action === acts.cast) ud.casting = false; });
+      for (const ch of c.children) ch.visible = false;
+      c.add(obj);
+      ud.rig = null;                                   // animateChibi() becomes a no-op
+      ud.mixer = mixer; ud.acts = acts; ud.cur = 'idle'; ud.casting = false;
+      // room teardown (interiors.js) calls this before disposing the room's geometry
+      ud.onTeardown = () => {
+        mixer.stopAllAction(); mixer.uncacheRoot(obj);
+        obj.traverse(o => { if (o.isSkinnedMesh) { try { o.skeleton.dispose(); } catch { /* backend quirk */ } } });
+        ud.mixer = null; ud.acts = null;
+      };
+    }).catch(e => console.warn('[lessons] professor GLB skipped -', e.message));
+  }
+
+  // Cross-fade a GLB professor to Idle / Talk / Cast (no-op for chibis).
+  function fadeTo(c, name) {
+    const ud = c.userData;
+    if (!ud.mixer || ud.cur === name || !ud.acts[name]) return;
+    const next = ud.acts[name], prev = ud.acts[ud.cur];
+    next.reset().play();
+    if (prev) prev.crossFadeTo(next, FADE, false);
+    ud.cur = name; if (name === 'cast') ud.casting = true;
+  }
+  function animateFigure(s, dt, talking) {
+    const ud = s.chibi.userData;
+    if (!ud.mixer) return;
+    if (!ud.casting) fadeTo(s.chibi, talking ? 'talk' : 'idle');
+    ud.mixer.update(dt);
   }
 
   // ---- indoors: called each time a room streams in ----
@@ -116,7 +172,12 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   // ---- start / go ----
   function start(key) {
     const def = defs[key]; if (!def || !HPL.overlay || window.__game.modal) return false;
-    HPL.overlay.open(def, () => refreshBell());
+    openKey = key;
+    HPL.overlay.open(def, (stars, quit) => {
+      openKey = null; refreshBell();
+      // a finished lesson earns a flourish from a GLB professor (if her rig has a Cast clip)
+      if (!quit && stars > 0) { const s = live.find(l => l.key === key); if (s?.chibi?.userData.acts?.cast) fadeTo(s.chibi, 'cast'); }
+    });
     return true;
   }
   async function go(key) {
@@ -190,9 +251,9 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     const inside = interiors.active, list = inside ? live : outdoor;
     let best = null, bd = 1e9;
     for (const s of list) {
-      if (s.chibi) animateChibi(s.chibi.userData.rig, dt, { moving: false });
       if (s.bob) { s.bob.position.y += Math.sin(t * 2) * 0.004; s.bob.rotation.y += dt * 0.8; }
       const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z);
+      if (s.chibi) { animateChibi(s.chibi.userData.rig, dt, { moving: false }); animateFigure(s, dt, d < (s.r || 4.4)); }
       // far-away lesson spots cost nothing: the little figures stream in at 55 m, the buildings at 95 m
       if (s.world) { if (s.chibi) s.chibi.visible = d < 55; if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; }
       if (s.critters) for (const c of s.critters) { const k = Math.max(0, Math.sin(t * (d < 14 ? 5 : 2.2) + c.ph)); c.cr.position.y = k * (d < 14 ? 0.5 : 0.18); }
@@ -205,7 +266,10 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       fun.say(head.set(best.x, best.y + (best.chibi ? 2.6 : 3), best.z), def.icon + ' ' + def.subject, 0.25, 'lesson');
     }
   }
+  // while a modal (lesson overlay, picker) freezes update(): keep GLB professors breathing,
+  // talking if their lesson is the one open
+  function anim(dt) { if (interiors.active) for (const s of live) if (s.chibi) animateFigure(s, dt, s.key === openKey); }
   // visibility only (used while a mini-game owns the frame)
   function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < 55; if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } }
-  return { update, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
+  return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
 }
