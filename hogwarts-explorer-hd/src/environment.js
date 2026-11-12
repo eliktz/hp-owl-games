@@ -4,7 +4,7 @@ import {
   DirectionalLight, HemisphereLight, AmbientLight, FogExp2, Color,
   CanvasTexture, EquirectangularReflectionMapping, MathUtils, SRGBColorSpace,
 } from 'three';
-import { TIMES } from './config.js';
+import { TIMES, INDOOR_EXPOSURE } from './config.js';
 import { loadHDRI } from './assets.js';
 
 // Procedural equirect gradient sky used when no HDRI file is present.
@@ -31,8 +31,12 @@ const SKY_COLORS = {
 };
 
 export class Environment {
-  constructor(scene) {
+  // opts.renderer: tone-mapping exposure per time; opts.windowMat: shared lit-window material.
+  constructor(scene, opts = {}) {
     this.scene = scene;
+    this.renderer = opts.renderer || null;
+    this.windowMat = opts.windowMat || null;
+    this.indoor = false;
     this.sun = new DirectionalLight(0xffffff, 2.4);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -54,9 +58,19 @@ export class Environment {
     this.time = 'day';
   }
 
+  // Interiors flip this on enter/exit. While indoors the time button only records the
+  // choice (and the window glow); fog, sky, lights and IBL stay the room's until exit.
+  setIndoor(v) {
+    this.indoor = !!v;
+    if (this.indoor && this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE;
+  }
+
   async setTime(key) {
     const p = TIMES[key] || TIMES.day;
     this.time = key;
+    if (this.windowMat) this.windowMat.emissiveIntensity = p.win ?? 1.6;
+    if (this.indoor) return;
+    if (this.renderer) this.renderer.toneMappingExposure = p.exposure ?? 1.0;
     // Sun placement from elevation/azimuth.
     const el = MathUtils.degToRad(p.elev), az = MathUtils.degToRad(p.azim);
     const d = 150;
@@ -81,6 +95,8 @@ export class Environment {
       env = await loadHDRI(hdriFile);
       if (env) env.mapping = EquirectangularReflectionMapping;
       this.hdriCache[key] = env || null;
+      // The player may have gone indoors or picked another time while the file loaded.
+      if (this.indoor || this.time !== key) return;
     }
     const sky = SKY_COLORS[key] || SKY_COLORS.day;
     const tex = env || proceduralSky(sky[0], sky[1], sky[2]);

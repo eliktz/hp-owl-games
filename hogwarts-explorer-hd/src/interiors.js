@@ -30,6 +30,7 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     player.pos.y = FLOOR_Y; player.smoothY = FLOOR_Y;
     cooldown = 0.6;                            // ignore portals briefly after arriving
     if (!wasInside) {
+      env.setIndoor?.(true);                  // the time button must not repaint the room
       savedAmb = env.amb.intensity; savedHemi = env.hemi.intensity;
       // candle-lit, not floodlit: a lower warm ambient so the baked flame pools + washes read
       savedAmbC = env.amb.color.getHex(); savedHemiC = env.hemi.color.getHex(); savedHemiG = env.hemi.groundColor.getHex();
@@ -60,7 +61,8 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     player.heightAt = terrainHeightAt;
     env.amb.intensity = savedAmb; env.hemi.intensity = savedHemi;
     env.amb.color.setHex(savedAmbC); env.hemi.color.setHex(savedHemiC); env.hemi.groundColor.setHex(savedHemiG);
-    env.setTime(env.time);                    // restores fog + sky for the current time of day
+    env.setIndoor?.(false);
+    env.setTime(env.time);                    // restores fog + sky + exposure for the current time of day
     const h = homeSpot || { x: 0, z: 26 };
     player.teleport(h.x, h.z);
     onExit && onExit();

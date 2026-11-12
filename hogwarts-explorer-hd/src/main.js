@@ -50,7 +50,7 @@ async function boot() {
   const grass = await loadTexture('grass_1k.jpg', { repeat: 120 });
   const mats = makeMaterials({ stone, slate, wood });
 
-  const env = new Environment(scene);
+  const env = new Environment(scene, { renderer, windowMat: mats.window });
   await env.setTime('day');
   const terrain = buildTerrain(scene, { texture: grass });
   const lake = buildLake(scene);
