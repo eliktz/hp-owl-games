@@ -111,7 +111,7 @@
 
   /* snitches */
   const snitches = [];
-  let wanted = 3, bonusCaught = 0;
+  let wanted = 3, bonusCaught = 0, quick = 0, lastCatch = -99;
   // every so often a RAINBOW snitch turns up: bigger, shimmering through every colour, worth three
   let spawned = 0;
   function addSnitch(bonus) {
@@ -204,6 +204,7 @@
       s.position.y = u.home.y + Math.cos(t * 0.9 + k) * 2 + Math.sin(t * 2.3 + k) * 0.6;
       u.home.x = clamp(u.home.x + Math.sin(t * 0.3 + k) * dt * 2, -10, 10);
       // later levels: snitches scoot away a little when Pig gets close
+      if (u.stick) s.position.copy(pig.position);            // test hook: a staged snitch sits right on Pig
       const d = s.position.distanceTo(pig.position);
       if (score >= 10 && d < 4) u.home.add(s.position.clone().sub(pig.position).setZ(0).normalize().multiplyScalar(dt * 2.5));
       u.home.y = clamp(u.home.y, 0.5, 9.5);
@@ -221,6 +222,9 @@
           ui.banner('🌈 +3', 900); spin = 1.2; HP.sfx.tweet(); setTimeout(() => { HP.sfx.chime(); HP.sfx.chime(); }, 120);
           bonusCaught++;
         } else fx.burst(s.position, [0xffd34d, 0xffffff, 0xffef9a], 35, 7, 0.7);
+        // quick catches: three snitches within a few seconds of each other is a ⚡ lightning streak
+        quick = t - lastCatch < 3 ? quick + 1 : 1; lastCatch = t;
+        if (quick >= 3 && quick % 3 === 0) { ui.banner('⚡×' + quick, 800); HP.sfx.tweet(); spin = Math.max(spin, 0.8); fx.burst(pig.position, [0xfff27a, 0xffffff, 0x9fd0ff], 40, 9, 0.8); }
         if (Math.floor(score / 5) > Math.floor(before / 5)) party();
         setTimeout(addSnitch, 700);
       }
@@ -247,7 +251,7 @@
     HP.sfx.resetChime();
   }
   var best0 = HP.best('pig'), recordShown = false;      // (var: hoisted, the game loop above uses them)
-  window.__game = { get score() { return score; }, pig, snitches, party, get record() { return recordShown; }, addSnitch, camera, get bonusCaught() { return bonusCaught; } };
+  window.__game = { get score() { return score; }, pig, snitches, party, get quick() { return quick; }, get record() { return recordShown; }, addSnitch, camera, get bonusCaught() { return bonusCaught; } };
   frame();
 })();
 </script>
