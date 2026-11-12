@@ -130,19 +130,35 @@
     // ---- hanging pot racks over the two work tables (NOT the central aisle): tucked high
     //      near the ceiling and off-centre so they never read into the top HUD, and the
     //      sightline down the aisle to the hearth stays clear ----
+    const hung = [];
     [R.x0 + 2.6, R.x1 - 2.6].forEach((tx) => {
       const rail = F.mesh(new T.CylinderGeometry(0.06, 0.06, 11, 8), ironM, tx, FY + 6.0, -13); rail.rotation.x = Math.PI / 2; scene.add(rail);
       for (let i = 0; i < 4; i++) {
         const z = -17 + i * 2.6;
         scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.4, 6), ironM, tx, FY + 5.75, z));
-        scene.add(F.mesh(new T.CylinderGeometry(0.3, 0.26, 0.42, 12), copper, tx, FY + 5.35, z)); // pot (rounded, reads well)
+        { const m = F.mesh(new T.CylinderGeometry(0.3, 0.26, 0.42, 12), copper, tx, FY + 5.35, z); scene.add(m); hung.push(m); } // pot (rounded, reads well)
       }
       // a couple of flat-bottomed pans hung edge-on by the handle between the pots
       [-14.5, -10].forEach((z) => {
         scene.add(F.mesh(new T.CylinderGeometry(0.03, 0.03, 0.5, 6), ironM, tx, FY + 5.7, z));
-        const pan = F.mesh(new T.CylinderGeometry(0.3, 0.3, 0.07, 14), copper, tx, FY + 5.3, z); pan.rotation.z = Math.PI / 2; scene.add(pan); // edge-on from the aisle
+        const pan = F.mesh(new T.CylinderGeometry(0.3, 0.3, 0.07, 14), copper, tx, FY + 5.3, z); pan.rotation.z = Math.PI / 2; scene.add(pan); hung.push(pan); // edge-on from the aisle
         scene.add(F.mesh(new T.BoxGeometry(0.06, 0.45, 0.06), ironM, tx, FY + 5.55, z)); // handle
       });
+    });
+
+    // wave the wand in the kitchens: every hanging pot and pan swings and clangs like a drum kit
+    let clangT = 0;
+    hung.forEach((m, i) => { m.userData.y0 = m.position.y; m.userData.rz = m.rotation.z; m.userData.ph = i * 1.9; });
+    const inKitchen = () => { const g = window.__game, p = g && g.player.position; return !!p && p.x > R.x0 && p.x < R.x1 && p.z > R.z0 && p.z < R.z1 && Math.abs(p.y - FY) < 3; };
+    HPI.enchantables.push({ id: 'pots', get x() { return inKitchen() ? cx : 1e6; }, y: FY + 3.6, z: -13, r: 5, cast() {
+      clangT = 3;
+      try { const S = window.HPFun.sfx; for (let i = 0; i < 9; i++) { S.tone(500 + ((i * 7) % 5) * 190, 0.09, 'square', 0.07, i * 0.16); S.noise(0.05, 0.12, i * 0.16, 2600, 3); } } catch (e) {}
+      return '🥘'; } });
+    HPI.potsClang = () => clangT;
+    HPI.builders.push((t, dt) => {
+      if (clangT <= 0) return;
+      clangT -= dt; const k = clangT > 0 ? Math.min(1, clangT) : 0;
+      for (const m of hung) { m.rotation.x = k * Math.sin(t * 10 + m.userData.ph) * 0.7; m.position.y = m.userData.y0 + k * Math.abs(Math.sin(t * 13 + m.userData.ph)) * 0.18; }
     });
 
     // ---- stacked barrels in the SE corner ----

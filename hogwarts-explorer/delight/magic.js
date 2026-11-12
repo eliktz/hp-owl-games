@@ -5,13 +5,13 @@
  * target the spell is a little firework, so pressing the button is never a dud. */
 (function () {
   const F = window.HPFun, T = window.THREE;
-  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire', 'globe', 'cup'];
+  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire', 'globe', 'cup', 'pots'];
   const WIZARD = 10;
   // where each kind of magic hides — the map icon of its place (a tap on a ❔ in the spell book shows it)
   const WHERE = { armour: '🚪', ghost: '⏰', candles: '🍽️', books: '📚', cauldron: '⚗️', portrait: '🖼️', peeves: '🏰', friend: '🧒', lake: '🌊', hut: '🏠', hoops: '🧹', greenhouse: '🌿',
-    pip: '🦉', feast: '🍽️', toad: '🐸', pumpkins: '🍽️', hat: '🚪', owl: '🍽️', chandelier: '🚪', fire: '🔥', globe: '📚', cup: '🏆' };
+    pip: '🦉', feast: '🍽️', toad: '🐸', pumpkins: '🍽️', hat: '🚪', owl: '🍽️', chandelier: '🚪', fire: '🔥', globe: '📚', cup: '🏆', pots: '🍲' };
   const ICON = { armour: '🛡️', ghost: '👻', candles: '🕯️', books: '📚', cauldron: '🫧', portrait: '🖼️', peeves: '🤡', friend: '👋', lake: '⛲', hut: '🌈', hoops: '🔔', greenhouse: '🌸',
-    pip: '💛', feast: '🍗', toad: '🐸', pumpkins: '🎃', hat: '🎩', owl: '🦉', chandelier: '🏮', fire: '🔥', globe: '🌍', cup: '🏆' };
+    pip: '💛', feast: '🍗', toad: '🐸', pumpkins: '🎃', hat: '🎩', owl: '🦉', chandelier: '🏮', fire: '🔥', globe: '🌍', cup: '🏆', pots: '🥘' };
   const NEED = 5;
   F.boot(function (g) {
     F.badge('wand', '🪄', 'קוסם');
