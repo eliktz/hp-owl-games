@@ -164,6 +164,7 @@
   let level = 0;
   let cards = [], open = [], busy = false, cursor = 0;
   let combo = 0;            // pairs found in a row without a miss
+  let levelMisses = 0, perfects = 0;   // a whole deal cleared without a single miss is a 💎 perfect
   let misses = 0, hints = 0; // misses in a row; after three the owls give a gentle hint
   const cardW = 3.2, cardD = 3.2, gap = 0.7;
   const cardGeo = new THREE.BoxGeometry(cardW, 0.18, cardD);
@@ -175,7 +176,7 @@
 
   function deal() {
     cards.forEach((c) => scene.remove(c));
-    cards = []; open = []; busy = false; cursor = 0;
+    cards = []; open = []; busy = false; cursor = 0; levelMisses = 0;
     const [cols, rows] = LEVELS[Math.min(level, LEVELS.length - 1)];
     const n = cols * rows;
     const pick = symbols.map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, n / 2);
@@ -240,6 +241,7 @@
         setTimeout(() => {
           a.userData.target = b.userData.target = 0; open = []; busy = false;
           // three misses in a row: an owl hoots and one matching pair hops and sparkles for a moment
+          levelMisses++;
           if (++misses >= 3) {
             misses = 0;
             const down = cards.filter((c) => !c.userData.done), p1 = down.find((c) => down.some((d) => d !== c && d.userData.sym === c.userData.sym));
@@ -311,10 +313,13 @@
       checkLevelDone.pending = true;
       setTimeout(() => {
         HP.sfx.fanfare();
-        ui.banner('כל הכבוד! 🦉');
-        HP.cheer();
+        const perfect = levelMisses === 0;
+        if (perfect) perfects++;
+        ui.banner(perfect ? '💎 מושלם! 🦉' : 'כל הכבוד! 🦉');
+        HP.cheer(perfect ? ['מושלם!'] : undefined);
         guests.forEach((gst, i) => setTimeout(() => gst.pop(2.6), i * 180));
         fx.fireworks(new THREE.Vector3(0, 6, -4), 10, 8);
+        if (perfect) { setTimeout(() => fx.fireworks(new THREE.Vector3(-4, 7, -4), 8, 7), 500); setTimeout(() => fx.fireworks(new THREE.Vector3(4, 7, -4), 8, 7), 900); owls.forEach((o) => (o.userData.wiggle = 1.2)); }
         setTimeout(() => { level = level + 1 >= LEVELS.length ? LEVELS.length - 1 : level + 1; deal(); checkLevelDone.pending = false; }, 2600);
       }, 300);
     }
@@ -371,7 +376,7 @@
   }
   deal();
   var best0 = HP.best('owlery'), recordShown = false;      // (var: hoisted, the game loop above uses them)
-  window.__game = { get matches() { return matches; }, get combo() { return combo; }, get hints() { return hints; }, get record() { return recordShown; }, get cards() { return cards; }, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
+  window.__game = { get matches() { return matches; }, get combo() { return combo; }, get hints() { return hints; }, get perfects() { return perfects; }, get levelMisses() { return levelMisses; }, get record() { return recordShown; }, get cards() { return cards; }, flip, camera, get level() { return level; }, popGuests: () => guests.forEach((g, i) => setTimeout(() => g.pop(3), i * 180)) };
   frame();
 })();
 </script>
