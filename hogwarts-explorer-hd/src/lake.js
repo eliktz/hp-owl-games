@@ -16,7 +16,7 @@ export function buildLake(scene) {
   const mesh = new Mesh(geo, new MeshStandardMaterial({
     color: new Color(0x0a1d26),       // deep blue-teal, low albedo (no bloom)
     roughness: 0.06, metalness: 0.0,
-    normalMap, envMapIntensity: 1.0,
+    normalMap, envMapIntensity: 0.6,    // darker than the sky it mirrors
   }));
   mesh.material.normalScale.set(0.1, 0.1);
   mesh.position.set(-90, WORLD.waterLevel, -10);

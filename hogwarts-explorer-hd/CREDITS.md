@@ -28,6 +28,8 @@ Fetched + optimised by `tools/fetch-assets.mjs`. Total ~7.5 MB.
 | `assets/hdri/kloofendal_day_1k.hdr` | `kloofendal_48d_partly_cloudy_puresky` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
 | `assets/hdri/dusk_1k.hdr` | `spruit_sunrise` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/spruit_sunrise |
 | `assets/hdri/night_1k.hdr` | `rogland_clear_night` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/rogland_clear_night |
+| `assets/hdri/belfast_sunset_puresky_1k.hdr` | `belfast_sunset_puresky` (Belfast Sunset (Pure Sky), by Greg Zaal, Dimitrios Savva, Jarod Guest) | HDRI 1K, downsized from 2K with a warm grade baked in (dusk sky) | CC0 1.0 | https://polyhaven.com/a/belfast_sunset_puresky |
+| `assets/hdri/qwantani_night_puresky_1k.hdr` | `qwantani_night_puresky` (Qwantani Night (Pure Sky), by Greg Zaal, Jarod Guest) | HDRI 1K, downsized from 2K with a teal-blue night grade baked in (night sky) | CC0 1.0 | https://polyhaven.com/a/qwantani_night_puresky |
 
 Poly Haven assets are CC0 (public domain). Credit is a courtesy, not a requirement.
 

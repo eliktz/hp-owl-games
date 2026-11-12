@@ -28,11 +28,13 @@ export const TIER = { HIGH: 'high', MEDIUM: 'medium', LOW: 'low' };
 
 // Time-of-day presets: sun elevation/colour, fog, ambient. Drives the day/dusk/night toggle.
 // exposure = renderer.toneMappingExposure outdoors; win = castle window emissiveIntensity
-// (day almost off, dusk warm, night glittering). Fog colours sit near each HDRI's horizon.
+// (day almost off, dusk warm, night glittering); bg = HDRI sky brightness (backgroundIntensity).
+// Fog colours sit near each HDRI's horizon. The film dusk/night 1K skies have a colour grade
+// baked in (night x(0.06,0.11,0.2) teal-blue, dusk x(0.62,0.5,0.44) warm), so env/bg assume them.
 export const TIMES = {
-  day:  { sun: 0xfff0d2, sunI: 2.6, elev: 52, azim: 135, fog: 0xc9d6e2, fogDensity: 0.0030, env: 1.0, amb: 0.5,  exposure: 1.0,  win: 0.25 },
-  dusk: { sun: 0xff9448, sunI: 2.4, elev: 9,  azim: 250, fog: 0xd29a74, fogDensity: 0.0040, env: 0.75, amb: 0.36, exposure: 1.05, win: 1.6 },
-  night:{ sun: 0x9fb8ff, sunI: 1.0, elev: 24, azim: 300, fog: 0x15283a, fogDensity: 0.0056, env: 0.45, amb: 0.30, exposure: 1.2,  win: 2.6 },
+  day:  { sun: 0xfff0d2, sunI: 2.6, elev: 52, azim: 135, fog: 0xc9d6e2, fogDensity: 0.0030, env: 1.0, amb: 0.5,  exposure: 1.0,  win: 0.25, bg: 1.0 },
+  dusk: { sun: 0xff9448, sunI: 2.4, elev: 9,  azim: 250, fog: 0xdc9e76, fogDensity: 0.0040, env: 0.9,  amb: 0.36, exposure: 1.05, win: 1.6,  bg: 0.95 },
+  night:{ sun: 0x9fb8ff, sunI: 1.0, elev: 24, azim: 300, fog: 0x22384e, fogDensity: 0.0056, env: 1.0,  amb: 0.30, exposure: 1.2,  win: 2.6,  bg: 0.6 },
 };
 // Indoor rooms are tuned at this exposure; the time button never changes it.
 export const INDOOR_EXPOSURE = 1.0;

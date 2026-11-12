@@ -30,6 +30,12 @@ const SKY_COLORS = {
   night:['#070b1c', '#1b244a', '#0a0f1e'],
 };
 
+const HDRI_FILES = {
+  day:   ['kloofendal_day_1k.hdr'],
+  dusk:  ['belfast_sunset_puresky_1k.hdr', 'dusk_1k.hdr'],
+  night: ['qwantani_night_puresky_1k.hdr', 'night_1k.hdr'],
+};
+
 export class Environment {
   // opts.renderer: tone-mapping exposure per time; opts.windowMat: shared lit-window material.
   constructor(scene, opts = {}) {
@@ -63,6 +69,7 @@ export class Environment {
   setIndoor(v) {
     this.indoor = !!v;
     if (this.indoor && this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE;
+    if (this.indoor) this.scene.backgroundIntensity = 1;
   }
 
   async setTime(key) {
@@ -89,10 +96,12 @@ export class Environment {
     this.scene.background = new Color(p.fog);
 
     // Try a real HDRI first; otherwise procedural gradient. Both drive IBL.
-    const hdriFile = { day: 'kloofendal_day_1k.hdr', dusk: 'dusk_1k.hdr', night: 'night_1k.hdr' }[key];
+    // Film skies first (Poly Haven CC0 pure skies); the older 1K files stay as a fallback.
+    const hdriFiles = HDRI_FILES[key] || HDRI_FILES.day;
     let env = this.hdriCache[key];
     if (env === undefined) {
-      env = await loadHDRI(hdriFile);
+      env = null;
+      for (const f of hdriFiles) { env = await loadHDRI(f); if (env) break; }
       if (env) env.mapping = EquirectangularReflectionMapping;
       this.hdriCache[key] = env || null;
       // The player may have gone indoors or picked another time while the file loaded.
@@ -104,6 +113,7 @@ export class Environment {
     this.scene.environment = tex;
     this.scene.environmentIntensity = p.env;
     if (env) this.scene.background = tex;   // real HDRI doubles as the sky dome
+    this.scene.backgroundIntensity = env ? (p.bg ?? 1) : 1;
   }
 
   cycle() {
