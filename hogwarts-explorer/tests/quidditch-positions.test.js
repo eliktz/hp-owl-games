@@ -14,6 +14,9 @@ const { open, until, tapEl, reporter, shot, IPAD } = require('./ipad');
   R.check(await until(page, () => window.HPFun.mods.quidditch.state().pick), 'tap 🧹 → the position chooser opens', 'chooser did not open');
   const roles = await Q(() => [...document.querySelectorAll('#qPick .qR')].map((b) => b.dataset.r).join(','));
   R.check(roles === 'seeker,chaser,beater,keeper', 'four positions on offer: Seeker, Chaser, Beater, Keeper', 'chooser buttons wrong: ' + roles);
+  const fit = await Q(() => { const p = document.querySelector('#qPick .p').getBoundingClientRect(), b = [...document.querySelectorAll('#qPick .qR')];
+    return { fits: p.top >= 0 && p.bottom <= window.innerHeight && p.left >= 0 && p.right <= window.innerWidth, big: b.every((x) => x.getBoundingClientRect().width >= 120 && x.getBoundingClientRect().height >= 120), hints: b.every((x) => x.querySelector('.h') && x.querySelector('.h').textContent.trim().length > 0) }; });
+  R.check(fit.fits && fit.big && fit.hints, 'the chooser fits the iPad screen: big buttons, each with a picture hint of the job', 'chooser layout wrong ' + JSON.stringify(fit));
   await page.waitForTimeout(400); await shot(page, 'quidditch-positions-ipad.png');
 
   const play = async (role) => {            // (re)open the chooser and pick a position with a real tap

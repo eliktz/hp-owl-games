@@ -89,7 +89,8 @@
     const mate = flyer('hermione', 0x7a1420);                      // your team's Chaser (Seeker + Beater games)
     const myBroom = broom();
     const myBat = mk(new T.Group(), new T.CylinderGeometry(0.09, 0.16, 1.5, 8), M(0x5a3a1e), 0, 0.75, 0).parent; myBat.position.set(0.75, 1.5, 0.5); myBat.rotation.z = -0.5;
-    const ROLES = { seeker: { e: '✨', n: 'מְחַפֵּשׂ', btn: '⚡' }, chaser: { e: '🔴', n: 'רוֹדֵף', btn: '🤾' }, beater: { e: '🏏', n: 'חוֹבֵט', btn: '🏏' }, keeper: { e: '🧤', n: 'שׁוֹמֵר', btn: '🧤' } };
+    // (h: a three-picture hint of the job, for children who do not read yet)
+    const ROLES = { seeker: { e: '✨', n: 'מְחַפֵּשׂ', btn: '⚡', h: '🧹 💨 ✨' }, chaser: { e: '🔴', n: 'רוֹדֵף', btn: '🤾', h: '🔴 ➡️ ⭕' }, beater: { e: '🏏', n: 'חוֹבֵט', btn: '🏏', h: '🏏 💥 ⚫' }, keeper: { e: '🧤', n: 'שׁוֹמֵר', btn: '🧤', h: '🔴 ✋ 🧤' } };
     const aimRing = mk(actors, new T.TorusGeometry(1.9, 0.14, 8, 24), new T.MeshBasicMaterial({ color: 0x9effa0, fog: false })); aimRing.rotation.y = Math.PI / 2; aimRing.visible = false;
     const warn = F.emojiSprite('⚠️', 1.6); warn.visible = false; actors.add(warn);
 
@@ -125,7 +126,7 @@
     #qPick .ti{font-size:64px;line-height:1.1} #qPick .g{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
     #qPick .qR{min-height:150px;border-radius:26px;border:4px solid #ffd76a;background:linear-gradient(#4a2f9a,#2a1a66);color:#fff;font:bold 28px 'Rubik',sans-serif;cursor:pointer;touch-action:manipulation;
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px}
-    #qPick .qR:active{transform:scale(.95)} #qPick .qR .e{font-size:62px;line-height:1.1} #qPick .qR .s{font-size:22px;letter-spacing:3px;min-height:26px}
+    #qPick .qR:active{transform:scale(.95)} #qPick .qR .e{font-size:62px;line-height:1.1} #qPick .qR .s{font-size:20px;letter-spacing:3px;min-height:24px} #qPick .qR .h{font-size:22px;direction:ltr;opacity:.92;background:rgba(0,0,0,.25);border-radius:14px;padding:1px 10px}
     #qPick .x{position:absolute;top:10px;left:10px;width:58px;height:58px;border-radius:50%;border:4px solid #ffd76a;background:rgba(40,25,90,.9);color:#fff;font-size:26px;padding:0}`;
     document.head.appendChild(css);
     const board = document.createElement('div'); board.id = 'qBoard';
@@ -177,7 +178,7 @@
       if (S.on || g.modal || !g.started) return false;
       st.qRoles = st.qRoles || {};
       pickOv.innerHTML = '<div class="p"><button class="x" type="button">✕</button><div class="ti">🧹</div><div class="g">' + Object.keys(ROLES).map((k) => '<button class="qR" type="button" data-r="' + k + '"><span class="e">' + ROLES[k].e
-        + '</span><span class="n">' + ROLES[k].n + '</span><span class="s">' + '⭐'.repeat(st.qRoles[k] || 0) + '</span></button>').join('') + '</div></div>';
+        + '</span><span class="n">' + ROLES[k].n + '</span><span class="h">' + ROLES[k].h + '</span><span class="s">' + '⭐'.repeat(st.qRoles[k] || 0) + '</span></button>').join('') + '</div></div>';
       pickOv.querySelector('.x').addEventListener('click', (e) => { e.stopPropagation(); closePick(); });
       pickOv.querySelectorAll('.qR').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); closePick(); start(b.dataset.r); }));
       g.setModal(true); pickOv.classList.add('on'); try { HP.sfx.flip(); } catch (e) {}
