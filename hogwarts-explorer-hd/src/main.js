@@ -2,7 +2,7 @@
 // exposes window.__game test hooks.
 import { Scene, PerspectiveCamera, Vector3, Raycaster, Frustum, Matrix4, Sphere } from 'three';
 import { createRenderer, backendName } from './renderer.js';
-import { setRenderer as setModelRenderer } from './models.js';
+import { setRenderer as setModelRenderer, modelStatus } from './models.js';
 import { QualityManager } from './quality.js';
 import { Environment } from './environment.js';
 import { buildTerrain, heightAt } from './terrain.js';
@@ -291,6 +291,8 @@ async function boot() {
       scene.traverse(o => { if (o.isMesh) { meshes++; if (o.castShadow) casters++; if (o.visible) visible++; } });
       return { meshes, casters, visible };
     },
+    // Per-model load result ('ok' or the reason it fell back), for diagnosing on a phone.
+    models() { return modelStatus(); },
     stats() {
       const info = renderer.info || {}; const r = info.render || {}; const mem = info.memory || {};
       return {
@@ -302,6 +304,14 @@ async function boot() {
     },
   };
   hud.set('backend', backendName(renderer).toUpperCase());
+  // ?debug=1: append any model that fell back (and why) to the backend pill, so a silent
+  // fallback is visible on an iPhone/iPad without a console.
+  if (document.body.classList.contains('debug')) {
+    setInterval(() => {
+      const bad = Object.entries(modelStatus()).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ': ' + v);
+      hud.set('backend', backendName(renderer).toUpperCase() + (bad.length ? ' | ' + bad.join(' | ') : ''));
+    }, 2000);
+  }
 }
 
 function labelOf(id) {

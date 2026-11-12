@@ -65,9 +65,10 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   function upgradeProfessor(c, spec) {
     loadAnimated(spec.model).then(r => {
       let root = c; while (root.parent) root = root.parent;
-      if (!r || !root.isScene) return;                 // load failed, or the room was left meanwhile
+      if (!r) { console.warn('[lessons] professor', spec.model, 'GLB unavailable - keeping the chibi (see __game.models())'); return; }
+      if (!root.isScene) return;                       // the room was left meanwhile
       const clip = n => r.clips.find(a => a.name === n);
-      if (!clip('Idle')) return;
+      if (!clip('Idle')) { console.warn('[lessons] professor', spec.model, 'GLB has no Idle clip - keeping the chibi'); return; }
       const obj = r.obj; obj.scale.setScalar(spec.scale); obj.name = 'prof-' + spec.model;
       obj.traverse(o => {
         if (!o.isMesh) return;
