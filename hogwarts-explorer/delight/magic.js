@@ -5,7 +5,8 @@
  * target the spell is a little firework, so pressing the button is never a dud. */
 (function () {
   const F = window.HPFun, T = window.THREE;
-  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire'];
+  const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire', 'globe'];
+  const WIZARD = 10;
   const NEED = 5;
   F.boot(function (g) {
     F.badge('wand', '🪄', 'קוסם');
@@ -89,8 +90,11 @@
         F.sfx.giggle(true); try { HP.sfx.sparkle(); } catch (e) {}
         if (KINDS.includes(tg.id) && !st.magic.includes(tg.id)) {
           st.magic.push(tg.id); F.save();
-          F.toast(emoji, 'קסם חדש! ' + Math.min(st.magic.length, NEED) + '/' + NEED);
-          if (st.magic.length >= NEED) setTimeout(() => F.award('wand'), 900);
+          const n = st.magic.length;
+          F.toast(emoji, 'קסם חדש! ' + (n <= NEED ? n + '/' + NEED : n + ' ✨'));      // past the sticker the count keeps climbing
+          if (n >= NEED) setTimeout(() => F.award('wand'), 900);
+          // ten different things enchanted: a proper "real wizard" moment (once)
+          if (n >= WIZARD && !st.wizard) { st.wizard = true; F.save(); setTimeout(() => { F.toast('🪄🌟', 'קוֹסֵם אֲמִתִּי!', 3000); F.confetti(['🪄', '✨', '⭐', '🌟'], 30); F.sfx.tada(); g.cheer(3); }, 2300); }
         }
       } else if (++duds % 6 === 0) {
         // oops! every sixth cast with nothing to enchant goes hilariously wrong
@@ -112,6 +116,6 @@
       g.fx.trail(tmp, 0xfff0a0, 0.4);
       if (k >= 1) { land(); fly = null; b.material.opacity = 0; }
     });
-    F.mods.magic = { cast, kinds: KINDS, need: NEED, found: () => st.magic.slice() };
+    F.mods.magic = { cast, kinds: KINDS, need: NEED, found: () => st.magic.slice(), wizard: () => !!st.wizard };
   });
 })();
