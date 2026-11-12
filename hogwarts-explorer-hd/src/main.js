@@ -111,6 +111,7 @@ async function boot() {
   const quality = new QualityManager(renderer, {
     onTier: (t) => {
       usePost = !!post && t !== TIER.LOW;
+      lake.userData.mist?.setEnabled(t !== TIER.LOW);
       hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t);
     },
   });
@@ -211,7 +212,7 @@ async function boot() {
     interiors.update(dt);
     const inside = !!interiors.active;
     setWorldVisible(!inside);
-    if (!inside) cullFriends();
+    if (!inside) { cullFriends(); lake.userData.mist?.update(dt, camera); }
     if (inside !== wasInside) { wasInside = inside; document.body.classList.toggle('inside', inside); }
     shadow.visible = inside;
     if (inside) shadow.position.set(player.pos.x, FLOOR_Y + 0.05, player.pos.z);

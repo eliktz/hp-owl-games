@@ -6,6 +6,7 @@
 import { CircleGeometry, Mesh, MeshStandardMaterial, Color } from 'three';
 import { WORLD } from './config.js';
 import { waterRipples } from './textures.js';
+import { buildMist } from './mist.js';
 
 export function buildLake(scene) {
   const geo = new CircleGeometry(60, 48);
@@ -26,9 +27,12 @@ export function buildLake(scene) {
     const m = mesh.material;
     if (sky && m.envMap !== sky) { m.envMap = sky; m.needsUpdate = true; }
     m.envMapIntensity = p.lakeEnv ?? 0.6; m.color.setHex(p.lakeColor ?? 0x0a1d26);
+    mesh.userData.mist?.setTime(p);
   };
   mesh.position.set(-90, WORLD.waterLevel, -10);
   mesh.name = 'lake';
+  // low mist cards over the water (children: hidden indoors with the lake); never fatal
+  try { mesh.userData.mist = buildMist(mesh); } catch (e) { console.warn('[mist] skipped:', e && e.message || e); }
   scene.add(mesh);
   return mesh;
 }

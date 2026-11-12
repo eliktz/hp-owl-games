@@ -34,10 +34,11 @@ export const TIER = { HIGH: 'high', MEDIUM: 'medium', LOW: 'low' };
 // baked in (night x(0.06,0.11,0.2) teal-blue; the belfast dusk fallback x(0.62,0.5,0.44) warm), so
 // env/bg assume them. The golden kloppenheim dusk sky carries its own env/bg in HDRI_SKIES.
 // lakeEnv / lakeColor: the lake's envMapIntensity / base colour (default 0.6 / 0x0a1d26).
+// mist: lake mist cards (mist.js) opacity o and unlit colour c (keep c <= 0.84 linear).
 export const TIMES = {
-  day:  { sun: 0xfff0d2, sunI: 2.6, elev: 52, azim: 135, fog: 0xc9d6e2, fogDensity: 0.0030, env: 1.0, amb: 0.5,  exposure: 1.0,  win: 0.25, bg: 1.0, lakeEnv: 0.7 },
-  dusk: { sun: 0xff9448, sunI: 2.4, elev: 9,  azim: 250, fog: 0xdc9e76, fogDensity: 0.0040, env: 0.9,  amb: 0.36, exposure: 1.05, win: 1.6,  bg: 0.95, lakeEnv: 0.09, lakeColor: 0x0a1a2a },
-  night:{ sun: 0x9fb8ff, sunI: 1.0, elev: 24, azim: 300, fog: 0x34506c, fogDensity: 0.0056, env: 1.0,  amb: 0.30, exposure: 1.2,  win: 2.6,  bg: 0.6, lakeEnv: 1.0 },
+  day:  { sun: 0xfff0d2, sunI: 2.6, elev: 52, azim: 135, fog: 0xc9d6e2, fogDensity: 0.0030, env: 1.0, amb: 0.5,  exposure: 1.0,  win: 0.25, bg: 1.0, lakeEnv: 0.7, mist: { o: 0.10, c: 0xc4ccd4 } },
+  dusk: { sun: 0xff9448, sunI: 2.4, elev: 9,  azim: 250, fog: 0xdc9e76, fogDensity: 0.0040, env: 0.9,  amb: 0.36, exposure: 1.05, win: 1.6,  bg: 0.95, lakeEnv: 0.09, lakeColor: 0x0a1a2a, mist: { o: 0.42, c: 0xd8a888 } },
+  night:{ sun: 0x9fb8ff, sunI: 1.0, elev: 24, azim: 300, fog: 0x34506c, fogDensity: 0.0056, env: 1.0,  amb: 0.30, exposure: 1.2,  win: 2.6,  bg: 0.6, lakeEnv: 1.0, mist: { o: 0.30, c: 0x587592 } },
 };
 // Indoor rooms are tuned at this exposure; the time button never changes it.
 export const INDOOR_EXPOSURE = 1.0;
