@@ -7,6 +7,8 @@
   const F = window.HPFun, T = window.THREE;
   const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire', 'globe'];
   const WIZARD = 10;
+  const ICON = { armour: '🛡️', ghost: '👻', candles: '🕯️', books: '📚', cauldron: '🫧', portrait: '🖼️', peeves: '🤡', friend: '👋', lake: '⛲', hut: '🌈', hoops: '🔔', greenhouse: '🌸',
+    pip: '💛', feast: '🍗', toad: '🐸', pumpkins: '🎃', hat: '🎩', owl: '🦉', chandelier: '🏮', fire: '🔥', globe: '🌍' };
   const NEED = 5;
   F.boot(function (g) {
     F.badge('wand', '🪄', 'קוסם');
@@ -19,6 +21,19 @@
       #wandBtn.try{animation:wandTry 1.1s ease-in-out infinite}
       @keyframes wandTry{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 8px rgba(255,215,106,.55),0 0 28px rgba(255,215,106,.9)}}`;
     document.head.appendChild(css);
+    // ---- the spell book: a row in the 🎖️ sticker screen with every kind of magic found so far (❔ = still out there) ----
+    css.textContent += `.spellRow{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin:12px 0 0}
+      .spellRow span{width:30px;height:30px;font-size:21px;line-height:30px;text-align:center;border-radius:9px;background:rgba(20,12,50,.6)}
+      .spellRow span.no{opacity:.35;filter:grayscale(1)} .spellRow span.new{animation:spellNew .9s ease-out 3}
+      @keyframes spellNew{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}`;
+    let spellRow = null;
+    function renderSpells(fresh) {
+      const panel = document.querySelector('#badges .bpanel'); if (!panel) return;
+      if (!spellRow) { spellRow = document.createElement('div'); spellRow.className = 'spellRow'; panel.insertBefore(spellRow, panel.querySelector('#bclose')); }
+      spellRow.innerHTML = '';
+      KINDS.forEach((k) => { const has = st.magic.includes(k), c = document.createElement('span'); c.dataset.k = k; c.className = has ? (k === fresh ? 'new' : '') : 'no'; c.textContent = has ? ICON[k] : '❔'; spellRow.appendChild(c); });
+    }
+    renderSpells();
     const btn = document.createElement('div'); btn.className = 'gamebtn'; btn.id = 'wandBtn'; btn.textContent = '🪄';
     document.body.appendChild(btn);
     if (!st.wandUsed) btn.classList.add('try');     // a gentle glow until the child has tried the wand once
@@ -90,7 +105,7 @@
         F.sfx.giggle(true); try { HP.sfx.sparkle(); } catch (e) {}
         if (KINDS.includes(tg.id) && !st.magic.includes(tg.id)) {
           st.magic.push(tg.id); F.save();
-          const n = st.magic.length;
+          const n = st.magic.length; renderSpells(tg.id);
           F.toast(emoji, 'קסם חדש! ' + (n <= NEED ? n + '/' + NEED : n + ' ✨'));      // past the sticker the count keeps climbing
           if (n >= NEED) setTimeout(() => F.award('wand'), 900);
           // ten different things enchanted: a proper "real wizard" moment (once)
