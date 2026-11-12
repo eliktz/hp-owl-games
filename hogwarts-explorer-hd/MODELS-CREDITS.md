@@ -30,6 +30,7 @@ Per the CC-BY-4.0 licence terms, the following authors **must be credited**:
 | Professor Snape (Potions dungeon, rigged + animated) | Severus Snape | **zack_graham** | [Sketchfab](https://sketchfab.com/3d-models/82948e1a725340ca947226de61b89b52) | CC-BY-4.0 (uploader's licence label) |
 | Professor Sprout (Herbology greenhouse, rigged + animated) | Madam Sprout | **zack_graham** | [Sketchfab](https://sketchfab.com/3d-models/0a60570132c241fb98db91e99be4b1b1) | CC-BY-4.0 (uploader's licence label) |
 | Hagrid (by his hut, rigged + animated) | Hagrid | **gabg1234** | [Sketchfab](https://sketchfab.com/3d-models/hagrid-af3ad43c42a3408698ee4262bf42e651) | CC-BY-4.0 (uploader's licence label) |
+| Harry, the player's hero (rigged + animated) | Harry Potter (CoS, GameCube/Xbox) | **Chronis** | [Sketchfab](https://sketchfab.com/3d-models/7f3edb59fadd4aada5eb8c6f2b06ca6d) | CC-BY-4.0 (uploader's licence label) |
 
 ### Full CC-BY attribution strings
 
@@ -44,8 +45,9 @@ Per the CC-BY-4.0 licence terms, the following authors **must be credited**:
 - This work is based on ["Severus Snape"](https://sketchfab.com/3d-models/82948e1a725340ca947226de61b89b52) by zack_graham, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/) (the uploader's licence label; the model is game-extracted from *Harry Potter: Hogwarts Mystery*). Use approved by Elik on 12 Nov 2026. Skeleton and the Idle/Walk/Talk/FoldArms/Cast animations: [Quaternius Universal Animation Library](https://quaternius.com) (CC0). Optimised to Meshopt geometry + KTX2 (Basis) textures.
 - This work is based on ["Madam Sprout"](https://sketchfab.com/3d-models/0a60570132c241fb98db91e99be4b1b1) by zack_graham, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/) (the uploader's licence label; the model is game-extracted from *Harry Potter: Hogwarts Mystery*). Use approved by Elik on 12 Nov 2026. Skeleton and the Idle/Walk/Talk animations: [Quaternius Universal Animation Library](https://quaternius.com) (CC0); the Wave was keyframed in our own art workspace. Optimised to Meshopt geometry + KTX2 (Basis) textures.
 - This work is based on ["Hagrid"](https://sketchfab.com/3d-models/hagrid-af3ad43c42a3408698ee4262bf42e651) by gabg1234, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/) (the uploader's licence label; the model appears game-extracted, source game not stated). Use approved by Elik on 12 Nov 2026. Skeleton and the Idle/Walk/Talk animations: [Quaternius Universal Animation Library](https://quaternius.com) (CC0); the Wave was keyframed in our own art workspace. Optimised to Meshopt geometry + KTX2 (Basis) textures.
+- This work is based on ["Harry Potter (CoS, GameCube/Xbox)"](https://sketchfab.com/3d-models/7f3edb59fadd4aada5eb8c6f2b06ca6d) by [Chronis](https://sketchfab.com/Chronisgr2010offical), licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/) (the uploader's licence label; the model is game-extracted from *Harry Potter and the Chamber of Secrets*, GameCube/Xbox, 2002). Use approved by Elik on 12 Nov 2026. Skeleton and the Idle/Walk/Run/Talk animations: [Quaternius Universal Animation Library](https://quaternius.com) (CC0); the Wave and Cheer were keyframed in our own art workspace. Optimised to Meshopt geometry + KTX2 (Basis) textures.
 
-Harry as a walking character is **drawn in code** (no fan model). Hagrid and the rigged
+The player's hero is the rigged young Harry above; he, Hagrid and the rigged
 professors keep a code-drawn chibi as an instant placeholder and as the fallback if their
 model cannot load. "Great Hall Window" by Saandy and a duplicate "Hagrid's hut" were
 downloaded but **dropped** (a lone window frame / an exact duplicate) to keep the committed
