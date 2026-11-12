@@ -163,6 +163,7 @@
     kit.wallNav(scene, { axis: 'x', c: R.x1, lo: R.z0, hi: R.z1, y0: 0, y1: CEIL }, stone); // east (others owned by NCOR/LIB/AST)
     const gold = new T.MeshStandardMaterial({ color: 0xe6b422, metalness: 0.7, roughness: 0.25, emissive: 0x3a2a00, emissiveIntensity: 0.4 });
     const glass = new T.MeshStandardMaterial({ color: 0xcfe6ff, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.18, side: T.DoubleSide });
+    const cups = [];
     // two display cabinets along the walls, each with a row of little cups
     [[R.z0 + 1, 0], [R.z1 - 1, Math.PI]].forEach(([z]) => {
       const cab = F.mesh(new T.BoxGeometry(R.x1 - R.x0 - 4, 4, 1), glass, (R.x0 + R.x1) / 2, 2, z); scene.add(cab);
@@ -172,7 +173,7 @@
         cup.add(F.mesh(new T.SphereGeometry(0.28, 12, 10, 0, 6.3, 0, 2.2), gold, 0, 0.25, 0));
         cup.add(F.mesh(new T.CylinderGeometry(0.08, 0.14, 0.4, 10), gold, 0, -0.1, 0));
         [-1, 1].forEach((s) => cup.add(F.mesh(new T.TorusGeometry(0.12, 0.03, 6, 10), gold, s * 0.28, 0.25, 0)));
-        scene.add(cup);
+        scene.add(cup); cups.push(cup);
       }
     });
     // the great championship cup on a central pedestal, slowly turning + glinting
@@ -183,7 +184,17 @@
     bigCup.position.set((R.x0 + R.x1) / 2, 1.6, (R.z0 + R.z1) / 2); scene.add(bigCup);
     const glow = new T.Sprite(new T.SpriteMaterial({ map: HP.glowTex, color: 0xffe59a, transparent: true, opacity: 0.5, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
     glow.scale.setScalar(5); glow.position.copy(bigCup.position); scene.add(glow);
-    HPI.builders.push((t) => { bigCup.rotation.y += 0.01; glow.material.opacity = 0.4 + 0.2 * Math.sin(t * 2); });
+    // wave the wand at the championship cup: it whirls and hops with a little fanfare, and every cup in the cases rattles along
+    let cupT = 0; const cupY = bigCup.position.y;
+    HPI.enchantables.push({ id: 'cup', obj: bigCup, r: 3, cast() { cupT = 3.5; try { window.HPFun.sfx.tune([523, 523, 659, 784, 0, 659, 784, 1047], 0.13, 'square'); } catch (e) {} return '🏆'; } });
+    HPI.cupSpin = () => cupT;
+    HPI.builders.push((t, dt) => {
+      if (cupT > 0) cupT -= dt;
+      const k = cupT > 0 ? Math.min(1, cupT) : 0;
+      bigCup.rotation.y += 0.01 + k * 0.35; bigCup.position.y = cupY + k * Math.abs(Math.sin(t * 6)) * 0.5;
+      glow.material.opacity = 0.4 + 0.2 * Math.sin(t * 2) + k * 0.4; glow.position.y = bigCup.position.y;
+      for (let i = 0; i < cups.length; i++) { cups[i].rotation.z = k * Math.sin(t * 22 + i * 1.3) * 0.22; cups[i].rotation.y = k * Math.sin(t * 9 + i) * 0.6; }
+    });
     light.addTorch(R.x0 + 0.5, 4, R.z0 + 2, 0xffe0a0, 6);
     light.addTorch(R.x0 + 0.5, 4, R.z1 - 2, 0xffe0a0, 6);
     light.addDust((R.x0 + R.x1) / 2, 2, (R.z0 + R.z1) / 2, R.x1 - R.x0, 6, R.z1 - R.z0, 60);
