@@ -224,7 +224,7 @@
           if (combo >= 2) { ui.banner('🔥×' + combo, 900); guests[combo % guests.length].pop(1.3); HP.sfx.sparkle(); }
           a.userData.done = b.userData.done = true;
           matches++;
-          ui.setScore(matches);
+          ui.setScore(matches); HP.best('owlery', matches);
           sendOwl([a, b]);
           open = []; busy = false;
         }, 450);

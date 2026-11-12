@@ -220,7 +220,7 @@
       if (playing && u.type !== 'cloud' && d < 1.9) {
         if (u.type === 'letter') {
           score++;
-          ui.setScore(score);
+          ui.setScore(score); HP.best('hedwig', score);
           HP.sfx.chime();
           fx.burst(it.position, [0xffe2a0, 0xffffff, 0xff9ad5], 22, 5, 0.6);
           if (score % 10 === 0) celebrate();

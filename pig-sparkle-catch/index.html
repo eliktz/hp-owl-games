@@ -212,7 +212,7 @@
         u.caught = 0.25;
         const before = score;
         score += u.bonus ? 3 : 1;
-        ui.setScore(score);
+        ui.setScore(score); HP.best('pig', score);
         HP.sfx.chime(); HP.sfx.sparkle();
         if (u.bonus) {                       // rainbow catch: a shower of every colour, Pig loops with joy
           fx.burst(s.position, [0xff5a5a, 0xffd34d, 0x7cf07c, 0x7cf0ff, 0xc59bff, 0xff9ad5], 70, 9, 0.9);

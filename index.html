@@ -26,6 +26,8 @@
   .big{font-size:96px;line-height:1.1}
   .name{font-size:28px;font-weight:bold;color:#ffd76a;margin-top:8px;text-align:center}
   .how{font-size:34px;margin-top:8px}
+  a.card{position:relative}
+  .best{position:absolute;top:-14px;left:-10px;background:#ffd76a;color:#5a2a00;font-weight:bold;font-size:24px;padding:4px 12px;border-radius:999px;border:3px solid #fff3c4;box-shadow:0 4px 10px rgba(0,0,0,.4);transform:rotate(-8deg)}
 </style>
 </head>
 <body>
@@ -45,6 +47,13 @@
   ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
   let lastTap = 0;
   document.addEventListener('touchend', (e) => { const n = e.timeStamp || Date.now(); if (n - lastTap < 350) e.preventDefault(); lastTap = n; }, { passive: false });
+
+  // each game's personal best as a little 🏆 tag on its card
+  [['hedwig-sky-post', 'hpBest.hedwig', '🏆'], ['pig-sparkle-catch', 'hpBest.pig', '🏆'], ['owlery-letter-match', 'hpBest.owlery', '🏆'], ['math-owl-post', 'mathOwlBest', '🔥']].forEach(([dir, key, e]) => {
+    let b = 0; try { b = +localStorage.getItem(key) || 0; } catch (x) { /* private mode */ }
+    const card = document.querySelector('a.card[href^="' + dir + '/"]');
+    if (b > 0 && card) { const t = document.createElement('div'); t.className = 'best'; t.dir = 'ltr'; t.textContent = e + ' ' + b; card.appendChild(t); }
+  });
 
   const c = document.getElementById('stars'), g = c.getContext('2d');
   const st = Array.from({ length: 160 }, () => ({ x: Math.random(), y: Math.random() * 0.8, r: Math.random() * 1.8 + 0.4, p: Math.random() * 6 }));
