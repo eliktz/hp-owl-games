@@ -147,7 +147,7 @@
   for (let i = 0; i < 4; i++) spawnLetter(2 + i * 4);
 
   const clock = new THREE.Clock();
-  let t = 0, speed = 6.5, pulled = 0;
+  let t = 0, speed = 6.5, pulled = 0, run = 0;      // run = letters in a row without a cloud bump
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.05);
     t += dt;
@@ -225,7 +225,10 @@
           if (HP.best('hedwig', score) && best0 > 0 && !recordShown) { recordShown = true; ui.banner('🏆 ' + score + '!', 1300); HP.sfx.fanfare(); }
           HP.sfx.chime();
           fx.burst(it.position, [0xffe2a0, 0xffffff, 0xff9ad5], 22, 5, 0.6);
+          // five letters in a row without bumping a cloud: Hedwig loops the loop and hoots
+          run++;
           if (score % 10 === 0) celebrate();
+          else if (run % 5 === 0) { loop = 1.2; ui.banner('🔥×' + run, 800); HP.sfx.hoot(); fx.burst(owl.position, [0xffd34d, 0xff9ad5, 0x7cf0ff], 30, 7, 0.8); }
         } else {
           HP.sfx.sparkle(); HP.sfx.chime();
           boost = 5;
@@ -235,7 +238,7 @@
         continue;
       }
       if (playing && u.type === 'cloud' && d < 2.0 && !u.hit) {
-        u.hit = true; u.popping = 0.5;
+        u.hit = true; u.popping = 0.5; run = 0;
         tumble = 0.7;
         vel.x = -6;
         HP.sfx.poof();
@@ -266,7 +269,7 @@
   }
   // test hooks
   var best0 = HP.best('hedwig'), recordShown = false;      // (var: hoisted, the game loop above uses them)
-  window.__game = { get score() { return score; }, owl, items, celebrate, get record() { return recordShown; }, spawnLetter, spawnStar, get boost() { return boost; }, get pulled() { return pulled; } };
+  window.__game = { get score() { return score; }, owl, items, celebrate, get record() { return recordShown; }, spawnLetter, spawnStar, spawnCloud, get run() { return run; }, get boost() { return boost; }, get pulled() { return pulled; } };
   frame();
 })();
 </script>
