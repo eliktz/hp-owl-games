@@ -147,7 +147,7 @@
   for (let i = 0; i < 4; i++) spawnLetter(2 + i * 4);
 
   const clock = new THREE.Clock();
-  let t = 0, speed = 6.5;
+  let t = 0, speed = 6.5, pulled = 0;
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.05);
     t += dt;
@@ -207,8 +207,16 @@
         if (u.popping <= 0) { scene.remove(it); items.splice(i, 1); }
         continue;
       }
-      const dx = it.position.x - owl.position.x, dy = it.position.y - owl.position.y;
-      const d = Math.hypot(dx, dy);
+      let dx = it.position.x - owl.position.x, dy = it.position.y - owl.position.y;
+      let d = Math.hypot(dx, dy);
+      // star power: while the rainbow trail lasts, nearby letters fly to Hedwig by themselves
+      if (playing && boost > 0 && u.type === 'letter' && d < 7 && d > 0.01) {
+        const pull = Math.min(d, dt * 16);
+        it.position.x -= dx / d * pull; it.position.y -= dy / d * pull; it.rotation.z += dt * 9;
+        if (Math.random() < 0.5) fx.trail(it.position, 0xfff2b0, 0.35);
+        dx = it.position.x - owl.position.x; dy = it.position.y - owl.position.y; d = Math.hypot(dx, dy);
+        if (!u.pulled) { u.pulled = true; pulled++; }
+      }
       if (playing && u.type !== 'cloud' && d < 1.9) {
         if (u.type === 'letter') {
           score++;
@@ -255,7 +263,7 @@
     HP.sfx.resetChime();
   }
   // test hooks
-  window.__game = { get score() { return score; }, owl, items, celebrate };
+  window.__game = { get score() { return score; }, owl, items, celebrate, spawnLetter, spawnStar, get boost() { return boost; }, get pulled() { return pulled; } };
   frame();
 })();
 </script>
