@@ -40,6 +40,9 @@ const { open, until, tapEl, reporter, shot, IPAD } = require('./ipad');
   const whacked = await until(page, () => { const q = window.HPFun.mods.quidditch, b = q._bludgerPos(); if (q.state().whacks >= 1) return true; if (b.state === 'aim' || b.state === 'charge') q._place(b.x - 1, b.y - 1, b.z); return false; }, 20000); s = await state();
   R.check(whacked && s.a === 10, 'Beater: getting to the Bludger whacks it away, +10', 'whack failed ' + JSON.stringify({ whacks: s.whacks, a: s.a }));
 
+  // after dark the Bludgers glow red so they stay visible against the night sky
+  const glow = await Q(async () => { const g = window.__game, q = window.HPFun.mods.quidditch, wait = (ms) => new Promise((r) => setTimeout(r, ms)); g.setClock(13); await wait(700); const day = q._bludgerPos().glow; g.setClock(23); await wait(700); const night = q._bludgerPos().glow; g.setClock(null); return { day, night }; });
+  R.check(glow.night > glow.day + 0.5, 'Bludgers smoulder red at night (glow ' + glow.day.toFixed(2) + ' by day → ' + glow.night.toFixed(2) + ' at night)', 'night Bludger glow wrong ' + JSON.stringify(glow));
   // ✨ Seeker — the Snitch comes out and catching it wins
   R.check(await play('seeker'), '✨ Seeker starts from the chooser', 'seeker did not start');
   R.check(await until(page, () => window.HPFun.mods.quidditch.state().snitch, 40000), 'Seeker: the Golden Snitch is released', 'no Snitch');

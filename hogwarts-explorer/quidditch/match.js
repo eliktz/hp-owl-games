@@ -70,7 +70,7 @@
     function ball(color, r, emissive) { const b = mk(actors, new T.SphereGeometry(r, 14, 12), M(color, { emissive: emissive || 0, emissiveIntensity: 0.6, roughness: 0.5 })); return b; }
     const quaffle = ball(0xc8321e, 0.6, 0x5a1008);
     const qGlow = F.glow(0xff6a4a, 3, 0.4); quaffle.add(qGlow);
-    const bludgers = [0, 1].map((i) => { const b = ball(0x2a2a33, 0.62); const gl = F.glow(0xff2a2a, 3.4, 0); b.add(gl); return { m: b, gl, ph: i * 3.1, state: 'roam', t: 6 + i * 5, dir: v(), pos: b.position }; });
+    const bludgers = [0, 1].map((i) => { const b = ball(0x2a2a33, 0.62, 0x9a2a2a); b.material.emissiveIntensity = 0.12; const gl = F.glow(0xff2a2a, 3.4, 0); b.add(gl); return { m: b, gl, ph: i * 3.1, state: 'roam', t: 6 + i * 5, dir: v(), pos: b.position }; });
     const snitch = HP.makeSnitch(); snitch.scale.setScalar(1.5); snitch.visible = false; actors.add(snitch);
     const sGl = F.glow(0xffe08a, 4, 0.6); snitch.add(sGl);
     snitch.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
@@ -430,6 +430,7 @@
 
       // ---- Bludgers ----
       // (Beater game: one at a time goes for a team-mate, slower, and you whack it away; everywhere else they go for you)
+      const nightGlow = (window.HPI && window.HPI.nightness) || 0;
       const beater = S.role === 'beater', quiet = S.role === 'keeper' || S.calm || S.over;
       for (const b of bludgers) {
         b.t -= dt;
@@ -464,6 +465,7 @@
             b.state = 'roam'; b.t = S.bludGap * (0.7 + Math.random() * 0.6); b.gl.material.opacity = 0; }
         }
         b.m.rotation.x += dt * 5;
+        b.m.material.emissiveIntensity = 0.12 + nightGlow * 0.95;      // after dark the Bludgers smoulder red, so they still show against the night sky
       }
       if (!bludgers.some((b) => b.state === 'aim' || (beater && b.state === 'charge'))) warn.visible = false;
 
@@ -538,7 +540,7 @@
       _snitchTo(x, y, z) { snitch.position.set(x, y, z); S.snTarget.set(x, y, z); S.juke = 5; },
       _shoot(i) { const k = S.kq; rival.position.set(HOME_X + 15, gy + 11, C.z); S.holder = 'rival'; k.phase = 'aim'; k.hoop = i; k.t = 0.4; },   // Keeper: the next shot goes at hoop i
       _attack(atMate) { const b = bludgers[0]; bludgers[1].state = 'roam'; bludgers[1].t = 99; b.state = 'aim'; b.t = 0.3; b.victim = atMate === false ? keepB : mate; },   // Beater: a Bludger goes for a team-mate now
-      _bludgerPos() { const b = bludgers[0]; return { x: b.pos.x, y: b.pos.y, z: b.pos.z, state: b.state }; },
+      _bludgerPos() { const b = bludgers[0]; return { x: b.pos.x, y: b.pos.y, z: b.pos.z, state: b.state, glow: b.m.material.emissiveIntensity }; },
       _timeLeft(sec) { S.t = S.len - sec; },                          // Chaser: jump to the last seconds
     };
   });
