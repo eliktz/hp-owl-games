@@ -218,6 +218,7 @@
   let asking = false, busy = false, playing = false;
   let helpLevel = 0;        // within-question hints (grows on each wrong answer)
   let easeLevel = 0;        // adaptive: 0..2, grows if the kid keeps erring, shrinks on a streak
+  let owlHelps = 0;         // how many times the child asked the owl for a hint
   let best0 = 0, recordShown = false;   // the best streak before this round, so beating it can be celebrated (once)
   let nextDelay = 550;      // pause after a correct answer before the next question
 
@@ -416,6 +417,12 @@
       let g = hit.object; while (g.parent && !boxes.some((b) => b.group === g)) g = g.parent;
       const i = boxes.findIndex((b) => b.group === g);
       if (i >= 0) { cursor = i; chooseBox(i); }
+      return;
+    }
+    // ask the owl: tap her on the perch and she hoots and crosses out one wrong mailbox (once per question)
+    if (owl.userData.state === 'perch' && ray.intersectObject(owl, true).length) {
+      owl.userData.kind === 'pig' ? HP.sfx.tweet() : HP.sfx.hoot(); owl.userData.wiggle = 1;
+      if (q && !q.asked) { q.asked = true; owlHelps++; helpLevel = Math.max(helpLevel, 1); applyHints(); fx.burst(owl.position.clone(), [0xffffff, 0xffe9a0], 14, 4, 0.5); }
     }
   });
   window.addEventListener('keydown', (e) => {
@@ -476,7 +483,7 @@
 
   /* ---- test / debug hooks ---- */
   window.__game = {
-    get score() { return score; }, get streak() { return streak; }, get best() { return best; }, get diff() { return diff; }, get record() { return recordShown; },
+    get score() { return score; }, get streak() { return streak; }, get best() { return best; }, get diff() { return diff; }, get owlHelps() { return owlHelps; }, get record() { return recordShown; },
     get question() { return q; }, get asking() { return asking; }, get playing() { return playing; },
     get boxes() { return boxes.filter((b) => b.active).map((b) => ({ value: b.value, correct: b.correct, dim: b.dim, x: b.baseX })); },
     begin, camera, owl,
