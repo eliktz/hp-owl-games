@@ -149,6 +149,7 @@
   // tap Hagrid: he jumps for joy and (every few seconds) tosses a bonus star up into Hedwig's path
   const ray = new THREE.Raycaster();
   let hagridHop = 0, hagridCool = 0, hagridStars = 0;
+  let cloudsBurst = 0;      // clouds burst through under star power
   let calm = false;         // test hook: hold the random spawns so a check can stage its own items
   function pokeHagrid() {
     hagridHop = 0.6; HP.sfx.boing();
@@ -257,7 +258,14 @@
         continue;
       }
       if (playing && u.type === 'cloud' && d < 2.0 && !u.hit) {
-        u.hit = true; u.popping = 0.5; run = 0;
+        u.hit = true; u.popping = 0.5;
+        if (boost > 0) {
+          // star power: Hedwig bursts straight through the cloud in a puff of rainbow — no tumble, and the run goes on
+          cloudsBurst++; HP.sfx.poof(); HP.sfx.sparkle();
+          fx.burst(it.position, [0xff7a7a, 0xffd34d, 0x8cff9e, 0x7cf0ff, 0xc59bff, 0xffffff], 44, 8, 1.0, 1.0, 0);
+          continue;
+        }
+        run = 0;
         tumble = 0.7;
         vel.x = -6;
         HP.sfx.poof();
@@ -290,7 +298,7 @@
   }
   // test hooks
   var best0 = HP.best('hedwig'), recordShown = false;      // (var: hoisted, the game loop above uses them)
-  window.__game = { get score() { return score; }, owl, items, celebrate, get record() { return recordShown; }, spawnLetter, spawnStar, spawnCloud, _calm(v) { calm = v !== false; if (calm) items.forEach((i) => { if (i.userData.type === 'cloud') i.userData.hit = true; }); }, hagrid, camera, get hagridStars() { return hagridStars; }, get run() { return run; }, get boost() { return boost; }, get pulled() { return pulled; } };
+  window.__game = { get score() { return score; }, owl, items, celebrate, get record() { return recordShown; }, spawnLetter, spawnStar, spawnCloud, _calm(v) { calm = v !== false; if (calm) items.forEach((i) => { if (i.userData.type === 'cloud') i.userData.hit = true; }); }, hagrid, camera, get hagridStars() { return hagridStars; }, get run() { return run; }, get cloudsBurst() { return cloudsBurst; }, get boost() { return boost; }, get pulled() { return pulled; } };
   frame();
 })();
 </script>
