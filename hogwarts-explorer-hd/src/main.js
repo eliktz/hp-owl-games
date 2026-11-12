@@ -101,15 +101,32 @@ async function boot() {
 
   // Bloom post pipeline (step 6): HIGH and MEDIUM only. Loaded dynamically so a missing or
   // broken post module can never stop the game from booting; null = render direct.
-  // ?post=0 disables it (A/B checks and a safety switch).
+  // ?post=0 disables it, ?post=1 forces it. Default: ON for WebGL2 (verified), OFF for
+  // WebGPU until it has been checked on a real iPad (WebGPU shader/validation errors are
+  // asynchronous, so a bad pipeline there could not be caught and would blank the game).
   let post = null;
-  if (new URLSearchParams(location.search).get('post') !== '0') {
+  const postParam = new URLSearchParams(location.search).get('post');
+  const isWebGPU = !!(renderer.backend && renderer.backend.isWebGPUBackend);
+  const baseState = { toneMapping: renderer.toneMapping, outputColorSpace: renderer.outputColorSpace, autoClear: renderer.autoClear };
+  if (postParam === '1' || (postParam !== '0' && !isWebGPU)) {
     try { post = (await import('./post.js')).createPost(renderer, scene, camera); }
     catch (e) { console.warn('[post] disabled:', e && e.message || e); post = null; }
+  }
+  // Drop the pipeline for good and put the renderer back exactly as renderer.render expects
+  // (RenderPipeline.render changes tone mapping / colour space / targets without try-finally).
+  function dropPost(why) {
+    if (why) console.warn('[post] ' + why);
+    try { post && post.dispose(); } catch (e) { /* ignore */ }
+    post = null; usePost = false;
+    try {
+      renderer.toneMapping = baseState.toneMapping; renderer.outputColorSpace = baseState.outputColorSpace; renderer.autoClear = baseState.autoClear;
+      renderer.setRenderTarget(null); if (renderer.setMRT) renderer.setMRT(null);
+    } catch (e) { /* ignore */ }
   }
   let usePost = false;
   const quality = new QualityManager(renderer, {
     onTier: (t) => {
+      if (t === TIER.LOW && post) dropPost();          // free the bloom render targets on struggling devices
       usePost = !!post && t !== TIER.LOW;
       lake.userData.mist?.setEnabled(t !== TIER.LOW);
       hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t);
@@ -120,7 +137,7 @@ async function boot() {
   function renderFrame() {
     if (usePost) {
       try { post.render(); return; }
-      catch (e) { console.warn('[post] render failed, falling back:', e && e.message || e); post.dispose(); post = null; usePost = false; }
+      catch (e) { dropPost('render failed, falling back: ' + (e && e.message || e)); }
     }
     renderer.render(scene, camera);
   }
