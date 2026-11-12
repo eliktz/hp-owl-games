@@ -25,7 +25,16 @@ const LOOK = {
 };
 // Film-look professors: a rigged GLB (feet origin, faces +Z like the chibi) swapped in over
 // the chibi once it streams in. The chibi is the instant placeholder AND the silent fallback.
-const GLB_PROF = { mcgon: { model: 'mcgonagall', scale: 1.3 } };   // 1.9 m -> 2.47 m: the chibi kids are 1.78 m (2.33 with hat)
+// All share one world scale (1.3) so the cast keeps its film proportions: McGonagall 1.9 m -> 2.47 m
+// (the chibi kids are 1.78 m, 2.33 with hat), Snape 1.85 -> 2.4, Sprout 1.7 -> 2.21, Flitwick 1.1 -> 1.43.
+// `sig` = the signature clip played once after a finished lesson (missing clip -> simply skipped);
+// `h` = rest height in metres (only used to keep the floating lesson label near a small head).
+const GLB_PROF = {
+  mcgon:    { model: 'mcgonagall', scale: 1.3, sig: 'Cast', h: 1.9 },
+  flitwick: { model: 'flitwick',   scale: 1.3, sig: 'Cast', h: 1.1 },
+  snape:    { model: 'snape',      scale: 1.3, sig: 'Cast', h: 1.85 },
+  sprout:   { model: 'sprout',     scale: 1.3, sig: 'Wave', h: 1.7 },
+};
 const FADE = 0.25;
 const GH = PLACES.greenhouse, PD = PLACES.paddock;
 export const STATIONS = {
@@ -62,21 +71,28 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   }
 
   // Swap the chibi for the rigged GLB when (if) it arrives. Any failure -> keep the chibi.
+  // Works the same indoors (parented to the room group) and outdoors (parented to the scene,
+  // shown/hidden by distance and by the outdoor-world toggle): either way the root is the Scene.
   function upgradeProfessor(c, spec) {
     const inScene = () => { let root = c; while (root.parent) root = root.parent; return !!root.isScene; };
+    const outdoorFig = c.parent === scene;
     loadAnimated(spec.model, inScene).then(r => {
       if (!inScene()) return;                          // the room was left meanwhile
       if (!r) { console.warn('[lessons] professor', spec.model, 'GLB unavailable - keeping the chibi (see __game.models())'); return; }
       const clip = n => r.clips.find(a => a.name === n);
       if (!clip('Idle')) { console.warn('[lessons] professor', spec.model, 'GLB has no Idle clip - keeping the chibi'); return; }
-      const obj = r.obj; obj.scale.setScalar(spec.scale); obj.name = 'prof-' + spec.model;
+      // the chibi group may carry its own scale (Flitwick's is 0.78): cancel it so the GLB gets spec.scale in the world
+      const obj = r.obj; obj.scale.setScalar(spec.scale / (c.scale.x || 1)); obj.name = 'prof-' + spec.model;
       obj.traverse(o => {
         if (!o.isMesh) return;
-        o.frustumCulled = false; o.castShadow = false; o.receiveShadow = false;
+        // outdoors (Sprout) a figure without a shadow floats on the lawn: cast one there. It is
+        // 1 shadow draw per material, fewer than the chibi it replaces; LOW has no shadow pass.
+        o.frustumCulled = false; o.castShadow = outdoorFig; o.receiveShadow = false;
         o.userData.sharedGeo = true;                   // geometry is shared with the models.js cache
       });
       const mixer = new AnimationMixer(obj), acts = {};
-      for (const n of ['Idle', 'Talk', 'Cast']) { const a = clip(n); if (a) acts[n.toLowerCase()] = mixer.clipAction(a); }
+      for (const n of ['Idle', 'Talk']) { const a = clip(n); if (a) acts[n.toLowerCase()] = mixer.clipAction(a); }
+      const sig = spec.sig && clip(spec.sig); if (sig) acts.cast = mixer.clipAction(sig);   // 'cast' = the signature slot
       if (acts.cast) { acts.cast.setLoop(LoopOnce, 1); acts.cast.clampWhenFinished = true; }
       acts.idle.play();
       const ud = c.userData;
@@ -85,6 +101,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       c.add(obj);
       ud.rig = null;                                   // animateChibi() becomes a no-op
       ud.mixer = mixer; ud.acts = acts; ud.cur = 'idle'; ud.casting = false;
+      ud.labelY = Math.min(2.6, spec.h * spec.scale + 0.4);
       // room teardown (interiors.js) calls this before disposing the room's geometry
       ud.onTeardown = () => {
         mixer.stopAllAction(); mixer.uncacheRoot(obj);
@@ -178,7 +195,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     HPL.overlay.open(def, (stars, quit) => {
       openKey = null; refreshBell();
       // a finished lesson earns a flourish from a GLB professor (if her rig has a Cast clip)
-      if (!quit && stars > 0) { const s = live.find(l => l.key === key); if (s?.chibi?.userData.acts?.cast) fadeTo(s.chibi, 'cast'); }
+      if (!quit && stars > 0) { const s = live.find(l => l.key === key) || outdoor.find(l => l.key === key); if (s?.chibi?.userData.acts?.cast) fadeTo(s.chibi, 'cast'); }
     });
     return true;
   }
@@ -265,12 +282,12 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     if (best && bd < (best.r || 4.4) && defs[best.key]) {
       nearKey = best.key; const def = defs[best.key];
       fun.offer('lesson:' + best.key, '▶', bd, () => start(best.key));
-      fun.say(head.set(best.x, best.y + (best.chibi ? 2.6 : 3), best.z), def.icon + ' ' + def.subject, 0.25, 'lesson');
+      fun.say(head.set(best.x, best.y + (best.chibi ? (best.chibi.userData.labelY || 2.6) : 3), best.z), def.icon + ' ' + def.subject, 0.25, 'lesson');
     }
   }
   // while a modal (lesson overlay, picker) freezes update(): keep GLB professors breathing,
   // talking if their lesson is the one open
-  function anim(dt) { if (interiors.active) for (const s of live) if (s.chibi) animateFigure(s, dt, s.key === openKey); }
+  function anim(dt) { for (const s of interiors.active ? live : outdoor) if (s.chibi) animateFigure(s, dt, s.key === openKey); }
   // visibility only (used while a mini-game owns the frame)
   function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < 55; if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } }
   return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
