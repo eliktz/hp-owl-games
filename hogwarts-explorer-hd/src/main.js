@@ -75,7 +75,7 @@ async function boot() {
   const quests = createQuests({
     scene, heightAt, hud, onToast: toast,
     onAll: () => setTimeout(() => { fun.toast('🌟', 'כָּל הַכּוֹכָבִים שֶׁלְּךָ!', 3000); fun.confetti(['⭐', '🌟', '✨', '💛'], 34); fun.sfx.tada(); }, 600),
-    sfx: { chime: () => audio.chime(), letter: () => audio.letter() },
+    sfx: { chime: () => { audio.chime(); player.play('Cheer'); }, letter: () => audio.letter() },   // chime = a star found / a letter delivered: Harry cheers
   });
 
   player.update(0, input);
