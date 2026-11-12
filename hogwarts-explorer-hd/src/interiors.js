@@ -7,16 +7,22 @@ import { ensureTex } from './interior-kit.js';
 import { BUILDERS, FLOOR_Y } from './rooms.js';
 
 export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot, onEnter, onExit }) {
-  let active = null, t = 0, cooldown = 0;
+  let active = null, t = 0, cooldown = 0, inside = false;
+  // Generation token: every enter()/exit() bumps it, so an older enter() still awaiting its
+  // textures/build sees it is stale and disposes the room it built instead of adding it.
+  let gen = 0;
   let savedAmb = 0, savedHemi = 0, savedColliders = null, savedObstacles = null;
   let savedAmbC = 0xffffff, savedHemiC = 0xbcd2ec, savedHemiG = 0x56503f;
 
   async function enter(id) {
     const build = BUILDERS[id]; if (!build) return;
-    const wasInside = !!active;
-    if (active) teardown();
+    const my = ++gen;
     await ensureTex();                        // load stone/wood maps so rooms aren't flat grey
-    const r = await build(); active = r; active.id = id;
+    if (my !== gen) return;                   // superseded before we built anything
+    const r = await build();
+    if (my !== gen) { disposeRoom(r); return; } // a newer enter()/exit() won: drop this room
+    if (active) teardown();
+    active = r; active.id = id;
     scene.add(r.group);
     if (!savedColliders) savedColliders = player.colliders;
     if (!savedObstacles) savedObstacles = player.cam.obstacles;
@@ -29,7 +35,8 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     player.teleport(r.spawn.x, r.spawn.z);
     player.pos.y = FLOOR_Y; player.smoothY = FLOOR_Y;
     cooldown = 0.6;                            // ignore portals briefly after arriving
-    if (!wasInside) {
+    if (!inside) {
+      inside = true;
       env.setIndoor?.(true);                  // the time button must not repaint the room
       savedAmb = env.amb.intensity; savedHemi = env.hemi.intensity;
       // candle-lit, not floodlit: a lower warm ambient so the baked flame pools + washes read
@@ -42,22 +49,29 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     onEnter && onEnter(id);
   }
 
-  // Remove+dispose the current room's geometry (used when switching rooms or leaving).
+  // Dispose one room's geometry. Guarded: the WebGPU backend throws ("Invalid unregisterToken")
+  // when a geometry's attributes were never GPU-registered, which must never break walking out.
+  // Animated GLB figures stop their mixers first; their geometry is shared with the models.js
+  // cache (userData.sharedGeo) and must survive for the next visit.
+  function disposeRoom(room) {
+    if (!room || !room.group) return;
+    if (room.group.parent) room.group.parent.remove(room.group);
+    room.group.traverse(o => { if (o.userData.onTeardown) { try { o.userData.onTeardown(); } catch { /* keep going */ } } });
+    room.group.traverse(o => { if (o.isMesh && !o.userData.sharedGeo) { try { o.geometry?.dispose?.(); } catch { /* backend quirk */ } } });
+  }
+
+  // Remove+dispose the current room (used when switching rooms or leaving).
   function teardown() {
     if (!active) return;
-    scene.remove(active.group);
-    // Guard geometry disposal: the WebGPU backend throws ("Invalid unregisterToken") when a
-    // geometry's attributes were never GPU-registered, which must never break walking back out.
-    // Animated GLB figures stop their mixers first; their geometry is shared with the models.js
-    // cache (userData.sharedGeo) and must survive for the next visit.
-    active.group.traverse(o => { if (o.userData.onTeardown) { try { o.userData.onTeardown(); } catch { /* keep going */ } } });
-    active.group.traverse(o => { if (o.isMesh && !o.userData.sharedGeo) { try { o.geometry?.dispose?.(); } catch { /* backend quirk */ } } });
+    disposeRoom(active);
     active = null;
   }
 
   function exit() {
+    gen++;                                    // cancels any enter() still loading
     if (!active) return;
     teardown();
+    inside = false;
     player.colliders = savedColliders || [];
     player.cam.obstacles = savedObstacles || [];
     player.cam.setIndoor(false);

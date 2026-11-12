@@ -129,9 +129,10 @@ export async function loadModel(name) {
 
 // Like loadModel but also hands back the animation clips (shared, read-only) for an
 // AnimationMixer. The clone SHARES geometry + materials with the cache: never dispose them.
-export async function loadAnimated(name) {
+// `alive` (optional): checked after the load; if it says no, skip the skeleton clone.
+export async function loadAnimated(name, alive) {
   const src = await loadSource(name);
-  if (!src) return null;
+  if (!src || (alive && !alive())) return null;
   return { obj: cloneSkeleton(src.scene), clips: src.animations };
 }
 

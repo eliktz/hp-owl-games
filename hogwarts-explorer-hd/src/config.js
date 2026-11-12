@@ -38,6 +38,15 @@ export const TIMES = {
 };
 // Indoor rooms are tuned at this exposure; the time button never changes it.
 export const INDOOR_EXPOSURE = 1.0;
+// Sky files per time, tried in order. An entry without env/bg uses that time's TIMES env/bg
+// (tuned for the graded film skies); the older fallback files and the procedural gradient
+// carry their own pre-film intensities.
+export const HDRI_SKIES = {
+  day:   [{ file: 'kloofendal_day_1k.hdr' }],
+  dusk:  [{ file: 'belfast_sunset_puresky_1k.hdr' }, { file: 'dusk_1k.hdr', env: 0.7, bg: 1 }],
+  night: [{ file: 'qwantani_night_puresky_1k.hdr' }, { file: 'night_1k.hdr', env: 0.35, bg: 1 }],
+};
+export const PROCEDURAL_SKY = { day: { env: 1.0, bg: 1 }, dusk: { env: 0.7, bg: 1 }, night: { env: 0.35, bg: 1 } };
 
 // Landmark spawn points for the (later) map/teleport feature; used now for test hooks.
 export const SPOTS = {

@@ -63,10 +63,10 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
 
   // Swap the chibi for the rigged GLB when (if) it arrives. Any failure -> keep the chibi.
   function upgradeProfessor(c, spec) {
-    loadAnimated(spec.model).then(r => {
-      let root = c; while (root.parent) root = root.parent;
+    const inScene = () => { let root = c; while (root.parent) root = root.parent; return !!root.isScene; };
+    loadAnimated(spec.model, inScene).then(r => {
+      if (!inScene()) return;                          // the room was left meanwhile
       if (!r) { console.warn('[lessons] professor', spec.model, 'GLB unavailable - keeping the chibi (see __game.models())'); return; }
-      if (!root.isScene) return;                       // the room was left meanwhile
       const clip = n => r.clips.find(a => a.name === n);
       if (!clip('Idle')) { console.warn('[lessons] professor', spec.model, 'GLB has no Idle clip - keeping the chibi'); return; }
       const obj = r.obj; obj.scale.setScalar(spec.scale); obj.name = 'prof-' + spec.model;
@@ -106,6 +106,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   function animateFigure(s, dt, talking) {
     const ud = s.chibi.userData;
     if (!ud.mixer) return;
+    for (let o = s.chibi; o; o = o.parent) if (!o.visible) return;   // hidden figure: no skinning work
     if (!ud.casting) fadeTo(s.chibi, talking ? 'talk' : 'idle');
     ud.mixer.update(dt);
   }

@@ -4,7 +4,7 @@ import {
   DirectionalLight, HemisphereLight, AmbientLight, FogExp2, Color,
   CanvasTexture, EquirectangularReflectionMapping, MathUtils, SRGBColorSpace,
 } from 'three';
-import { TIMES, INDOOR_EXPOSURE } from './config.js';
+import { TIMES, INDOOR_EXPOSURE, HDRI_SKIES, PROCEDURAL_SKY } from './config.js';
 import { loadHDRI } from './assets.js';
 
 // Procedural equirect gradient sky used when no HDRI file is present.
@@ -28,12 +28,6 @@ const SKY_COLORS = {
   day:  ['#5a86c4', '#bcd2ec', '#6a7a66'],
   dusk: ['#2a3566', '#e08a4a', '#43303a'],
   night:['#070b1c', '#1b244a', '#0a0f1e'],
-};
-
-const HDRI_FILES = {
-  day:   ['kloofendal_day_1k.hdr'],
-  dusk:  ['belfast_sunset_puresky_1k.hdr', 'dusk_1k.hdr'],
-  night: ['qwantani_night_puresky_1k.hdr', 'night_1k.hdr'],
 };
 
 export class Environment {
@@ -60,7 +54,9 @@ export class Environment {
 
     this.fog = new FogExp2(0xbfd4e8, 0.004);
     scene.fog = this.fog;
-    this.hdriCache = {};
+    this.hdriCache = {};     // time key -> Promise<{ tex, spec } | null> (the promise, so one load per key)
+    this.skyDone = {};       // time key -> resolved value, for synchronous picks (indoor IBL)
+    this.procSky = {};       // time key -> procedural gradient texture (built once)
     this.time = 'day';
   }
 
@@ -70,6 +66,27 @@ export class Environment {
     this.indoor = !!v;
     if (this.indoor && this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE;
     if (this.indoor) this.scene.backgroundIntensity = 1;
+  }
+
+  proceduralFor(key) {
+    if (!this.procSky[key]) { const c = SKY_COLORS[key] || SKY_COLORS.day; this.procSky[key] = proceduralSky(c[0], c[1], c[2]); }
+    return this.procSky[key];
+  }
+
+  // Film skies first (Poly Haven CC0 pure skies); the older 1K files stay as a fallback.
+  // The promise is cached, so quick time cycling never starts a second load of the same sky.
+  loadSky(key) {
+    if (!this.hdriCache[key]) {
+      this.hdriCache[key] = (async () => {
+        for (const spec of HDRI_SKIES[key] || HDRI_SKIES.day) {
+          let tex = null;
+          try { tex = await loadHDRI(spec.file); } catch { tex = null; }
+          if (tex) { tex.mapping = EquirectangularReflectionMapping; return { tex, spec }; }
+        }
+        return null;
+      })().then(v => { this.skyDone[key] = v; return v; });
+    }
+    return this.hdriCache[key];
   }
 
   async setTime(key) {
@@ -93,27 +110,17 @@ export class Environment {
     this.hemi.intensity = p.amb + 0.2;
     this.fog.color.set(p.fog);
     this.fog.density = p.fogDensity;
-    this.scene.background = new Color(p.fog);
 
-    // Try a real HDRI first; otherwise procedural gradient. Both drive IBL.
-    // Film skies first (Poly Haven CC0 pure skies); the older 1K files stay as a fallback.
-    const hdriFiles = HDRI_FILES[key] || HDRI_FILES.day;
-    let env = this.hdriCache[key];
-    if (env === undefined) {
-      env = null;
-      for (const f of hdriFiles) { env = await loadHDRI(f); if (env) break; }
-      if (env) env.mapping = EquirectangularReflectionMapping;
-      this.hdriCache[key] = env || null;
-      // The player may have gone indoors or picked another time while the file loaded.
-      if (this.indoor || this.time !== key) return;
-    }
-    const sky = SKY_COLORS[key] || SKY_COLORS.day;
-    const tex = env || proceduralSky(sky[0], sky[1], sky[2]);
-    tex.mapping = EquirectangularReflectionMapping;
-    this.scene.environment = tex;
-    this.scene.environmentIntensity = p.env;
-    if (env) this.scene.background = tex;   // real HDRI doubles as the sky dome
-    this.scene.backgroundIntensity = env ? (p.bg ?? 1) : 1;
+    // A real HDRI drives IBL and doubles as the sky dome; otherwise the procedural gradient
+    // lights the world and the fog colour is the sky.
+    const sky = await this.loadSky(key);
+    // The player may have gone indoors or picked another time while the file loaded.
+    if (this.indoor || this.time !== key) return;
+    const spec = sky ? sky.spec : (PROCEDURAL_SKY[key] || PROCEDURAL_SKY.day);
+    this.scene.environment = sky ? sky.tex : this.proceduralFor(key);
+    this.scene.environmentIntensity = spec.env ?? p.env;
+    this.scene.background = sky ? sky.tex : new Color(p.fog);
+    this.scene.backgroundIntensity = sky ? (spec.bg ?? p.bg ?? 1) : 1;
   }
 
   cycle() {
