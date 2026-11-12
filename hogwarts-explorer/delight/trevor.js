@@ -42,7 +42,7 @@
     // a wand cast when he is hiding nearby makes Trevor leap high with a loud ribbit — a playful
     // way to flush him out of his nook (as in the HD game)
     if (F.enchant) F.enchant((world) => (world === 'inside' && found <= 0 && F.dist(g.player.position, G.position.x, G.position.z) < 12
-      ? [{ id: 'toad', obj: G, r: 1, cast() { hop = 0.9; leap = 2.2; F.sfx.ribbit(1.5); return '🐸'; } }] : []));
+      ? [{ id: 'toad', obj: G, r: 1, pri: 5, cast() { hop = 0.9; leap = 2.2; F.sfx.ribbit(1.5); return '🐸'; } }] : []));
     let leap = 0.7;
     F.inside(function (dt, t, player) {
       const p = player.position, d = F.dist(p, G.position.x, G.position.z);

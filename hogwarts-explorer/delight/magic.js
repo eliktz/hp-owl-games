@@ -72,7 +72,7 @@
         if (tg.id === 'friend' && Math.abs(tg.obj.position.y - p.y) > 3) continue;      // not a friend on another floor
         if (d > reach) continue;
         const dot = d < 0.01 ? 1 : ((tx - p.x) * Math.sin(f) + (tz - p.z) * Math.cos(f)) / d;
-        const score = d - dot * 4 - (tg.r > 8 ? -6 : 0);      // big area effects (candles/books) lose to a close prop
+        const score = d - dot * 4 - (tg.r > 8 ? -6 : 0) - (tg.pri || 0);      // big area effects (candles/books) lose to a close prop; `pri` lets a small living target (Trevor) win over furniture
         if (score < bs) { bs = score; best = tg; }
       }
       if (best) to.set(best.obj ? best.obj.position.x : best.x, (best.obj ? best.obj.position.y : best.y) + 1.6, best.obj ? best.obj.position.z : best.z);
