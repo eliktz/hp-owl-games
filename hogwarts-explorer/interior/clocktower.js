@@ -65,10 +65,21 @@
     F.ghost(scene, [[R.x0 + 2, R.z0 + 2], [R.x1 - 2, R.z0 + 2], [R.x1 - 2, R.z1 - 2], [R.x0 + 2, R.z1 - 2]], 0);
     light.addDust(cx, 2, cz, R.x1 - R.x0, CEIL - 2, R.z1 - R.z0, 90);
 
-    HPI.builders.push((t) => {
-      hour.rotation.z = -t * 0.04; minute.rotation.z = -t * 0.5;
-      pend.rotation.z = Math.sin(t * 1.1) * 0.35;
-      for (const g of gears) g.g.rotation.z += g.spd;
+    // wave the wand at the great clock: the hands whirl round, the gears race, the pendulum swings wide and it strikes — bong, bong, bong!
+    let crazyT = 0, whirl = 0;
+    const inTower = () => { const g = window.__game, p = g && g.player.position; return !!p && p.x > R.x0 && p.x < R.x1 && p.z > R.z0 && p.z < R.z1 && p.y < 4; };
+    HPI.enchantables.push({ id: 'clock', get x() { return inTower() ? cx : 1e6; }, y: 5, z: R.z0 + 0.5, r: 5, cast() {
+      crazyT = 4;
+      try { const S = window.HPFun.sfx; for (let i = 0; i < 3; i++) { S.tone(196, 1.1, 'sine', 0.22, i * 0.7); S.tone(392, 0.9, 'triangle', 0.08, i * 0.7); } } catch (e) {}
+      return '🕰️'; } });
+    HPI.clockCrazy = () => crazyT;
+    HPI.builders.push((t, dt) => {
+      if (crazyT > 0) crazyT -= dt;
+      const k = crazyT > 0 ? Math.min(1, crazyT) : 0;
+      whirl += k * (dt || 0) * 9;
+      hour.rotation.z = -t * 0.04 - whirl * 0.35; minute.rotation.z = -t * 0.5 - whirl;
+      pend.rotation.z = Math.sin(t * (1.1 + k * 2.4)) * (0.35 + k * 0.45);
+      for (const g of gears) g.g.rotation.z += g.spd * (1 + k * 7);
       glow.material.opacity = 0.32 + 0.12 * Math.sin(t * 1.5);
     });
   };
