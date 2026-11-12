@@ -7,6 +7,9 @@
   const F = window.HPFun, T = window.THREE;
   const KINDS = ['armour', 'ghost', 'candles', 'books', 'cauldron', 'portrait', 'peeves', 'friend', 'lake', 'hut', 'hoops', 'greenhouse', 'pip', 'feast', 'toad', 'pumpkins', 'hat', 'owl', 'chandelier', 'fire', 'globe'];
   const WIZARD = 10;
+  // where each kind of magic hides — the map icon of its place (a tap on a ❔ in the spell book shows it)
+  const WHERE = { armour: '🚪', ghost: '⏰', candles: '🍽️', books: '📚', cauldron: '⚗️', portrait: '🖼️', peeves: '🏰', friend: '🧒', lake: '🌊', hut: '🏠', hoops: '🧹', greenhouse: '🌿',
+    pip: '🦉', feast: '🍽️', toad: '🐸', pumpkins: '🍽️', hat: '🚪', owl: '🍽️', chandelier: '🚪', fire: '🔥', globe: '📚' };
   const ICON = { armour: '🛡️', ghost: '👻', candles: '🕯️', books: '📚', cauldron: '🫧', portrait: '🖼️', peeves: '🤡', friend: '👋', lake: '⛲', hut: '🌈', hoops: '🔔', greenhouse: '🌸',
     pip: '💛', feast: '🍗', toad: '🐸', pumpkins: '🎃', hat: '🎩', owl: '🦉', chandelier: '🏮', fire: '🔥', globe: '🌍' };
   const NEED = 5;
@@ -24,14 +27,18 @@
     // ---- the spell book: a row in the 🎖️ sticker screen with every kind of magic found so far (❔ = still out there) ----
     css.textContent += `.spellRow{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin:12px 0 0}
       .spellRow span{width:30px;height:30px;font-size:21px;line-height:30px;text-align:center;border-radius:9px;background:rgba(20,12,50,.6)}
-      .spellRow span.no{opacity:.35;filter:grayscale(1)} .spellRow span.new{animation:spellNew .9s ease-out 3}
+      .spellRow span.no{opacity:.35;filter:grayscale(1)} .spellRow span.no.hint{opacity:1;filter:none;transform:scale(1.35);background:rgba(255,215,106,.35)}
+      .spellRow span{transition:transform .15s;touch-action:manipulation} .spellRow span.new{animation:spellNew .9s ease-out 3}
       @keyframes spellNew{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}`;
     let spellRow = null;
     function renderSpells(fresh) {
       const panel = document.querySelector('#badges .bpanel'); if (!panel) return;
       if (!spellRow) { spellRow = document.createElement('div'); spellRow.className = 'spellRow'; panel.insertBefore(spellRow, panel.querySelector('#bclose')); }
       spellRow.innerHTML = '';
-      KINDS.forEach((k) => { const has = st.magic.includes(k), c = document.createElement('span'); c.dataset.k = k; c.className = has ? (k === fresh ? 'new' : '') : 'no'; c.textContent = has ? ICON[k] : '❔'; spellRow.appendChild(c); });
+      KINDS.forEach((k) => { const has = st.magic.includes(k), c = document.createElement('span'); c.dataset.k = k; c.className = has ? (k === fresh ? 'new' : '') : 'no'; c.textContent = has ? ICON[k] : '❔'; spellRow.appendChild(c);
+        // a hint for the ones still out there: tap ❔ and it flips to the map icon of the place to look
+        if (!has) c.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (c.classList.contains('hint')) return; c.classList.add('hint'); c.textContent = WHERE[k]; F.sfx.squeak();
+          setTimeout(() => { if (c.isConnected && c.classList.contains('hint')) { c.classList.remove('hint'); c.textContent = '❔'; } }, 2500); }); });
     }
     renderSpells();
     const btn = document.createElement('div'); btn.className = 'gamebtn'; btn.id = 'wandBtn'; btn.textContent = '🪄';
