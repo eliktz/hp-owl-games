@@ -47,7 +47,7 @@ const BEATER = { len: 75, reach: 3.5, window: 0.4, swingT: 0.45, cd: 0.55 };
 // Bludger look: iron-black (the model's own texture is the Quaffle's brown leather), and after
 // dark a faint red smoulder so they still read against the night sky.
 const IRON = { color: 0x2a2a30, metalness: 0.6, roughness: 0.45 };
-const SMOULDER = { day: 0, dusk: 0.03, night: 0.06 };   // a faint ember; the charge glow (1.5+) stays the loud signal
+const SMOULDER = { day: 0, dusk: 0, night: 0.015 };   // iron stays iron (a stronger ember read as the red Quaffle at night); the charge glow is the signal
 
 export function createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor, setTakeover, isModal, setModal, timeOfDay }) {
   const st = fun.store; st.qLevel = st.qLevel || 1; st.qWins = st.qWins || 0;
@@ -273,7 +273,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   #qPick .all,#qPick .go{min-height:66px;border-radius:36px;border:4px solid #fff;font:bold 26px 'Rubik',sans-serif;cursor:pointer;touch-action:manipulation}
   #qPick .all{min-width:130px;background:linear-gradient(#b5a0ff,#7a52d6);color:#fff} #qPick .all.sel{border-color:#ffd76a;box-shadow:0 0 0 4px #ffd76a,0 0 24px #ffd76a}
   #qPick .go{min-width:150px;background:linear-gradient(#9effa0,#2fae4a);color:#063;font-size:34px}
-  #qPick .x{position:absolute;top:10px;left:10px;width:52px;height:52px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.12);color:#fff;font-size:24px;cursor:pointer;touch-action:manipulation}
+  #qPick .x{position:absolute;z-index:2;top:10px;left:10px;width:52px;height:52px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.12);color:#fff;font-size:24px;cursor:pointer;touch-action:manipulation}
   @media (max-height:560px){
     #qPick .p{padding:8px 16px 10px} #qPick .ti{font-size:26px;margin-bottom:6px}
     #qPick .grid{grid-template-columns:repeat(4,150px);gap:10px} #qPick .card{width:150px;height:150px}
@@ -765,7 +765,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     S.over = true; S.holder = null; S.shot = null; aimRing.visible = false; throwB.classList.remove('ready');
     roar(true); fun.sfx.tada(); fun.confetti(['🔴', '🏆', '🎉', '⭐'], 30);
     const stars = S.myGoals >= 4 ? 3 : S.myGoals >= 2 ? 2 : 1;
-    endScreen(S.a > S.b, stars, stars >= 2);
+    endScreen(S.a > S.b, stars, stars >= 3);   // easier role: only a 3-star match raises the shared level
   }
   function passTo(by, target, dur) {
     S.holder = null; S.shot = { by, target, from: quaffle.position.clone(), to: new Vector3(), t: 0, dur }; fun.sfx.boing();
@@ -825,7 +825,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
         S.passOk = false; throwB.classList.remove('ready'); aimRing.visible = false; if (throwB.textContent !== '🤾') throwB.textContent = '🤾';
         if (S.holder === 'rival') quaffle.position.set(rival.position.x, rival.position.y + 1.5, rival.position.z);
         else if (S.holder === 'mate') quaffle.position.set(mate.position.x, mate.position.y + 1.5, mate.position.z);
-        else if (S.kick <= 0 && S.stun <= 0 && quaffle.position.distanceTo(P) < 2.4) { S.holder = 'me'; fun.sfx.pop(); }
+        else if (!S.over && S.kick <= 0 && S.stun <= 0 && quaffle.position.distanceTo(P) < 2.4) { S.holder = 'me'; fun.sfx.pop(); }
         if (!S.over) setHint(S.holder === 'mate' ? '➡️ טוּסוּ לַטַּבָּעוֹת, הַחָבֵר יִמְסֹר!' : S.holder === 'rival' ? '💥 הִתְנַגְּשׁוּ בַּיָּרִיב לַחֲטֹף!' : '🔴 תִּפְסוּ אֶת הַכַּדּוּר הָאָדֹם!');
       }
       quaffle.rotation.y += dt * 3;
@@ -883,7 +883,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     for (const b of bludgers) if (b.state !== 'fly') { b.state = 'roam'; glow(b, 0); }
     roar(true); fun.sfx.tada(); fun.confetti(['🏏', '🏆', '🎉', '⭐'], 30);
     const stars = S.bonks >= 8 ? 3 : S.bonks >= 4 ? 2 : 1;
-    endScreen(S.a > S.b, stars, stars >= 2);
+    endScreen(S.a > S.b, stars, stars >= 3);   // easier role (auto-drift): only 3 stars raise the shared level
   }
   function bludgerReach(b) { return Math.hypot(b.pos.x - P.x, (b.pos.y - P.y - 1.2) * 0.7, b.pos.z - P.z); }
   function bonk(b) {
@@ -919,7 +919,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
           b.pos.set(C.x + Math.sin(t * 0.5 + b.ph) * 22, gy + 9 + Math.sin(t * 0.9 + b.ph) * 3, C.z + Math.cos(t * 0.37 + b.ph * 2) * 15);
           if (!busy && b.t <= 0 && !S.over && !S.calm) { b.state = 'aim'; b.t = 1.0; b.victim = TEAM[S.nextVictim++ % TEAM.length]; busy = true; fun.sfx.tone(700, 1.0, 'sawtooth', 0.07, 0, 1500); }
         } else if (b.state === 'aim' || b.state === 'charge') {
-          glow(b, 1.5 + Math.sin(t * 30));
+          glow(b, ROLE && ROLE.id === 'beater' ? 0.35 + 0.3 * Math.sin(t * 12) : 1.5 + Math.sin(t * 30));   // Beater: stays a dark ball with a red pulse; the arrow marks it
           if (b.state === 'aim') { if (b.t <= 0) { b.state = 'charge'; b.t = 10; } }
           else {
             const v = b.victim.position; tmp.set(v.x - b.pos.x, v.y + 1 - b.pos.y, v.z - b.pos.z); const dl = tmp.length() || 1;
