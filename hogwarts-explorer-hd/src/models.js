@@ -3,7 +3,7 @@
 // shared GLTFLoader wired with the Meshopt decoder, plus a tiny cache so each file is
 // fetched once and cloned per use. If a file is missing the game still runs — callers
 // get null and fall back to the procedural look.
-import { Box3, Vector3 } from 'three';
+import { Box3, Vector3, TextureLoader, SRGBColorSpace } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
@@ -15,6 +15,8 @@ let _manifest = null;
 let _loader = null;
 const _cache = new Map();   // name -> Promise<{scene, animations} | null>
 let _renderer = null;
+let _ktx2 = null;                // the KTX2Loader wired into the GLTFLoader (shared with loadTexture)
+const _texCache = new Map();     // texture url stem -> Promise<Texture | null>
 // Why each requested model did or did not load: name -> 'ok' | reason. Shown by ?debug=1
 // (window.__game.models()) so a silent fallback to the code-drawn look can be diagnosed
 // on a phone without a console.
@@ -60,7 +62,7 @@ function loader() {
       try {
         const ktx2 = new KTX2Loader().setTranscoderPath(new URL('../lib/addons/libs/basis/', import.meta.url).href);
         ktx2.detectSupport(_renderer);
-        _loader.setKTX2Loader(ktx2);
+        _loader.setKTX2Loader(ktx2); _ktx2 = ktx2;
         _status.set('ktx2', 'ok');
       } catch (e) { _status.set('ktx2', 'unavailable: ' + e.message); console.warn('[models] KTX2 unavailable -', e.message); }
     }
@@ -134,6 +136,38 @@ export async function loadAnimated(name, alive) {
   const src = await loadSource(name);
   if (!src || (alive && !alive())) return null;
   return { obj: cloneSkeleton(src.scene), clips: src.animations };
+}
+
+// Load a stand-alone colour texture (e.g. a student's house/hair atlas) once, cached by its
+// path stem: `stem` is relative to assets/ without the extension. Same rule as the GLB
+// fallback: the .ktx2 through the game's KTX2 loader when it is available, else (or when it
+// fails or never settles) the .webp. Set up for glTF UVs (flipY false, sRGB). Null on failure.
+// `preferWebp` skips the KTX2 try (e.g. the model itself already had to fall back to WebP).
+export function loadTexture(stem, { preferWebp = false } = {}) {
+  const key = stem + (preferWebp ? '#webp' : '');
+  if (_texCache.has(key)) return _texCache.get(key);
+  const p = (async () => {
+    const v = (await manifest()).v, q = v ? '?v=' + encodeURIComponent(v) : '';
+    const url = new URL('../assets/' + stem, import.meta.url).href;
+    loader();                                   // make sure the KTX2 probe has run
+    const why = [];
+    const tries = [];
+    if (_ktx2 && _status.get('ktx2') === 'ok' && !preferWebp) tries.push(() => _ktx2.loadAsync(url + '.ktx2' + q));
+    tries.push(() => new TextureLoader().loadAsync(url + '.webp' + q));
+    for (const t of tries) {
+      try {
+        const tex = await withTimeout(t(), LOAD_TIMEOUT_MS, 'timed out after ' + LOAD_TIMEOUT_MS / 1000 + ' s');
+        tex.flipY = false; tex.colorSpace = SRGBColorSpace; tex.needsUpdate = true;
+        if (why.length) { _status.set('tex:' + stem, 'ok via webp (' + why.join('; ') + ')'); console.warn('[models] texture', stem, 'via WebP -', why.join('; ')); }
+        return tex;
+      } catch (e) { why.push(String(e && e.message || e)); }
+    }
+    _status.set('tex:' + stem, 'failed: ' + why.join('; '));
+    console.warn('[models] texture failed:', stem, '-', why.join('; '));
+    return null;
+  })();
+  _texCache.set(key, p);
+  return p;
 }
 
 // Uniformly scale an object to a target `height` (metres) OR `footprint` (max XZ span),
