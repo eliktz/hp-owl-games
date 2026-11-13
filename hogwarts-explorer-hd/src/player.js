@@ -22,6 +22,11 @@ const HERO = {
   // to keep the feet planted; past this cadence it looks frantic, so the rest is foot slide.
   maxRunRate: 3.0,
 };
+// Riding a broom (Quidditch): where the broom sits in the hero wrapper (metres, wrapper space:
+// y up from the feet, z forward) and its scale. ONE place to tune once the 'Ride' clip reports
+// its seat height. The broom object itself comes from the caller (quidditch.js: the Nimbus
+// GLB, or the code broom if that fails); its own forward is +Z, like the hero.
+export const RIDE_BROOM = { y: 0.82, z: 0.0, scale: 1.0 };
 const ONE_SHOTS = ['Wave', 'Cheer', 'Talk'];
 const LOCO = { Walk: 1, Run: 1 };
 
@@ -126,11 +131,32 @@ export class Player {
     this._fadeTo(name); h.oneShot = name;
   }
 
+  // On / off a broom. On: the broom goes under the hero at RIDE_BROOM and the hero loops its
+  // 'Ride' clip (cross-fade HERO.fade) if the GLB has one, else holds Idle as before. Off: the
+  // broom is taken away and the normal Idle/Walk/Run choice resumes. Safe with the chibi.
+  ride(on, broom = null) {
+    if (this._broom && (!on || broom !== this._broom)) { this.model.remove(this._broom); this._broom = null; }
+    this._riding = !!on;
+    if (on && broom) {
+      broom.position.set(0, RIDE_BROOM.y, RIDE_BROOM.z); broom.rotation.set(0, 0, 0); broom.scale.setScalar(RIDE_BROOM.scale);
+      this.model.add(broom); this._broom = broom;
+    }
+    const h = this.hero;
+    if (h) { h.oneShot = null; h.pending = null; }
+    return this._riding;
+  }
+  get riding() { return !!this._riding; }
+
   // Drive whichever figure is showing. state: { moving, running }; speed = real ground speed.
-  // quidditch.js calls this with { moving: false } while it owns the hero (Harry holds Idle).
+  // quidditch.js calls this with { moving: false } while it owns the hero (riding: 'Ride' or Idle).
   animate(dt, { moving = false, running = false } = {}, speed = 0) {
     animateChibi(this._rig, dt, { moving, running });
     const h = this.hero; if (!h) return;
+    if (this._riding) {
+      const want = h.acts.Ride ? 'Ride' : 'Idle';
+      this._fadeTo(want); h.acts[want].timeScale = 1;
+      h.mixer.update(dt); return;
+    }
     if (h.pending) { h.pending.left -= dt; if (!moving) this._startOneShot(h.pending.name); else if (h.pending.left <= 0) h.pending = null; }
     if (h.oneShot && moving) h.oneShot = null;
     if (!h.oneShot) {
