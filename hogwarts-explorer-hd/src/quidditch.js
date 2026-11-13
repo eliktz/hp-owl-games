@@ -1,16 +1,25 @@
-// QUIDDITCH in the HD world — the same match v1 plays (see ../hogwarts-explorer/quidditch/
-// match.js for the full design notes), rebuilt on the HD engine: fly a broom over a pitch
-// south of the gates, score with the Quaffle through three hoops past a Keeper, out-fly a rival
-// Chaser, dodge two Bludgers and catch the Golden Snitch (+150) to end the match.
-// Thumb-friendly: the stick steers (camera-relative), the broom finds its own height, ⚡ is a
-// boost and 🤾 throws. Everything repeated is instanced, nothing casts shadows, so the whole
-// pitch + crowd costs ~10 draw calls. Start from the 🧹 stand or the lesson picker.
+// QUIDDITCH in the HD world: fly a broom over a pitch south of the gates. Since Nov 2026 the
+// child picks a POSITION first (see briefs/quidditch-positions.md in the art workspace):
+//   all     today's mixed match, unchanged: grab the Quaffle, score past a Keeper, dodge two
+//           Bludgers, catch the Golden Snitch (+150) to end it.
+//   seeker  the Snitch is out from the start and hides: hot/cold chime + a ✨ edge arrow; a rival
+//           Seeker chases it too (always late on levels 1 to 3). Catch = win.
+//   keeper  the camera sits behind the home hoops; the stick slides you across them; the rival
+//           Chaser winds up (target hoop glows + dotted line) and you touch the ball to save. 8 shots.
+//   chaser / beater   shown on the picker as 'coming soon' (phase 2).
+// Structure: a small core (pitch, actors, HUD, flight, camera, end screen) + a ROLES table
+// { id, he, emoji, setup(), update(dt, t), wantY(), fly, cam(dt), action, hint }.
+// Thumb-friendly: one stick, at most one action button plus ⚡. Everything repeated is instanced,
+// nothing casts shadows. Real models (balls, Nimbus, house riders) stream in from models.json and
+// replace the code-drawn shapes; if a model fails, the code look simply stays.
 import {
-  Group, Mesh, InstancedMesh, Object3D, Color, Vector3, SphereGeometry, CylinderGeometry, BoxGeometry,
+  Group, Mesh, InstancedMesh, Object3D, Color, Vector3, Box3, SphereGeometry, CylinderGeometry, BoxGeometry,
   ConeGeometry, TorusGeometry, CircleGeometry, PlaneGeometry, MeshStandardMaterial, MeshBasicMaterial, DoubleSide, CanvasTexture, SRGBColorSpace,
+  Sprite, SpriteMaterial, AdditiveBlending,
 } from 'three';
 import { buildChibi } from './chibi.js';
 import { PLACES } from './config.js';
+import { loadModel } from './models.js';
 import * as fun from './fun.js';
 
 const STAND = { x: PLACES.pitch.x, z: PLACES.pitch.z + 6 };
@@ -18,14 +27,48 @@ const C = { x: PLACES.pitch.x, z: PLACES.pitch.z + 34 }, AX = 29, AZ = 21;
 const HOOP_DZ = [-6, 0, 6], HOOP_Y = [10.5, 12.5, 10.5];
 const GOAL_X = C.x + 20, HOME_X = C.x - 20;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const wrap = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 const M = (color, o = {}) => new MeshStandardMaterial({ color, roughness: 0.7, ...o });
+// Model sizes in play (max extent, metres): the balls stay at the old readable code sizes.
+const SIZE = { quaffle: 1.2, bludger: 1.24, snitch: 1.9, broom: 2.25 };
+// House riders (posed on their own brooms, origin at the seat, facing +Z handle-first):
+// scale 1.3 matches the hero (young Harry is 1.3x too); seatY puts the seat where the chibi's broom was.
+const RIDER = { scale: 1.3, seatY: 0.72 };
+const HOUSE = { gryf: 'gryffindor', slyt: 'slytherin', rave: 'ravenclaw', huff: 'hufflepuff' };
+const CREST = { gryf: '🦁', slyt: '🐍', rave: '🦅', huff: '🦡' };
+const POSITIONS = ['chaser', 'beater', 'keeper', 'seeker'];
+const KEEPER = { shots: 8, windup: 1.2, saveR: 2.3, x: HOME_X + 2.6, zMax: 8, yMin: 9.3, yMax: 14 };
 
-export function createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor, setTakeover, isModal }) {
+export function createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor, setTakeover, isModal, setModal }) {
   const st = fun.store; st.qLevel = st.qLevel || 1; st.qWins = st.qWins || 0;
   const gy = heightAt(C.x, C.z) + 0.4;
-  const d = new Object3D(), col = new Color(), tmp = new Vector3(), tmp2 = new Vector3();
+  const d = new Object3D(), col = new Color(), tmp = new Vector3(), tmp2 = new Vector3(), tmp3 = new Vector3();
   const mk = (par, geo, mat, x = 0, y = 0, z = 0) => { const m = new Mesh(geo, mat); m.position.set(x, y, z); m.frustumCulled = false; par.add(m); return m; };
   const clampArena = (p) => { const dx = (p.x - C.x) / AX, dz = (p.z - C.z) / AZ, k = Math.hypot(dx, dz); if (k > 1) { p.x = C.x + dx / k * AX; p.z = C.z + dz / k * AZ; return true; } return false; };
+  const myHouse = HOUSE[st.house] || 'gryffindor', oppHouse = myHouse === 'slytherin' ? 'ravenclaw' : 'slytherin';
+  const oppCrest = oppHouse === 'slytherin' ? '🐍' : '🦅';
+
+  // ---------------- models (with the code look as the fallback) ----------------
+  // Scale a loaded model so its largest extent is `size` and centre it on its parent's origin.
+  function fitCentered(obj, size) {
+    obj.updateMatrixWorld(true);
+    const box = new Box3().setFromObject(obj), sz = box.getSize(tmp3), k = size / Math.max(sz.x, sz.y, sz.z, 1e-6);
+    obj.scale.multiplyScalar(k); obj.updateMatrixWorld(true);
+    box.setFromObject(obj); box.getCenter(tmp3); obj.position.sub(tmp3);
+    return obj;
+  }
+  // Load `name`; on success hide the code-drawn children of `holder` (userData.code) and add the
+  // model. On failure nothing changes (the code look stays) and models.js records why.
+  function swapIn(holder, name, place) {
+    loadModel(name).then(obj => {
+      if (!obj) return;
+      obj.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; o.userData.sharedGeo = true; } });
+      place(obj);
+      for (const c of holder.children) if (c.userData.code) c.visible = false;
+      holder.add(obj); holder.userData.model = obj;
+    }).catch(e => console.warn('[quidditch] model skipped:', name, e && e.message));
+  }
+  const code = (o) => { o.userData.code = true; return o; };
 
   // ---------------- the pitch (always there, cheap) ----------------
   const pitch = new Group(); pitch.name = 'quidditch-pitch';
@@ -65,19 +108,65 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
 
   // ---------------- match actors ----------------
   const actors = new Group(); actors.visible = false; scene.add(actors);
-  const quaffle = mk(actors, new SphereGeometry(0.6, 14, 12), M(0xc8321e, { emissive: new Color(0x5a1008), emissiveIntensity: 0.8, roughness: 0.5 }));
-  const bludgers = [0, 1].map(i => { const m = mk(actors, new SphereGeometry(0.62, 14, 12), M(0x2a2a33, { emissive: new Color(0xff2a2a), emissiveIntensity: 0 })); return { m, pos: m.position, ph: i * 3.1, state: 'roam', t: 6 + i * 5, dir: new Vector3(), hit: false }; });
+  // Quaffle: a group so the model can replace the code sphere in place.
+  const quaffle = new Group(); actors.add(quaffle);
+  code(mk(quaffle, new SphereGeometry(0.6, 14, 12), M(0xc8321e, { emissive: new Color(0x5a1008), emissiveIntensity: 0.8, roughness: 0.5 })));
+  swapIn(quaffle, 'q_quaffle', o => fitCentered(o, SIZE.quaffle));
+  // Bludgers: the charge glow goes on every material of the ball (code sphere or model clone).
+  const bludgers = [0, 1].map(i => {
+    const g = new Group(); actors.add(g);
+    const cm = M(0x2a2a33, { emissive: new Color(0xff2a2a), emissiveIntensity: 0 });
+    code(mk(g, new SphereGeometry(0.62, 14, 12), cm));
+    const b = { g, pos: g.position, mats: [cm], ph: i * 3.1, state: 'roam', t: 6 + i * 5, dir: new Vector3(), hit: false };
+    swapIn(g, 'q_bludger', o => {
+      fitCentered(o, SIZE.bludger);
+      o.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.material.emissive = new Color(0xff2a2a); m.material.emissiveIntensity = 0; b.mats.push(m.material); } });
+    });
+    return b;
+  });
+  const glow = (b, v) => { for (const m of b.mats) m.emissiveIntensity = v; };
   const snitch = new Group(); snitch.visible = false; actors.add(snitch);
-  mk(snitch, new SphereGeometry(0.34, 12, 10), M(0xffd23f, { metalness: 0.6, roughness: 0.25, emissive: new Color(0xffb000), emissiveIntensity: 1.2 }));
-  const wings = [-1, 1].map(s => { const w = mk(snitch, new PlaneGeometry(0.9, 0.3), M(0xfff6d8, { side: DoubleSide, emissive: new Color(0xfff0c0), emissiveIntensity: 0.6 }), s * 0.55, 0.1, 0); w.userData.s = s; return w; });
-  function broom() { const b = new Group(); const stick = mk(b, new CylinderGeometry(0.05, 0.06, 2.4, 8), M(0x7a4a22), 0, 0, 0.2); stick.rotation.x = Math.PI / 2; const tail = mk(b, new ConeGeometry(0.26, 0.9, 10), M(0xc9a85a), 0, 0, -1.4); tail.rotation.x = Math.PI / 2; b.position.y = 0.72; return b; }
-  function flyer(look) { const c = buildChibi(look); c.traverse(o => { if (o.isMesh) o.castShadow = false; }); c.add(broom()); actors.add(c); return c; }
-  const rival = flyer({ robe: 0x1a5236, trim: 0x123a26, house: 0xc9cdd2, hair: 0xcf5a1e });
-  const keepA = flyer({ robe: 0x1a5236, trim: 0x123a26, house: 0xc9cdd2, hair: 0x6a4322 });
-  const keepB = flyer({ robe: 0x7a1420, trim: 0x4a0c14, house: 0xd9b24a, hair: 0x14100c, glasses: true });
+  code(mk(snitch, new SphereGeometry(0.34, 12, 10), M(0xffd23f, { metalness: 0.6, roughness: 0.25, emissive: new Color(0xffb000), emissiveIntensity: 1.2 })));
+  const wings = [-1, 1].map(s => { const w = code(mk(snitch, new PlaneGeometry(0.9, 0.3), M(0xfff6d8, { side: DoubleSide, emissive: new Color(0xfff0c0), emissiveIntensity: 0.6 }), s * 0.55, 0.1, 0)); w.userData.s = s; return w; });
+  let snitchWings = null;   // the model's (transparent) wing mesh: fluttered by squashing it
+  swapIn(snitch, 'q_snitch', o => {
+    fitCentered(o, SIZE.snitch);
+    o.traverse(m => { if (m.isMesh && m.material.transparent) snitchWings = m; if (m.isMesh && !m.material.transparent) { m.material = m.material.clone(); m.material.emissive = new Color(0xffb000); m.material.emissiveIntensity = 0.5; } });
+  });
+  // a soft sparkle that twinkles on the Snitch (Seeker: how you spot it from far away)
+  const sparkTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,250,210,1)'); gr.addColorStop(0.25, 'rgba(255,220,90,.7)'); gr.addColorStop(1, 'rgba(255,200,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; return t; })();
+  const sparkle = new Sprite(new SpriteMaterial({ map: sparkTex, transparent: true, depthWrite: false, blending: AdditiveBlending }));
+  sparkle.visible = false; sparkle.frustumCulled = false; snitch.add(sparkle);
+
+  function broom() { const b = new Group(); const stick = code(mk(b, new CylinderGeometry(0.05, 0.06, 2.4, 8), M(0x7a4a22), 0, 0, 0.2)); stick.rotation.x = Math.PI / 2; const tail = code(mk(b, new ConeGeometry(0.26, 0.9, 10), M(0xc9a85a), 0, 0, -1.4)); tail.rotation.x = Math.PI / 2; b.position.y = 0.72; return b; }
+  // A flyer: outer group (position + heading, driven by the game) > body (bob / bank / pitch, posed
+  // in code) > chibi + code broom, replaced by the house rider GLB when it streams in.
+  const flyers = [];
+  function flyer(look, house) {
+    const g = new Group(), body = new Group(); g.add(body); actors.add(g);
+    const c = code(buildChibi(look)); c.traverse(o => { if (o.isMesh) o.castShadow = false; });
+    body.add(c, code(broom()));
+    g.userData = { body, ph: Math.random() * 7, last: new Vector3(), lastYaw: 0, bank: 0, pitch: 0, init: false };
+    swapIn(body, 'q_rider_' + house, o => { o.scale.setScalar(RIDER.scale); o.position.y = RIDER.seatY; });
+    flyers.push(g); return g;
+  }
+  const LOOK = { slytherin: { robe: 0x1a5236, trim: 0x123a26, house: 0xc9cdd2 }, gryffindor: { robe: 0x7a1420, trim: 0x4a0c14, house: 0xd9b24a }, ravenclaw: { robe: 0x1d3a7a, trim: 0x12244a, house: 0xb08a4a }, hufflepuff: { robe: 0xc9a22a, trim: 0x2a2416, house: 0x1a1a1a } };
+  const rival = flyer({ ...LOOK[oppHouse], hair: 0xcf5a1e }, oppHouse);                  // rival Chaser
+  const keepA = flyer({ ...LOOK[oppHouse], hair: 0x6a4322 }, oppHouse);                  // their Keeper (far hoops)
+  const keepB = flyer({ ...LOOK[myHouse], hair: 0x14100c, glasses: true }, myHouse);     // our Keeper (home hoops)
+  const mate = flyer({ ...LOOK[myHouse], hair: 0x8a3a1a }, myHouse);                     // our Chaser (helper)
+  const rivalSeeker = flyer({ ...LOOK[oppHouse], hair: 0xe8d8a0 }, oppHouse);            // their Seeker
+  // The player's broom: the Nimbus 2000 GLB (handle at +Z), code broom until/unless it loads.
+  // player.ride() places it with RIDE_BROOM (player.js); the seat sits ~0.3 m in front of the bristles.
   const myBroom = broom();
+  swapIn(myBroom, 'q_broom', o => { fitCentered(o, SIZE.broom); o.position.z += SIZE.broom * 0.19; });
   const aimRing = mk(actors, new TorusGeometry(1.9, 0.14, 8, 24), new MeshBasicMaterial({ color: 0x9effa0 })); aimRing.rotation.y = Math.PI / 2; aimRing.visible = false;
   const warn = mk(actors, new ConeGeometry(0.5, 1, 4), new MeshBasicMaterial({ color: 0xff3030 })); warn.rotation.x = Math.PI; warn.visible = false;
+  // Keeper: the target hoop glows and a dotted line shows the coming shot (1 + 1 draw calls).
+  const hoopGlow = mk(actors, new TorusGeometry(1.75, 0.32, 8, 24), new MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.8, depthWrite: false, blending: AdditiveBlending }));
+  hoopGlow.rotation.y = Math.PI / 2; hoopGlow.visible = false;
+  const DOTS = 12, dots = new InstancedMesh(new SphereGeometry(0.17, 8, 6), new MeshBasicMaterial({ color: 0xfff2a8 }), DOTS);
+  dots.frustumCulled = false; dots.visible = false; actors.add(dots);
 
   // ---------------- HUD ----------------
   const css = document.createElement('style');
@@ -93,66 +182,159 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   #qBoost{right:calc(18px + env(safe-area-inset-right));bottom:calc(32px + env(safe-area-inset-bottom));display:none}
   #qHint{position:fixed;left:50%;top:calc(96px + env(safe-area-inset-top));transform:translateX(-50%);z-index:13;display:none;background:rgba(40,25,90,.85);border:3px solid #ffd76a;
     border-radius:20px;padding:4px 18px;color:#ffe9a8;font:bold 26px 'Rubik',sans-serif;white-space:nowrap;pointer-events:none}
+  #qArrow{position:fixed;z-index:13;width:84px;height:84px;margin:-42px 0 0 -42px;display:none;pointer-events:none;font-size:44px;line-height:84px;text-align:center;
+    border-radius:50%;background:radial-gradient(circle,rgba(255,230,120,.55),rgba(255,200,40,0) 70%)}
+  #qArrow .ar{position:absolute;inset:0;font-size:40px;color:#ffd23f;text-shadow:0 0 8px #000}
   body.inMatch #qBoard,body.inMatch #qExit,body.inMatch #qHint,body.inMatch #qThrow,body.inMatch #qBoost{display:flex}
+  body.inMatch.qNoThrow #qThrow{display:none}
+  body.inMatch #qArrow.on{display:block}
   body.inMatch .pill,body.inMatch #quest,body.inMatch #mapBtn,body.inMatch #muteBtn,body.inMatch #timeBtn,body.inMatch #camctl,body.inMatch #bellBtn,body.inMatch #enterBtn,
   body.inMatch #exitBtn,body.inMatch #bubble,body.inMatch #wandBtn,body.inMatch .funBub{display:none !important}
-  #qEnd{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(40,24,90,.7),rgba(5,3,25,.92));font-family:'Rubik',sans-serif;direction:rtl}
-  #qEnd.on{display:flex}
+  #qEnd,#qPick{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(40,24,90,.7),rgba(5,3,25,.92));font-family:'Rubik',sans-serif;direction:rtl}
+  #qEnd.on,#qPick.on{display:flex}
   #qEnd .p{background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:28px;padding:18px 26px 22px;text-align:center;color:#fff;width:min(90vw,520px);box-sizing:border-box}
   #qEnd .tr{font-size:110px;line-height:1.05} #qEnd .ti{font-size:44px;font-weight:bold;color:#ffd76a;text-shadow:0 3px 0 #7a3b00}
   #qEnd .sc{font-size:54px;font-weight:bold;direction:ltr;margin:6px 0} #qEnd .st{font-size:54px;letter-spacing:6px}
   #qEnd .row{display:flex;gap:14px;justify-content:center;margin-top:14px}
   #qEnd button{min-width:150px;min-height:76px;border-radius:40px;border:4px solid #fff;font:bold 30px 'Rubik',sans-serif;cursor:pointer;touch-action:manipulation}
-  #qEnd .again{background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00} #qEnd .done{background:linear-gradient(#b5a0ff,#7a52d6);color:#fff}`;
+  #qEnd .again{background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00} #qEnd .done{background:linear-gradient(#b5a0ff,#7a52d6);color:#fff}
+  #qPick .p{position:relative;background:rgba(32,20,70,.97);border:5px solid #ffd76a;border-radius:28px;padding:14px 22px 18px;text-align:center;color:#fff;box-sizing:border-box;max-width:96vw;max-height:96vh}
+  #qPick .ti{font-size:38px;font-weight:bold;color:#ffd76a;text-shadow:0 3px 0 #7a3b00;margin:0 54px 12px}
+  #qPick .grid{display:grid;grid-template-columns:repeat(2,180px);gap:16px;justify-content:center}
+  #qPick .card{position:relative;width:180px;height:180px;border-radius:26px;border:4px solid rgba(255,255,255,.75);background:linear-gradient(#4a3a9a,#2a1f66);color:#fff;
+    font-family:'Rubik',sans-serif;cursor:pointer;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0;transition:transform .15s}
+  #qPick .card .em{font-size:66px;line-height:1;display:inline-block} #qPick .card .nm{font-size:30px;font-weight:bold} #qPick .card .sr{font-size:20px;letter-spacing:2px;direction:ltr}
+  #qPick .card.sel{border-color:#ffd76a;box-shadow:0 0 0 5px #ffd76a,0 0 34px #ffd76a;transform:scale(1.05)}
+  #qPick .card.soon{filter:saturate(.35) brightness(.8)} #qPick .card .bd{position:absolute;top:8px;left:8px;background:#ff8a3a;color:#fff;border-radius:12px;padding:1px 9px;font-size:17px;font-weight:bold}
+  #qPick .card.no{animation:qNo .4s}
+  @keyframes qNo{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  #qPick .card[data-pos=chaser] .em{animation:qThr 1.6s ease-in-out infinite} @keyframes qThr{0%,100%{transform:translate(0,0)}50%{transform:translate(-14px,-12px) rotate(-15deg)}}
+  #qPick .card[data-pos=beater] .em{animation:qSw 1.2s ease-in-out infinite;transform-origin:70% 90%} @keyframes qSw{0%,100%{transform:rotate(25deg)}50%{transform:rotate(-35deg)}}
+  #qPick .card[data-pos=keeper] .em{animation:qSl 1.4s ease-in-out infinite} @keyframes qSl{0%,100%{transform:translateX(-16px)}50%{transform:translateX(16px)}}
+  #qPick .card[data-pos=seeker] .em{animation:qFl 2s ease-in-out infinite} @keyframes qFl{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(12px,-10px) scale(1.15)}75%{transform:translate(-12px,6px) scale(.9)}}
+  #qPick .row{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:14px}
+  #qPick .all,#qPick .go{min-height:66px;border-radius:36px;border:4px solid #fff;font:bold 26px 'Rubik',sans-serif;cursor:pointer;touch-action:manipulation}
+  #qPick .all{min-width:130px;background:linear-gradient(#b5a0ff,#7a52d6);color:#fff} #qPick .all.sel{border-color:#ffd76a;box-shadow:0 0 0 4px #ffd76a,0 0 24px #ffd76a}
+  #qPick .go{min-width:150px;background:linear-gradient(#9effa0,#2fae4a);color:#063;font-size:34px}
+  #qPick .x{position:absolute;top:10px;left:10px;width:52px;height:52px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.12);color:#fff;font-size:24px;cursor:pointer;touch-action:manipulation}
+  @media (max-height:560px){
+    #qPick .p{padding:8px 16px 10px} #qPick .ti{font-size:26px;margin-bottom:6px}
+    #qPick .grid{grid-template-columns:repeat(4,150px);gap:10px} #qPick .card{width:150px;height:150px}
+    #qPick .card .em{font-size:54px} #qPick .card .nm{font-size:26px} #qPick .row{margin-top:8px} #qPick .all,#qPick .go{min-height:56px}
+  }
+  @media (max-height:520px){
+    #qEnd .p{padding:8px 20px 10px} #qEnd .tr{font-size:56px} #qEnd .ti{font-size:30px} #qEnd .sc{font-size:32px;margin:2px 0} #qEnd .st{font-size:34px}
+    #qEnd .row{margin-top:8px} #qEnd button{min-height:60px;min-width:130px;font-size:26px}
+  }
+  @media (max-width:700px) and (min-height:561px){ #qPick .grid{grid-template-columns:repeat(2,150px)} #qPick .card{width:150px;height:150px} }`;
   document.head.appendChild(css);
   const el = (tag, id, cls, html) => { const e = document.createElement(tag); e.id = id; if (cls) e.className = cls; if (html) e.innerHTML = html; document.body.appendChild(e); return e; };
-  const board = el('div', 'qBoard', '', '<span class="tm"><span class="me">🦁</span><span class="a">0</span></span><span>:</span><span class="tm"><span class="b">0</span><span>🐍</span></span><span class="sn">✨</span>');
+  const board = el('div', 'qBoard', '', '<span class="tm"><span class="me">🦁</span><span class="a">0</span></span><span>:</span><span class="tm"><span class="b">0</span><span class="op">' + oppCrest + '</span></span><span class="sn">✨</span>');
   const exitB = el('button', 'qExit', 'gamebtn', '✕'), throwB = el('button', 'qThrow', 'gamebtn', '🤾'), boostB = el('button', 'qBoost', 'gamebtn', '⚡');
-  const hint = el('div', 'qHint'), endOv = el('div', 'qEnd');
+  const hint = el('div', 'qHint'), endOv = el('div', 'qEnd'), pickOv = el('div', 'qPick');
+  const arrow = el('div', 'qArrow', '', '✨<span class="ar">➤</span>'), arrowAr = arrow.querySelector('.ar');
   exitB.addEventListener('click', e => { e.stopPropagation(); quit(); });
-  throwB.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); throwQuaffle(); });
+  throwB.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); action(); });
   boostB.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); boost(); });
-  addEventListener('keydown', e => { if (!S.on) return; if (e.key === ' ') boost(); if (e.key === 'Enter' || e.key.toLowerCase() === 'f') throwQuaffle(); });
+  addEventListener('keydown', e => { if (!S.on) return; if (e.key === ' ') boost(); if (e.key === 'Enter' || e.key.toLowerCase() === 'f') action(); });
   const elA = board.querySelector('.a'), elB = board.querySelector('.b'), elSn = board.querySelector('.sn'), elMe = board.querySelector('.me');
   const setHint = (t) => { if (hint.textContent !== t) hint.textContent = t; };
-  const CREST = { gryf: '🦁', slyt: '🐍', rave: '🦅', huff: '🦡' };
+  // Spoken Hebrew (voice-first picker). Silent if muted or if the device has no speech.
+  function speak(text) {
+    try {
+      if (window.HP && window.HP.sfx && window.HP.sfx.isMuted && window.HP.sfx.isMuted()) return;
+      if (!('speechSynthesis' in window)) return;
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'he-IL'; u.rate = 0.95; u.pitch = 1.2;
+      const v = (speechSynthesis.getVoices() || []).find(x => /^(he|iw)/i.test(x.lang)); if (v) u.voice = v;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    } catch { /* no speech here */ }
+  }
 
   // ---------------- state ----------------
   const S = { on: false };
   const P = player.pos, pv = new Vector3(), camPos = new Vector3(), camLook = new Vector3();
-  let yaw = 0, bank = 0, T = 0;
+  let yaw = 0, bank = 0, T = 0, ROLE = null;
   function reset() {
     const lv = st.qLevel;
     Object.assign(S, { t: 0, a: 0, b: 0, holder: null, stun: 0, boost: 0, boostCd: 0, snitchOn: false, snitchSpd: 13 + lv * 0.9, juke: 0, goals: 0, over: false, shot: null,
-      rivalSpd: 9.5 + lv * 1.3, keepSpd: 2.6 + lv * 0.55, save: Math.max(0.25, 0.6 - lv * 0.05), bludGap: Math.max(5, 12 - lv), cheer: 0, kick: 1.6, stealCd: 0, snTarget: new Vector3(), aim: 1, hits: 0, dodges: 0, saves: 0, calm: false, result: null });
+      rivalSpd: 9.5 + lv * 1.3, keepSpd: 2.6 + lv * 0.55, save: Math.max(0.25, 0.6 - lv * 0.05), bludGap: Math.max(5, 12 - lv), cheer: 0, kick: 1.6, stealCd: 0, snTarget: new Vector3(), aim: 1, hits: 0, dodges: 0, saves: 0, calm: false, result: null,
+      pos: ROLE.id, shots: 0, kp: null, help: { wait: 3, carrier: null, hoop: 1 }, chime: 1, best: 1e9, noProg: 0, arrowOn: false, caughtBy: null });
     P.set(C.x - 10, gy + 5, C.z); yaw = Math.PI / 2; pv.set(0, 0, 0);
     quaffle.position.set(C.x, gy + 7, C.z);
     rival.position.set(C.x + 12, gy + 6, C.z); keepA.position.set(GOAL_X - 2.2, gy + 11, C.z); keepB.position.set(HOME_X + 2.2, gy + 11, C.z);
     keepA.rotation.y = -Math.PI / 2; keepB.rotation.y = Math.PI / 2;
-    bludgers.forEach((b, i) => { b.state = 'roam'; b.t = 5 + i * 4; b.pos.set(C.x + (i ? 14 : -14), gy + 9, C.z + (i ? -10 : 10)); b.m.material.emissiveIntensity = 0; });
-    snitch.visible = false; warn.visible = false; aimRing.visible = false;
+    mate.position.set(C.x - 4, gy + 7, C.z - 6); mate.rotation.y = Math.PI / 2; rivalSeeker.position.set(C.x + 4, gy + 9, C.z + 8); rivalSeeker.rotation.y = -Math.PI / 2;
+    for (const f of flyers) f.userData.init = false;
+    bludgers.forEach((b, i) => { b.state = 'roam'; b.t = 5 + i * 4; b.pos.set(C.x + (i ? 14 : -14), gy + 9, C.z + (i ? -10 : 10)); glow(b, 0); });
+    snitch.visible = false; sparkle.visible = false; warn.visible = false; aimRing.visible = false; hoopGlow.visible = false; dots.visible = false; arrow.classList.remove('on');
     elA.textContent = '0'; elB.textContent = '0'; elSn.classList.remove('on'); elMe.textContent = CREST[st.house] || '🦁';
+    // `extra` flyers only appear as real riders: their code-chibi fallback would cost too many draw calls
+    for (const f of flyers) f.visible = ROLE.cast.includes(f) || (!!ROLE.extra && ROLE.extra.includes(f) && !!f.userData.body.userData.model);
+    document.body.classList.toggle('qNoThrow', !ROLE.action);
+    ROLE.setup();
     camPos.set(P.x - 9, P.y + 5, P.z); camLook.copy(P);
+    if (ROLE.cam) { ROLE.cam(1); }
   }
   function whistle() { fun.sfx.tone(2300, 0.35, 'square', 0.08, 0, 2500); fun.sfx.tone(2300, 0.5, 'square', 0.08, 0.4, 2100); }
   function roar(big) { fun.sfx.noise(big ? 2.4 : 1.3, big ? 0.3 : 0.2, 0, 900, 0.5); fun.sfx.noise(big ? 2.0 : 1.0, 0.12, 0.1, 2200, 0.7); S.cheer = big ? 6 : 2.4; }
-  function start() {
+
+  // ---------------- position picker ----------------
+  const PICK = {
+    chaser: { emoji: '🔴', he: 'רוֹדֵף' }, beater: { emoji: '🏏', he: 'חוֹבֵט' },
+    keeper: { emoji: '🧤', he: 'שׁוֹעֵר' }, seeker: { emoji: '✨', he: 'מְחַפֵּשׂ' },
+  };
+  let pickSel = null;
+  const pickOpen = () => pickOv.classList.contains('on');
+  function starsOf(pos) { const n = (st.qStars && st.qStars[pos]) || 0; return '⭐'.repeat(n) + '☆'.repeat(3 - n); }
+  function openPicker() {
+    pickSel = st.qPos && ROLES[st.qPos] && !ROLES[st.qPos].soon ? st.qPos : 'all';
+    const cards = POSITIONS.map(pos => {
+      const r = ROLES[pos], p = PICK[pos];
+      return '<button type="button" class="card' + (r.soon ? ' soon' : '') + '" data-pos="' + pos + '" aria-label="' + p.he + '"><span class="em">' + p.emoji + '</span><span class="nm">' + p.he + '</span><span class="sr">' + (r.soon ? '' : starsOf(pos)) + '</span>' + (r.soon ? '<span class="bd">בְּקָרוֹב</span>' : '') + '</button>';
+    }).join('');
+    pickOv.innerHTML = '<div class="p"><button type="button" class="x" aria-label="סגור">✕</button><div class="ti">בְּאֵיזֶה תַּפְקִיד נְשַׂחֵק?</div><div class="grid">' + cards
+      + '</div><div class="row"><button type="button" class="all" data-pos="all">🎲 הַכֹּל</button><button type="button" class="go" aria-label="שַׂחֵק">▶</button></div></div>';
+    pickOv.querySelectorAll('[data-pos]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); tapPick(b.dataset.pos, b); }));
+    pickOv.querySelector('.go').addEventListener('click', e => { e.stopPropagation(); goPick(); });
+    pickOv.querySelector('.x').addEventListener('click', e => { e.stopPropagation(); closePicker(); fun.sfx.pop(); });
+    markPick(); pickOv.classList.add('on'); if (setModal) setModal(true); fun.sfx.flip();
+    speak('בְּאֵיזֶה תַּפְקִיד נְשַׂחֵק?');
+  }
+  function markPick() { pickOv.querySelectorAll('[data-pos]').forEach(b => b.classList.toggle('sel', b.dataset.pos === pickSel)); }
+  function closePicker() { if (!pickOpen()) return; pickOv.classList.remove('on'); if (setModal) setModal(false); }
+  function tapPick(pos, btn) {
+    const r = ROLES[pos]; if (!r) return;
+    if (r.soon) { fun.sfx.squeak(); speak(PICK[pos].he + ', בְּקָרוֹב!'); if (btn) { btn.classList.remove('no'); void btn.offsetWidth; btn.classList.add('no'); } return; }
+    if (pickSel === pos) { goPick(); return; }   // second tap starts
+    pickSel = pos; markPick(); fun.sfx.pop(); speak(pos === 'all' ? 'הַכֹּל' : PICK[pos].he);
+  }
+  function goPick() { if (!pickSel) return; const pos = pickSel; closePicker(); st.qPos = pos; fun.save(); begin(pos); }
+
+  // start(): no position → opens the picker (returns true, as before). start(pos) → straight in.
+  function start(pos) {
+    if (S.on || pickOpen()) return false;
+    if (pos == null) { if (isModal()) return false; openPicker(); return true; }
+    return begin(pos);
+  }
+  function begin(pos) {
     if (S.on || isModal()) return false;
+    const r = ROLES[pos]; if (!r || r.soon) return false;
     if (interiors.active) interiors.exit();
-    S.on = true; reset(); actors.visible = true; pitch.visible = true; player.model.add(myBroom);
+    ROLE = r; S.on = true; reset(); actors.visible = true; pitch.visible = true; player.ride(true, myBroom);
     document.body.classList.add('inMatch'); endOv.classList.remove('on');
     setTakeover({ update });
-    whistle(); fun.toast('🧹', 'קְוִוידִיץ׳!', 1500); setHint('🔴 תִּפְסוּ אֶת הַכַּדּוּר הָאָדֹם!');
+    whistle(); fun.toast(r.emoji === '🎲' ? '🧹' : r.emoji, 'קְוִוידִיץ׳!', 1500); setHint(r.hint0);
     return true;
   }
   function leave() {
-    S.on = false; actors.visible = false; player.model.remove(myBroom); player.model.rotation.set(0, 0, 0);
-    document.body.classList.remove('inMatch'); throwB.classList.remove('ready');
+    S.on = false; actors.visible = false; player.ride(false); player.model.rotation.set(0, 0, 0);
+    document.body.classList.remove('inMatch', 'qNoThrow'); throwB.classList.remove('ready'); arrow.classList.remove('on');
     setTakeover(null);
     player.yaw = Math.PI; player.teleport(STAND.x, STAND.z - 3); settleCrowd();
   }
   function quit() { if (!S.on) return; endOv.classList.remove('on'); leave(); }
   function boost() { if (!S.on || S.over || S.boostCd > 0 || S.stun > 0) return false; S.boost = 0.9; S.boostCd = 2.2; fun.sfx.zap(); return true; }
+  function action() { return ROLE && ROLE.action ? ROLE.action() : false; }
   function nearestHoop() {
     let best = 1, bd = 1e9; const fx = Math.sin(yaw), fz = Math.cos(yaw);
     for (let i = 0; i < 3; i++) { const dx = GOAL_X - P.x, dz = C.z + HOOP_DZ[i] - P.z, k = Math.hypot(dx, dz) || 1; const sc = Math.acos(clamp((dx * fx + dz * fz) / k, -1, 1)) + Math.abs(dz) * 0.02; if (sc < bd) { bd = sc; best = i; } }
@@ -173,31 +355,360 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     S.holder = null; S.shot = null; quaffle.position.set(C.x, gy + 7, C.z); S.kick = 1.4; whistle();
     rival.position.set(C.x + 10, gy + 6, C.z + (Math.random() - 0.5) * 12);
   }
+  // a helper goal (Seeker / Keeper matches): smaller fuss than the child's own goal
+  function helperGoal(mine) {
+    if (mine) { S.a += 10; elA.textContent = S.a; fun.toast('🥅', '+10', 900); roar(false); }
+    else { S.b += 10; elB.textContent = S.b; fun.sfx.tone(300, 0.3, 'sawtooth', 0.08, 0, 180); }
+  }
   function releaseSnitch() {
     if (S.snitchOn || S.over) return; S.snitchOn = true; snitch.visible = true;
     snitch.position.set(C.x + (Math.random() - 0.5) * 20, gy + 12, C.z + (Math.random() - 0.5) * 16); S.snTarget.copy(snitch.position);
     elSn.classList.add('on'); fun.toast('✨', 'הַסְּנִיץ׳ הַזָּהוֹב!', 1600); fun.sfx.tune([1568, 2093, 2637, 3136], 0.09, 'sine');
   }
-  function finish() {
-    S.over = true; S.a += 150; elA.textContent = S.a; snitch.visible = false; elSn.classList.remove('on'); S.holder = null;
-    roar(true); fun.sfx.tada(); fun.confetti(['✨', '🏆', '🎉', '⭐', '💛'], 34);
-    const win = S.a > S.b; st.qWins += win ? 1 : 0;
-    const stars = S.a - S.b >= 150 ? 3 : win ? 2 : 1;
-    if (win && stars >= 2) st.qLevel = Math.min(8, st.qLevel + 1); fun.save();
+  // The end of every match: trophy screen, stars, bonus, save. `stars` per position are kept (best).
+  function endScreen(win, stars, levelUp) {
+    st.qWins += win ? 1 : 0;
+    if (ROLE.id !== 'all') { st.qStars = st.qStars || {}; st.qStars[ROLE.id] = Math.max(st.qStars[ROLE.id] || 0, stars); }
+    if (levelUp) st.qLevel = Math.min(8, st.qLevel + 1); fun.save();
     try { window.HPLessons.progress.bonus(win ? 30 : 10); } catch { /* lessons not loaded */ }
-    S.result = { a: S.a, b: S.b, win, stars, level: st.qLevel };
+    S.result = { a: S.a, b: S.b, win, stars, level: st.qLevel, pos: ROLE.id, saves: S.saves, shots: S.shots, t: Math.round(S.t) };
+    const extra = ROLE.id === 'keeper' ? '<div class="sc">🧤 ' + S.saves + ' / ' + KEEPER.shots + '</div>' : '';
     setTimeout(() => {
-      endOv.innerHTML = '<div class="p"><div class="tr">🏆</div><div class="ti">' + (win ? 'נִצָּחוֹן!' : 'מִשְׂחָק מְצֻיָּן!') + '</div><div class="sc">' + elMe.textContent + ' ' + S.a + ' : ' + S.b + ' 🐍</div><div class="st">' + '⭐'.repeat(stars) + '☆'.repeat(3 - stars)
+      if (!S.on) return;
+      endOv.innerHTML = '<div class="p"><div class="tr">🏆</div><div class="ti">' + (win ? 'נִצָּחוֹן!' : 'מִשְׂחָק מְצֻיָּן!') + '</div><div class="sc">' + elMe.textContent + ' ' + S.a + ' : ' + S.b + ' ' + oppCrest + '</div>' + extra + '<div class="st">' + '⭐'.repeat(stars) + '☆'.repeat(3 - stars)
         + '</div><div class="row"><button class="again">🔁 שׁוּב</button><button class="done">סִיּוּם</button></div></div>';
-      endOv.querySelector('.again').addEventListener('click', () => { endOv.classList.remove('on'); reset(); whistle(); });
+      endOv.querySelector('.again').addEventListener('click', () => { endOv.classList.remove('on'); reset(); whistle(); setHint(ROLE.hint0); });
       endOv.querySelector('.done').addEventListener('click', () => { endOv.classList.remove('on'); leave(); });
       endOv.classList.add('on');
     }, 2600);
+  }
+  function finish() {   // 'all': the child caught the Snitch (unchanged rules)
+    S.over = true; S.a += 150; elA.textContent = S.a; snitch.visible = false; elSn.classList.remove('on'); S.holder = null;
+    roar(true); fun.sfx.tada(); fun.confetti(['✨', '🏆', '🎉', '⭐', '💛'], 34);
+    const win = S.a > S.b, stars = S.a - S.b >= 150 ? 3 : win ? 2 : 1;
+    endScreen(win, stars, win && stars >= 2);
   }
   function steer(obj, tx, ty, tz, spd, dt) {
     tmp.set(tx - obj.position.x, ty - obj.position.y, tz - obj.position.z); const k = tmp.length();
     if (k > 0.05) { obj.rotation.y = Math.atan2(tmp.x, tmp.z); tmp.multiplyScalar(Math.min(1, spd * dt / k)); obj.position.add(tmp); }
     return k;
+  }
+
+  // ---------------- shared pieces the roles use ----------------
+  // Bludgers: roam, and (if `charge`) every so often glow, aim at you and charge. A hit = 1 s spin.
+  function bludgerStep(dt, t, charge = true, gapMul = 1) {
+    for (const b of bludgers) {
+      b.t -= dt;
+      if (b.state === 'roam') {
+        b.pos.set(C.x + Math.sin(t * 0.5 + b.ph) * 22, gy + 9 + Math.sin(t * 0.9 + b.ph) * 3, C.z + Math.cos(t * 0.37 + b.ph * 2) * 15);
+        if (charge && b.t <= 0 && !S.over && S.stun <= 0 && !S.calm) { b.state = 'aim'; b.t = 1.15; fun.sfx.tone(700, 1.0, 'sawtooth', 0.07, 0, 1500); }
+      } else if (b.state === 'aim') {
+        glow(b, 1.5 + Math.sin(t * 30)); warn.visible = true; warn.position.set(P.x, P.y + 3.4, P.z); warn.rotation.y = t * 6;
+        if (b.t <= 0) { b.dir.set(P.x - b.pos.x, P.y + 1 - b.pos.y, P.z - b.pos.z).normalize(); b.state = 'charge'; b.t = 1.5; b.hit = false; }
+      } else {
+        b.pos.addScaledVector(b.dir, 30 * dt); warn.visible = false;
+        if (!b.hit && S.stun <= 0 && Math.hypot(b.pos.x - P.x, (b.pos.y - P.y - 1) * 0.5, b.pos.z - P.z) < 1.9) {   // forgiving in height: the broom picks its own altitude
+          b.hit = true; S.stun = 1.0; S.hits++; fun.sfx.burp(); fun.sfx.yelp();
+          if (S.holder === 'me') { S.holder = null; S.kick = 0.9; quaffle.position.set(P.x + 3, P.y, P.z + 3); clampArena(quaffle.position); }
+        }
+        if (b.t <= 0) { if (!b.hit) { S.dodges++; if (!S.over) { roar(false); fun.toast('💨', 'אוֹלֶה!', 800); } }   // the crowd loves a good dodge
+          b.state = 'roam'; b.t = S.bludGap * gapMul * (0.7 + Math.random() * 0.6); glow(b, 0); }
+      }
+      b.g.rotation.y += dt * 2;
+    }
+    if (!bludgers.some(b => b.state === 'aim')) warn.visible = false;
+  }
+  // Scripted helper Chasers (Seeker/Keeper matches): one side carries the Quaffle to a hoop and
+  // scores, then a pause. The team is favoured whenever it is not ahead, so the child's side is
+  // usually level or in front. teamOnly: only our Chaser attacks (the rival is busy elsewhere).
+  function helperPlay(dt, teamOnly) {
+    const H = S.help;
+    if (S.over) return;
+    if (!H.carrier) {
+      H.wait -= dt;
+      if (!teamOnly) quaffle.position.set(C.x + Math.sin(T * 0.8) * 1.5, gy + 7 + Math.sin(T * 2) * 0.4, C.z);
+      steer(mate, C.x - 6, gy + 7, C.z - 5 + Math.sin(T * 0.6) * 2, 5, dt);
+      if (!teamOnly) steer(rival, C.x + 6, gy + 7, C.z + 5 + Math.cos(T * 0.6) * 2, 5, dt);
+      if (H.wait <= 0) { H.carrier = teamOnly || S.a <= S.b ? 'mate' : (Math.random() < 0.6 ? 'mate' : 'rival'); H.hoop = (Math.random() * 3) | 0; }
+      if (!teamOnly) S.holder = null;
+      return;
+    }
+    const mine = H.carrier === 'mate', car = mine ? mate : rival, other = mine ? rival : mate;
+    const gx = mine ? GOAL_X - 7 : HOME_X + 7, tz = C.z + HOOP_DZ[H.hoop], ty = gy + HOOP_Y[H.hoop];
+    const k = steer(car, gx, ty, tz, 5.5, dt);
+    if (!teamOnly || !mine) steer(other, car.position.x - (mine ? 3 : -3), car.position.y, car.position.z + 2.5, 5.2, dt);
+    if (!teamOnly) { quaffle.position.set(car.position.x, car.position.y + 1.5, car.position.z); S.holder = H.carrier; }   // (Keeper match: the Quaffle is the shooter's)
+    if (k < 0.8) { helperGoal(mine); H.carrier = null; H.wait = (mine ? 6 : 7) + Math.random() * 3; if (teamOnly && S.a <= S.b) H.wait = 3.5; }
+  }
+  function keepersIdle(t) {
+    keepA.position.z = C.z + Math.sin(t * 0.8) * 5; keepA.position.y = gy + 11 + Math.sin(t * 2) * 0.3;
+    keepB.position.z = C.z + Math.sin(t * 0.9 + 1) * 5; keepB.position.y = gy + 11 + Math.cos(t * 2) * 0.3;
+  }
+  function snitchWingsStep(t) {
+    for (const w of wings) w.rotation.z = w.userData.s * Math.sin(t * 40) * 0.9;
+    if (snitchWings) snitchWings.scale.set(1, 1, 0.35 + Math.abs(Math.sin(t * 40)) * 0.65);
+  }
+
+  // ---------------- the ROLES ----------------
+  const ROLES = {};
+  // 'all': today's mixed match, byte-for-byte the same rules.
+  ROLES.all = {
+    id: 'all', he: 'הַכֹּל', emoji: '🎲', hint0: '🔴 תִּפְסוּ אֶת הַכַּדּוּר הָאָדֹם!', cast: [rival, keepA, keepB],
+    action: throwQuaffle, fly: true,
+    setup() {},
+    wantY() {
+      if (S.holder === 'me') return gy + 7 + 4.5 * clamp(1 - (GOAL_X - P.x) / 22, 0, 1);
+      const dq = quaffle.position.distanceTo(P), ds = S.snitchOn ? snitch.position.distanceTo(P) : 1e9;
+      return ds < dq * 1.3 ? snitch.position.y : (S.holder === 'rival' ? rival.position.y : quaffle.position.y);
+    },
+    update(dt, t) {
+      // ---- Quaffle ----
+      if (S.shot) {
+        const s = S.shot; s.t += dt; const k = Math.min(1, s.t / s.dur);
+        quaffle.position.lerpVectors(s.from, s.to, k); quaffle.position.y += Math.sin(k * Math.PI) * 1.6;
+        if (k >= 1) {
+          if (s.by === 'me') { if (Math.abs(keepA.position.z - s.to.z) < 2.4) { S.shot = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); fun.sfx.boing(); fun.toast('🧤', '', 800); S.saves++; setHint('הַשּׁוֹעֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; } else goal(true); }
+          else if (Math.random() < S.save) { S.shot = null; quaffle.position.set(HOME_X + 7, gy + 8, C.z); fun.sfx.boing(); S.kick = 0.5; } else goal(false);
+        }
+      } else if (S.holder === 'me') {
+        quaffle.position.set(P.x + Math.sin(yaw) * 0.9, P.y + 1.5, P.z + Math.cos(yaw) * 0.9);
+        S.aim = nearestHoop(); const ok = inRange(); throwB.classList.toggle('ready', ok);
+        aimRing.visible = ok; if (ok) { aimRing.position.set(GOAL_X - 0.2, gy + HOOP_Y[S.aim], C.z + HOOP_DZ[S.aim]); aimRing.scale.setScalar(1 + Math.sin(t * 9) * 0.08); }
+        setHint(ok ? '🤾 זִרְקוּ לַטַּבַּעַת!' : '➡️ טוּסוּ לַטַּבָּעוֹת!');
+      } else {
+        throwB.classList.remove('ready'); aimRing.visible = false;
+        if (S.holder === 'rival') quaffle.position.set(rival.position.x, rival.position.y + 1.5, rival.position.z);
+        else if (S.kick <= 0 && S.stun <= 0 && quaffle.position.distanceTo(P) < 2.4) { S.holder = 'me'; fun.sfx.pop(); }
+        if (!S.over) setHint(S.snitchOn ? '✨ תִּפְסוּ אֶת הַסְּנִיץ׳!' : S.holder === 'rival' ? '💥 הִתְנַגְּשׁוּ בַּיָּרִיב לַחֲטֹף!' : '🔴 תִּפְסוּ אֶת הַכַּדּוּר הָאָדֹם!');
+      }
+      quaffle.rotation.y += dt * 3;
+      // ---- rival Chaser ----
+      if (!S.over && !S.calm) {
+        if (S.holder === 'rival') {
+          const k = steer(rival, HOME_X + 9, gy + 11, C.z + Math.sin(S.t * 0.7) * 5, S.rivalSpd * 0.9, dt);
+          if (rival.position.x < HOME_X + 13 || k < 1) { S.holder = null; const i = (Math.random() * 3) | 0; S.shot = { from: quaffle.position.clone(), to: new Vector3(HOME_X, gy + HOOP_Y[i], C.z + HOOP_DZ[i]), t: 0, dur: 0.6, by: 'rival' }; }
+          else if (S.stealCd <= 0 && S.stun <= 0 && rival.position.distanceTo(P) < 2.3) { S.holder = 'me'; S.stealCd = 1.5; fun.sfx.boing(); fun.toast('💪', '', 700); }
+        } else if (S.holder === 'me') {
+          steer(rival, P.x + pv.x * 0.4, P.y, P.z + pv.z * 0.4, S.rivalSpd * 0.8, dt);
+          if (S.stealCd <= 0 && rival.position.distanceTo(P) < 1.7) { S.holder = 'rival'; S.stealCd = 1.6; fun.sfx.yelp(); }
+        } else if (!S.shot && S.kick <= 0.4) {
+          if (steer(rival, quaffle.position.x, quaffle.position.y - 1, quaffle.position.z, S.rivalSpd, dt) < 1.6 && S.kick <= 0) S.holder = 'rival';
+        }
+      }
+      const kz = S.holder === 'me' ? C.z + HOOP_DZ[S.aim] : C.z + Math.sin(t * 0.8) * 5;
+      keepA.position.z += clamp(kz - keepA.position.z, -S.keepSpd * dt, S.keepSpd * dt); keepA.position.y = gy + 11 + Math.sin(t * 2) * 0.3;
+      keepB.position.z = C.z + Math.sin(t * 0.9 + 1) * 5; keepB.position.y = gy + 11 + Math.cos(t * 2) * 0.3;
+      // ---- Bludgers ----
+      bludgerStep(dt, t, true, 1);
+      // ---- Golden Snitch ----
+      if (!S.snitchOn && !S.over && !S.calm && (S.t > 55 || S.goals >= 3)) releaseSnitch();
+      if (S.snitchOn && !S.over) {
+        const ds = snitch.position.distanceTo(tmp.set(P.x, P.y + 1.2, P.z)); S.juke -= dt;
+        if (snitch.position.distanceTo(S.snTarget) < 1.5 || (ds < 6 && S.juke <= 0)) {
+          if (ds < 6) { S.juke = 1.3; S.snitchSpd = Math.max(9.5, S.snitchSpd * 0.95); }
+          S.snTarget.set(C.x + (Math.random() - 0.5) * AX * 1.6, gy + 5 + Math.random() * 9, C.z + (Math.random() - 0.5) * AZ * 1.6); clampArena(S.snTarget);
+        }
+        if (S.t > 150) S.snitchSpd = Math.min(S.snitchSpd, 9);
+        tmp2.subVectors(S.snTarget, snitch.position); const dl = tmp2.length() || 1;
+        snitch.position.addScaledVector(tmp2, Math.min(1, S.snitchSpd * dt / dl));
+        snitchWingsStep(t);
+        if (ds < 2.1 && S.stun <= 0) finish();
+      }
+    },
+  };
+
+  // 'seeker': find and catch the Snitch. Hot/cold chime, ✨ edge arrow after 10 s without progress,
+  // a rival Seeker who is always late on levels 1 to 3, helpers keep the score moving.
+  function seekerEnd(mine) {
+    S.over = true; S.caughtBy = mine ? 'me' : 'rival'; snitch.visible = false; elSn.classList.remove('on'); arrow.classList.remove('on'); S.holder = null;
+    if (mine) { S.a += 150; elA.textContent = S.a; roar(true); fun.sfx.tada(); fun.confetti(['✨', '🏆', '🎉', '⭐', '💛'], 34); }
+    else { S.b += 150; elB.textContent = S.b; roar(false); fun.toast('😮', 'הַמְחַפֵּשׂ שֶׁלָּהֶם תָּפַס!', 1600); }
+    const stars = !mine ? 1 : S.t < 40 ? 3 : S.t < 70 ? 2 : 1;
+    endScreen(mine && S.a > S.b, stars, mine && stars >= 2);
+  }
+  function newSnitchTarget(far) {
+    for (let i = 0; i < 6; i++) {
+      S.snTarget.set(C.x + (Math.random() - 0.5) * AX * 1.6, gy + 4 + Math.random() * 10, C.z + (Math.random() - 0.5) * AZ * 1.6); clampArena(S.snTarget);
+      if (!far || S.snTarget.distanceTo(P) > 14) break;
+    }
+  }
+  function placeArrow() {
+    tmp.copy(snitch.position).project(camera);
+    let x = tmp.x, y = tmp.y; const behind = tmp.z > 1;
+    if (behind) { x = -x; y = -y; }
+    const onScreen = !behind && Math.abs(x) < 0.85 && Math.abs(y) < 0.8;
+    const ang = Math.atan2(-y, x);   // screen angle (y down)
+    if (!onScreen) { const k = 0.86 / Math.max(Math.abs(x), Math.abs(y), 1e-3); x *= k; y *= k; }
+    arrow.style.left = ((clamp(x, -0.9, 0.9) * 0.5 + 0.5) * innerWidth) + 'px';
+    arrow.style.top = ((-clamp(y, -0.86, 0.86) * 0.5 + 0.5) * innerHeight) + 'px';
+    arrowAr.style.transform = onScreen ? 'translateY(-46px) rotate(90deg)' : 'rotate(' + ang + 'rad) translateX(46px)';
+  }
+  ROLES.seeker = {
+    id: 'seeker', he: 'מְחַפֵּשׂ', emoji: '✨', hint0: '✨ חַפְּשׂוּ אֶת הַסְּנִיץ׳!', cast: [rival, mate, rivalSeeker], extra: [keepA, keepB],
+    action: null, fly: true,
+    setup() {
+      const lv = st.qLevel;
+      S.snitchSpd = 6 + lv * 1.0; S.bludGap = Math.max(8, 14 - lv);
+      bludgers.forEach((b, i) => { b.t = 12 + i * 7; });
+      S.snitchOn = true; snitch.visible = true; sparkle.visible = true; elSn.classList.add('on');
+      newSnitchTarget(true); snitch.position.copy(S.snTarget); newSnitchTarget(true);
+      S.best = snitch.position.distanceTo(P);
+    },
+    wantY() { return snitch.position.y; },
+    update(dt, t) {
+      helperPlay(dt, false); keepersIdle(t); quaffle.rotation.y += dt * 3;
+      bludgerStep(dt, t, true, 1.6);
+      if (S.over) return;
+      const lv = st.qLevel, ds = snitch.position.distanceTo(tmp.set(P.x, P.y + 1.2, P.z));
+      // the Snitch: wanders, jukes away when you get close; slowed for little levels, crawls after 100 s
+      S.juke -= dt;
+      const crawl = S.t > 100;
+      if (snitch.position.distanceTo(S.snTarget) < 1.5 || (!crawl && ds < 6.5 && S.juke <= 0)) {
+        if (ds < 6.5) { S.juke = 1.6; S.snitchSpd = Math.max(5, S.snitchSpd * 0.95); }
+        newSnitchTarget(false);
+      }
+      const spd = crawl ? Math.min(S.snitchSpd, 2.2) : S.snitchSpd;
+      tmp2.subVectors(S.snTarget, snitch.position); const dl = tmp2.length() || 1;
+      snitch.position.addScaledVector(tmp2, Math.min(1, spd * dt / dl));
+      snitchWingsStep(t);
+      sparkle.scale.setScalar(2.2 + Math.abs(Math.sin(t * 5)) * 2.4); sparkle.material.opacity = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.3));
+      // hot / cold chime: faster and louder as you close in
+      const close = clamp(1 - ds / 45, 0, 1);
+      S.chime -= dt; if (S.chime <= 0) { fun.sfx.tone(1568 + close * 1600, 0.14, 'sine', 0.02 + close * 0.12); S.chime = 1.6 - close * 1.25; }
+      // ✨ arrow at the screen edge after 10 s without getting 3 m closer
+      if (ds < S.best - 3) { S.best = ds; S.noProg = 0; } else S.noProg += dt;
+      S.arrowOn = S.noProg > 10 && ds > 7;
+      arrow.classList.toggle('on', S.arrowOn); if (S.arrowOn) placeArrow();
+      setHint(ds < 10 ? '🔥 חַם מְאוֹד! תִּפְסוּ!' : ds < 22 ? '🙂 חַם... קְרוֹבִים!' : '❄️ קַר... חַפְּשׂוּ אֶת הַ✨');
+      // the rival Seeker: on levels 1 to 3 (and before 60 s) he always stays a few metres behind it
+      const late = lv <= 3 || S.t < 60;
+      tmp2.subVectors(rivalSeeker.position, snitch.position); const rd = tmp2.length() || 1;
+      const hold = late ? 5 : 0;
+      const tx = snitch.position.x + tmp2.x / rd * hold, ty = snitch.position.y + tmp2.y / rd * hold, tz = snitch.position.z + tmp2.z / rd * hold;
+      steer(rivalSeeker, tx, ty, tz, Math.max(4, spd * (late ? 0.85 : 0.95)), dt);
+      if (ds < 2.1 && S.stun <= 0) seekerEnd(true);
+      else if (!late && rd < 1.4 && !S.calm) seekerEnd(false);
+    },
+  };
+
+  // 'keeper': guard the home hoops. Camera behind the hoops; the stick slides you across them.
+  function keeperEnd() {
+    S.over = true; hoopGlow.visible = false; dots.visible = false; S.holder = null;
+    roar(true); fun.sfx.tada(); fun.confetti(['🧤', '🏆', '🎉', '⭐'], 30);
+    const stars = S.saves >= 7 ? 3 : S.saves >= 4 ? 2 : 1;
+    endScreen(S.a > S.b, stars, stars >= 2);
+  }
+  function keeperShot(i) {   // the rival lines up a shot at hoop i (wind-up: glow + dotted line)
+    S.kp = { phase: 'windup', t: KEEPER.windup, hoop: i };
+    fun.sfx.tone(520, 0.5, 'triangle', 0.06, 0, 880);
+  }
+  function setDots(from, to, t) {
+    for (let i = 0; i < DOTS; i++) {
+      const k = (i + (t * 2.5) % 1) / DOTS;
+      d.position.lerpVectors(from, to, k); d.position.y += Math.sin(k * Math.PI) * 1.0; d.rotation.set(0, 0, 0); d.scale.setScalar(1); d.updateMatrix(); dots.setMatrixAt(i, d.matrix);
+    }
+    dots.instanceMatrix.needsUpdate = true;
+  }
+  ROLES.keeper = {
+    id: 'keeper', he: 'שׁוֹעֵר', emoji: '🧤', hint0: '🧤 עִצְרוּ אֶת הַכַּדּוּר!', cast: [rival, mate, keepA],
+    action: null, fly: false,
+    setup() {
+      P.set(KEEPER.x, gy + 11.5, C.z); yaw = Math.PI / 2;
+      S.kp = { phase: 'approach', t: 2.4, hoop: (Math.random() * 3) | 0, sz: 0 };
+      rival.position.set(C.x - 2, gy + 9, C.z); S.holder = 'rival';
+      S.help.wait = 6;
+    },
+    move(dt, ax) {
+      const sp = S.boost > 0 ? 17 : 8.5;
+      if (S.stun > 0) { S.stun -= dt; pv.multiplyScalar(1 - dt * 3); }
+      else if (!S.over) {
+        pv.z += (ax.x * sp - pv.z) * Math.min(1, dt * 8);
+        const wy = Math.abs(ax.y) > 0.1 ? ax.y * 5 : 0;
+        pv.y += (wy - pv.y) * Math.min(1, dt * 8);
+      } else pv.multiplyScalar(1 - dt * 4);
+      P.z = clamp(P.z + pv.z * dt, C.z - KEEPER.zMax, C.z + KEEPER.zMax);
+      P.y += pv.y * dt;
+      // with the stick idle the broom drifts to the height of the glowing hoop (forgiving)
+      const k = S.kp, home = gy + (k && k.phase !== 'approach' ? HOOP_Y[k.hoop] - 0.6 : 11.3);
+      if (Math.abs(ax.y) < 0.1) P.y += (home - P.y) * Math.min(1, dt * 1.6);
+      P.y = clamp(P.y, gy + KEEPER.yMin, gy + KEEPER.yMax);
+      P.x += (KEEPER.x - P.x) * Math.min(1, dt * 4);
+      yaw = Math.PI / 2; bank += (clamp(pv.z * 0.05, -0.5, 0.5) - bank) * Math.min(1, dt * 6);
+    },
+    update(dt, t) {
+      helperPlay(dt, true); keepA.position.z = C.z + Math.sin(t * 0.8) * 5; keepA.position.y = gy + 11 + Math.sin(t * 2) * 0.3;
+      bludgerStep(dt, t, false);
+      const k = S.kp; if (!k || S.over) return;
+      quaffle.rotation.y += dt * 3;
+      const lv = st.qLevel, ring = tmp3.set(HOME_X, gy + HOOP_Y[k.hoop], C.z + HOOP_DZ[k.hoop]);
+      if (k.phase === 'approach') {
+        k.t -= dt;
+        const sx = HOME_X + 13, sz = C.z + HOOP_DZ[k.hoop] * 0.6 + Math.sin(S.t) * 1.5, sy = gy + HOOP_Y[k.hoop] - 0.5;
+        steer(rival, sx, sy, sz, 9 + lv, dt);
+        quaffle.position.set(rival.position.x, rival.position.y + 1.5, rival.position.z); S.holder = 'rival';
+        setHint('👀 לְאָן הוּא יִזְרֹק?');
+        if (k.t <= 0 && rival.position.distanceTo(tmp.set(sx, sy, sz)) < 2.5) keeperShot(k.hoop);
+      } else if (k.phase === 'windup') {
+        k.t -= dt;
+        rival.rotation.y = Math.atan2(ring.x - rival.position.x, ring.z - rival.position.z);
+        rival.position.y += Math.sin(t * 14) * 0.02;
+        quaffle.position.set(rival.position.x, rival.position.y + 1.5 + (1 - k.t / KEEPER.windup) * 0.8, rival.position.z);
+        hoopGlow.visible = true; hoopGlow.position.copy(ring); hoopGlow.position.x += 0.2; hoopGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.1);
+        dots.visible = true; setDots(quaffle.position, ring, t);
+        setHint('🧤 לַטַּבַּעַת הַזּוֹהֶרֶת!');
+        if (k.t <= 0) { k.phase = 'shot'; k.from = quaffle.position.clone(); k.to = ring.clone(); k.t = 0; k.dur = Math.max(0.75, 1.5 - lv * 0.09); S.holder = null; S.shot = { by: 'rival' }; fun.sfx.boing(); }
+      } else if (k.phase === 'shot') {
+        k.t += dt; const f = Math.min(1, k.t / k.dur);
+        quaffle.position.lerpVectors(k.from, k.to, f); quaffle.position.y += Math.sin(f * Math.PI) * 1.0;
+        dots.visible = true; setDots(k.from, k.to, t);
+        const me = tmp.set(P.x, P.y + 1.0, P.z);
+        if (Math.hypot(quaffle.position.x - me.x, (quaffle.position.y - me.y) * 0.7, quaffle.position.z - me.z) < KEEPER.saveR && S.stun <= 0) {
+          S.saves++; S.shots++; S.shot = null; fun.sfx.boing(); fun.sfx.pop(); fun.toast('🧤', 'עֲצִירָה!', 900); roar(false);
+          k.phase = 'bounce'; k.from = quaffle.position.clone(); k.to = new Vector3(HOME_X + 16, gy + 6, C.z + (Math.random() - 0.5) * 10); k.t = 0; k.dur = 0.9;
+          hoopGlow.visible = false; dots.visible = false;
+        } else if (f >= 1) {
+          S.shots++; S.shot = null; helperGoal(false); setHint('לֹא נוֹרָא! הַבָּא 💪');
+          k.phase = 'rest'; k.t = 1.6; hoopGlow.visible = false; dots.visible = false;
+        }
+      } else if (k.phase === 'bounce') {
+        k.t += dt; const f = Math.min(1, k.t / k.dur);
+        quaffle.position.lerpVectors(k.from, k.to, f); quaffle.position.y += Math.sin(f * Math.PI) * 2.5;
+        if (f >= 1) { k.phase = 'rest'; k.t = 1.0; }
+      } else if (k.phase === 'rest') {
+        k.t -= dt;
+        steer(rival, C.x - 4, gy + 9, C.z, 8, dt);
+        if (k.t <= 0) {
+          if (S.shots >= KEEPER.shots) { keeperEnd(); return; }
+          S.kp = { phase: 'approach', t: S.calm ? 1e9 : 1.4 + Math.random(), hoop: (Math.random() * 3) | 0 };
+        }
+      }
+    },
+    cam(dt) {
+      const a = dt >= 1 ? 1 : 1 - Math.exp(-dt * 4);
+      // high behind the hoops, looking over them at the pitch: you see yourself, the hoops and the shooter
+      camPos.lerp(tmp.set(HOME_X - 9, P.y + 6.5, P.z), a);
+      camLook.lerp(tmp2.set(P.x + 16, P.y - 1.5, C.z + (P.z - C.z) * 0.6), a);
+    },
+  };
+  ROLES.chaser = { id: 'chaser', soon: true };
+  ROLES.beater = { id: 'beater', soon: true };
+
+  // Fly the house riders: bank into turns, a gentle bob, lean forward with speed (no skeleton).
+  function poseFlyers(dt, t) {
+    for (const f of flyers) {
+      if (!f.visible) continue;
+      const u = f.userData;
+      if (!u.init) { u.last.copy(f.position); u.lastYaw = f.rotation.y; u.init = true; }
+      const dy = wrap(f.rotation.y - u.lastYaw) / Math.max(dt, 1e-3);
+      const vx = (f.position.x - u.last.x) / Math.max(dt, 1e-3), vz = (f.position.z - u.last.z) / Math.max(dt, 1e-3);
+      const side = vx * Math.cos(f.rotation.y) - vz * Math.sin(f.rotation.y);   // sideways drift (keepers)
+      const fwd = Math.hypot(vx, vz);
+      u.bank += (clamp(-dy * 0.35 - side * 0.05, -0.55, 0.55) - u.bank) * Math.min(1, dt * 4);
+      u.pitch += (clamp(fwd * 0.012, 0, 0.18) - u.pitch) * Math.min(1, dt * 3);
+      u.body.rotation.set(u.pitch, 0, u.bank, 'YXZ');
+      u.body.position.y = Math.sin(t * 2.2 + u.ph) * 0.12;
+      u.last.copy(f.position); u.lastYaw = f.rotation.y;
+    }
   }
 
   // ---------------- per-frame (owns the hero + camera while a match is on) ----------------
@@ -208,105 +719,36 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     S.t += dt; if (S.kick > 0) S.kick -= dt;
     if (S.boostCd > 0) S.boostCd -= dt; if (S.boost > 0) S.boost -= dt; if (S.stealCd > 0) S.stealCd -= dt;
     const model = player.model, l = Math.min(1, Math.hypot(ax.x, ax.y));
-    if (S.stun > 0) { S.stun -= dt; yaw += dt * 16; pv.multiplyScalar(1 - dt * 3); }
-    else if (!S.over) {
-      const cy = Math.atan2(P.x - camPos.x, P.z - camPos.z);
-      const mx = ax.y * Math.sin(cy) - ax.x * Math.cos(cy), mz = ax.y * Math.cos(cy) + ax.x * Math.sin(cy);
-      const spd = (S.boost > 0 ? 31 : 20) * (S.holder === 'me' ? 0.92 : 1), want = l > 0.05 ? spd * l : (S.calm ? 0 : 2.5);   // (practice/calm mode: the broom hovers in place)
-      if (l > 0.05) { const wy = Math.atan2(mx, mz); const dd = ((wy - yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; yaw += dd * Math.min(1, dt * 5.5); bank += (-dd * 0.9 - bank) * Math.min(1, dt * 6); }
-      else bank *= 1 - Math.min(1, dt * 4);
-      pv.x += (Math.sin(yaw) * want - pv.x) * Math.min(1, dt * 4); pv.z += (Math.cos(yaw) * want - pv.z) * Math.min(1, dt * 4);
-    }
-    P.x += pv.x * dt; P.z += pv.z * dt;
-    if (clampArena(P)) { const out = Math.atan2(P.x - C.x, P.z - C.z); const dd = ((out + Math.PI - yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; yaw += dd * Math.min(1, dt * 2); }
-    let wantY = gy + 7;
-    if (S.holder === 'me') wantY = gy + 7 + 4.5 * clamp(1 - (GOAL_X - P.x) / 22, 0, 1);
-    else { const dq = quaffle.position.distanceTo(P), ds = S.snitchOn ? snitch.position.distanceTo(P) : 1e9; wantY = ds < dq * 1.3 ? snitch.position.y : (S.holder === 'rival' ? rival.position.y : quaffle.position.y); }
-    P.y += (clamp(wantY, gy + 2.5, gy + 18) - P.y) * Math.min(1, dt * 2.6);
+    if (ROLE.fly) {
+      if (S.stun > 0) { S.stun -= dt; yaw += dt * 16; pv.multiplyScalar(1 - dt * 3); }
+      else if (!S.over) {
+        const cy = Math.atan2(P.x - camPos.x, P.z - camPos.z);
+        const mx = ax.y * Math.sin(cy) - ax.x * Math.cos(cy), mz = ax.y * Math.cos(cy) + ax.x * Math.sin(cy);
+        const spd = (S.boost > 0 ? 31 : 20) * (S.holder === 'me' ? 0.92 : 1), want = l > 0.05 ? spd * l : (S.calm ? 0 : 2.5);   // (practice/calm mode: the broom hovers in place)
+        if (l > 0.05) { const wy = Math.atan2(mx, mz); const dd = wrap(wy - yaw); yaw += dd * Math.min(1, dt * 5.5); bank += (-dd * 0.9 - bank) * Math.min(1, dt * 6); }
+        else bank *= 1 - Math.min(1, dt * 4);
+        pv.x += (Math.sin(yaw) * want - pv.x) * Math.min(1, dt * 4); pv.z += (Math.cos(yaw) * want - pv.z) * Math.min(1, dt * 4);
+      }
+      P.x += pv.x * dt; P.z += pv.z * dt;
+      if (clampArena(P)) { const out = Math.atan2(P.x - C.x, P.z - C.z); const dd = wrap(out + Math.PI - yaw); yaw += dd * Math.min(1, dt * 2); }
+      P.y += (clamp(ROLE.wantY(), gy + 2.5, gy + 18) - P.y) * Math.min(1, dt * 2.6);
+    } else ROLE.move(dt, ax);
     model.position.copy(P); model.rotation.set(0.18, yaw, clamp(bank, -0.6, 0.6), 'YXZ'); model.visible = true;
     player.yaw = yaw; player.smoothY = P.y; player._lastPos.copy(P);
-    player.animate(dt, { moving: false });   // chibi breathing, or Harry's Idle on the broom
+    player.animate(dt, { moving: false });   // riding: Harry's 'Ride' clip if he has one, else Idle (chibi: breathing)
 
-    // ---- Quaffle ----
-    if (S.shot) {
-      const s = S.shot; s.t += dt; const k = Math.min(1, s.t / s.dur);
-      quaffle.position.lerpVectors(s.from, s.to, k); quaffle.position.y += Math.sin(k * Math.PI) * 1.6;
-      if (k >= 1) {
-        if (s.by === 'me') { if (Math.abs(keepA.position.z - s.to.z) < 2.4) { S.shot = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); fun.sfx.boing(); fun.toast('🧤', '', 800); S.saves++; setHint('הַשּׁוֹעֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; } else goal(true); }
-        else if (Math.random() < S.save) { S.shot = null; quaffle.position.set(HOME_X + 7, gy + 8, C.z); fun.sfx.boing(); S.kick = 0.5; } else goal(false);
-      }
-    } else if (S.holder === 'me') {
-      quaffle.position.set(P.x + Math.sin(yaw) * 0.9, P.y + 1.5, P.z + Math.cos(yaw) * 0.9);
-      S.aim = nearestHoop(); const ok = inRange(); throwB.classList.toggle('ready', ok);
-      aimRing.visible = ok; if (ok) { aimRing.position.set(GOAL_X - 0.2, gy + HOOP_Y[S.aim], C.z + HOOP_DZ[S.aim]); aimRing.scale.setScalar(1 + Math.sin(t * 9) * 0.08); }
-      setHint(ok ? '🤾 זִרְקוּ לַטַּבַּעַת!' : '➡️ טוּסוּ לַטַּבָּעוֹת!');
-    } else {
-      throwB.classList.remove('ready'); aimRing.visible = false;
-      if (S.holder === 'rival') quaffle.position.set(rival.position.x, rival.position.y + 1.5, rival.position.z);
-      else if (S.kick <= 0 && S.stun <= 0 && quaffle.position.distanceTo(P) < 2.4) { S.holder = 'me'; fun.sfx.pop(); }
-      if (!S.over) setHint(S.snitchOn ? '✨ תִּפְסוּ אֶת הַסְּנִיץ׳!' : S.holder === 'rival' ? '💥 הִתְנַגְּשׁוּ בַּיָּרִיב לַחֲטֹף!' : '🔴 תִּפְסוּ אֶת הַכַּדּוּר הָאָדֹם!');
-    }
-    quaffle.rotation.y += dt * 3;
-
-    // ---- rival Chaser ----
-    if (!S.over && !S.calm) {
-      if (S.holder === 'rival') {
-        const k = steer(rival, HOME_X + 9, gy + 11, C.z + Math.sin(S.t * 0.7) * 5, S.rivalSpd * 0.9, dt);
-        if (rival.position.x < HOME_X + 13 || k < 1) { S.holder = null; const i = (Math.random() * 3) | 0; S.shot = { from: quaffle.position.clone(), to: new Vector3(HOME_X, gy + HOOP_Y[i], C.z + HOOP_DZ[i]), t: 0, dur: 0.6, by: 'rival' }; }
-        else if (S.stealCd <= 0 && S.stun <= 0 && rival.position.distanceTo(P) < 2.3) { S.holder = 'me'; S.stealCd = 1.5; fun.sfx.boing(); fun.toast('💪', '', 700); }
-      } else if (S.holder === 'me') {
-        steer(rival, P.x + pv.x * 0.4, P.y, P.z + pv.z * 0.4, S.rivalSpd * 0.8, dt);
-        if (S.stealCd <= 0 && rival.position.distanceTo(P) < 1.7) { S.holder = 'rival'; S.stealCd = 1.6; fun.sfx.yelp(); }
-      } else if (!S.shot && S.kick <= 0.4) {
-        if (steer(rival, quaffle.position.x, quaffle.position.y - 1, quaffle.position.z, S.rivalSpd, dt) < 1.6 && S.kick <= 0) S.holder = 'rival';
-      }
-    }
-    const kz = S.holder === 'me' ? C.z + HOOP_DZ[S.aim] : C.z + Math.sin(t * 0.8) * 5;
-    keepA.position.z += clamp(kz - keepA.position.z, -S.keepSpd * dt, S.keepSpd * dt); keepA.position.y = gy + 11 + Math.sin(t * 2) * 0.3;
-    keepB.position.z = C.z + Math.sin(t * 0.9 + 1) * 5; keepB.position.y = gy + 11 + Math.cos(t * 2) * 0.3;
-
-    // ---- Bludgers ----
-    for (const b of bludgers) {
-      b.t -= dt;
-      if (b.state === 'roam') {
-        b.pos.set(C.x + Math.sin(t * 0.5 + b.ph) * 22, gy + 9 + Math.sin(t * 0.9 + b.ph) * 3, C.z + Math.cos(t * 0.37 + b.ph * 2) * 15);
-        if (b.t <= 0 && !S.over && S.stun <= 0 && !S.calm) { b.state = 'aim'; b.t = 1.15; fun.sfx.tone(700, 1.0, 'sawtooth', 0.07, 0, 1500); }
-      } else if (b.state === 'aim') {
-        b.m.material.emissiveIntensity = 1.5 + Math.sin(t * 30); warn.visible = true; warn.position.set(P.x, P.y + 3.4, P.z); warn.rotation.y = t * 6;
-        if (b.t <= 0) { b.dir.set(P.x - b.pos.x, P.y + 1 - b.pos.y, P.z - b.pos.z).normalize(); b.state = 'charge'; b.t = 1.5; b.hit = false; }
-      } else {
-        b.pos.addScaledVector(b.dir, 30 * dt); warn.visible = false;
-        if (!b.hit && S.stun <= 0 && Math.hypot(b.pos.x - P.x, (b.pos.y - P.y - 1) * 0.5, b.pos.z - P.z) < 1.9) {   // forgiving in height: the broom picks its own altitude
-          b.hit = true; S.stun = 1.0; S.hits++; fun.sfx.burp(); fun.sfx.yelp();
-          if (S.holder === 'me') { S.holder = null; S.kick = 0.9; quaffle.position.set(P.x + 3, P.y, P.z + 3); clampArena(quaffle.position); }
-        }
-        if (b.t <= 0) { if (!b.hit) { S.dodges++; if (!S.over) { roar(false); fun.toast('💨', 'אוֹלֶה!', 800); } }   // the crowd loves a good dodge
-          b.state = 'roam'; b.t = S.bludGap * (0.7 + Math.random() * 0.6); b.m.material.emissiveIntensity = 0; }
-      }
-    }
-    if (!bludgers.some(b => b.state === 'aim')) warn.visible = false;
-
-    // ---- Golden Snitch ----
-    if (!S.snitchOn && !S.over && !S.calm && (S.t > 55 || S.goals >= 3)) releaseSnitch();
-    if (S.snitchOn && !S.over) {
-      const ds = snitch.position.distanceTo(tmp.set(P.x, P.y + 1.2, P.z)); S.juke -= dt;
-      if (snitch.position.distanceTo(S.snTarget) < 1.5 || (ds < 6 && S.juke <= 0)) {
-        if (ds < 6) { S.juke = 1.3; S.snitchSpd = Math.max(9.5, S.snitchSpd * 0.95); }
-        S.snTarget.set(C.x + (Math.random() - 0.5) * AX * 1.6, gy + 5 + Math.random() * 9, C.z + (Math.random() - 0.5) * AZ * 1.6); clampArena(S.snTarget);
-      }
-      if (S.t > 150) S.snitchSpd = Math.min(S.snitchSpd, 9);
-      tmp2.subVectors(S.snTarget, snitch.position); const dl = tmp2.length() || 1;
-      snitch.position.addScaledVector(tmp2, Math.min(1, S.snitchSpd * dt / dl));
-      for (const w of wings) w.rotation.z = w.userData.s * Math.sin(t * 40) * 0.9;
-      if (ds < 2.1 && S.stun <= 0) finish();
-    }
+    ROLE.update(dt, t);
+    poseFlyers(dt, t);
     if (S.cheer > 0) S.cheer -= dt;
     settleCrowd(S.cheer > 0 ? 0.9 : 0.12, S.cheer > 0 ? 9 : 2, t);
 
-    const back = S.boost > 0 ? 12 : 10;
-    camPos.lerp(tmp.set(P.x - Math.sin(yaw) * back, P.y + 4.6, P.z - Math.cos(yaw) * back), 1 - Math.exp(-dt * 3.2));
+    if (ROLE.cam) ROLE.cam(dt);
+    else {
+      const back = S.boost > 0 ? 12 : 10;
+      camPos.lerp(tmp.set(P.x - Math.sin(yaw) * back, P.y + 4.6, P.z - Math.cos(yaw) * back), 1 - Math.exp(-dt * 3.2));
+      camLook.lerp(tmp2.set(P.x + Math.sin(yaw) * 5, P.y + 1.6, P.z + Math.cos(yaw) * 5), 1 - Math.exp(-dt * 6));
+    }
     camPos.y = Math.max(camPos.y, heightAt(camPos.x, camPos.z) + 1.5);
-    camLook.lerp(tmp2.set(P.x + Math.sin(yaw) * 5, P.y + 1.6, P.z + Math.cos(yaw) * 5), 1 - Math.exp(-dt * 6));
     camera.position.copy(camPos); camera.lookAt(camLook);
   }
 
@@ -319,21 +761,29 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     stand.visible = Math.hypot(player.pos.x - STAND.x, player.pos.z - STAND.z) < 38;   // the little broom stand only when you are near it
     if (sign) { sign.position.y = 4.6 + Math.sin(T * 2) * 0.2; sign.rotation.y += dt * 0.8; }
     const k = Math.hypot(player.pos.x - STAND.x, player.pos.z - STAND.z);
-    if (k < 5 && !isModal()) fun.offer('quidditch', '🧹', k, start);
+    if (k < 5 && !isModal()) fun.offer('quidditch', '🧹', k, () => start());
   }
 
+  const v3 = (p) => ({ x: p.x, y: p.y, z: p.z });
   const api = {
-    start, quit, boost, throwQuaffle, releaseSnitch, idle, stand: STAND, centre: C, goalX: GOAL_X, hoopZ: HOOP_DZ.map(z => C.z + z),
+    start, quit, boost, throwQuaffle, releaseSnitch, idle, stand: STAND, centre: C, goalX: GOAL_X, homeX: HOME_X, hoopZ: HOOP_DZ.map(z => C.z + z), hoopY: HOOP_Y.map(y => gy + y),
+    roles: () => Object.values(ROLES).map(r => ({ id: r.id, soon: !!r.soon })),
+    pickerOpen: pickOpen, openPicker, closePicker,
     state: () => ({ on: S.on, over: !!S.over, a: S.a, b: S.b, holder: S.holder, stun: S.stun > 0, snitch: !!S.snitchOn, t: S.t, aim: S.aim, hits: S.hits, dodges: S.dodges, saves: S.saves, level: st.qLevel, result: S.result || null,
-      me: { x: P.x, y: P.y, z: P.z }, quaffle: { x: quaffle.position.x, y: quaffle.position.y, z: quaffle.position.z }, snitchPos: { x: snitch.position.x, y: snitch.position.y, z: snitch.position.z },
-      shot: !!S.shot, boosting: S.boost > 0, speed: Math.hypot(pv.x, pv.z), b0: { x: bludgers[0].pos.x, y: bludgers[0].pos.y, z: bludgers[0].pos.z, hit: bludgers[0].hit, t: bludgers[0].t }, keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map(b => b.state), inArena: Math.hypot((P.x - C.x) / AX, (P.z - C.z) / AZ) <= 1.001 }),
+      me: v3(P), quaffle: v3(quaffle.position), snitchPos: v3(snitch.position),
+      shot: !!S.shot, boosting: S.boost > 0, speed: Math.hypot(pv.x, pv.z), b0: { x: bludgers[0].pos.x, y: bludgers[0].pos.y, z: bludgers[0].pos.z, hit: bludgers[0].hit, t: bludgers[0].t }, keeperZ: keepA.position.z, inRange: inRange(), bludgers: bludgers.map(b => b.state), inArena: Math.hypot((P.x - C.x) / AX, (P.z - C.z) / AZ) <= 1.001,
+      pos: S.on ? ROLE.id : null, picker: pickOpen(), shots: S.shots || 0, shotsLeft: KEEPER.shots - (S.shots || 0), kPhase: S.kp ? S.kp.phase : null, kHoop: S.kp ? S.kp.hoop : null,
+      snitchDist: snitch.position.distanceTo(P), arrow: !!S.arrowOn, caughtBy: S.caughtBy || null, rivalSeeker: v3(rivalSeeker.position), qPos: st.qPos || null, qStars: st.qStars || {} }),
+    _pick(pos) { closePicker(); if (ROLES[pos] && !ROLES[pos].soon) { st.qPos = pos; fun.save(); } return begin(pos); },   // tests: choose a position (picker or not)
+    _tapPick(pos) { const b = pickOv.querySelector('[data-pos="' + pos + '"]'); tapPick(pos, b); return pickSel; },
     _place(x, y, z, yw) { P.set(x, y, z); pv.set(0, 0, 0); if (yw != null) yaw = yw; },
     _give() { S.holder = 'me'; S.shot = null; S.kick = 0; },      // tests: you are holding the Quaffle
     _quaffleAt(x, y, z) { S.holder = null; S.shot = null; S.kick = 0; quaffle.position.set(x, y, z); },
-    _calm(on) { S.calm = !!on; }, _rivalAway() { rival.position.set(C.x - 20, gy + 6, C.z - 14); S.stealCd = 5; },
+    _calm(on) { S.calm = !!on; if (S.calm && S.kp && S.kp.phase === 'approach') S.kp.t = 1e9; }, _rivalAway() { rival.position.set(C.x - 20, gy + 6, C.z - 14); S.stealCd = 5; },
     _keeperTo(z) { keepA.position.z = z; },
     _bludger() { const b = bludgers[0]; b.pos.set(P.x + pv.x * 0.2 + 7, P.y + 1, P.z + pv.z * 0.2); b.dir.set(-1, 0, 0); b.state = 'charge'; b.t = 1.5; b.hit = false; },   // tests: a Bludger already charging at you
     _snitchTo(x, y, z) { snitch.position.set(x, y, z); S.snTarget.set(x, y, z); S.juke = 5; },
+    _shotAt(i) { if (!S.on || ROLE.id !== 'keeper' || S.over) return false; rival.position.set(HOME_X + 13, gy + HOOP_Y[i] - 0.5, C.z + HOOP_DZ[i] * 0.6); keeperShot(i); return true; },   // tests: the rival winds up at hoop i now
   };
   fun.mods.quidditch = api;
   return api;

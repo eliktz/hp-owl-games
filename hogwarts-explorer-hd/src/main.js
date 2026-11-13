@@ -189,7 +189,7 @@ async function boot() {
   // A mini-game may take over the hero + camera for a while (the Quidditch match).
   let takeover = null;
   const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor: (o) => outdoorRoots.push(o),
-    setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal });
+    setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal, setModal });
   delight = createDelight({ scene, camera, player, interiors, heightAt, setModal, isModal: () => modal });
   lessons.addPickerButton('🧹 קְוִוידִיץ׳ — מִשְׂחָק!', () => quidditch.start());
   // Friends are never frustum-culled per mesh (odd bounds), so cull each whole figure by one
