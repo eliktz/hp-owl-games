@@ -71,6 +71,8 @@ async function boot() {
 
   // Friendly characters (Ron/Hermione/Hedwig models + code-drawn Harry/Hagrid).
   const characters = await createCharacters({ scene, heightAt }).catch(() => ({ update: () => null }));
+  // Ron, Hermione and Hagrid are solid: a circle each in the outdoor colliders (they never move).
+  for (const c of characters.characters || []) if (c.kind === 'person') colliders.push({ type: 'circle', x: c.x, z: c.z, r: c.name === 'hagrid' ? 0.6 : 0.35, npc: c.name });
 
   // Gentle quests: collect stars, deliver letters.
   const quests = createQuests({
@@ -193,7 +195,7 @@ async function boot() {
     setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal, setModal, timeOfDay: () => env.time });
   // Background students (decoration only: any failure -> simply none). Created after `quality`
   // so LOW can thin them out; the courtyard group is an outdoor root (hidden indoors).
-  try { students = createStudents({ scene, camera, player, heightAt, tier: () => quality.tier, registerOutdoor: (o) => outdoorRoots.push(o) }); }
+  try { students = createStudents({ scene, camera, player, heightAt, tier: () => quality.tier, registerOutdoor: (o) => outdoorRoots.push(o), colliders }); }
   catch (e) { console.warn('[students] disabled -', e && e.message || e); students = null; }
   delight = createDelight({ scene, camera, player, interiors, heightAt, setModal, isModal: () => modal });
   lessons.addPickerButton('🧹 קְוִוידִיץ׳ — מִשְׂחָק!', () => quidditch.start());
