@@ -13,7 +13,8 @@ let _manifest = null;
 async function manifest() {
   if (_manifest) return _manifest;
   try {
-    const r = await fetch(BASE + 'manifest.json', { cache: 'force-cache' });
+    // 'no-cache' = always revalidate; 'force-cache' kept returning players on a stale manifest.
+    const r = await fetch(BASE + 'manifest.json', { cache: 'no-cache' });
     _manifest = r.ok ? await r.json() : { textures: [], hdri: [] };
   } catch { _manifest = { textures: [], hdri: [] }; }
   return _manifest;

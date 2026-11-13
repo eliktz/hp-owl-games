@@ -2,6 +2,7 @@
 // exposes window.__game test hooks.
 import { Scene, PerspectiveCamera, Vector3, Raycaster, Frustum, Matrix4, Sphere } from 'three';
 import { createRenderer, backendName } from './renderer.js';
+import { setRenderer as setModelRenderer, modelStatus } from './models.js';
 import { QualityManager } from './quality.js';
 import { Environment } from './environment.js';
 import { buildTerrain, heightAt } from './terrain.js';
@@ -17,7 +18,7 @@ import { createQuests } from './quests.js';
 import { createMap } from './map.js';
 import { createInteriors } from './interiors.js';
 import { createAudio } from './audio.js';
-import { SPOTS, PLACES, TIER } from './config.js';
+import { SPOTS, PLACES, TIER, TIMES } from './config.js';
 import { blobShadow } from './atmosphere.js';
 import * as fun from './fun.js';
 import { createLessons } from './lessons.js';
@@ -39,6 +40,7 @@ function toast(msg) {
 async function boot() {
   const canvas = document.getElementById('view');
   const renderer = await createRenderer(canvas);
+  setModelRenderer(renderer);                 // KTX2 format detection for the GLB loader
   const scene = new Scene();
   const camera = new PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
 
@@ -50,10 +52,11 @@ async function boot() {
   const grass = await loadTexture('grass_1k.jpg', { repeat: 120 });
   const mats = makeMaterials({ stone, slate, wood });
 
-  const env = new Environment(scene);
+  const env = new Environment(scene, { renderer, windowMat: mats.window });
   await env.setTime('day');
   const terrain = buildTerrain(scene, { texture: grass });
   const lake = buildLake(scene);
+  env.onTime = (k, p, sky) => lake.userData.setTime(p, sky); lake.userData.setTime(TIMES[env.time] || TIMES.day, scene.environment);
   const { group: castleGroup, colliders } = buildCastle(scene, mats);
 
   // Published fan scenery (Hagrid's hut, Quidditch props), area-streamed by distance.
@@ -72,7 +75,7 @@ async function boot() {
   const quests = createQuests({
     scene, heightAt, hud, onToast: toast,
     onAll: () => setTimeout(() => { fun.toast('🌟', 'כָּל הַכּוֹכָבִים שֶׁלְּךָ!', 3000); fun.confetti(['⭐', '🌟', '✨', '💛'], 34); fun.sfx.tada(); }, 600),
-    sfx: { chime: () => audio.chime(), letter: () => audio.letter() },
+    sfx: { chime: () => { audio.chime(); player.play('Cheer'); }, letter: () => audio.letter() },   // chime = a star found / a letter delivered: Harry cheers
   });
 
   player.update(0, input);
@@ -96,11 +99,51 @@ async function boot() {
     },
   });
 
+  // Bloom post pipeline (step 6): HIGH and MEDIUM only. Loaded dynamically so a missing or
+  // broken post module can never stop the game from booting; null = render direct.
+  // ?post=0 disables it, ?post=1 forces it. Default: ON for WebGL2 (verified), OFF for
+  // WebGPU until it has been checked on a real iPad (WebGPU shader/validation errors are
+  // asynchronous, so a bad pipeline there could not be caught and would blank the game).
+  let post = null;
+  const postParam = new URLSearchParams(location.search).get('post');
+  const isWebGPU = !!(renderer.backend && renderer.backend.isWebGPUBackend);
+  const baseState = { toneMapping: renderer.toneMapping, outputColorSpace: renderer.outputColorSpace, autoClear: renderer.autoClear };
+  if (postParam === '1' || (postParam !== '0' && !isWebGPU)) {
+    try { post = (await import('./post.js')).createPost(renderer, scene, camera); }
+    catch (e) { console.warn('[post] disabled:', e && e.message || e); post = null; }
+  }
+  // Drop the pipeline for good and put the renderer back exactly as renderer.render expects
+  // (RenderPipeline.render changes tone mapping / colour space / targets without try-finally).
+  function dropPost(why) {
+    if (why) console.warn('[post] ' + why);
+    try { post && post.dispose(); } catch (e) { /* ignore */ }
+    post = null; usePost = false;
+    try {
+      renderer.toneMapping = baseState.toneMapping; renderer.outputColorSpace = baseState.outputColorSpace; renderer.autoClear = baseState.autoClear;
+      renderer.setRenderTarget(null); if (renderer.setMRT) renderer.setMRT(null);
+    } catch (e) { /* ignore */ }
+  }
+  let usePost = false;
   const quality = new QualityManager(renderer, {
-    onTier: (t) => hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t),
+    onTier: (t) => {
+      if (t === TIER.LOW && post) dropPost();          // free the bloom render targets on struggling devices
+      usePost = !!post && t !== TIER.LOW;
+      lake.userData.mist?.setEnabled(t !== TIER.LOW);
+      hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t);
+    },
   });
   quality.applyTier(TIER.HIGH);
+  // One frame through the pipeline; on any throw, fall back to renderer.render for good.
+  function renderFrame() {
+    if (usePost) {
+      try { post.render(); return; }
+      catch (e) { dropPost('render failed, falling back: ' + (e && e.message || e)); }
+    }
+    renderer.render(scene, camera);
+  }
 
+  // The post pipeline needs no resize call: PassNode and BloomNode read the renderer's
+  // drawing-buffer size every frame (also after quality.js changes the pixel ratio).
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
@@ -186,7 +229,7 @@ async function boot() {
     interiors.update(dt);
     const inside = !!interiors.active;
     setWorldVisible(!inside);
-    if (!inside) cullFriends();
+    if (!inside) { cullFriends(); lake.userData.mist?.update(dt, camera); }
     if (inside !== wasInside) { wasInside = inside; document.body.classList.toggle('inside', inside); }
     shadow.visible = inside;
     if (inside) shadow.position.set(player.pos.x, FLOOR_Y + 0.05, player.pos.z);
@@ -198,13 +241,14 @@ async function boot() {
     if (near) { bubbleT += dt; if (bubbleT > 3.2) { bubbleT = 0; bubbleLine++; } showBubble(near); } else showBubble(null);
 
     if (!modal && !takeover) { lessons.update(dt); quidditch.idle(dt, inside); }
+    else if (!takeover) lessons.anim(dt);   // GLB professors keep animating behind a lesson overlay
     if (!takeover) delight.update(dt, inside);
     else lessons.cull();                // a match is on: far lesson spots must not cost draw calls
     fun.tick(dt, camera);
     for (const h of hooks) h(dt, inside);
 
     quality.sample(dtMs);
-    renderer.render(scene, camera);
+    renderFrame();
   }
   renderer.setAnimationLoop(loop);
 
@@ -217,6 +261,8 @@ async function boot() {
     exitInterior: () => interiors.exit(),
     setTime: (k) => env.setTime(k),
     setQuality: (t) => quality.applyTier(t),
+    get post() { return post; },
+    postActive: () => usePost,
     spots: () => Object.keys(SPOTS),
     questState: () => quests.state,
     // Gameplay-test probe: player/camera world pos, whether a wall sits between the player
@@ -288,6 +334,8 @@ async function boot() {
       scene.traverse(o => { if (o.isMesh) { meshes++; if (o.castShadow) casters++; if (o.visible) visible++; } });
       return { meshes, casters, visible };
     },
+    // Per-model load result ('ok' or the reason it fell back), for diagnosing on a phone.
+    models() { return modelStatus(); },
     stats() {
       const info = renderer.info || {}; const r = info.render || {}; const mem = info.memory || {};
       return {
@@ -299,6 +347,14 @@ async function boot() {
     },
   };
   hud.set('backend', backendName(renderer).toUpperCase());
+  // ?debug=1: append any model that fell back (and why) to the backend pill, so a silent
+  // fallback is visible on an iPhone/iPad without a console.
+  if (document.body.classList.contains('debug')) {
+    setInterval(() => {
+      const bad = Object.entries(modelStatus()).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ': ' + v);
+      hud.set('backend', backendName(renderer).toUpperCase() + (bad.length ? ' | ' + bad.join(' | ') : ''));
+    }, 2000);
+  }
 }
 
 function labelOf(id) {

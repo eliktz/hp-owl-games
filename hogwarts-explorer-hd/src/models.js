@@ -6,25 +6,65 @@
 import { Box3, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 
 const BASE = new URL('../assets/models/', import.meta.url).href;
 
 let _manifest = null;
 let _loader = null;
-const _cache = new Map();   // name -> Promise<gltf.scene | null>
+const _cache = new Map();   // name -> Promise<{scene, animations} | null>
+let _renderer = null;
+// Why each requested model did or did not load: name -> 'ok' | reason. Shown by ?debug=1
+// (window.__game.models()) so a silent fallback to the code-drawn look can be diagnosed
+// on a phone without a console.
+const _status = new Map();
+const LOAD_TIMEOUT_MS = 15000;
+// GLTFLoader swallows a texture that fails to decode (e.g. no KTX2 transcoder) and hands
+// back an untextured model. Treat that as a failed load so the fallback file is tried.
+function assertTextured(gltf) {
+  const want = new Set((gltf.parser?.json?.materials || []).filter(m => m.pbrMetallicRoughness?.baseColorTexture).map(m => m.name));
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) if (want.has(m.name) && !m.map) throw new Error('texture failed to decode (' + m.name + ')');
+  });
+}
+function withTimeout(p, ms, msg) {
+  let t; const guard = new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg)), ms); });
+  return Promise.race([p, guard]).finally(() => clearTimeout(t));
+}
+export function modelStatus() { return Object.fromEntries(_status); }
+
+// main.js hands us the (already init()-ed) renderer so KTX2 textures can pick the best GPU
+// format per backend (ASTC/ETC2/BC, or plain RGBA). Call before the first loadModel.
+export function setRenderer(r) { _renderer = r; }
 
 async function manifest() {
   if (_manifest) return _manifest;
   try {
-    const r = await fetch(BASE + 'models.json', { cache: 'force-cache' });
+    // 'no-cache' = always revalidate (a cheap 304). The old 'force-cache' made returning
+    // players keep a stale manifest forever, so newly published models never appeared.
+    const r = await fetch(BASE + 'models.json', { cache: 'no-cache' });
     _manifest = r.ok ? await r.json() : { models: {} };
-  } catch { _manifest = { models: {} }; }
+    if (!r.ok) console.warn('[models] models.json HTTP', r.status);
+  } catch (e) { console.warn('[models] models.json failed -', e.message); _manifest = { models: {} }; }
   return _manifest;
 }
 
 function loader() {
-  if (!_loader) { _loader = new GLTFLoader(); _loader.setMeshoptDecoder(MeshoptDecoder); }
+  if (!_loader) {
+    _loader = new GLTFLoader(); _loader.setMeshoptDecoder(MeshoptDecoder);
+    // KTX2 (KHR_texture_basisu) for the film-look characters. If anything here fails the
+    // loader still works for the Meshopt+WebP models; a KTX2 model then fails -> null -> fallback.
+    if (_renderer) {
+      try {
+        const ktx2 = new KTX2Loader().setTranscoderPath(new URL('../lib/addons/libs/basis/', import.meta.url).href);
+        ktx2.detectSupport(_renderer);
+        _loader.setKTX2Loader(ktx2);
+        _status.set('ktx2', 'ok');
+      } catch (e) { _status.set('ktx2', 'unavailable: ' + e.message); console.warn('[models] KTX2 unavailable -', e.message); }
+    }
+  }
   return _loader;
 }
 
@@ -45,15 +85,35 @@ async function loadSource(name) {
   if (_cache.has(name)) return _cache.get(name);
   const p = (async () => {
     const info = await modelInfo(name);
-    if (!info?.file) return null;
-    try {
-      const gltf = await loader().loadAsync(BASE + info.file);
-      gltf.scene.updateMatrixWorld(true);
-      return gltf.scene;
-    } catch (e) {
-      console.warn('[models] failed:', name, '-', e.message);
+    if (!info?.file) {
+      _status.set(name, 'not in models.json');
+      console.warn('[models] not in models.json:', name, '- using the fallback look');
       return null;
     }
+    // Try the main file (KTX2 textures), then the optional `fallback` file (same model with a
+    // plain WebP texture, the format the other fan models already use). A KTX2 file can fail
+    // on some devices (transcoder/worker/GPU format) or simply never settle, hence the timeout.
+    const v = info.v || (await manifest()).v;
+    const q = v ? '?v=' + encodeURIComponent(v) : '';
+    loader();                                   // make sure the KTX2 probe has run
+    const tries = [info.file];
+    if (info.fallback) { if (_status.get('ktx2') === 'ok') tries.push(info.fallback); else tries[0] = info.fallback; }
+    const why = [];
+    for (const file of tries) {
+      try {
+        const gltf = await withTimeout(loader().loadAsync(BASE + file + q), LOAD_TIMEOUT_MS, 'timed out after ' + LOAD_TIMEOUT_MS / 1000 + ' s');
+        assertTextured(gltf);
+        gltf.scene.updateMatrixWorld(true);
+        _status.set(name, why.length ? 'ok via ' + file + ' (' + why.join('; ') + ')' : 'ok');
+        if (why.length) console.warn('[models]', name, 'loaded via fallback', file, '-', why.join('; '));
+        return { scene: gltf.scene, animations: gltf.animations || [] };
+      } catch (e) {
+        why.push(file + ': ' + String(e && e.message || e));
+        console.warn('[models] failed:', name, file, '-', String(e && e.message || e));
+      }
+    }
+    _status.set(name, 'failed: ' + why.join('; '));
+    return null;
   })();
   _cache.set(name, p);
   return p;
@@ -64,7 +124,16 @@ async function loadSource(name) {
 export async function loadModel(name) {
   const src = await loadSource(name);
   if (!src) return null;
-  return cloneSkeleton(src);
+  return cloneSkeleton(src.scene);
+}
+
+// Like loadModel but also hands back the animation clips (shared, read-only) for an
+// AnimationMixer. The clone SHARES geometry + materials with the cache: never dispose them.
+// `alive` (optional): checked after the load; if it says no, skip the skeleton clone.
+export async function loadAnimated(name, alive) {
+  const src = await loadSource(name);
+  if (!src || (alive && !alive())) return null;
+  return { obj: cloneSkeleton(src.scene), clips: src.animations };
 }
 
 // Uniformly scale an object to a target `height` (metres) OR `footprint` (max XZ span),

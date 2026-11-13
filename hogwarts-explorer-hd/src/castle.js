@@ -96,7 +96,7 @@ function gatehouse(b, group, x1, x2, z, h = 9) {
     ring.rotation.x = Math.PI / 2; ring.position.set(s * 0.6, 3.4, dz + 0.22); group.add(ring);
   }
   const lamp = new Mesh(new SphereGeometry(0.5, 12, 10),
-    new MeshStandardMaterial({ color: 0xffd27a, emissive: new Color(0xffb84d), emissiveIntensity: 2.2, roughness: 0.4 }));
+    new MeshStandardMaterial({ color: 0xd9a050, emissive: new Color(0xff9a3c), emissiveIntensity: 2.6, roughness: 0.4 }));   // warm lantern glow
   lamp.position.set(0, h + 2.6, dz); group.add(lamp);
 }
 

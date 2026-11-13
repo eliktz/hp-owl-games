@@ -1,12 +1,29 @@
 // Third-person player: a stylised wizard walking the grounds. Capsule-vs-collider movement
 // with wall sliding (no corner/doorway sticking), smooth ground snapping, anti-stuck
 // recovery, and always-safe teleport. Owns a SpringCamera that keeps walls out of view.
-import { Vector3, MathUtils } from 'three';
+import { Vector3, MathUtils, Group, AnimationMixer, LoopOnce } from 'three';
 import { WORLD } from './config.js';
 import { SpringCamera } from './camera.js';
 import { buildChibi, animateChibi } from './chibi.js';
+import { loadAnimated } from './models.js';
 
 const STEP = 0.45;   // max height change absorbed per frame without a jolt (stairs/kerbs)
+
+// The film-look hero: young Harry, a rigged GLB (feet origin, faces +Z like the chibi) that
+// replaces the chibi inside player.model once it streams in. The chibi stays as the instant
+// placeholder and the silent fallback (no GLB, no KTX2/WebP, timeout -> chibi, nothing throws).
+const HERO = {
+  model: 'harry', scale: 1.3,       // 1.40 m -> 1.82 m, the professors' world scale (chibi hero: 1.78 m)
+  fade: 0.2,                        // cross-fade between clips (s)
+  // In-place loops: ground speed (m/s at scale 1) the feet cover at timeScale 1, measured from
+  // the foot bones in Blender (walk 0.35 m foot travel per 1.333 s cycle, run 0.71 m per 0.917 s).
+  walkSpeed: 0.54, runSpeed: 1.55,
+  // WORLD.walkSpeed is 7.5 m/s (a sprint for a real child), so the run loop would need ~3.7x
+  // to keep the feet planted; past this cadence it looks frantic, so the rest is foot slide.
+  maxRunRate: 3.0,
+};
+const ONE_SHOTS = ['Wave', 'Cheer', 'Talk'];
+const LOCO = { Walk: 1, Run: 1 };
 
 export class Player {
   constructor(scene, camera, { heightAt, colliders }) {
@@ -22,13 +39,23 @@ export class Player {
     this._stuckT = 0;
 
     // The hero: a charming chibi wizard-kid (robe + scarf + hat + wand), from chibi.js.
-    const g = buildChibi({ robe: 0x3a2d55, trim: 0x2a2140, house: 0x7a1020, hair: 0x2a1a12, hat: 0x241a33, wand: true });
-    this._rig = g.userData.rig;
+    // It sits inside `this.model`, a stable wrapper Group that other modules use (quidditch
+    // adds the broom and tilts it, delight scales it, main reads .visible); when the rigged
+    // Harry GLB arrives it goes into the same wrapper and the chibi is hidden.
+    const chibi = buildChibi({ robe: 0x3a2d55, trim: 0x2a2140, house: 0x7a1020, hair: 0x2a1a12, hat: 0x241a33, wand: true });
+    this._chibi = chibi;
+    this._rig = chibi.userData.rig;
     // Collect materials so the camera can fade us when it's forced in close.
     this._mats = [];
-    g.traverse(o => { if (o.isMesh) this._mats.push(o.material); });
+    chibi.traverse(o => { if (o.isMesh) this._mats.push(o.material); });
+    const g = new Group(); g.name = 'player'; g.add(chibi);
     this.model = g; scene.add(g);
     this.bob = 0;
+    this._fade = 1;
+    this._speed = 0;            // smoothed real ground speed (m/s), drives the clip rate
+    this._moving = false;
+    this.hero = null;           // { obj, mixer, acts, cur, oneShot, pending } once the GLB is in
+    this._loadHero();
 
     this.cam = new SpringCamera(camera);
     this.cam.onFade = (a) => this._applyFade(a);
@@ -36,8 +63,88 @@ export class Player {
   }
 
   _applyFade(a) {
+    this._fade = a;
     for (const m of this._mats) { m.transparent = a < 0.999; m.opacity = a; m.depthWrite = a > 0.5; }
     this.model.visible = a > 0.02;
+  }
+
+  // Swap the chibi for the rigged Harry when (if) the GLB arrives. Any failure -> keep the chibi.
+  _loadHero() {
+    loadAnimated(HERO.model).then(r => {
+      if (!r) { console.warn('[player] hero GLB unavailable - keeping the chibi (see __game.models())'); return; }
+      const acts = {}, clip = n => r.clips.find(a => a.name === n);
+      if (!clip('Idle') || !clip('Walk') || !clip('Run')) { console.warn('[player] hero GLB lacks Idle/Walk/Run - keeping the chibi'); return; }
+      const obj = r.obj; obj.name = 'hero-' + HERO.model; obj.scale.setScalar(HERO.scale);
+      const mats = [];
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        o.frustumCulled = false; o.castShadow = true; o.receiveShadow = true;
+        o.userData.sharedGeo = true;                     // geometry is shared with the models.js cache
+        // materials are shared with the cache too: clone before the camera fade touches opacity
+        o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+        for (const m of [].concat(o.material)) mats.push(m);
+      });
+      const mixer = new AnimationMixer(obj);
+      for (const a of r.clips) acts[a.name] = mixer.clipAction(a);
+      for (const n of ONE_SHOTS) if (acts[n]) { acts[n].setLoop(LoopOnce, 1); acts[n].clampWhenFinished = true; }
+      const h = { obj, mixer, acts, cur: 'Idle', oneShot: null, pending: null };
+      mixer.addEventListener('finished', e => { if (e.action === acts[h.oneShot]) h.oneShot = null; });
+      acts.Idle.play();
+      this._mats.push(...mats);
+      this._chibi.visible = false;
+      this.model.add(obj);
+      this.hero = h;
+      this._applyFade(this._fade);
+    }).catch(e => console.warn('[player] hero GLB skipped -', e && e.message));
+  }
+
+  _fadeTo(name) {
+    const h = this.hero;
+    if (h.cur === name || !h.acts[name]) return;
+    const prev = h.acts[h.cur], next = h.acts[name];
+    next.reset();
+    // keep the step phase when switching Walk <-> Run so the legs don't jump
+    if (LOCO[name] && LOCO[h.cur] && prev) next.time = (prev.time / prev.getClip().duration) * next.getClip().duration;
+    next.setEffectiveWeight(1).play();
+    if (prev) prev.crossFadeTo(next, HERO.fade, false);
+    h.cur = name;
+  }
+
+  // One-shot clip (Wave, Cheer, Talk), then back to Idle/Walk/Run. Asked while walking, it
+  // waits up to 3 s for the hero to stop; walking off cancels it. No-op with the chibi.
+  play(name) {
+    const h = this.hero;
+    if (!h || !h.acts[name] || !ONE_SHOTS.includes(name)) return false;
+    if (this._moving) h.pending = { name, left: 3 };
+    else this._startOneShot(name);
+    return true;
+  }
+  _startOneShot(name) {
+    const h = this.hero; h.pending = null;
+    if (h.cur === name) h.cur = 'Idle';                // replay: force a fresh start
+    h.acts[name].timeScale = 1;
+    this._fadeTo(name); h.oneShot = name;
+  }
+
+  // Drive whichever figure is showing. state: { moving, running }; speed = real ground speed.
+  // quidditch.js calls this with { moving: false } while it owns the hero (Harry holds Idle).
+  animate(dt, { moving = false, running = false } = {}, speed = 0) {
+    animateChibi(this._rig, dt, { moving, running });
+    const h = this.hero; if (!h) return;
+    if (h.pending) { h.pending.left -= dt; if (!moving) this._startOneShot(h.pending.name); else if (h.pending.left <= 0) h.pending = null; }
+    if (h.oneShot && moving) h.oneShot = null;
+    if (!h.oneShot) {
+      let want = 'Idle', rate = 1;
+      const s = this.model.scale.x || 1;                // giant/tiny beans scale the stride too
+      const vw = HERO.walkSpeed * HERO.scale * s, vr = HERO.runSpeed * HERO.scale * s;
+      if (moving && speed > 0.15) {
+        if (speed < vw * 1.6) { want = 'Walk'; rate = MathUtils.clamp(speed / vw, 0.6, 1.6); }
+        else { want = 'Run'; rate = MathUtils.clamp(speed / vr, 0.7, HERO.maxRunRate); }
+      }
+      this._fadeTo(want);
+      h.acts[want].timeScale = rate;
+    }
+    h.mixer.update(dt);
   }
 
   // Is (x,z) inside any collider (optionally inflated by `pad`)?
@@ -158,6 +265,10 @@ export class Player {
       if (prog < speed * dt * 0.25) this._stuckT += dt; else this._stuckT = 0;
       if (this._stuckT > 1.5) { const f = this._findFree(this.pos.x, this.pos.z); this.pos.x = f.x; this.pos.z = f.z; this._stuckT = 0; }
     } else this._stuckT = 0;
+    // real ground speed (after wall sliding), smoothed; a teleport/unstick jump is ignored
+    const v = dt > 0 ? Math.hypot(this.pos.x - this._lastPos.x, this.pos.z - this._lastPos.z) / dt : 0;
+    if (v < 40) this._speed += ((moving ? v : 0) - this._speed) * Math.min(1, dt * 10);
+    this._moving = moving;
     this._lastPos.copy(this.pos);
 
     // ---- ground snap with a small step tolerance (stairs/kerbs, never through floor) ----
@@ -166,10 +277,10 @@ export class Player {
     else this.smoothY += (gy - this.smoothY) * (1 - Math.pow(0.001, dt));
     this.pos.y = this.smoothY;
 
-    animateChibi(this._rig, dt, { moving, running: ax.running });
+    this.animate(dt, { moving, running: ax.running }, this._speed);
     this.model.position.set(this.pos.x, this.pos.y, this.pos.z);
     this.model.rotation.y = this.yaw;
-    this.model.position.y += moving ? Math.abs(Math.sin(this.bob)) * 0.06 : 0;
+    if (!this.hero) this.model.position.y += moving ? Math.abs(Math.sin(this.bob)) * 0.06 : 0;   // the clips carry their own bounce
 
     this.cam.update(dt, this.pos, this.yaw, moving);
   }

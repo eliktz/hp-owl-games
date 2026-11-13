@@ -9,7 +9,7 @@ import {
   Group, Mesh, InstancedMesh, Object3D, Color, Vector3, SphereGeometry, CylinderGeometry, BoxGeometry,
   ConeGeometry, TorusGeometry, CircleGeometry, PlaneGeometry, MeshStandardMaterial, MeshBasicMaterial, DoubleSide, CanvasTexture, SRGBColorSpace,
 } from 'three';
-import { buildChibi, animateChibi } from './chibi.js';
+import { buildChibi } from './chibi.js';
 import { PLACES } from './config.js';
 import * as fun from './fun.js';
 
@@ -225,7 +225,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     P.y += (clamp(wantY, gy + 2.5, gy + 18) - P.y) * Math.min(1, dt * 2.6);
     model.position.copy(P); model.rotation.set(0.18, yaw, clamp(bank, -0.6, 0.6), 'YXZ'); model.visible = true;
     player.yaw = yaw; player.smoothY = P.y; player._lastPos.copy(P);
-    animateChibi(player._rig, dt, { moving: false });
+    player.animate(dt, { moving: false });   // chibi breathing, or Harry's Idle on the broom
 
     // ---- Quaffle ----
     if (S.shot) {

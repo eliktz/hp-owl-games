@@ -14,7 +14,16 @@ and the fan models are **removed on request**.
 
 Addons used (all MIT, from three.js `examples/jsm`): `loaders/RGBELoader.js`,
 `loaders/HDRLoader.js`, `loaders/GLTFLoader.js`, `utils/BufferGeometryUtils.js`,
-`utils/SkeletonUtils.js`, `objects/WaterMesh.js`, `libs/meshopt_decoder.module.js`.
+`utils/SkeletonUtils.js`, `objects/WaterMesh.js`, `libs/meshopt_decoder.module.js`,
+and for KTX2 (KHR_texture_basisu) textures: `loaders/KTX2Loader.js`, `utils/WorkerPool.js`,
+`math/ColorSpaces.js`, `libs/ktx-parse.module.js` (MIT, Don McCurdy) and
+`libs/zstddec.module.js` (MIT, Don McCurdy), all copied unmodified from three.js r187.
+Post-processing bloom: `tsl/display/BloomNode.js` (three.js, MIT), copied unmodified from the
+three@0.187.0 npm package (`examples/jsm/tsl/display/BloomNode.js`), used by `src/post.js`.
+
+| Item | License | Source |
+|---|---|---|
+| Basis Universal transcoder (`lib/addons/libs/basis/basis_transcoder.js` + `.wasm`) | Apache-2.0 | https://github.com/BinomialLLC/basis_universal (as shipped in three.js r187 `examples/jsm/libs/basis/`) |
 
 ## Committed CC0 assets (Poly Haven — CC0 1.0, no attribution required; credited anyway)
 Fetched + optimised by `tools/fetch-assets.mjs`. Total ~7.5 MB.
@@ -28,6 +37,9 @@ Fetched + optimised by `tools/fetch-assets.mjs`. Total ~7.5 MB.
 | `assets/hdri/kloofendal_day_1k.hdr` | `kloofendal_48d_partly_cloudy_puresky` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
 | `assets/hdri/dusk_1k.hdr` | `spruit_sunrise` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/spruit_sunrise |
 | `assets/hdri/night_1k.hdr` | `rogland_clear_night` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/rogland_clear_night |
+| `assets/hdri/kloppenheim_06_puresky_1k.hdr` | `kloppenheim_06_puresky` (Kloppenheim 06 (Pure Sky), by Greg Zaal, Jarod Guest) | HDRI 1K, downsized from 2K with a golden grade baked in x(0.86,0.47,0.19) (dusk sky) | CC0 1.0 | https://polyhaven.com/a/kloppenheim_06_puresky |
+| `assets/hdri/belfast_sunset_puresky_1k.hdr` | `belfast_sunset_puresky` (Belfast Sunset (Pure Sky), by Greg Zaal, Dimitrios Savva, Jarod Guest) | HDRI 1K, downsized from 2K with a warm grade baked in (dusk sky fallback) | CC0 1.0 | https://polyhaven.com/a/belfast_sunset_puresky |
+| `assets/hdri/qwantani_night_puresky_1k.hdr` | `qwantani_night_puresky` (Qwantani Night (Pure Sky), by Greg Zaal, Jarod Guest) | HDRI 1K, downsized from 2K with a teal-blue night grade baked in (night sky) | CC0 1.0 | https://polyhaven.com/a/qwantani_night_puresky |
 
 Poly Haven assets are CC0 (public domain). Credit is a courtesy, not a requirement.
 

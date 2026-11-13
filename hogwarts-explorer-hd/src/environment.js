@@ -4,7 +4,7 @@ import {
   DirectionalLight, HemisphereLight, AmbientLight, FogExp2, Color,
   CanvasTexture, EquirectangularReflectionMapping, MathUtils, SRGBColorSpace,
 } from 'three';
-import { TIMES } from './config.js';
+import { TIMES, INDOOR_EXPOSURE, INDOOR_ENV, INDOOR_SUN, HDRI_SKIES, PROCEDURAL_SKY } from './config.js';
 import { loadHDRI } from './assets.js';
 
 // Procedural equirect gradient sky used when no HDRI file is present.
@@ -31,8 +31,12 @@ const SKY_COLORS = {
 };
 
 export class Environment {
-  constructor(scene) {
+  // opts.renderer: tone-mapping exposure per time; opts.windowMat: shared lit-window material.
+  constructor(scene, opts = {}) {
     this.scene = scene;
+    this.renderer = opts.renderer || null;
+    this.windowMat = opts.windowMat || null;
+    this.indoor = false;
     this.sun = new DirectionalLight(0xffffff, 2.4);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -50,13 +54,70 @@ export class Environment {
 
     this.fog = new FogExp2(0xbfd4e8, 0.004);
     scene.fog = this.fog;
-    this.hdriCache = {};
+    this.hdriCache = {};     // time key -> Promise<{ tex, spec } | null> (the promise, so one load per key)
+    this.savedEnv = null;
+    this.skyDone = {};       // time key -> resolved value, for synchronous picks (indoor IBL)
+    this.procSky = {};       // time key -> procedural gradient texture (built once)
     this.time = 'day';
+  }
+
+  // Interiors flip this on enter/exit. While indoors the time button only records the
+  // choice (and the window glow); fog, sky, lights and IBL stay the room's until exit.
+  setIndoor(v) {
+    const was = this.indoor;
+    this.indoor = !!v;
+    if (this.indoor) {
+      if (this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE;
+      this.scene.backgroundIntensity = 1;
+      if (!was) this.savedEnv = [this.scene.environment, this.scene.environmentIntensity];
+      // the sun is never re-added, only re-aimed: one fixed warm key so every visit looks alike
+      const u = INDOOR_SUN, el = MathUtils.degToRad(u.elev), az = MathUtils.degToRad(u.azim);
+      this.sun.position.set(150 * Math.cos(el) * Math.cos(az), 150 * Math.sin(el), 150 * Math.cos(el) * Math.sin(az));
+      this.sun.color.set(u.color); this.sun.intensity = u.intensity;
+      this.applyIndoorEnv();
+    } else if (was && this.savedEnv) {
+      // put the outdoor pair straight back; exit() then calls setTime() for the current time
+      [this.scene.environment, this.scene.environmentIntensity] = this.savedEnv;
+      this.savedEnv = null;
+    }
+  }
+
+  // One fixed indoor IBL: the day sky if loaded (it is, from boot), else any loaded sky,
+  // else the procedural day gradient; if the day file is still loading, swap it in on arrival.
+  applyIndoorEnv() {
+    const pick = this.skyDone.day || this.skyDone.dusk || this.skyDone.night;
+    this.scene.environment = pick ? pick.tex : this.proceduralFor('day');
+    this.scene.environmentIntensity = INDOOR_ENV;
+    if (!this.skyDone.day) this.loadSky('day').then(s => { if (this.indoor && s) this.scene.environment = s.tex; });
+  }
+
+  proceduralFor(key) {
+    if (!this.procSky[key]) { const c = SKY_COLORS[key] || SKY_COLORS.day; this.procSky[key] = proceduralSky(c[0], c[1], c[2]); }
+    return this.procSky[key];
+  }
+
+  // Film skies first (Poly Haven CC0 pure skies); the older 1K files stay as a fallback.
+  // The promise is cached, so quick time cycling never starts a second load of the same sky.
+  loadSky(key) {
+    if (!this.hdriCache[key]) {
+      this.hdriCache[key] = (async () => {
+        for (const spec of HDRI_SKIES[key] || HDRI_SKIES.day) {
+          let tex = null;
+          try { tex = await loadHDRI(spec.file); } catch { tex = null; }
+          if (tex) { tex.mapping = EquirectangularReflectionMapping; return { tex, spec }; }
+        }
+        return null;
+      })().then(v => { this.skyDone[key] = v; return v; });
+    }
+    return this.hdriCache[key];
   }
 
   async setTime(key) {
     const p = TIMES[key] || TIMES.day;
     this.time = key;
+    if (this.windowMat) this.windowMat.emissiveIntensity = p.win ?? 1.6;
+    if (this.indoor) return;
+    if (this.renderer) this.renderer.toneMappingExposure = p.exposure ?? 1.0;
     // Sun placement from elevation/azimuth.
     const el = MathUtils.degToRad(p.elev), az = MathUtils.degToRad(p.azim);
     const d = 150;
@@ -72,22 +133,18 @@ export class Environment {
     this.hemi.intensity = p.amb + 0.2;
     this.fog.color.set(p.fog);
     this.fog.density = p.fogDensity;
-    this.scene.background = new Color(p.fog);
 
-    // Try a real HDRI first; otherwise procedural gradient. Both drive IBL.
-    const hdriFile = { day: 'kloofendal_day_1k.hdr', dusk: 'dusk_1k.hdr', night: 'night_1k.hdr' }[key];
-    let env = this.hdriCache[key];
-    if (env === undefined) {
-      env = await loadHDRI(hdriFile);
-      if (env) env.mapping = EquirectangularReflectionMapping;
-      this.hdriCache[key] = env || null;
-    }
-    const sky = SKY_COLORS[key] || SKY_COLORS.day;
-    const tex = env || proceduralSky(sky[0], sky[1], sky[2]);
-    tex.mapping = EquirectangularReflectionMapping;
-    this.scene.environment = tex;
-    this.scene.environmentIntensity = p.env;
-    if (env) this.scene.background = tex;   // real HDRI doubles as the sky dome
+    // A real HDRI drives IBL and doubles as the sky dome; otherwise the procedural gradient
+    // lights the world and the fog colour is the sky.
+    const sky = await this.loadSky(key);
+    // The player may have gone indoors or picked another time while the file loaded.
+    if (this.indoor || this.time !== key) return;
+    const spec = sky ? sky.spec : (PROCEDURAL_SKY[key] || PROCEDURAL_SKY.day);
+    this.scene.environment = sky ? sky.tex : this.proceduralFor(key);
+    this.scene.environmentIntensity = spec.env ?? p.env;
+    this.scene.background = sky ? sky.tex : new Color(p.fog);
+    this.scene.backgroundIntensity = sky ? (spec.bg ?? p.bg ?? 1) : 1;
+    this.onTime?.(key, p, this.scene.environment);   // cheap per-time uniforms elsewhere (the lake)
   }
 
   cycle() {
