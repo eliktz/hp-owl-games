@@ -47,7 +47,7 @@ const BEATER = { len: 75, reach: 3.5, window: 0.4, swingT: 0.45, cd: 0.55 };
 // Bludger look: iron-black (the model's own texture is the Quaffle's brown leather), and after
 // dark a faint red smoulder so they still read against the night sky.
 const IRON = { color: 0x2a2a30, metalness: 0.6, roughness: 0.45 };
-const SMOULDER = { day: 0, dusk: 0.06, night: 0.14 };   // a faint ember; the charge glow (1.5+) stays the loud signal
+const SMOULDER = { day: 0, dusk: 0.03, night: 0.06 };   // a faint ember; the charge glow (1.5+) stays the loud signal
 
 export function createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor, setTakeover, isModal, setModal, timeOfDay }) {
   const st = fun.store; st.qLevel = st.qLevel || 1; st.qWins = st.qWins || 0;
