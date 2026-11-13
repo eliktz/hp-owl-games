@@ -18,9 +18,11 @@ import { AnimationMixer, LoopOnce, Group, Frustum, Matrix4, Sphere, Vector3 } fr
 import { loadAnimated, loadTexture, modelStatus } from './models.js';
 import { SPOTS, TIER } from './config.js';
 import * as fun from './fun.js';
+import { BENCH_TOP } from './interior-kit.js';
 
 const WORLD = 1.2;                        // the cast's world scale (Ron and Hermione are 1.2 x their rest height)
 const SCALE_MIN = 0.94, SCALE_MAX = 1.0;  // students a little shorter than Ron and Hermione
+const BODY_R = 0.35;                      // obstacle circle per student (player.js circle collider; + the hero's 0.4)
 const ANIM_R = 40, CULL_R = 85, WAVE_R = 6, REARM_R = 20, FADE = 0.3;
 const HOUSES = ['gryffindor', 'slytherin', 'ravenclaw', 'hufflepuff'];
 const FROM_STORE = { gryf: 'gryffindor', slyt: 'slytherin', rave: 'ravenclaw', huff: 'hufflepuff' };
@@ -31,20 +33,22 @@ const HAIR = { boy: ['brown', 'blond'], girl: ['black', 'blonde'] };
 // table edge 0.15 in front) assumes a 0.22 m bench-table gap; the Great Hall's is only 0.15, so
 // the origin sits 0.17 m (world) in front of the bench edge: knees ~9 cm under the table top,
 // hips still ~0.2 m onto the 0.5 m bench.
+// Feet on the floor: the benches are BENCH_TOP (0.39) high, so a seated student's world scale is
+// BENCH_TOP / SEAT_TOP (boy 1.13, girl 1.2: inside the standing range) and the origin sits at y 0.
 const SEAT_TOP = { boy: 0.345, girl: 0.325 };
 const BENCH_GAP = 0.17;
 
 // The Great Hall's furniture (rooms.js greatHall + interior-kit.js longTable), room-local:
 // tables at x = +-5, z = -6 / 9, 16 m long; table top 0.85..0.99 high, 1.5 m wide (edges at
 // +-0.75 from the table axis); benches at +-1.15 from the axis, 0.5 deep (front edge 0.9),
-// top at 0.56. House = the banner on the wall beside each table (rooms.js HOUSE order).
+// top at BENCH_TOP (interior-kit.js). House = the banner on the wall beside each table (rooms.js HOUSE order).
 const HALL_TABLES = [
   { x: -5, z: -6, house: 'gryffindor' },
   { x: -5, z: 9,  house: 'ravenclaw' },
   { x: 5,  z: -6, house: 'hufflepuff' },
   { x: 5,  z: 9,  house: 'slytherin' },
 ];
-const BENCH_X = 1.15, BENCH_HALF = 0.25, BENCH_TOP = 0.56;
+const BENCH_X = 1.15, BENCH_HALF = 0.25;
 // Three seats per table along its length: two on the aisle bench, one opposite (side -1 = the
 // aisle side). A small per-table shift keeps the four tables from looking stamped.
 const HALL_SEATS = [[1, -3.6], [1, 0.9], [-1, -1.3]];   // 2 on the wall bench (faces toward the aisle, seen from the door), 1 on the aisle bench
@@ -63,7 +67,7 @@ function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>>
 const myHouse = () => FROM_STORE[fun.store?.house] || null;
 const noRaycast = () => {};
 
-export function createStudents({ scene, camera, player, heightAt, tier, registerOutdoor }) {
+export function createStudents({ scene, camera, player, heightAt, tier, registerOutdoor, colliders: yardCols }) {
   const live = [];                       // every placed student: { root, mixer, acts, cur, wx, wy, wz, outdoor, ... }
   const mats = new Map();                // gender_house_hair -> shared material
   const frustum = new Frustum(), pm = new Matrix4(), sph = new Sphere(new Vector3(), 1.1);
@@ -102,7 +106,9 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
 
   // Place a whole group of students under `parent` once everything they need is loaded.
   // `alive` says whether the parent still belongs to the scene (the room was not left meanwhile).
-  async function place(specs, parent, alive, outdoor) {
+  // `cols`: the collider array the hero walks against there (the room's own, or the outdoor one):
+  // each student adds a circle to it and takes it out again on teardown.
+  async function place(specs, parent, alive, outdoor, cols) {
     const ready = await prepare(specs, alive);
     if (!ready || (alive && !alive())) return [];
     // each student gets its own skeleton clone (prepare() already made one per gender: reuse it
@@ -140,12 +146,19 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
       obj.updateMatrixWorld(true);
       const wp = new Vector3(); obj.getWorldPosition(wp);
       const s = { root: obj, mixer, acts, cur, base: cur, wx: wp.x, wy: wp.y, wz: wp.z, yaw: spec.yaw, outdoor,
-        waving: false, waveArmed: true, spec };
+        waving: false, waveArmed: true, spec, col: null };
+      if (cols) {
+        // seated: centred over the hips (behind the feet origin, toward the bench); standing: on the feet
+        const back = spec.clip === 'Sit' ? 0.15 : 0;
+        s.col = { type: 'circle', x: wp.x - Math.sin(spec.yaw) * back, z: wp.z - Math.cos(spec.yaw) * back, r: BODY_R, student: true };
+        s.cols = cols; cols.push(s.col);
+      }
       mixer.addEventListener('finished', e => { if (e.action === acts.wave) { s.waving = false; fadeTo(s, s.base); } });
       s.teardown = () => {
         mixer.stopAllAction(); mixer.uncacheRoot(obj);
         obj.traverse(o => { if (o.isSkinnedMesh) { try { o.skeleton.dispose(); } catch { /* backend quirk */ } } });
         const i = live.indexOf(s); if (i >= 0) live.splice(i, 1);
+        solid(s, false); s.col = null;
       };
       // room teardown (interiors.js disposeRoom) calls this before disposing the room's geometry
       obj.userData.onTeardown = s.teardown;
@@ -153,6 +166,13 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
     }
     live.push(...out);
     return out;
+  }
+
+  // A student hidden by the LOW tier is no obstacle either (no invisible walls).
+  function solid(s, on) {
+    if (!s.col) return;
+    const k = s.cols.indexOf(s.col);
+    if (on && k < 0) s.cols.push(s.col); else if (!on && k >= 0) s.cols.splice(k, 1);
   }
 
   function fadeTo(s, name) {
@@ -185,10 +205,11 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
         // side -1 = the aisle bench (toward x = 0), +1 = the wall bench
         const benchSign = side === -1 ? -Math.sign(t.x) : Math.sign(t.x);   // local x sign of this bench
         const v = who(rand, t.house, (ti + si) % 2 ? 'girl' : 'boy');
-        const scale = scaleOf(rand);
+        scaleOf(rand);                                                 // keep the seeded sequence (same faces as before)
+        const scale = Math.min(WORLD * SCALE_MAX, Math.max(WORLD * SCALE_MIN, BENCH_TOP / SEAT_TOP[v.g]));
         const lx = benchSign * (BENCH_X - BENCH_HALF - BENCH_GAP);   // origin in front of the bench edge, knees under the table
         out.push({ ...v, clip: 'Sit', scale,
-          x: t.x + lx, y: BENCH_TOP - SEAT_TOP[v.g] * scale, z: t.z + dz + HALL_SHIFT[ti],
+          x: t.x + lx, y: Math.max(0, BENCH_TOP - SEAT_TOP[v.g] * scale), z: t.z + dz + HALL_SHIFT[ti],
           yaw: benchSign > 0 ? -Math.PI / 2 : Math.PI / 2 });          // face the table (model faces +Z)
       });
     });
@@ -227,7 +248,8 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
     if (!specs) return;
     if (isLow()) specs = specs.filter((s, i) => i % Math.ceil(specs.length / 2) === 0).slice(0, 2);
     const alive = () => { let root = group; while (root.parent) root = root.parent; return !!root.isScene; };
-    place(specs, group, alive, false).catch(e => console.warn('[students] skipped -', e.message));
+    const cols = player.colliders;         // the room's own array (interiors.js swaps it in before onEnter); dies with the room
+    place(specs, group, alive, false, cols).catch(e => console.warn('[students] skipped -', e.message));
   }
 
   // ---- outdoors: the courtyard pairs (never on LOW) ----
@@ -237,7 +259,7 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
   function ensureYard() {
     if (yardTried || isLow()) return;
     yardTried = true;
-    place(yardSpecs(), yard, null, true).catch(e => console.warn('[students] courtyard skipped -', e.message));
+    place(yardSpecs(), yard, null, true, yardCols).catch(e => console.warn('[students] courtyard skipped -', e.message));
   }
   ensureYard();
 
@@ -249,11 +271,12 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
     const low = isLow(), px = player.pos.x, pz = player.pos.z;
     let indoorN = 0;
     for (const s of live) {
-      if (s.outdoor && (inside || low)) { s.root.visible = false; continue; }
+      if (s.outdoor && (inside || low)) { s.root.visible = false; if (low) solid(s, false); continue; }
+      if (s.outdoor) solid(s, true);
       const d = Math.hypot(px - s.wx, pz - s.wz);
       sph.center.set(s.wx, s.wy + 0.9, s.wz);
       let vis = d < CULL_R && frustum.intersectsSphere(sph);
-      if (!s.outdoor && low && indoorN++ >= 2) vis = false;   // tier dropped to LOW inside a room
+      if (!s.outdoor) { const kept = !low || indoorN++ < 2; if (!kept) vis = false; solid(s, kept); }   // tier dropped to LOW inside a room
       s.root.visible = vis;
       if (s.outdoor && s.acts.wave) {
         if (d < WAVE_R && s.waveArmed) { s.waveArmed = false; fadeTo(s, 'wave'); }
@@ -270,7 +293,7 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
   return {
     roomEntered, update,
     // test/debug probe
-    list: () => live.map(s => ({ name: s.root.name, clip: s.cur, outdoor: s.outdoor, visible: s.root.visible,
+    list: () => live.map(s => ({ name: s.root.name, col: s.col ? { x: +s.col.x.toFixed(2), z: +s.col.z.toFixed(2), r: s.col.r } : null, clip: s.cur, outdoor: s.outdoor, visible: s.root.visible,
       x: +s.wx.toFixed(2), y: +s.wy.toFixed(3), z: +s.wz.toFixed(2), scale: +s.root.scale.x.toFixed(3), house: s.spec.house, g: s.spec.g })),
     get count() { return live.length; },
     get materials() { return mats.size; },

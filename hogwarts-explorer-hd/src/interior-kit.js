@@ -120,6 +120,7 @@ export function torch(group, x, y, z, color = 0xff8a2a) {
 }
 
 // Long dining table with two benches, a house-colour runner and golden plates.
+export const BENCH_TOP = 0.39;
 export function longTable(group, x, z, len = 14, runner = 0x7a1020) {
   const g = new Group();
   const top = new Mesh(new BoxGeometry(1.5, 0.14, len), woodMat(1, len / 3)); top.position.y = 0.92; top.castShadow = true; top.receiveShadow = true; g.add(top);
@@ -129,9 +130,11 @@ export function longTable(group, x, z, len = 14, runner = 0x7a1020) {
   // instanced mesh each: 3 draw calls instead of 14 per Great Hall table (same look).
   const d = new Object3D(), dark = [];
   for (const sz of [-len / 2 + 0.6, len / 2 - 0.6]) dark.push([0, 0.45, sz, 1.3, 0.9, 0.22]);
+  // Benches are sitting height (top BENCH_TOP = 0.39): a seated student's (Sit clip) thighs
+  // rest on the top with the shoes on the floor (students.js reads the same constant).
   for (const sx of [-1.15, 1.15]) {
-    const bench = new Mesh(new BoxGeometry(0.5, 0.12, len), woodMat(1, len / 3)); bench.position.set(sx, 0.5, 0); bench.castShadow = true; g.add(bench);
-    for (const sz of [-len / 2 + 0.6, len / 2 - 0.6]) dark.push([sx, 0.25, sz, 0.45, 0.5, 0.18]);
+    const bench = new Mesh(new BoxGeometry(0.5, 0.12, len), woodMat(1, len / 3)); bench.position.set(sx, BENCH_TOP - 0.06, 0); bench.castShadow = true; g.add(bench);
+    for (const sz of [-len / 2 + 0.6, len / 2 - 0.6]) dark.push([sx, (BENCH_TOP - 0.12) / 2, sz, 0.45, BENCH_TOP - 0.12, 0.18]);
   }
   const legs = new InstancedMesh(new BoxGeometry(1, 1, 1), MAT.dark, dark.length);
   dark.forEach(([x, y, z, w, h, l], i) => { d.position.set(x, y, z); d.scale.set(w, h, l); d.updateMatrix(); legs.setMatrixAt(i, d.matrix); });
