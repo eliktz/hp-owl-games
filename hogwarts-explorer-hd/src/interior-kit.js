@@ -125,16 +125,27 @@ export function longTable(group, x, z, len = 14, runner = 0x7a1020) {
   const top = new Mesh(new BoxGeometry(1.5, 0.14, len), woodMat(1, len / 3)); top.position.y = 0.92; top.castShadow = true; top.receiveShadow = true; g.add(top);
   const run = new Mesh(new BoxGeometry(0.7, 0.02, len - 0.4), new MeshStandardMaterial({ color: runner, roughness: 0.85 }));
   run.position.y = 1.0; g.add(run);
-  for (const sz of [-len / 2 + 0.6, len / 2 - 0.6]) g.add(new Mesh(new BoxGeometry(1.3, 0.9, 0.22), MAT.dark)).position.set(0, 0.45, sz);
+  // The dark end supports + bench legs are one instanced unit box, the gold plates and cups one
+  // instanced mesh each: 3 draw calls instead of 14 per Great Hall table (same look).
+  const d = new Object3D(), dark = [];
+  for (const sz of [-len / 2 + 0.6, len / 2 - 0.6]) dark.push([0, 0.45, sz, 1.3, 0.9, 0.22]);
   for (const sx of [-1.15, 1.15]) {
     const bench = new Mesh(new BoxGeometry(0.5, 0.12, len), woodMat(1, len / 3)); bench.position.set(sx, 0.5, 0); bench.castShadow = true; g.add(bench);
-    g.add(new Mesh(new BoxGeometry(0.45, 0.5, 0.18), MAT.dark)).position.set(sx, 0.25, -len / 2 + 0.6);
-    g.add(new Mesh(new BoxGeometry(0.45, 0.5, 0.18), MAT.dark)).position.set(sx, 0.25, len / 2 - 0.6);
+    for (const sz of [-len / 2 + 0.6, len / 2 - 0.6]) dark.push([sx, 0.25, sz, 0.45, 0.5, 0.18]);
   }
-  for (let p = -len / 2 + 2; p < len / 2 - 1; p += 3.5) {
-    const plate = new Mesh(new CylinderGeometry(0.28, 0.24, 0.05, 14), MAT.gold); plate.position.set(0, 1.02, p); g.add(plate);
-    const cup = new Mesh(new CylinderGeometry(0.1, 0.13, 0.26, 10), MAT.gold); cup.position.set(0.5, 1.12, p - 0.4); g.add(cup);
-  }
+  const legs = new InstancedMesh(new BoxGeometry(1, 1, 1), MAT.dark, dark.length);
+  dark.forEach(([x, y, z, w, h, l], i) => { d.position.set(x, y, z); d.scale.set(w, h, l); d.updateMatrix(); legs.setMatrixAt(i, d.matrix); });
+  legs.computeBoundingSphere(); g.add(legs);
+  const at = [];
+  for (let p = -len / 2 + 2; p < len / 2 - 1; p += 3.5) at.push(p);
+  const plates = new InstancedMesh(new CylinderGeometry(0.28, 0.24, 0.05, 14), MAT.gold, at.length);
+  const cups = new InstancedMesh(new CylinderGeometry(0.1, 0.13, 0.26, 10), MAT.gold, at.length);
+  d.scale.set(1, 1, 1);
+  at.forEach((p, i) => {
+    d.position.set(0, 1.02, p); d.updateMatrix(); plates.setMatrixAt(i, d.matrix);
+    d.position.set(0.5, 1.12, p - 0.4); d.updateMatrix(); cups.setMatrixAt(i, d.matrix);
+  });
+  plates.computeBoundingSphere(); cups.computeBoundingSphere(); g.add(plates, cups);
   g.position.set(x, 0, z); group.add(g); return g;
 }
 
