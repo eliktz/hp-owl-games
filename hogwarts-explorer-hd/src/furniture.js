@@ -91,7 +91,9 @@ export function archway(group, x, z, rotY = 0, { w = 3.4, h = 5 } = {}) {
 export function chandelier(group, x, y, z, r = 1.6) {
   const g = new Group(); g.position.set(x, y, z);
   const ring = new Mesh(new TorusGeometry(r, 0.07, 8, 20), MAT.dark); ring.rotation.x = Math.PI / 2; g.add(ring);
-  g.add(new Mesh(new CylinderGeometry(0.03, 0.03, 2.4, 6), MAT.dark)).position.y = 1.2;
+  // (not `g.add(stem).position.y = ...`: add() returns the GROUP, which used to drop the whole
+  // chandelier to y 1.2, head height, in every room)
+  const stem = new Mesh(new CylinderGeometry(0.03, 0.03, 2.4, 6), MAT.dark); stem.position.y = 1.2; g.add(stem);
   const flames = [];
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
