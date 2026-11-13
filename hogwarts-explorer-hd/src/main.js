@@ -22,6 +22,7 @@ import { SPOTS, PLACES, TIER, TIMES } from './config.js';
 import { blobShadow } from './atmosphere.js';
 import * as fun from './fun.js';
 import { createLessons } from './lessons.js';
+import { createStudents } from './students.js';
 import { createQuidditch } from './quidditch.js';
 import { createDelight } from './delight.js';
 import { kitStats } from './interior-kit.js';
@@ -84,11 +85,11 @@ async function boot() {
   // Interiors (streamed) + the Hebrew map / fast-travel screen.
   const interiors = createInteriors({
     scene, env, player, terrainHeightAt: heightAt, homeSpot: SPOTS.courtyard,
-    onEnter: (id) => { setExit(true); toast('✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); if (delight) delight.roomEntered(id, interiors.room.group); },
+    onEnter: (id) => { setExit(true); toast('✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); if (students) students.roomEntered(id, interiors.room.group); if (delight) delight.roomEntered(id, interiors.room.group); },
     onExit: () => setExit(false),
   });
   // A full-screen overlay (lesson, picker, ceremony) owns the screen: the hero + camera freeze.
-  let modal = false, lessons = null, delight = null;
+  let modal = false, lessons = null, delight = null, students = null;
   function setModal(v) { modal = !!v; input.setEnabled(!modal); document.body.classList.toggle('modalOn', modal); }
   fun.bindMute(() => audio.muted);
   const map = createMap({
@@ -190,6 +191,10 @@ async function boot() {
   let takeover = null;
   const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor: (o) => outdoorRoots.push(o),
     setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal, setModal, timeOfDay: () => env.time });
+  // Background students (decoration only: any failure -> simply none). Created after `quality`
+  // so LOW can thin them out; the courtyard group is an outdoor root (hidden indoors).
+  try { students = createStudents({ scene, camera, player, heightAt, tier: () => quality.tier, registerOutdoor: (o) => outdoorRoots.push(o) }); }
+  catch (e) { console.warn('[students] disabled -', e && e.message || e); students = null; }
   delight = createDelight({ scene, camera, player, interiors, heightAt, setModal, isModal: () => modal });
   lessons.addPickerButton('🧹 קְוִוידִיץ׳ — מִשְׂחָק!', () => quidditch.start());
   // Friends are never frustum-culled per mesh (odd bounds), so cull each whole figure by one
@@ -210,6 +215,7 @@ async function boot() {
   }
 
   const hooks = [];                      // extra per-frame systems (delight, quidditch): fn(dt, inside)
+  if (students) hooks.push((dt, inside) => students.update(dt, inside));
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -289,7 +295,7 @@ async function boot() {
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
-    get modal() { return modal; }, setModal, quidditch, delight, get takeover() { return takeover; },
+    get modal() { return modal; }, setModal, quidditch, delight, students, get takeover() { return takeover; },
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
