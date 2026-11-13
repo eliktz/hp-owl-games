@@ -191,7 +191,7 @@ async function boot() {
   lessons = createLessons({ scene, player, interiors, heightAt, registerOutdoor: (o) => outdoorRoots.push(o), setModal });
   // A mini-game may take over the hero + camera for a while (the Quidditch match).
   let takeover = null;
-  const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor: (o) => outdoorRoots.push(o),
+  const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, colliders, registerOutdoor: (o) => outdoorRoots.push(o),
     setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal, setModal, timeOfDay: () => env.time });
   // Background students (decoration only: any failure -> simply none). Created after `quality`
   // so LOW can thin them out; the courtyard group is an outdoor root (hidden indoors).

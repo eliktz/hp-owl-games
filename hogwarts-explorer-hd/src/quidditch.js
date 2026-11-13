@@ -19,14 +19,14 @@
 import {
   Group, Mesh, InstancedMesh, Object3D, Color, Vector3, Quaternion, Box3, SphereGeometry, CylinderGeometry, BoxGeometry,
   ConeGeometry, TorusGeometry, CircleGeometry, PlaneGeometry, MeshStandardMaterial, MeshBasicMaterial, DoubleSide, CanvasTexture, SRGBColorSpace,
-  Sprite, SpriteMaterial, AdditiveBlending,
+  Sprite, SpriteMaterial, AdditiveBlending, AnimationMixer, LoopRepeat,
 } from 'three';
 import { buildChibi } from './chibi.js';
 import { PLACES } from './config.js';
-import { loadModel } from './models.js';
+import { loadModel, loadAnimated } from './models.js';
 import * as fun from './fun.js';
 
-const STAND = { x: PLACES.pitch.x, z: PLACES.pitch.z + 6 };
+const STAND = { x: PLACES.pitch.x, z: PLACES.pitch.z + 2 };   // 32 m south of the centre: in front of the stadium towers (their fronts are at 28.6), on the path from the castle
 const C = { x: PLACES.pitch.x, z: PLACES.pitch.z + 34 }, AX = 29, AZ = 21;
 const HOOP_DZ = [-6, 0, 6], HOOP_Y = [10.5, 12.5, 10.5];
 const GOAL_X = C.x + 20, HOME_X = C.x - 20;
@@ -49,7 +49,7 @@ const BEATER = { len: 75, reach: 3.5, window: 0.4, swingT: 0.45, cd: 0.55 };
 const IRON = { color: 0x2a2a30, metalness: 0.6, roughness: 0.45 };
 const SMOULDER = { day: 0, dusk: 0, night: 0.015 };   // iron stays iron (a stronger ember read as the red Quaffle at night); the charge glow is the signal
 
-export function createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor, setTakeover, isModal, setModal, timeOfDay }) {
+export function createQuidditch({ scene, camera, player, heightAt, interiors, registerOutdoor, setTakeover, isModal, setModal, timeOfDay, colliders }) {
   const st = fun.store; st.qLevel = st.qLevel || 1; st.qWins = st.qWins || 0;
   const gy = heightAt(C.x, C.z) + 0.4;
   const d = new Object3D(), col = new Color(), tmp = new Vector3(), tmp2 = new Vector3(), tmp3 = new Vector3();
@@ -93,6 +93,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   }
   const stands = new InstancedMesh(new BoxGeometry(46, 1, 1.9), M(0x6a4a2e, { roughness: 1 }), 6);
   const CROWD = [];
+  let crowdInTowers = false;   // true once the stadium model is in and the fans sit in its tower boxes
   const crowd = new InstancedMesh(new SphereGeometry(0.55, 8, 6), M(0xffffff, { roughness: 0.8 }), 192);
   let si = 0;
   for (const [side, teamCol] of [[-1, 0xb8322e], [1, 0x2a7a4a]]) for (let tier = 0; tier < 3; tier++) {
@@ -101,7 +102,8 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     for (let i = 0; i < 32; i++) CROWD.push({ x: C.x - 21.7 + i * 1.4, y: gy + 1 + tier * 1.5 + 0.75, z, ph: Math.random() * 7, c: i % 5 === 0 ? 0xffd76a : (Math.random() < 0.7 ? teamCol : 0xf2e2c8) });
   }
   function settleCrowd(amp = 0, f = 0, t = 0) {
-    for (let i = 0; i < CROWD.length; i++) { const p = CROWD[i]; d.position.set(p.x, p.y + (amp ? Math.abs(Math.sin(t * f + p.ph)) * amp : 0), p.z); d.rotation.set(0, 0, 0); d.scale.set(1, 1.25, 1); d.updateMatrix(); crowd.setMatrixAt(i, d.matrix); }
+    const k = crowdInTowers ? 0.3 : 1;   // in the tower boxes: smaller fans, smaller hops (the roof is 1 m above the top row)
+    for (let i = 0; i < CROWD.length; i++) { const p = CROWD[i]; d.position.set(p.x, p.y + (amp ? Math.abs(Math.sin(t * f + p.ph)) * amp * k : 0), p.z); d.rotation.set(0, 0, 0); if (crowdInTowers) d.scale.set(0.55, 0.75, 0.55); else d.scale.set(1, 1.25, 1); d.updateMatrix(); crowd.setMatrixAt(i, d.matrix); }
     crowd.instanceMatrix.needsUpdate = true;
   }
   CROWD.forEach((p, i) => crowd.setColorAt(i, col.setHex(p.c))); settleCrowd();
@@ -115,6 +117,91 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   const signT = new CanvasTexture(signTex); signT.colorSpace = SRGBColorSpace;
   const sign = mk(stand, new PlaneGeometry(2, 2), new MeshBasicMaterial({ map: signT, transparent: true, side: DoubleSide }), 0, 4.6, 0);
   pitch.add(stand); scene.add(pitch); registerOutdoor(pitch);
+
+  // ---------------- the stadium model (q_pitch) ----------------
+  // House towers + stand wall + changing hut + a painted pitch ground (art: briefs/quidditch_art.md):
+  // origin = arena centre on the ground, inner wall a stadium at x ±32 (straight for |x| <= 19.4,
+  // elliptical ends) and z ±24. While it is in, the code box stands and green oval hide (they stay as
+  // the fallback) and the crowd moves into the tower boxes. Wall bottoms are draped down onto the
+  // rolling terrain so nothing floats. The hoops, balls and riders stay the game's own.
+  const PITCH_LIFT = 0.3;                          // the flat ground sits just above every terrain bump inside the wall
+  const WALL = { ax: 32, az: 24, straight: 19.4, t: 0.8 };
+  // Tower centres (arena space) measured from q_pitch_01; each faces the wall normal. The box seats
+  // are raked steps 16..18 m up; four rows of four fans each = 192 = the crowd's instance count.
+  const TOWERS = [[4.1, -26.55], [-5.25, -26.65], [-15.35, -27.25], [15.05, -27.95], [27.0, -24.3], [-29.1, -21.35],
+    [-3.55, 26.8], [5.75, 26.95], [-14.35, 28.25], [15.65, 27.7], [28.6, 23.5], [-26.95, 24.45]];
+  const towerYaw = (x, z) => {   // facing inward along the stadium's normal
+    const ex = Math.abs(x) > WALL.straight ? (Math.abs(x) - WALL.straight) * Math.sign(x) / ((WALL.ax - WALL.straight) ** 2) : 0;
+    return Math.atan2(-ex, -z / (WALL.az * WALL.az));
+  };
+  const SEATS = [[0.84, 16.1], [0.24, 16.6], [-0.36, 17.1], [-0.96, 17.7]];   // [metres forward of the tower centre, seat height]
+  function towerCrowd() {
+    CROWD.length = 0;
+    for (const [tx, tz] of TOWERS) {
+      const a = towerYaw(tx, tz), fx = Math.sin(a), fz = Math.cos(a), teamCol = tz < 0 ? 0xb8322e : 0x2a7a4a;
+      for (const [u, sy] of SEATS) for (const l of [-1.26, -0.42, 0.42, 1.26]) {
+        CROWD.push({ x: C.x + tx + fx * u + fz * l, y: gy + PITCH_LIFT + sy + 0.41, z: C.z + tz + fz * u - fx * l, ph: Math.random() * 7,
+          c: CROWD.length % 5 === 0 ? 0xffd76a : (Math.random() < 0.7 ? teamCol : 0xf2e2c8) });
+      }
+    }
+    crowdInTowers = true;
+    CROWD.forEach((p, i) => crowd.setColorAt(i, col.setHex(p.c))); if (crowd.instanceColor) crowd.instanceColor.needsUpdate = true;
+    settleCrowd();
+  }
+  // Walk-around colliders (outdoor array): towers, hut and chest are always solid; the wall ring is
+  // one-way (solid while you are outside, switched off while you are inside so you can never be shut in).
+  const wallCols = [], pitchCols = [];
+  function addBox(list, x, z, hw, hd, angle) { list.push({ type: 'box', x, z, hw, hd, angle, pitch: true }); }
+  function buildColliders() {
+    if (!colliders) return;
+    for (const [tx, tz] of TOWERS) addBox(pitchCols, C.x + tx, C.z + tz, 1.95, 1.95, -towerYaw(tx, tz));
+    addBox(pitchCols, C.x - 0.3, C.z + 30.7, 5.4, 2.7, 0);                       // the changing hut
+    const r = WALL.t / 2;
+    for (const s of [-1, 1]) addBox(wallCols, C.x, C.z + s * (WALL.az + r), WALL.straight, r, 0);
+    const N = 14, ea = WALL.ax - WALL.straight + r, eb = WALL.az + r;           // each end: N chords of the ellipse
+    for (const s of [-1, 1]) for (let i = 0; i < N; i++) {
+      const a0 = -Math.PI / 2 + Math.PI * i / N, a1 = a0 + Math.PI / N;
+      const x0 = s * (WALL.straight + Math.cos(a0) * ea), z0 = Math.sin(a0) * eb, x1 = s * (WALL.straight + Math.cos(a1) * ea), z1 = Math.sin(a1) * eb;
+      addBox(wallCols, C.x + (x0 + x1) / 2, C.z + (z0 + z1) / 2, Math.hypot(x1 - x0, z1 - z0) / 2 + 0.15, r, Math.atan2(z1 - z0, x1 - x0));
+    }
+    colliders.push(...pitchCols, ...wallCols);
+  }
+  let wallSolid = true;
+  function setWallSolid(on) {
+    if (!colliders || on === wallSolid) return; wallSolid = on;
+    if (on) colliders.push(...wallCols); else for (const c of wallCols) { const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); }
+  }
+  // inside the stadium shape grown by `g` metres (0 = the inner wall face)
+  const inStadium = (x, z, g = 0) => { const dx = Math.max(0, Math.abs(x - C.x) - WALL.straight) / (WALL.ax - WALL.straight + g), dz = (z - C.z) / (WALL.az + g); return dx * dx + dz * dz < 1; };
+  // hysteresis: off as soon as you are inside the wall, on again only once you are clear of its band
+  function gateWall(x, z) { if (inStadium(x, z)) setWallSolid(false); else if (!inStadium(x, z, WALL.t + 0.9)) setWallSolid(true); }
+  let stadium = null;
+  loadModel('q_pitch').then(obj => {
+    if (!obj) return;
+    obj.position.set(C.x, gy + PITCH_LIFT, C.z);
+    obj.traverse(o => {
+      if (!o.isMesh) return;
+      o.castShadow = false; o.receiveShadow = false; o.userData.sharedGeo = true;
+      if (o.name.startsWith('Pitch_Stands')) {   // drape every bottom vertex onto the terrain (one stadium in the game: editing the cached geometry is fine)
+        const pa = o.geometry.attributes.position;
+        for (let i = 0; i < pa.count; i++) if (pa.getY(i) < 0.05) pa.setY(i, Math.min(0, heightAt(C.x + pa.getX(i), C.z + pa.getZ(i)) - gy - PITCH_LIFT - 0.3));
+        pa.needsUpdate = true; o.geometry.computeBoundingBox(); o.geometry.computeBoundingSphere();
+      }
+    });
+    pitch.add(obj); stadium = obj; pitch.userData.model = obj;
+    stands.visible = false; oval.visible = false;
+    towerCrowd(); buildColliders();
+  }).catch(e => console.warn('[quidditch] model skipped: q_pitch', e && e.message));
+  // the ball chest by the broom stand (a prop): open side toward the path from the castle
+  loadModel('q_chest').then(obj => {
+    if (!obj) return;
+    const cx = STAND.x - 2.1, cz = STAND.z - 1.1, yaw = Math.PI - 0.3;
+    obj.scale.setScalar(1.3); obj.rotation.y = yaw;
+    obj.position.set(cx - stand.position.x, heightAt(cx, cz) - stand.position.y, cz - stand.position.z);
+    obj.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.userData.sharedGeo = true; } });
+    stand.add(obj); stand.userData.chest = obj;
+    if (colliders) colliders.push({ type: 'box', x: cx, z: cz, hw: 0.68, hd: 0.42, angle: -yaw, pitch: true });
+  }).catch(e => console.warn('[quidditch] model skipped: q_chest', e && e.message));
 
   // ---------------- match actors ----------------
   const actors = new Group(); actors.visible = false; scene.add(actors);
@@ -146,11 +233,25 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   const snitch = new Group(); snitch.visible = false; actors.add(snitch);
   code(mk(snitch, new SphereGeometry(0.34, 12, 10), M(0xffd23f, { metalness: 0.6, roughness: 0.25, emissive: new Color(0xffb000), emissiveIntensity: 1.2 })));
   const wings = [-1, 1].map(s => { const w = code(mk(snitch, new PlaneGeometry(0.9, 0.3), M(0xfff6d8, { side: DoubleSide, emissive: new Color(0xfff0c0), emissiveIntensity: 0.6 }), s * 0.55, 0.1, 0)); w.userData.s = s; return w; });
-  let snitchWings = null;   // the model's (transparent) wing mesh: fluttered by squashing it
-  swapIn(snitch, 'q_snitch', o => {
+  let snitchWings = null;   // the lite model's (transparent) wing mesh: fluttered by squashing it
+  let snitchMixer = null;   // the rigged Snitch (q_snitch_rigged): its 'Flap' loop (10 Hz) on an AnimationMixer
+  const snitchLite = () => swapIn(snitch, 'q_snitch', o => {
     fitCentered(o, SIZE.snitch);
     o.traverse(m => { if (m.isMesh && m.material.transparent) snitchWings = m; if (m.isMesh && !m.material.transparent) { m.material = m.material.clone(); m.material.emissive = new Color(0xffb000); m.material.emissiveIntensity = 0.5; } });
   });
+  // The rigged Snitch first; if it is missing or fails, the lite one; if that fails too, the code Snitch.
+  loadAnimated('q_snitch_rigged').then(r => {
+    const clip = r && r.clips.find(c => c.name === 'Flap');
+    if (!r || !clip) { snitchLite(); return; }
+    const o = r.obj;
+    o.traverse(m => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = false; m.frustumCulled = false; m.userData.sharedGeo = true;
+      m.material = m.material.clone(); m.material.emissive = new Color(0xffb000); m.material.emissiveIntensity = 0.5; } });
+    fitCentered(o, SIZE.snitch);
+    snitchMixer = new AnimationMixer(o); const act = snitchMixer.clipAction(clip); act.setLoop(LoopRepeat, Infinity); act.play();
+    for (const c of snitch.children) if (c.userData.code) c.visible = false;
+    snitch.add(o); snitch.userData.model = o; snitch.userData.rigged = true;
+  }).catch(e => { console.warn('[quidditch] model skipped: q_snitch_rigged', e && e.message); snitchLite(); });
+  const snitchLast = new Vector3();
   // a soft sparkle that twinkles on the Snitch (Seeker: how you spot it from far away)
   const sparkTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,250,210,1)'); gr.addColorStop(0.25, 'rgba(255,220,90,.7)'); gr.addColorStop(1, 'rgba(255,200,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; return t; })();
   const sparkle = new Sprite(new SpriteMaterial({ map: sparkTex, transparent: true, depthWrite: false, blending: AdditiveBlending }));
@@ -1011,6 +1112,12 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     setSmoulder();
     ROLE.update(dt, t);
     poseFlyers(dt, t);
+    if (snitch.visible) {   // the rigged Snitch flaps (10 Hz) and turns its face into the direction it flies
+      if (snitchMixer) snitchMixer.update(dt);
+      const vx = snitch.position.x - snitchLast.x, vz = snitch.position.z - snitchLast.z;
+      if (vx * vx + vz * vz > 1e-4) snitch.rotation.y += wrap(Math.atan2(vx, vz) - snitch.rotation.y) * Math.min(1, dt * 8);
+    }
+    snitchLast.copy(snitch.position);
     if (S.cheer > 0) S.cheer -= dt;
     settleCrowd(S.cheer > 0 ? 0.9 : 0.12, S.cheer > 0 ? 9 : 2, t);
 
@@ -1030,6 +1137,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     T += dt;
     const dd = Math.hypot(player.pos.x - C.x, player.pos.z - C.z);
     pitch.visible = dd < 150;                        // far from the pitch it costs nothing
+    if (wallCols.length) gateWall(player.pos.x, player.pos.z);   // one-way wall: you can always walk out
     stand.visible = Math.hypot(player.pos.x - STAND.x, player.pos.z - STAND.z) < 38;   // the little broom stand only when you are near it
     if (sign) { sign.position.y = 4.6 + Math.sin(T * 2) * 0.2; sign.rotation.y += dt * 0.8; }
     const k = Math.hypot(player.pos.x - STAND.x, player.pos.z - STAND.z);
@@ -1075,6 +1183,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
       b.victim = v; b.state = 'aim'; b.t = 0.4; b.pos.set(v.position.x + 9, v.position.y + 2, v.position.z + 4); clampArena(b.pos);
       return v3(b.pos);
     },
+    pitchInfo: () => ({ model: !!stadium, chest: !!stand.userData.chest, snitch: snitch.userData.rigged ? 'rigged' : snitch.userData.model ? 'lite' : 'code', crowdInTowers, standsVisible: stands.visible, ovalVisible: oval.visible, colliders: pitchCols.length + wallCols.length, wallSolid }),
     _shotAt(i) { if (!S.on || ROLE.id !== 'keeper' || S.over) return false; rival.position.set(HOME_X + 13, gy + HOOP_Y[i] - 0.5, C.z + HOOP_DZ[i] * 0.6); keeperShot(i); return true; },   // tests: the rival winds up at hoop i now
   };
   fun.mods.quidditch = api;
