@@ -1,5 +1,6 @@
 // Friendly inhabitants of the grounds. Ron, Hermione and Hedwig use the committed fan
-// models (assets/models/, see MODELS-CREDITS.md); Harry is drawn in code. Hagrid starts as a
+// models (assets/models/, see MODELS-CREDITS.md). Harry is the player's own hero (player.js), so
+// there is no Harry NPC here. Hagrid starts as a
 // code-drawn chibi (instant placeholder + silent fallback) and is swapped for the rigged
 // film-look GLB once it streams in. Everyone has a gentle idle animation (bob / float) and a short
 // set of friendly Hebrew lines shown when the player walks up (see main.js for the bubble).
@@ -11,11 +12,6 @@ import { buildChibi, animateChibi } from './chibi.js';
 import { SPOTS } from './config.js';
 
 const mat = (color, extra = {}) => new MeshStandardMaterial({ color, roughness: 0.85, ...extra });
-
-// Harry: Gryffindor chibi with round glasses, messy black hair and a red scarf.
-function buildHarry() {
-  return buildChibi({ robe: 0x2a2140, trim: 0x1a1430, house: 0x7a1020, hair: 0x1a120c, glasses: true, wand: true });
-}
 
 // Hagrid: a big, warm chibi in a brown coat with a huge bushy beard.
 function buildHagrid() {
@@ -98,7 +94,6 @@ const LINES = {
 export async function createCharacters({ scene, heightAt }) {
   const ground = (x, z) => (heightAt ? heightAt(x, z) : 0);
   const defs = [
-    { name: 'harry',    kind: 'person', group: buildHarry(),  x: C.x + 4, z: C.z - 6 },
     { name: 'ron',      kind: 'person', group: await modelFigure('ron', 1.7, 0x9a3b1b),  x: C.x - 4, z: C.z - 6 },
     { name: 'hermione', kind: 'person', group: await modelFigure('hermione', 1.65, 0x6a3b1b), x: C.x, z: C.z - 8 },
     { name: 'hagrid',   kind: 'person', group: buildHagrid(), x: H.x - 5, z: H.z + 2 },
