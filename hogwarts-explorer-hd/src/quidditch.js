@@ -30,7 +30,7 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const wrap = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 const M = (color, o = {}) => new MeshStandardMaterial({ color, roughness: 0.7, ...o });
 // Model sizes in play (max extent, metres): the balls stay at the old readable code sizes.
-const SIZE = { quaffle: 1.2, bludger: 1.24, snitch: 1.9, broom: 2.25 };
+const SIZE = { quaffle: 1.2, bludger: 1.24, snitch: 1.9, broom: 2.25, myBroom: 2.1 };
 // House riders (posed on their own brooms, origin at the seat, facing +Z handle-first):
 // scale 1.3 matches the hero (young Harry is 1.3x too); seatY puts the seat where the chibi's broom was.
 const RIDER = { scale: 1.3, seatY: 0.72 };
@@ -157,9 +157,9 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   const mate = flyer({ ...LOOK[myHouse], hair: 0x8a3a1a }, myHouse);                     // our Chaser (helper)
   const rivalSeeker = flyer({ ...LOOK[oppHouse], hair: 0xe8d8a0 }, oppHouse);            // their Seeker
   // The player's broom: the Nimbus 2000 GLB (handle at +Z), code broom until/unless it loads.
-  // player.ride() places it with RIDE_BROOM (player.js); the seat sits ~0.3 m in front of the bristles.
+  // player.ride() places it with RIDE_BROOM (player.js), measured from the hero's Ride clip.
   const myBroom = broom();
-  swapIn(myBroom, 'q_broom', o => { fitCentered(o, SIZE.broom); o.position.z += SIZE.broom * 0.19; });
+  swapIn(myBroom, 'q_broom', o => { fitCentered(o, SIZE.myBroom); });   // centred: RIDE_BROOM (player.js) puts the handle under Harry's fists
   const aimRing = mk(actors, new TorusGeometry(1.9, 0.14, 8, 24), new MeshBasicMaterial({ color: 0x9effa0 })); aimRing.rotation.y = Math.PI / 2; aimRing.visible = false;
   const warn = mk(actors, new ConeGeometry(0.5, 1, 4), new MeshBasicMaterial({ color: 0xff3030 })); warn.rotation.x = Math.PI; warn.visible = false;
   // Keeper: the target hoop glows and a dotted line shows the coming shot (1 + 1 draw calls).

@@ -26,7 +26,10 @@ const HERO = {
 // y up from the feet, z forward) and its scale. ONE place to tune once the 'Ride' clip reports
 // its seat height. The broom object itself comes from the caller (quidditch.js: the Nimbus
 // GLB, or the code broom if that fails); its own forward is +Z, like the hero.
-export const RIDE_BROOM = { y: 0.82, z: 0.0, scale: 1.0 };
+// Measured from the Ride clip (model scale, x1.3 here): broom axis 0.56 m above the feet -> 0.73;
+// the front end belongs 11 cm ahead of the right fist (z +0.42 -> +0.55) and the broom (2.1 m)
+// runs back from there, so its centre sits at z -0.5.
+export const RIDE_BROOM = { y: 0.73, z: -0.5, scale: 1.0 };
 const ONE_SHOTS = ['Wave', 'Cheer', 'Talk'];
 const LOCO = { Walk: 1, Run: 1 };
 
