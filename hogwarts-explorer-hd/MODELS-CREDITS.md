@@ -35,6 +35,7 @@ Per the CC-BY-4.0 licence terms, the following authors **must be credited**:
 | Quidditch Beater bat | Wooden_club | **Ryan Tran** | [Sketchfab](https://sketchfab.com/3d-models/ff5d80df88724d8fbbe71e9a58371046) | CC-BY-4.0 |
 | The player's Quidditch broom | Nimbus 2000 | **Alizée Bourbon** | [Sketchfab](https://sketchfab.com/3d-models/9e1aa2ff2b5c47c2aeca457a3f6b2f53) | CC-BY-4.0 |
 | Quidditch players on brooms (four house riders) | Harry Potter Seekers - Quidditch World Cup | **chrr273u** | [Sketchfab](https://sketchfab.com/3d-models/3b83dce4c69040b7879991937feabd2f) | CC-BY-4.0 (uploader's licence label) |
+| Professor Dumbledore (Great Hall dais, rigged + animated) | Harry-Potter Albus Dumbledore | **CAPTAAINRO** | [Sketchfab](https://sketchfab.com/3d-models/865a6af7a79942008ab58a2b123c846f) | CC-BY-4.0 (uploader's licence label) |
 
 ### Full CC-BY attribution strings
 
@@ -54,10 +55,12 @@ Per the CC-BY-4.0 licence terms, the following authors **must be credited**:
 - This work is based on ["Wooden_club"](https://sketchfab.com/3d-models/ff5d80df88724d8fbbe71e9a58371046) by [Ryan Tran](https://sketchfab.com/ryantran), licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). Optimised to Meshopt geometry + KTX2 (Basis) textures.
 - This work is based on ["Nimbus 2000"](https://sketchfab.com/3d-models/9e1aa2ff2b5c47c2aeca457a3f6b2f53) by [Alizée Bourbon](https://sketchfab.com/alibabalaboss), licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). Optimised to Meshopt geometry + KTX2 (Basis) textures.
 - This work is based on ["Harry Potter Seekers - Quidditch World Cup"](https://sketchfab.com/3d-models/3b83dce4c69040b7879991937feabd2f) by [chrr273u](https://sketchfab.com/chrr273u), licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/) (the uploader's licence label; based on the characters of the *Harry Potter: Quidditch World Cup* video game in the uploader's wording, and it appears game-extracted). Split into four house riders and rescaled. Optimised to Meshopt geometry + KTX2 (Basis) textures.
+- This work is based on ["Harry-Potter Albus Dumbledore"](https://sketchfab.com/3d-models/865a6af7a79942008ab58a2b123c846f) by [CAPTAAINRO](https://sketchfab.com/CAPTAAINRO), licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/) (the uploader's licence label; the model appears game-extracted). Use approved by Elik on 12 Nov 2026. Skeleton and the Idle/Walk/Talk animations: [Quaternius Universal Animation Library](https://quaternius.com) (CC0); the Welcome was keyframed in our own art workspace. Optimised to Meshopt geometry + KTX2 (Basis) textures.
 
 The player's hero is the rigged young Harry above; he, Hagrid and the rigged
 professors keep a code-drawn chibi as an instant placeholder and as the fallback if their
-model cannot load. "Great Hall Window" by Saandy and a duplicate "Hagrid's hut" were
+model cannot load. Dumbledore has no chibi: if his model cannot load, the dais simply
+stays empty. "Great Hall Window" by Saandy and a duplicate "Hagrid's hut" were
 downloaded but **dropped** (a lone window frame / an exact duplicate) to keep the committed
 set small.
 

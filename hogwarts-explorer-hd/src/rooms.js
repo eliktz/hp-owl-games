@@ -13,6 +13,7 @@ import {
 import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier } from './furniture.js';
 import { bakeLight } from './atmosphere.js';
 import { decorate } from './decor.js';
+import { addDumbledore } from './dumbledore.js';
 
 export const FLOOR_Y = -200;
 // Gryffindor red, Ravenclaw blue, Hufflepuff gold, Slytherin green.
@@ -152,9 +153,13 @@ function greatHall() {
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
   for (const [x, z] of [[-W / 2 + 0.5, 13], [W / 2 - 0.5, 13]]) torch(g, x, 5, z);
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
+  // Dumbledore stands centred on the dais (top y 0.5) behind the head table (its cloth ends at
+  // z -16.25), facing the hall doors; his robe train tucks against the north wall (z -17.5).
+  const dumbledore = addDumbledore(g, 0, 0.5, -D / 2 + 1.15);
   return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
     id: 'greathall',
     flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.7, z: 3.5, r: 1.3, to: 'dungeon' }],
+    update: (dt) => dumbledore(dt),
   });
 }
 
