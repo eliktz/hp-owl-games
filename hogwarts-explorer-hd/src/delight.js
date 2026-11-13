@@ -95,7 +95,10 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     const f = player.yaw;
     from.set(pos.x + Math.sin(f) * 0.5, pos.y + 1.5, pos.z + Math.cos(f) * 0.5);
     let best = null, bs = 1e9;
-    for (const tg of targets()) {
+    // Pip (the pet owl) flies right beside the hero, so as a normal target she would win every cast and
+    // nothing else could ever be enchanted: she only answers when there is nothing else in range.
+    const all = targets(), others = all.filter(tg => tg.id !== 'pip' && Math.hypot(tg.x - pos.x, tg.z - pos.z) <= 11);
+    for (const tg of (others.length ? others : all)) {
       const d = Math.hypot(tg.x - pos.x, tg.z - pos.z); if (d > 11) continue;
       const dot = d < 0.01 ? 1 : ((tg.x - pos.x) * Math.sin(f) + (tg.z - pos.z) * Math.cos(f)) / d;
       if (d - dot * 4 < bs) { bs = d - dot * 4; best = tg; }
