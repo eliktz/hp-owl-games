@@ -155,7 +155,7 @@ function greatHall() {
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
   // Dumbledore stands centred on the dais (top y 0.5) behind the head table (its cloth ends at
   // z -16.25), facing the hall doors; his robe train tucks against the north wall (z -17.5).
-  const dumbledore = addDumbledore(g, 0, 0.5, -D / 2 + 1.15);
+  const dumbledore = addDumbledore(g, 2.2, 0.5, -D / 2 + 1.15);   // off-centre so the owl lectern in the aisle does not hide him from the door
   return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
     id: 'greathall',
     flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.7, z: 3.5, r: 1.3, to: 'dungeon' }],
