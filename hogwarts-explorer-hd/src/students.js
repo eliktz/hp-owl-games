@@ -47,7 +47,7 @@ const HALL_TABLES = [
 const BENCH_X = 1.15, BENCH_HALF = 0.25, BENCH_TOP = 0.56;
 // Three seats per table along its length: two on the aisle bench, one opposite (side -1 = the
 // aisle side). A small per-table shift keeps the four tables from looking stamped.
-const HALL_SEATS = [[-1, -3.6], [-1, 0.9], [1, -1.3]];
+const HALL_SEATS = [[1, -3.6], [1, 0.9], [-1, -1.3]];   // 2 on the wall bench (faces toward the aisle, seen from the door), 1 on the aisle bench
 const HALL_SHIFT = [0, 1.2, -0.8, 0.5];
 // Classrooms: lessons.js STATIONS (x, z) with desks at (x +-1.6, z + 3.2), 1.3 x 0.75 m.
 const CLASS_STATIONS = [-9, 0, 9].map(x => ({ x, z: -6.2 }));

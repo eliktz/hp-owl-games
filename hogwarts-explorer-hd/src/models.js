@@ -164,6 +164,7 @@ export function loadTexture(stem, { preferWebp = false } = {}) {
     }
     _status.set('tex:' + stem, 'failed: ' + why.join('; '));
     console.warn('[models] texture failed:', stem, '-', why.join('; '));
+    _texCache.delete(key);                      // a transient failure: let the next room entry try again
     return null;
   })();
   _texCache.set(key, p);
