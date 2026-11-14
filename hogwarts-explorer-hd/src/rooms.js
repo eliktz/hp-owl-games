@@ -110,14 +110,15 @@ function entranceHall() {
   (g.userData.enchant = g.userData.enchant || []).push({ id: 'chandelier', obj: ch, r: 4.5, cast() { swing = 4; try { window.HPFun.sfx.tune([1568, 1319, 1568, 1047, 1319, 1568, 2093], 0.11, 'sine'); } catch { /* no audio yet */ } return '🕯️'; } });
   g.userData.chandelierSwing = () => swing;
   for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 4.4, z);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 7, -4 + (i % 2) * 8, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 7, -4 + (i % 2) * 8, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   const flames = [];
   const portals = [
     { x: 0, z: D / 2 - 1.2, r: 1.6, to: 'out' },            // south doors -> grounds
-    // centred on the doorway gaps + arches (z 0): at z 2 a child walking through the middle of the
-    // arch missed the portal and strolled out into the void
-    { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'greathall' },
-    { x: W / 2 - 1.2, z: 0, r: 1.5, to: 'library' },
+    // wide enough for the whole doorway gap + arch (z -1.3..3.3): at z 2 / r 1.5 a child walking
+    // through the middle of the arch (z 0) missed the portal and strolled out into the void, and at
+    // z 0 / r 1.5 the old approach line at z 2 (gameplay test journey) missed it
+    { x: -W / 2 + 1.2, z: 1, r: 2.3, to: 'greathall' },
+    { x: W / 2 - 1.2, z: 1, r: 2.3, to: 'library' },
     { x: 0, z: -D / 2 + 3.4, r: 1.7, to: 'staircase' },      // up the steps -> the grand staircase hall
   ];
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
@@ -157,7 +158,7 @@ function greatHall() {
     window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a, 0.8);
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2, { lift: 0.12, crestGlow: 0.7 }));
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
-  for (const [x, z] of [[-W / 2 + 0.5, 13], [W / 2 - 0.5, 13]]) torch(g, x, 5, z);
+  for (const [x, z] of [[-W / 2 + 0.5, 11.8], [W / 2 - 0.5, 11.8]]) torch(g, x, 5, z);   // clear of the corner columns at z 13.5
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
   // Dumbledore stands centred on the dais (top y 0.5) behind the head table (its cloth ends at
   // z -16.25), facing the hall doors; his robe train tucks against the north wall (z -17.5).
@@ -252,7 +253,7 @@ function staircase() {
   }
   const ch = chandelier(g, 0, H - 5, 1);
   for (const [x, z] of [[-W / 2 + 0.3, -6], [-W / 2 + 0.3, 6], [W / 2 - 0.3, -6], [W / 2 - 0.3, 6]]) torch(g, x, 4, z);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 10, -5 + (i % 2) * 10, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 10, -5 + (i % 2) * 10, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'staircase',
     portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'classrooms' },
