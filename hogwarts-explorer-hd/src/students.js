@@ -18,6 +18,7 @@ import { AnimationMixer, LoopOnce, Group, Frustum, Matrix4, Sphere, Vector3 } fr
 import { loadAnimated, loadTexture, modelStatus } from './models.js';
 import { SPOTS, TIER } from './config.js';
 import * as fun from './fun.js';
+import { BENCH_TOP } from './interior-kit.js';
 
 const WORLD = 1.2;                        // the cast's world scale (Ron and Hermione are 1.2 x their rest height)
 const SCALE_MIN = 0.94, SCALE_MAX = 1.0;  // students a little shorter than Ron and Hermione
@@ -208,7 +209,7 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
         const scale = scaleOf(rand);                                   // each student's own seeded size (same sequence, same faces)
         const lx = benchSign * (BENCH_X - BENCH_HALF - BENCH_GAP);   // origin in front of the bench edge, knees under the table
         out.push({ ...v, clip: 'Sit', scale,
-          x: t.x + lx, y: 0, z: t.z + dz + HALL_SHIFT[ti],            // feet on the floor; thighs within 3 cm of the bench top
+          x: t.x + lx, y: Math.max(0, BENCH_TOP - SEAT_TOP[v.g] * scale), z: t.z + dz + HALL_SHIFT[ti],   // feet on the floor; a student whose seat would sink into the bench is lifted onto it (<= 2.3 cm, hidden by the robe hem)
           yaw: benchSign > 0 ? -Math.PI / 2 : Math.PI / 2 });          // face the table (model faces +Z)
       });
     });
