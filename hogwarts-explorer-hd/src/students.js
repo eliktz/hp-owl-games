@@ -18,7 +18,6 @@ import { AnimationMixer, LoopOnce, Group, Frustum, Matrix4, Sphere, Vector3 } fr
 import { loadAnimated, loadTexture, modelStatus } from './models.js';
 import { SPOTS, TIER } from './config.js';
 import * as fun from './fun.js';
-import { BENCH_TOP } from './interior-kit.js';
 
 const WORLD = 1.2;                        // the cast's world scale (Ron and Hermione are 1.2 x their rest height)
 const SCALE_MIN = 0.94, SCALE_MAX = 1.0;  // students a little shorter than Ron and Hermione
@@ -33,8 +32,9 @@ const HAIR = { boy: ['brown', 'blond'], girl: ['black', 'blonde'] };
 // table edge 0.15 in front) assumes a 0.22 m bench-table gap; the Great Hall's is only 0.15, so
 // the origin sits 0.17 m (world) in front of the bench edge: knees ~9 cm under the table top,
 // hips still ~0.2 m onto the 0.5 m bench.
-// Feet on the floor: the benches are BENCH_TOP (0.39) high, so a seated student's world scale is
-// BENCH_TOP / SEAT_TOP (boy 1.13, girl 1.2: inside the standing range) and the origin sits at y 0.
+// Feet on the floor: every seated student keeps the seeded scale (scaleOf, 1.128..1.2) with the
+// origin at y 0. Their thighs then meet the BENCH_TOP (0.39) bench within 3 cm: boys float
+// 0..2.4 cm above it, girls press 0..2.3 cm into its top (SEAT_TOP * scale - BENCH_TOP).
 const SEAT_TOP = { boy: 0.345, girl: 0.325 };
 const BENCH_GAP = 0.17;
 
@@ -205,11 +205,10 @@ export function createStudents({ scene, camera, player, heightAt, tier, register
         // side -1 = the aisle bench (toward x = 0), +1 = the wall bench
         const benchSign = side === -1 ? -Math.sign(t.x) : Math.sign(t.x);   // local x sign of this bench
         const v = who(rand, t.house, (ti + si) % 2 ? 'girl' : 'boy');
-        scaleOf(rand);                                                 // keep the seeded sequence (same faces as before)
-        const scale = Math.min(WORLD * SCALE_MAX, Math.max(WORLD * SCALE_MIN, BENCH_TOP / SEAT_TOP[v.g]));
+        const scale = scaleOf(rand);                                   // each student's own seeded size (same sequence, same faces)
         const lx = benchSign * (BENCH_X - BENCH_HALF - BENCH_GAP);   // origin in front of the bench edge, knees under the table
         out.push({ ...v, clip: 'Sit', scale,
-          x: t.x + lx, y: Math.max(0, BENCH_TOP - SEAT_TOP[v.g] * scale), z: t.z + dz + HALL_SHIFT[ti],
+          x: t.x + lx, y: 0, z: t.z + dz + HALL_SHIFT[ti],            // feet on the floor; thighs within 3 cm of the bench top
           yaw: benchSign > 0 ? -Math.PI / 2 : Math.PI / 2 });          // face the table (model faces +Z)
       });
     });
