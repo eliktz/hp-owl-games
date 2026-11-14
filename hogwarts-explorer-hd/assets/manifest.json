@@ -13,5 +13,11 @@
     "qwantani_night_puresky_1k.hdr",
     "night_1k.hdr",
     "dusk_1k.hdr"
-  ]
+  ],
+  "film": [
+    "castle_wall_slates",
+    "roof_slates",
+    "sandstone_blocks"
+  ],
+  "_film_note": "textures/film/<stem>_col|_nor .ktx2 (ETC1S colour / UASTC normal) + .webp fallback; 1K from Poly Haven CC0 castle_wall_slates, roof_slates_03 (ridge row cropped), sandstone_blocks_05; loaded by materials.js loadFilmMaps()"
 }

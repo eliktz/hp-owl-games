@@ -12,11 +12,41 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // Centred in the front curtain wall (z≈20), facing the approach (+z). See main.js.
 export const DOOR = { x: 0, z: 20, face: 1, enterZ: 22, enterR: 5, autoR: 2.4, outZ: 28 };
 
+// World-scaled UVs: three's primitives map one whole texture onto every face (a 34 m tower
+// got two stones per course). Rescale each primitive's UVs to metres / tile so the film
+// stone and slate keep a true size everywhere; done at build time, so the merged meshes,
+// draw calls and triangle counts are unchanged.
+function metricUV(geo, scale, tile) {
+  const uvA = geo.attributes.uv, p = geo.parameters || {};
+  if (!uvA || !tile) return;
+  const [sx, sy, sz] = scale, a = uvA.array;
+  const mul = (from, to, ku, kv) => { for (let i = from; i < to; i++) { a[i * 2] *= ku; a[i * 2 + 1] *= kv; } };
+  if (geo.type === 'BoxGeometry') {
+    const w = p.width * sx, h = p.height * sy, d = p.depth * sz;
+    const face = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];   // +x -x +y -y +z -z
+    let v = 0;
+    face.forEach(([fu, fv], i) => {
+      const n = ((i < 2 ? p.depthSegments : p.widthSegments) + 1) * ((i === 2 || i === 3 ? p.depthSegments : p.heightSegments) + 1);
+      mul(v, v + n, fu / tile, fv / tile); v += n;
+    });
+  } else if (geo.type === 'CylinderGeometry' || geo.type === 'ConeGeometry') {
+    const rt = p.radiusTop ?? 0, rb = p.radiusBottom ?? p.radius, seg = p.radialSegments, hs = p.heightSegments;
+    const r = Math.max(rt, rb) * Math.max(sx, sz);
+    const around = seg * 2 * r * Math.sin(Math.PI / seg);                // polygon perimeter
+    const slant = Math.hypot(p.height * sy, (rb - rt) * Math.max(sx, sz));
+    const side = (seg + 1) * (hs + 1);
+    mul(0, side, around / tile, slant / tile);
+    mul(side, uvA.count, 2 * r / tile, 2 * r / tile);                    // caps
+  } else return;
+  uvA.needsUpdate = true;
+}
+
 // Collector: bakes each primitive's transform into its geometry, bucketed by material key.
 class Builder {
-  constructor() { this.buckets = { stone: [], slate: [], window: [] }; this.colliders = []; this._o = new Object3D(); }
+  constructor(tiles = {}) { this.buckets = { stone: [], slate: [], window: [] }; this.colliders = []; this._o = new Object3D(); this.tiles = tiles; }
   add(key, geo, { pos = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
     const o = this._o;
+    metricUV(geo, scale, this.tiles[key]);
     o.position.set(...pos); o.rotation.set(...rot); o.scale.set(...scale); o.updateMatrix();
     geo.applyMatrix4(o.matrix);
     this.buckets[key].push(geo);
@@ -115,7 +145,8 @@ function greatHall(b, x, z) {
 export function buildCastle(scene, mats) {
   const group = new Group();
   group.name = 'castle';
-  const b = new Builder();
+  // Metric tiling only when the film maps are in (the jpg fallback keeps its old look).
+  const b = new Builder(mats.stone.userData.tile ? { stone: mats.stone.userData.tile, slate: mats.slate.userData.tile } : {});
 
   greatHall(b, 10, 6);
   tower(b, -6, -14, 6, 34);         // central keep
@@ -131,7 +162,9 @@ export function buildCastle(scene, mats) {
 
   b.build(group, mats);
   // A flagstone approach path leading the eye from the courtyard straight to the oak doors.
-  const path = new Mesh(new BoxGeometry(6, 0.1, 20), mats.stone);
+  const pathGeo = new BoxGeometry(6, 0.1, 20);
+  metricUV(pathGeo, [1, 1, 1], mats.stone.userData.tile);
+  const path = new Mesh(pathGeo, mats.stone);
   path.position.set(DOOR.x, 0.06, DOOR.z + 11); path.receiveShadow = true; group.add(path);
   scene.add(group);
   return { group, colliders: b.colliders };

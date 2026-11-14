@@ -20,6 +20,9 @@ async function manifest() {
   return _manifest;
 }
 
+// The asset manifest (textures, hdri, film): lets other modules skip files that are not there.
+export async function assetManifest() { return manifest(); }
+
 // Load an equirectangular HDRI; returns a three Texture (equirect) or null.
 export async function loadHDRI(file) {
   const m = await manifest();

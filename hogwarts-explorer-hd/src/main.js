@@ -7,7 +7,7 @@ import { QualityManager } from './quality.js';
 import { Environment } from './environment.js';
 import { buildTerrain, heightAt } from './terrain.js';
 import { buildLake } from './lake.js';
-import { makeMaterials } from './materials.js';
+import { makeMaterials, loadFilmMaps } from './materials.js';
 import { buildCastle, DOOR } from './castle.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
@@ -45,13 +45,15 @@ async function boot() {
   const scene = new Scene();
   const camera = new PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
 
-  const [stone, slate, wood] = await Promise.all([
-    loadTexture('castle_wall_1k.jpg', { repeat: 2 }),
-    loadTexture('slate_roof_1k.jpg', { repeat: 3 }),
-    loadTexture('wood_1k.jpg', { repeat: 2 }),
+  // Film stone + slate (colour + normal, KTX2/WebP, materials.js); the old jpgs are only
+  // fetched for whichever film set is missing, so the castle never loses its texture.
+  const [film, wood] = await Promise.all([loadFilmMaps().catch(() => null), loadTexture('wood_1k.jpg', { repeat: 2 })]);
+  const [stone, slate] = await Promise.all([
+    film?.wall ? null : loadTexture('castle_wall_1k.jpg', { repeat: 2 }),
+    film?.slate ? null : loadTexture('slate_roof_1k.jpg', { repeat: 3 }),
   ]);
   const grass = await loadTexture('grass_1k.jpg', { repeat: 120 });
-  const mats = makeMaterials({ stone, slate, wood });
+  const mats = makeMaterials({ stone, slate, wood, film });
 
   const env = new Environment(scene, { renderer, windowMat: mats.window });
   await env.setTime('day');
@@ -135,7 +137,7 @@ async function boot() {
       hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t);
     },
   });
-  quality.applyTier(TIER.HIGH);
+  quality.applyTier(quality.tier);                 // HIGH unless ?q= pins a tier
   // One frame through the pipeline; on any throw, fall back to renderer.render for good.
   function renderFrame() {
     if (usePost) {

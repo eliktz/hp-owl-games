@@ -4,6 +4,7 @@
 // drives the walkable doorway "portals" (stroll room->room, or back out to the grounds).
 import { Color } from 'three';
 import { ensureTex } from './interior-kit.js';
+import { filmInterior } from './materials.js';
 import { BUILDERS, FLOOR_Y } from './rooms.js';
 
 export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot, onEnter, onExit }) {
@@ -17,10 +18,13 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
   async function enter(id) {
     const build = BUILDERS[id]; if (!build) return;
     const my = ++gen;
-    await ensureTex();                        // load stone/wood maps so rooms aren't flat grey
+    const tex = await ensureTex();            // load stone/wood maps so rooms aren't flat grey
     if (my !== gen) return;                   // superseded before we built anything
     const r = await build();
     if (my !== gen) { disposeRoom(r); return; } // a newer enter()/exit() won: drop this room
+    // Film stone: honey ashlar walls + flagstone floors, swapped in before the first frame.
+    try { await filmInterior(r.group, tex?.wall); } catch (e) { console.warn('[interiors] film stone skipped -', e && e.message || e); }
+    if (my !== gen) { disposeRoom(r); return; }
     if (active) teardown();
     active = r; active.id = id;
     scene.add(r.group);

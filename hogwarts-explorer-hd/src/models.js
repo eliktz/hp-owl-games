@@ -3,7 +3,7 @@
 // shared GLTFLoader wired with the Meshopt decoder, plus a tiny cache so each file is
 // fetched once and cloned per use. If a file is missing the game still runs — callers
 // get null and fall back to the procedural look.
-import { Box3, Vector3, TextureLoader, SRGBColorSpace } from 'three';
+import { Box3, Vector3, TextureLoader, SRGBColorSpace, NoColorSpace } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
@@ -143,8 +143,9 @@ export async function loadAnimated(name, alive) {
 // fallback: the .ktx2 through the game's KTX2 loader when it is available, else (or when it
 // fails or never settles) the .webp. Set up for glTF UVs (flipY false, sRGB). Null on failure.
 // `preferWebp` skips the KTX2 try (e.g. the model itself already had to fall back to WebP).
-export function loadTexture(stem, { preferWebp = false } = {}) {
-  const key = stem + (preferWebp ? '#webp' : '');
+// `linear` is for data maps (normal maps): no sRGB decode, and its own cache entry.
+export function loadTexture(stem, { preferWebp = false, linear = false } = {}) {
+  const key = stem + (preferWebp ? '#webp' : '') + (linear ? '#lin' : '');
   if (_texCache.has(key)) return _texCache.get(key);
   const p = (async () => {
     const v = (await manifest()).v, q = v ? '?v=' + encodeURIComponent(v) : '';
@@ -157,7 +158,7 @@ export function loadTexture(stem, { preferWebp = false } = {}) {
     for (const t of tries) {
       try {
         const tex = await withTimeout(t(), LOAD_TIMEOUT_MS, 'timed out after ' + LOAD_TIMEOUT_MS / 1000 + ' s');
-        tex.flipY = false; tex.colorSpace = SRGBColorSpace; tex.needsUpdate = true;
+        tex.flipY = false; tex.colorSpace = linear ? NoColorSpace : SRGBColorSpace; tex.needsUpdate = true;
         if (why.length) { _status.set('tex:' + stem, 'ok via webp (' + why.join('; ') + ')'); console.warn('[models] texture', stem, 'via WebP -', why.join('; ')); }
         return tex;
       } catch (e) { why.push(String(e && e.message || e)); }
