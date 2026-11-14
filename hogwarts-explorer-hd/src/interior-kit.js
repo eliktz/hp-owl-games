@@ -6,6 +6,7 @@ import {
   Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, ConeGeometry,
   CircleGeometry, MeshStandardMaterial, Color, DoubleSide, RepeatWrapping, InstancedMesh, Object3D, SRGBColorSpace,
 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadTexture } from './assets.js';
 
 let _tex = null;
@@ -78,9 +79,15 @@ export function ceiling(group, w, d, y, color = 0x3c3850) {
 export function column(group, x, z, h, r = 0.5) {
   const g = new Group(); g.position.set(x, 0, z);
   const m = stoneMat(0.6, h / 3, 0x7d7870);
-  const shaft = new Mesh(new CylinderGeometry(r, r * 1.1, h, 12), m); shaft.position.y = h / 2; shaft.castShadow = true; g.add(shaft);
-  g.add(new Mesh(new CylinderGeometry(r * 1.5, r * 1.7, 0.5, 12), m)).position.y = 0.25;
-  g.add(new Mesh(new CylinderGeometry(r * 1.6, r * 1.2, 0.5, 12), m)).position.y = h - 0.25;
+  // Shaft + base + capital share one material, so they are ONE merged mesh (one draw call per
+  // column). (This used to be `g.add(base).position.y = ...`: add() returns the GROUP, which
+  // lifted every column up to the ceiling with its base and capital stacked at the shaft foot.)
+  const geo = mergeGeometries([
+    new CylinderGeometry(r, r * 1.1, h, 12).translate(0, h / 2, 0),
+    new CylinderGeometry(r * 1.5, r * 1.7, 0.5, 12).translate(0, 0.25, 0),
+    new CylinderGeometry(r * 1.6, r * 1.2, 0.5, 12).translate(0, h - 0.25, 0),
+  ]);
+  const shaft = new Mesh(geo, m); shaft.castShadow = true; shaft.receiveShadow = true; g.add(shaft);
   group.add(g); return g;
 }
 
@@ -157,10 +164,13 @@ export function window2(group, x, y, z, rotY = 0, hue = 0x7fb0ff, glow = 0.42) {
   // Tall arched stained glass. Kept at a gentle emissive so it reads as lit coloured glass
   // (not a blown-out white blob) — a dark stone surround + mullion cross frames the pane.
   const g = new Group(); g.position.set(x, y, z); g.rotation.y = rotY;
-  const surround = new Mesh(new BoxGeometry(2.9, 7.4, 0.3), MAT.dark); surround.position.set(0, 0.2, -0.12); g.add(surround);
+  // The surround sits wholly BEHIND the pane (its front face used to be 3 cm in front of the
+  // glass, which hid the pane completely); the mullion bars sit just in front of it.
+  const surround = new Mesh(new BoxGeometry(2.9, 7.4, 0.3), MAT.dark); surround.position.set(0, 0.2, -0.17); g.add(surround);
   const pane = new Mesh(new PlaneGeometry(2.2, 5), emissive(hue, glow)); pane.material.side = DoubleSide; g.add(pane);
-  g.add(new Mesh(new BoxGeometry(0.16, 5, 0.1), MAT.dark));
-  for (const yy of [-1.5, 0, 1.5]) g.add(new Mesh(new BoxGeometry(2.2, 0.14, 0.1), MAT.dark)).position.y = yy;
+  const mullion = new Mesh(new BoxGeometry(0.16, 5, 0.1), MAT.dark); mullion.position.z = 0.05; g.add(mullion);
+  // (set each bar's transform, then add: `g.add(bar).position.y = yy` moved the whole window)
+  for (const yy of [-1.5, 0, 1.5]) { const bar = new Mesh(new BoxGeometry(2.2, 0.14, 0.1), MAT.dark); bar.position.set(0, yy, 0.05); g.add(bar); }
   // Arched top as a flat half-disc coplanar with the pane (a 3D cone read as a torn triangle
   // at grazing angles). The dark surround behind it frames the arch.
   const top = new Mesh(new CircleGeometry(1.1, 18, 0, Math.PI), emissive(hue, glow)); top.material.side = DoubleSide;
@@ -182,7 +192,9 @@ export function banner(group, x, y, z, color, rotY = 0, { lift = 0, crestGlow = 
   const cloth = new Mesh(new PlaneGeometry(2.4, 5.5), new MeshStandardMaterial({ color: cc, roughness: 0.85, side: DoubleSide,
     emissive: cc.clone(), emissiveIntensity: lift ? 0.22 : 0 })); g.add(cloth);
   const crest = new Mesh(new PlaneGeometry(1.4, 1.4), emissive(0xd9b24a, crestGlow)); crest.material.side = DoubleSide; crest.position.z = 0.02; g.add(crest);
-  g.add(new Mesh(new CylinderGeometry(0.07, 0.07, 2.8, 6), MAT.gold)).rotation.z = Math.PI / 2;
+  // the gold hanging rod across the top of the cloth (`g.add(rod).rotation.z = ...` used to turn
+  // the whole banner on its side)
+  const rod = new Mesh(new CylinderGeometry(0.07, 0.07, 2.8, 6), MAT.gold); rod.rotation.z = Math.PI / 2; rod.position.set(0, 2.75, 0.03); g.add(rod);
   group.add(g); return g;
 }
 

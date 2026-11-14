@@ -28,8 +28,13 @@ export function headTable(group, x, z, span = 24) {
   const cloth = new Mesh(new BoxGeometry(2.5, 0.5, span), new MeshStandardMaterial({ color: 0x7a1020, roughness: 0.88 }));
   cloth.position.set(0.2, 1.1, 0); g.add(cloth);
   const chair = new Group(); chair.position.set(-0.6, 0.5, 0);
-  chair.add(new Mesh(new BoxGeometry(1.3, 0.16, 1.1), MAT.gold)).position.set(0, 1.4, 0);
-  const back = new Mesh(new BoxGeometry(1.3, 2.4, 0.16), MAT.gold); back.position.set(0, 2.4, -0.5); chair.add(back);
+  // The headmaster's tall golden chair stands BEHIND the table (+x, the wall side once the hall
+  // turns the table to face the doors), seat tucked under the table top, back against the wall.
+  // (It was `chair.add(seat).position.set(...)`: add() returns the parent, so the seat sank into
+  // the table and the back stood up through the middle of it as a lone golden plank.)
+  chair.position.set(1.9, 0.5, 0);
+  const seat = new Mesh(new BoxGeometry(1.1, 0.16, 1.3), MAT.gold); seat.position.set(0, 0.55, 0); chair.add(seat);
+  const back = new Mesh(new BoxGeometry(0.16, 2.6, 1.3), MAT.gold); back.position.set(0.55, 1.75, 0); chair.add(back);
   g.add(chair); group.add(g); return g;
 }
 
@@ -50,9 +55,12 @@ export function bookshelf(group, x, z, faceX = 1, rows = 5) {
 export function armchair(group, x, z, rotY = 0, color = 0x6a1420) {
   const g = new Group(); g.position.set(x, 0, z); g.rotation.y = rotY;
   const m = new MeshStandardMaterial({ color, roughness: 0.96 });
-  g.add(new Mesh(new BoxGeometry(1.5, 0.6, 1.4), m)).position.set(0, 0.55, 0);      // seat
-  g.add(new Mesh(new BoxGeometry(1.5, 1.6, 0.4), m)).position.set(0, 1.1, -0.5);    // back
-  for (const sx of [-0.65, 0.65]) g.add(new Mesh(new BoxGeometry(0.3, 1.1, 1.4), m)).position.set(sx, 0.8, 0);
+  // (each part is placed, then added: `g.add(part).position.set(...)` moved the whole chair, so
+  // all three chairs used to pile up in one heap in the middle of the room)
+  const part = (w, h, d, x, y, z) => { const p = new Mesh(new BoxGeometry(w, h, d), m); p.position.set(x, y, z); g.add(p); };
+  part(1.5, 0.6, 1.4, 0, 0.55, 0);                                                 // seat
+  part(1.5, 1.6, 0.4, 0, 1.1, -0.5);                                               // back
+  for (const sx of [-0.65, 0.65]) part(0.3, 1.1, 1.4, sx, 0.8, 0);                 // arms
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   group.add(g); return g;
 }
@@ -62,9 +70,12 @@ export function armchair(group, x, z, rotY = 0, color = 0x6a1420) {
 export function fireplace(group, x, z, rotY = 0) {
   const g = new Group(); g.position.set(x, 0, z); g.rotation.y = rotY;
   const stone = MAT.stone;
-  g.add(new Mesh(new BoxGeometry(5, 4, 1), stone)).position.set(0, 2, 0);           // back
-  for (const sx of [-2, 2]) g.add(new Mesh(new BoxGeometry(1, 3.4, 1.4), stone)).position.set(sx, 1.7, 0.4);
-  g.add(new Mesh(new BoxGeometry(5.6, 0.5, 1.8), MAT.dark)).position.set(0, 3.5, 0.5); // mantel
+  // (placed, then added: `g.add(part).position.set(...)` used to hoist the whole hearth 3.5 m up
+  // into the middle of the room)
+  const part = (w, h, d, mat, x, y, z) => { const p = new Mesh(new BoxGeometry(w, h, d), mat); p.position.set(x, y, z); g.add(p); };
+  part(5, 4, 1, stone, 0, 2, 0);                                                   // back
+  for (const sx of [-2, 2]) part(1, 3.4, 1.4, stone, sx, 1.7, 0.4);               // jambs
+  part(5.6, 0.5, 1.8, MAT.dark, 0, 3.5, 0.5);                                      // mantel
   const fire = new Mesh(new BoxGeometry(2.4, 1.2, 0.4), emissive(0xff7a1a, 1.8));
   fire.position.set(0, 1.0, 0.55); g.add(fire);
   // a few small ember logs; no big glow ball — the fire box + bloom carry the warmth
@@ -78,12 +89,15 @@ export function fireplace(group, x, z, rotY = 0) {
 export function archway(group, x, z, rotY = 0, { w = 3.4, h = 5 } = {}) {
   const g = new Group(); g.position.set(x, 0, z); g.rotation.y = rotY;
   const stone = MAT.stone;
-  for (const sx of [-(w / 2 + 0.4), w / 2 + 0.4]) g.add(new Mesh(new BoxGeometry(0.8, h, 1.2), stone)).position.set(sx, h / 2, 0);
-  g.add(new Mesh(new BoxGeometry(w + 1.6, 0.8, 1.2), stone)).position.set(0, h + 0.4, 0);
+  // (placed, then added: `g.add(post).position.set(...)` used to float every archway in the
+  // middle of its room at lintel height)
+  for (const sx of [-(w / 2 + 0.4), w / 2 + 0.4]) { const post = new Mesh(new BoxGeometry(0.8, h, 1.2), stone); post.position.set(sx, h / 2, 0); g.add(post); }
+  const lintel = new Mesh(new BoxGeometry(w + 1.6, 0.8, 1.2), stone); lintel.position.set(0, h + 0.4, 0); g.add(lintel);
   const arch = new Mesh(new TorusGeometry(w / 2 + 0.4, 0.4, 8, 16, Math.PI), stone);
   arch.position.set(0, h, 0); g.add(arch);
   const dark = new Mesh(new PlaneGeometry(w, h), new MeshStandardMaterial({ color: 0x0a0710, side: DoubleSide }));
-  dark.position.set(0, h / 2, -0.05); g.add(dark);
+  // just in front of the wall plane: arches set against a solid wall (x/z = wall face) z-fought it at -0.05
+  dark.position.set(0, h / 2, 0.1); g.add(dark);
   group.add(g); return g;
 }
 
