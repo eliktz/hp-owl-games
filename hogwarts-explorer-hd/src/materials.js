@@ -59,7 +59,7 @@ export function makeMaterials(maps = {}) {
   });
   // Slate: dark blue-grey film roofs (#4a5266 family), a touch of sheen.
   const slate = film.slate ? new MeshStandardMaterial({
-    map: film.slate.col, normalMap: film.slate.nor || null, normalScale: NRM(1.1),
+    map: film.slate.col, normalMap: film.slate.nor || null, normalScale: NRM(1.1).multiply({ x: 1, y: -1 }),   // V is flipped on slate (castle.js metricUV)
     color: 0x6a7590, roughness: 0.76, metalness: 0.0,
   }) : new MeshStandardMaterial({
     map: maps.slate || slateTexture(1),
@@ -91,7 +91,7 @@ const _swap = new Map();
 // The room colour is first pulled 45% toward its own grey, so a strongly orange wallColor
 // (the Great Hall's 0xb88c60) reads as candle-lit sandstone rather than red brick; the tint
 // then lifts it to honey (max albedo stays well under 0.84).
-const ASHLAR_TINT = new Color(1.22, 1.08, 0.86), ASHLAR_KEEP = 0.55;
+const ASHLAR_TINT = new Color(1.22, 1.08, 0.86), ASHLAR_KEEP = 0.3;   // keep less of the room colour: the Great Hall's orange read as brick
 const FLOOR_TINT = new Color(0.78, 0.76, 0.74);
 const _n = new Vector3();
 function surfaceKind(o) {
@@ -105,8 +105,8 @@ function filmMaterial(src, kind, film) {
   if (m) return m;
   const set = kind === 'floor' ? (film.wall || film.ashlar) : (film.ashlar || film.wall);
   const rep = src.map.repeat, off = src.map.offset;
-  // Floors: the rubble map at 0.6x the old tiling reads as big hall flagstones.
-  const s = kind === 'floor' ? 0.6 : 1.0;
+  // Floors: the rubble map at the old tiling (crisper flagstones).
+  const s = 1.0;   // 0.6x smeared the flagstones into a blur at classroom distance
   const st = uv().mul(vec2(rep.x * s, rep.y * s)).add(vec2(off.x, off.y));
   m = new MeshStandardNodeMaterial();
   for (const k of ['roughness', 'metalness', 'side', 'transparent', 'opacity', 'depthWrite', 'envMapIntensity', 'emissiveIntensity', 'fog', 'flatShading'])

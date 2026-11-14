@@ -16,11 +16,11 @@ export const DOOR = { x: 0, z: 20, face: 1, enterZ: 22, enterR: 5, autoR: 2.4, o
 // got two stones per course). Rescale each primitive's UVs to metres / tile so the film
 // stone and slate keep a true size everywhere; done at build time, so the merged meshes,
 // draw calls and triangle counts are unchanged.
-function metricUV(geo, scale, tile) {
+function metricUV(geo, scale, tile, flipV = false) {   // flipV: slate courses must overlap downward (film maps use flipY=false)
   const uvA = geo.attributes.uv, p = geo.parameters || {};
   if (!uvA || !tile) return;
   const [sx, sy, sz] = scale, a = uvA.array;
-  const mul = (from, to, ku, kv) => { for (let i = from; i < to; i++) { a[i * 2] *= ku; a[i * 2 + 1] *= kv; } };
+  const mul = (from, to, ku, kv) => { if (flipV) kv = -kv; for (let i = from; i < to; i++) { a[i * 2] *= ku; a[i * 2 + 1] *= kv; } };
   if (geo.type === 'BoxGeometry') {
     const w = p.width * sx, h = p.height * sy, d = p.depth * sz;
     const face = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];   // +x -x +y -y +z -z
@@ -35,7 +35,7 @@ function metricUV(geo, scale, tile) {
     const around = seg * 2 * r * Math.sin(Math.PI / seg);                // polygon perimeter
     const slant = Math.hypot(p.height * sy, (rb - rt) * Math.max(sx, sz));
     const side = (seg + 1) * (hs + 1);
-    mul(0, side, around / tile, slant / tile);
+    mul(0, side, Math.max(1, Math.round(around / tile)), slant / tile);   // whole tiles around: no seam where U wraps
     mul(side, uvA.count, 2 * r / tile, 2 * r / tile);                    // caps
   } else return;
   uvA.needsUpdate = true;
@@ -46,7 +46,7 @@ class Builder {
   constructor(tiles = {}) { this.buckets = { stone: [], slate: [], window: [] }; this.colliders = []; this._o = new Object3D(); this.tiles = tiles; }
   add(key, geo, { pos = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
     const o = this._o;
-    metricUV(geo, scale, this.tiles[key]);
+    metricUV(geo, scale, this.tiles[key], key === 'slate');
     o.position.set(...pos); o.rotation.set(...rot); o.scale.set(...scale); o.updateMatrix();
     geo.applyMatrix4(o.matrix);
     this.buckets[key].push(geo);
