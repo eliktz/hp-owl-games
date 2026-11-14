@@ -130,6 +130,10 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   // are raked steps 16..18 m up; four rows of four fans each = 192 = the crowd's instance count.
   const TOWERS = [[4.1, -26.55], [-5.25, -26.65], [-15.35, -27.25], [15.05, -27.95], [27.0, -24.3], [-29.1, -21.35],
     [-3.55, 26.8], [5.75, 26.95], [-14.35, 28.25], [15.65, 27.7], [28.6, 23.5], [-26.95, 24.45]];
+  // Each tower's house (read from q_pitch_01's banner texture strips, 14 Nov: round the bowl they repeat
+  // G, S, H, R) and its fans' colour - Elik (14 Nov): every tower's crowd wears that tower's house colours.
+  const TOWER_HOUSE = ['R', 'H', 'S', 'G', 'S', 'G', 'S', 'G', 'H', 'R', 'H', 'R'];
+  const HOUSE_FAN = { G: 0xb8322e, R: 0x2a4f9e, H: 0xe0b52c, S: 0x2a7a4a };
   const towerYaw = (x, z) => {   // facing inward along the stadium's normal
     const ex = Math.abs(x) > WALL.straight ? (Math.abs(x) - WALL.straight) * Math.sign(x) / ((WALL.ax - WALL.straight) ** 2) : 0;
     return Math.atan2(-ex, -z / (WALL.az * WALL.az));
@@ -137,8 +141,8 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   const SEATS = [[0.84, 16.1], [0.24, 16.6], [-0.36, 17.1], [-0.96, 17.7]];   // [metres forward of the tower centre, seat height]
   function towerCrowd() {
     CROWD.length = 0;
-    for (const [tx, tz] of TOWERS) {
-      const a = towerYaw(tx, tz), fx = Math.sin(a), fz = Math.cos(a), teamCol = tz < 0 ? 0xb8322e : 0x2a7a4a;
+    for (const [ti, [tx, tz]] of TOWERS.entries()) {
+      const a = towerYaw(tx, tz), fx = Math.sin(a), fz = Math.cos(a), teamCol = HOUSE_FAN[TOWER_HOUSE[ti]];
       for (const [u, sy] of SEATS) for (const l of [-1.26, -0.42, 0.42, 1.26]) {
         CROWD.push({ x: C.x + tx + fx * u + fz * l, y: gy + PITCH_LIFT + sy + 0.41, z: C.z + tz + fz * u - fx * l, ph: Math.random() * 7,
           c: CROWD.length % 5 === 0 ? 0xffd76a : (Math.random() < 0.7 ? teamCol : 0xf2e2c8) });
