@@ -96,8 +96,9 @@ function entranceHall() {
   const g = new Group(); const cols = []; const W = 16, D = 24, H = 11;
   shell(g, cols, W, D, H, { open: ['w', 'e'] });            // west->Great Hall, east->Library
   carpet(g, 0, 2, 4.4, D - 4);                              // welcome runner toward the stairs
-  archway(g, -W / 2 + 0.3, 2, Math.PI / 2);                 // to Great Hall
-  archway(g, W / 2 - 0.3, 2, -Math.PI / 2);                 // to Library
+  // the arches frame the shell's real doorway gaps (centred on z 0, like their portals)
+  archway(g, -W / 2 + 0.3, 0, Math.PI / 2);                 // to Great Hall
+  archway(g, W / 2 - 0.3, 0, -Math.PI / 2);                 // to Library
   // a short grand staircase at the north end (climb toward the gallery)
   for (let s = 0; s < 6; s++) {
     const step = new Mesh(new BoxGeometry(8, 0.4, 1.2), MAT.stone);
@@ -113,8 +114,10 @@ function entranceHall() {
   const flames = [];
   const portals = [
     { x: 0, z: D / 2 - 1.2, r: 1.6, to: 'out' },            // south doors -> grounds
-    { x: -W / 2 + 1.2, z: 2, r: 1.5, to: 'greathall' },
-    { x: W / 2 - 1.2, z: 2, r: 1.5, to: 'library' },
+    // centred on the doorway gaps + arches (z 0): at z 2 a child walking through the middle of the
+    // arch missed the portal and strolled out into the void
+    { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'greathall' },
+    { x: W / 2 - 1.2, z: 0, r: 1.5, to: 'library' },
     { x: 0, z: -D / 2 + 3.4, r: 1.7, to: 'staircase' },      // up the steps -> the grand staircase hall
   ];
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
@@ -146,8 +149,11 @@ function greatHall() {
   for (let z = -11; z <= 13; z += 3) for (const ax of [-2.2, 2.2]) {
     const c = candle(ax, 7.2 + Math.sin(z * 0.6) * 0.5, z); g.add(c); flames.push(c);
   }
-  for (let z = -D / 2 + 4; z <= D / 2 - 4; z += 7) { column(g, -W / 2 + 0.9, z, H); column(g, W / 2 - 0.9, z, H); }
-  for (const sx of [-W / 2 + 0.2, W / 2 - 0.2]) for (const z of [-9, 0, 9])
+  // Columns stand between the windows and clear of the banners (z ±7) and the west dungeon
+  // arch (z 3.5), which takes the west column's place at z 4.5.
+  for (const z of [-13.5, -4.5, 4.5, 13.5]) { if (z !== 4.5) column(g, -W / 2 + 0.9, z, H); column(g, W / 2 - 0.9, z, H); }
+  // windows hang 6 cm proud of the wall face (they used to be buried 30 cm inside the wall)
+  for (const sx of [-W / 2 + 0.56, W / 2 - 0.56]) for (const z of [-10, 0, 10])   // (±10: clear of the banners at ±7)
     window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a, 0.8);
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2, { lift: 0.12, crestGlow: 0.7 }));
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
@@ -168,7 +174,10 @@ function library() {
   const g = new Group(); const cols = []; const W = 22, D = 22, H = 10;
   shell(g, cols, W, D, H, { open: ['w'] });                // west doorway -> Entrance Hall
   archway(g, -W / 2 + 0.3, 0, Math.PI / 2);
-  for (let r = 0; r < 4; r++) for (const sx of [-8, 8]) bookshelf(g, sx, -8 + r * 5.2, sx > 0 ? 1 : -1);
+  // east wall: four shelves; west wall: the same four pushed apart so the doorway arch (z 0)
+  // stays visible between them
+  for (let r = 0; r < 4; r++) bookshelf(g, 8, -8 + r * 5.2, 1);
+  for (const z of [-8.2, -3.8, 3.8, 8.2]) bookshelf(g, -8, z, -1);
   const flames = [];
   for (const [tx, tz] of [[0, -4], [0, 4]]) {
     longTable(g, tx, tz, 7, 0x2b5a8a);
@@ -200,7 +209,8 @@ function commonRoom() {
   armchair(g, -3.6, -2.4, Math.PI - 0.35); armchair(g, 3.6, -2.4, Math.PI + 0.35); armchair(g, 0, -3.4, Math.PI);
   bookshelf(g, -W / 2 + 0.8, 5, 1); bookshelf(g, W / 2 - 0.8, 5, -1);
   for (const [x, z] of [[-W / 2 + 0.4, 2], [W / 2 - 0.4, 2]]) torch(g, x, 3.4, z);
-  banner(g, 0, 3.6, -D / 2 + 0.3, HOUSE[0]);   // kept clear of the low (H=7) ceiling
+  // over the mantel, just proud of the wall (it used to hang inside the wall behind the hearth)
+  banner(g, 0, 6.5, -D / 2 + 0.56, HOUSE[0]).scale.setScalar(0.8);
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'commonroom', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
     update: (dt, t) => {
@@ -284,7 +294,7 @@ function classrooms() {
   shell(g, cols, W, D, H, { open: ['s'], floorColor: 0xa39884, floorTile: 3 });
   [[-9, 0x223a6a], [0, 0x6a1f2c], [9, 0x2a4a3a]].forEach(([x, c]) => carpet(g, x, -2.5, 7, 7, c));
   for (const x of [-4.5, 4.5]) { column(g, x, -D / 2 + 1.2, H, 0.4); column(g, x, 3, H, 0.4); }
-  for (const x of [-9, 0, 9]) window2(g, x, 5.4, -D / 2 + 0.25, 0, x < 0 ? 0x9fc0ff : x > 0 ? 0x9fe8b0 : 0xffc98a).scale.setScalar(0.62);
+  for (const x of [-9, 0, 9]) window2(g, x, 5.4, -D / 2 + 0.54, 0, x < 0 ? 0x9fc0ff : x > 0 ? 0x9fe8b0 : 0xffc98a).scale.setScalar(0.62);
   for (const [x, z] of [[-W / 2 + 0.4, -3], [W / 2 - 0.4, -3], [-W / 2 + 0.4, 5], [W / 2 - 0.4, 5]]) torch(g, x, 3.6, z);
   const ch = chandelier(g, 0, H - 1.4, 1.5);
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {
