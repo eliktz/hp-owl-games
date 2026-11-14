@@ -1,6 +1,6 @@
 {
   "_note": "Fan-made Sketchfab models, optimised for the web (Meshopt + 1024 WebP). See MODELS-CREDITS.md for attribution and the usage disclaimer. Personal, non-commercial family use only.",
-  "v": "20261114a",
+  "v": "20261114b",
   "models": {
     "castle":    { "file": "castle.glb",    "title": "The Great Hall in Hogwarts", "author": "s23383",      "url": "https://sketchfab.com/3d-models/the-great-hall-in-hogwarts-harry-potter-aa65c92e370f464ba81080cae44ab71f", "license": "CC-BY-4.0" },
     "office":    { "file": "harry.glb",     "title": "Dumbledore's Office",        "author": "zack_graham",  "url": "https://sketchfab.com/3d-models/dumbledores-office-c5fdffa78c9442bb93a88c386d4ad53d", "license": "CC-BY-4.0" },
