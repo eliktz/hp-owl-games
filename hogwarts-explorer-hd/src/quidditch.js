@@ -155,7 +155,10 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   function buildColliders() {
     if (!colliders) return;
     for (const [tx, tz] of TOWERS) addBox(pitchCols, C.x + tx, C.z + tz, 1.95, 1.95, -towerYaw(tx, tz));
-    addBox(pitchCols, C.x - 0.3, C.z + 30.7, 5.4, 2.7, 0);                       // the changing hut
+    // the changing hut (back face z +33.4); its box reaches forward to the wall's outer face so the gap
+    // between the wall, the two south towers and the hut is filled - there was a pocket there in which
+    // the hero could be shut in once the one-way wall turned solid again behind them
+    { const hz0 = WALL.az + WALL.t, hz1 = 33.4; addBox(pitchCols, C.x - 0.3, C.z + (hz0 + hz1) / 2, 5.4, (hz1 - hz0) / 2, 0); }
     const r = WALL.t / 2;
     for (const s of [-1, 1]) addBox(wallCols, C.x, C.z + s * (WALL.az + r), WALL.straight, r, 0);
     const N = 14, ea = WALL.ax - WALL.straight + r, eb = WALL.az + r;           // each end: N chords of the ellipse
