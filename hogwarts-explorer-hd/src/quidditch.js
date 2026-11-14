@@ -1245,7 +1245,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
       // the ball itself: rolls as it flies, a short red flash on a bump (iron-dark otherwise)
       b.pos.copy(ballAt()); const sp = Math.hypot(pv.x, pv.z);
       b.g.rotation.y += dt * 1.5; b.g.rotation.x += sp * dt * 1.2;
-      if (S.flash > 0) S.flash -= dt; glow(b, S.flash > 0 ? 1.8 * S.flash / 0.35 : 0);
+      if (S.flash > 0) S.flash -= dt; glow(b, S.flash > 0 ? 0.9 * S.flash / 0.35 : 0);   // a soft ember, never Quaffle-red
       if (S.oopsCd > 0) S.oopsCd -= dt;
       const left = S.len - S.t; setClock(left);
       if (S.over) return;
