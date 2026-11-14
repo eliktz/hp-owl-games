@@ -406,7 +406,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     #qPick .p{padding:8px 16px 10px} #qPick .ti{font-size:26px;margin-bottom:6px}
     #qPick .body{display:flex;align-items:center;justify-content:center;gap:14px}
     #qPick .grid{grid-template-columns:repeat(3,140px);gap:8px} #qPick .card{width:140px;height:140px;border-radius:22px}
-    #qPick .card .em{font-size:50px} #qPick .card .nm{font-size:24px} #qPick .card .sr{font-size:17px}
+    #qPick .card .em{font-size:50px} #qPick .card .nm{font-size:24px} #qPick .card .sr{font-size:17px} #qPick .card{overflow:hidden}
     #qPick .row{flex-direction:column;margin-top:0} #qPick .all,#qPick .go{min-height:60px}
   }
   @media (max-height:520px){
@@ -463,7 +463,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     bludgers.forEach((b, i) => { b.state = 'roam'; b.t = 5 + i * 4; b.victim = null; b.pos.set(C.x + (i ? 14 : -14), gy + 9, C.z + (i ? -10 : 10)); glow(b, 0); });
     throwB.textContent = ROLE.btn || '🤾'; throwB.classList.remove('ready'); warn.scale.setScalar(1);
     if (ROLE.id === 'beater') { bat.visible = true; poseBat(-1); } else dropBat();
-    snitch.visible = false; sparkle.visible = false; warn.visible = false; aimRing.visible = false; hoopGlow.visible = false; dots.visible = false; arrow.classList.remove('on');
+    snitch.visible = false; sparkle.visible = false; warn.visible = false; aimRing.visible = false; hoopGlow.visible = false; dots.visible = false; arrow.classList.remove('on'); arrow.firstChild.nodeValue = '✨'; S.nearSeeker = null;
     elA.textContent = '0'; elB.textContent = '0'; elSn.classList.remove('on'); elMe.textContent = CREST[st.house] || '🦁';
     // `extra` flyers only appear as real riders: their code-chibi fallback would cost too many draw calls
     for (const f of flyers) f.visible = ROLE.cast.includes(f) || (!!ROLE.extra && ROLE.extra.includes(f) && !!f.userData.body.userData.model);
@@ -479,7 +479,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   const PICK = {
     chaser: { emoji: '🔴', he: 'רוֹדֵף' }, beater: { emoji: '🏏', he: 'חוֹבֵט' },
     keeper: { emoji: '🧤', he: 'שׁוֹעֵר' }, seeker: { emoji: '✨', he: 'מְחַפֵּשׂ' },
-    snitch: { emoji: '🌟', he: 'סְנִיץ׳', say: 'הַסְּנִיץ׳ הַזָּהוֹב' }, bludger: { emoji: '⚫', he: 'בְּלַדְגֶּר', say: 'בְּלַדְגֶּר, הַכַּדּוּר הַשָּׁחֹר' },
+    snitch: { emoji: '🌟', he: 'סְנִיץ׳', say: 'הַסְּנִיץ׳ הַזָּהוֹב' }, bludger: { emoji: '⚫', he: 'מְרַבִּיצָן', say: 'מְרַבִּיצָן, הַכַּדּוּר הַשָּׁחֹר' },
   };
   let pickSel = null;
   const pickOpen = () => pickOv.classList.contains('on');
@@ -560,7 +560,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   }
   // a helper goal (Seeker / Keeper matches): smaller fuss than the child's own goal
   function helperGoal(mine) {
-    if (mine) { S.a += 10; elA.textContent = S.a; fun.toast('🥅', '+10', 900); roar(false); }
+    if (mine) { S.a += 10; elA.textContent = S.a; if (!ROLE || !ROLE.solo) fun.toast('🥅', '+10', 900); roar(false); }   // solo modes hide the score: no stray +10 next to the bonk toast
     else { S.b += 10; elB.textContent = S.b; fun.sfx.tone(300, 0.3, 'sawtooth', 0.08, 0, 180); }
   }
   function releaseSnitch() {
@@ -745,8 +745,8 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
       if (!far || S.snTarget.distanceTo(P) > 14) break;
     }
   }
-  function placeArrow() {
-    tmp.copy(snitch.position).project(camera);
+  function placeArrow(at = snitch.position) {
+    tmp.copy(at).project(camera);
     let x = tmp.x, y = tmp.y; const behind = tmp.z > 1;
     if (behind) { x = -x; y = -y; }
     const onScreen = !behind && Math.abs(x) < 0.85 && Math.abs(y) < 0.8;
@@ -1172,7 +1172,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
           }
           clampArena(f.position); f.position.y = clamp(f.position.y, gy + 2.5, gy + 17);
         }
-        const dd = handsOf(f, tmp2).distanceTo(snitch.position); nearest = Math.min(nearest, dd);
+        const dd = handsOf(f, tmp2).distanceTo(snitch.position); if (dd < nearest) { nearest = dd; S.nearSeeker = f; }
         if (dd < SNITCH.catchR && S.t > 1) { snitchEnd(f); return; }
         if (dd < SNITCH.nearR) u.close = true;
         else if (u.close && dd > SNITCH.nearR + 2.5) {   // a close call, escaped: the crowd loves it
@@ -1180,7 +1180,10 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
           if (u.nearCd <= 0) { u.nearCd = 2; S.near++; roar(false); fun.toast('💨', 'אוֹלֶה!', 800); fun.sfx.tune([1568, 2093], 0.07, 'sine'); }
         }
       });
-      if (S.over) return;
+      if (S.over) { arrow.classList.remove('on'); return; }
+      // a Seeker closing in (often from behind, off-screen): a 🧹 arrow at the screen edge points at them
+      const warnOn = nearest < 7 && S.nearSeeker;
+      arrow.classList.toggle('on', !!warnOn); if (warnOn) { arrow.firstChild.nodeValue = '🧹'; placeArrow(S.nearSeeker.position); }
       setHint(left <= 10 ? '⏱ עוֹד קְצָת! אַל תִּתָּפְסוּ!' : nearest < 6 ? '⚡ מַהֵר! זַנְּקוּ!' : '🌟 בִּרְחוּ מֵהַמְחַפְּשִׂים!');
     },
   };
@@ -1211,7 +1214,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     endScreen(stars >= 2, stars, stars >= 3);
   }
   ROLES.bludger = {
-    id: 'bludger', he: 'בְּלַדְגֶּר', emoji: '⚫', hint0: '⚫ הִתְנַגְּשׁוּ בַּשַּׂחְקָנִים שֶׁלָּהֶם!', cast: [rival, keepA, keepB, mate, rivalSeeker],
+    id: 'bludger', he: 'מְרַבִּיצָן', emoji: '⚫', hint0: '⚫ הִתְנַגְּשׁוּ בַּשַּׂחְקָנִים שֶׁלָּהֶם!', cast: [rival, keepA, keepB, mate, rivalSeeker],
     action: null, fly: true, noHero: true, solo: true,
     flight: FLIGHT.bludger, boostT: 0.6, boostCd: 2.0, driftStop: 0, driftMax: 9,
     camK: { back: 8, boostBack: 9.5, up: 3.3, look: 1.2 },
