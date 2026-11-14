@@ -1,7 +1,10 @@
 // Renderer: WebGPURenderer with automatic WebGL2 fallback.
 // Add ?webgl=1 to the URL to force the WebGL2 backend (used by the test harness).
-import { WebGPURenderer, ACESFilmicToneMapping, PCFSoftShadowMap, SRGBColorSpace } from 'three';
+import { WebGPURenderer, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping, PCFSoftShadowMap, SRGBColorSpace } from 'three';
 import { BUDGET } from './config.js';
+
+// ?tmx=<k> scales every exposure environment.js sets (to compare tone curves at equal brightness).
+export const EXPOSURE_SCALE = (() => { try { const k = parseFloat(new URLSearchParams(location.search).get('tmx')); return k > 0 && k < 4 ? k : 1; } catch { return 1; } })();
 
 export async function createRenderer(canvas) {
   const params = new URLSearchParams(location.search);
@@ -20,7 +23,11 @@ export async function createRenderer(canvas) {
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, BUDGET.dprHigh));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.toneMapping = ACESFilmicToneMapping;
+  // ?tm=agx | aces | neutral tries another filmic curve (look-dev, integration step 9). It is
+  // set here once; post.js's RenderPipeline and the direct renderer.render path both apply
+  // renderer.toneMapping, so bloom and the no-post fallback stay consistent. Default: ACES.
+  const TM = { aces: ACESFilmicToneMapping, agx: AgXToneMapping, neutral: NeutralToneMapping };
+  renderer.toneMapping = TM[params.get('tm')] ?? ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.shadowMap.enabled = true;
