@@ -1254,7 +1254,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
         knock(f); S.bonks++; elPt.textContent = S.bonks * BLUDGER.pts; S.flash = 0.35;   // (S.a stays the helpers' Quaffle score)
         pv.multiplyScalar(-0.35);
         fun.sfx.boing(); fun.sfx.tone(140, 0.28, 'square', 0.14, 0, 70); fun.sfx.tone(95, 0.3, 'sine', 0.16, 0.03, 60);   // BONK
-        roar(false); fun.toast('💥', 'בּוֹנְק! +' + BLUDGER.pts, 900);
+        roar(false); fun.toast('💥', 'בּוֹנְק! \u2066+' + BLUDGER.pts + '\u2069', 900);   // (the number isolated LTR, else RTL shows '10+')
       }
       for (const f of OWN) {
         if (!f.visible || bodyOf(f, tmp2).distanceTo(me) > BLUDGER.hitR) continue;
