@@ -148,7 +148,7 @@ export function windowLight(group, specs, { slope = 1.15, strength = 1 } = {}) {
     quad(pools, [
       [cx - tx * hwp - s.nx * hl, 0.075, cz - tz * hwp - s.nz * hl], [cx + tx * hwp - s.nx * hl, 0.075, cz + tz * hwp - s.nz * hl],
       [cx + tx * hwp + s.nx * hl, 0.075, cz + tz * hwp + s.nz * hl], [cx - tx * hwp + s.nx * hl, 0.075, cz - tz * hwp + s.nz * hl],
-    ], [0, 0, 1, 0, 1, 1, 0, 1], s.c || 0xffd9a0, 0.42 * strength);
+    ], [0, 0, 1, 0, 1, 1, 0, 1], s.c || 0xffd9a0, 0.26 * strength);   // gentle: brighter pools bleached the house carpets
   }
   const meshes = [cards, pools].map((M) => {
     const g = new BufferGeometry();
