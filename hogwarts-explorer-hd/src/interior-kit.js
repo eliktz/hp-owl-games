@@ -185,7 +185,7 @@ function glassTex(style) {
   const sx = GPX / GW, sy = GPY / GH;
   x.fillStyle = LEAD; x.fillRect(0, 0, GPX, GPY);
   x.setTransform(sx, 0, 0, -sy, (GW / 2) * sx, GTOP * sy);   // draw in window metres, y up
-  const lw = 0.032;
+  const lw = 0.024;
   const shape = () => { x.beginPath(); x.moveTo(-1.1, -2.5); x.lineTo(1.1, -2.5); x.lineTo(1.1, 2.5); x.arc(0, 2.5, 1.1, 0, Math.PI); x.closePath(); };
   const vary = (hex, k = 0.1) => { const col = new Color(hex); const h = {}; col.getHSL(h); col.setHSL(h.h, h.s, Math.max(0, Math.min(1, h.l + (rnd() - 0.5) * k))); return '#' + col.getHexString(); };
   const lead = (w = lw) => { x.strokeStyle = LEAD; x.lineWidth = w; x.stroke(); };
@@ -255,6 +255,20 @@ function glassTex(style) {
   }
   x.restore();
   shape(); lead(lw * 1.5);                                       // outer came
+  // Age the glass (film look, not neon): pull the saturation down, deepen it, and add grime that
+  // gathers toward the edges and the bottom of the window.
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.globalCompositeOperation = 'saturation'; x.globalAlpha = 0.42; x.fillStyle = '#808080'; x.fillRect(0, 0, GPX, GPY);
+  x.globalCompositeOperation = 'multiply'; x.globalAlpha = 1;
+  const grime = x.createRadialGradient(GPX / 2, GPY * 0.45, GPX * 0.15, GPX / 2, GPY * 0.5, GPY * 0.62);
+  grime.addColorStop(0, '#f2e6cc'); grime.addColorStop(0.6, '#c9b894'); grime.addColorStop(1, '#6e6250');
+  x.fillStyle = grime; x.fillRect(0, 0, GPX, GPY);
+  for (let k = 0; k < 90; k++) {                                 // uneven old panes: soft darker blotches
+    const px = rnd() * GPX, py = rnd() * GPY, pr = 6 + rnd() * 22;
+    const b = x.createRadialGradient(px, py, 0, px, py, pr); b.addColorStop(0, 'rgba(120,105,80,0.55)'); b.addColorStop(1, 'rgba(255,255,255,1)');
+    x.fillStyle = b; x.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+  }
+  x.globalCompositeOperation = 'source-over';
   t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.anisotropy = 4;
   _glassTex.set(style, t);
   return t;
@@ -272,7 +286,7 @@ function glassMat(style, hue, glow) {
   }
   return m;
 }
-const GLASS_TIME = { night: 1.3, dusk: 1.1, day: 0.85 };
+const GLASS_TIME = { night: 1.15, dusk: 0.95, day: 0.6 };   // day: daylight through old glass, not a lamp
 // Stronger at night, softer by day (the room reads the outdoor time; constant if unknown),
 // with a slow faint shimmer so the glass feels alive.
 export function glassGlow(t = 0) {
