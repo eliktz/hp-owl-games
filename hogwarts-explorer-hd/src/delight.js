@@ -164,7 +164,8 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
       const k = Math.min(1, housePts(h.key) / 400), ph = 0.15 + k * 1.4;
       mk(G, new CylinderGeometry(0.22, 0.44, ph, 12), gemM, 0, 0.2 + ph / 2, 0);
       mk(G, new CylinderGeometry(0.44, 0.15, 0.7, 12), gemM, 0, 3.2, 0);
-      const label = mk(G, new PlaneGeometry(1.3, 1.3), new MeshBasicMaterial({ map: numTex(housePts(h.key), h.crest), transparent: true, side: DoubleSide }), 0, 4.7, 0);
+      const label = mk(G, new PlaneGeometry(1.3, 1.3), new MeshBasicMaterial({ map: numTex(housePts(h.key), h.crest), transparent: true, side: DoubleSide, depthWrite: false }), 0, 4.7, 0);
+      label.renderOrder = 3;   // after the additive wall wash (renderOrder 2): a depth-writing label hid the wash behind it as a dark square
       G.userData.light = { k: 'glow', c: h.gem, r: 2, a: 0.25 }; G.userData.house = h.key; G.userData.label = label;
       mergeStatic(G, [G], 'hourglass');   // brass caps + rods, and the two gem piles: one mesh each (the label stays its own)
       g.add(G);
