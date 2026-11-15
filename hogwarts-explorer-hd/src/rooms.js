@@ -427,7 +427,8 @@ function classrooms() {
   { const b = new SphereGeometry(0.08, 8, 6); b.scale(1, 1.2, 1); at(b, 0x7a9ab0, 2.4, 1.48, -6.8); }      // a small blue bird
   pile(-2.4, -6.9, 5);
   // Defence (x 9): a candle and a heavy tome on every desk, a pixie cage, a stack of old tomes
-  for (const [dx, dz] of DESKS) { book(9 + dx - 0.25, TOP, -6.2 + dz, -0.15, 2 + dz, 0.4, 0.3, 0.09); const c = candle(9 + dx + 0.4, TOP + 0.2, -6.2 + dz - 0.1); c.userData.light = { k: 'glow', c: 0xffc070, r: 1.3, a: 0.14 }; g.add(c); flames.push(c); }   // small pools: four full candle pools bleached the green carpet
+  // (the tome's colour index must be an integer: a fractional one read BOOK[undefined] and came out black)
+  DESKS.forEach(([dx, dz], k) => { book(9 + dx - 0.25, TOP, -6.2 + dz, -0.15, [0, 3, 0, 3][k], 0.4, 0.3, 0.09); const c = candle(9 + dx + 0.4, TOP + 0.2, -6.2 + dz - 0.1); c.userData.light = { k: 'glow', c: 0xffc070, r: 1.3, a: 0.14 }; g.add(c); flames.push(c); });   // small pools: four full candle pools bleached the green carpet
   stand(11.2, -6.4, 1.2, 0x241b14); cage(11.2, 1.23, -6.4, 0.32, 0.6, 16, 0x2e2b30);
   for (let k = 0; k < 4; k++) { const a = k * 1.7; at(new SphereGeometry(0.05, 6, 5), 0x3f7fe0, 11.2 + Math.cos(a) * 0.15, 1.4 + k * 0.1, -6.4 + Math.sin(a) * 0.15); }   // Cornish pixies
   pile(6.9, -6.7, 6, 1.1);
