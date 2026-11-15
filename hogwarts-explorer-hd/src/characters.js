@@ -39,6 +39,8 @@ const FADE = 0.3, WAVE_R = 8, REARM_R = 20, ANIM_R = 60;
 // and the hut Hagrid (and his collider) steps away; beyond it the hut Hagrid is back and the
 // teacher is hidden. Both modules test the same point and radius, so they never overlap.
 export const HAGRID_SWAP = { x: PLACES.paddock.x, z: PLACES.paddock.z - 5, r: 40 };
+// where lessons.js stands the Creatures teacher (pen centre is paddock.z - 5; he is 3 m west, 2.4 m south of it)
+export const HAGRID_TEACH = { x: PLACES.paddock.x - 3.0, z: PLACES.paddock.z - 5 + 2.4 };
 export const hagridAtPaddock = (p) => !!p && Math.hypot(p.x - HAGRID_SWAP.x, p.z - HAGRID_SWAP.z) < HAGRID_SWAP.r;
 function upgradeRigged(c, spec) {
   const g = c.group, who = c.name;
@@ -131,7 +133,13 @@ export async function createCharacters({ scene, heightAt }) {
           // the hut collider (main.js) must not stay behind as an invisible post while he is away
           const col = window.__game?.player?.colliders?.find(o => o.npc === 'hagrid');
           if (col) { if (col.r0 === undefined) col.r0 = col.r; col.r = hagridAway ? -100 : col.r0; }
-          if (hagridAway) { c.group.visible = false; continue; }   // runs after main.js's friend culling
+          if (hagridAway) {                                         // runs after main.js's friend culling
+            c.group.visible = false;
+            // he is the same Hagrid, now standing at the paddock (lessons.js draws him there): his
+            // friendly lines and letter delivery still work beside the teacher figure
+            if (playerPos) { const d = Math.hypot(playerPos.x - HAGRID_TEACH.x, playerPos.z - HAGRID_TEACH.z); if (d < 4.5 && d < best) { best = d; near = c; } }
+            continue;
+          }
         }
         const s = Math.sin(t * (c.kind === 'owl' ? 2.2 : 1.4) + c.phase);
         if (c.kind === 'owl') { c.group.position.y = c.baseY + s * 0.18 + 0.1; c.group.rotation.y += dt * 0.4; }
