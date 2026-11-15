@@ -255,11 +255,18 @@ function staircase() {
       step.position.set(0, s * 0.5, s * 0.9); step.castShadow = true; flight.add(step);
     }
     flight.position.set(sx * 4.1, 6.15, -9.35); flight.rotation.y = sx * 0.36;
-    g.add(flight); flights.push({ node: flight, base: sx * 0.36, amp: 0.14 });
+    g.add(flight); flights.push({ node: flight, base: sx * 0.36, amp: 0.025 });   // a slow creak, not a swing: the top now meets a fixed landing
+    // Somewhere to go: the flight's top step (about x +-6.8, y 10.4, z -2.2) meets a stone gallery
+    // landing on the side wall, with a balustrade and a dark doorway to the floors above.
+    // Overhead scenery only (nothing at walking height), so no colliders.
+    const lx = sx * 8.25, ly = 10.45, lz = -2.2;
+    const slab = new Mesh(new BoxGeometry(3.3, 0.4, 3.4), MAT.stone); slab.position.set(lx, ly, lz); slab.castShadow = true; g.add(slab);
+    for (const dz of [-1.6, 1.6]) { const rail = new Mesh(new BoxGeometry(3.3, 0.9, 0.18), MAT.stone); rail.position.set(lx, ly + 0.65, lz + dz); g.add(rail); }
+    archway(g, sx * (W / 2 - 0.3), lz, -sx * Math.PI / 2, { w: 2.2, h: 3.4 }).position.y = ly + 0.2;
   }
   const ch = chandelier(g, 0, H - 5, 1);
   for (const [x, z] of [[-W / 2 + 0.3, -6], [-W / 2 + 0.3, 6], [W / 2 - 0.3, -6], [W / 2 - 0.3, 6]]) torch(g, x, 4, z);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 10, -5 + (i % 2) * 10, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 10, i % 2 ? 5.5 : -7.6, c, (i < 2 ? 1 : -1) * Math.PI / 2));   // clear of the gallery landings at z -2.2
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'staircase',
     portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'classrooms' },
