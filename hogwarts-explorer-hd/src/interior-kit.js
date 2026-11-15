@@ -378,7 +378,7 @@ export function greatWindow(group, x, z, { y0 = 4.2, rose = 17.3, hue = 0xffc98a
     // sample the window texture round the arch's centre (pane-local 0, 2.5): crest, stars, border
     for (let i = 0; i < ru.count; i++) ru.setXY(i, 0.5 + rp.getX(i) / R * (1.1 / GW), (5 + rp.getY(i) / R * 1.1) / GH);
     const pane = new Mesh(rg, mat); pane.position.set(0, rose, 0); g.add(pane);
-    const ring = new Mesh(new CircleGeometry(R + 0.35, 28), MAT.dark); ring.position.set(0, rose, -0.08); g.add(ring);
+    const ring = new Mesh(new CircleGeometry(R + 0.35, 28), MAT.dark); ring.position.set(0, rose, -0.02); g.add(ring);   // in front of the gable (it was hidden behind it)
     for (let k = 0; k < 4; k++) {               // stone tracery: four spokes across the rose
       const bar = new Mesh(new BoxGeometry(2 * R, 0.1, 0.08), MAT.dark); bar.position.set(0, rose, 0.04); bar.rotation.z = k * Math.PI / 4; g.add(bar);
     }

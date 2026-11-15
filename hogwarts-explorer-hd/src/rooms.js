@@ -65,7 +65,7 @@ function room(g, cols, spawn, { flames = [], portals = [], update, id } = {}) {
   if (flames.length) {
     const n = flames.length, d = new Object3D();
     const wax = new InstancedMesh(new CylinderGeometry(0.04, 0.05, 0.4, 6), new MeshStandardMaterial({ color: 0xf3e6c0, roughness: 0.7 }), n);
-    const fl = new InstancedMesh(new SphereGeometry(0.08, 8, 8), emissive(0xffb34d, 2.2), n);
+    const fl = new InstancedMesh(new SphereGeometry(0.08, 6, 4), emissive(0xffb34d, 2.2), n);   // low-poly flames: ~120 of them in the hall
     wax.frustumCulled = fl.frustumCulled = false; wax.name = 'candles'; fl.name = 'candle-flames';
     const spots = flames.map((c) => { g.remove(c); const o = new Object3D(); o.position.copy(c.position); o.userData.light = c.userData.light; g.add(o); return { x: c.position.x, y: c.position.y, z: c.position.z }; });
     g.add(wax, fl);

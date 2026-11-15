@@ -100,7 +100,7 @@ export function bakeLight(group, colliders) {
     // brighter where the candles crowd, so the light pools follow the candles instead of one disc
     const cells = new Map();
     for (const [x, z] of highs) { const k = Math.floor(x / 4) + ',' + Math.floor(z / 4); cells.set(k, (cells.get(k) || 0) + 1); }
-    for (const [k, n] of cells) { const [i, j] = k.split(',').map(Number); floorPool(i * 4 + 2, j * 4 + 2, 3.6, 0xffc070, Math.min(0.3, 0.05 * n)); }
+    for (const [k, n] of cells) { const [i, j] = k.split(',').map(Number); floorPool(i * 4 + 2, j * 4 + 2, 2.7, 0xffc070, Math.min(0.14, 0.025 * n)); }   // gentle: stacked pools washed the crimson carpet out to salmon
   } else if (high > 6) floorPool(hx / high, hz / high, 11, 0xffc878, 0.2);      // the drift of floating candles warms the aisle
   if (!pos.length) return { mesh: null, update() {} };
   const geo = new BufferGeometry();
