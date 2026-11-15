@@ -143,7 +143,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     const ud = s.chibi.userData;
     if (!ud.mixer) return;
     for (let o = s.chibi; o; o = o.parent) if (!o.visible) return;   // hidden figure: no skinning work
-    if (!ud.casting) fadeTo(s.chibi, talking ? 'talk' : 'idle');
+    if (!ud.casting) fadeTo(s.chibi, s.pose || (talking ? 'talk' : 'idle'));   // s.pose: a spell course (spells.js) holds Talk
     ud.mixer.update(dt);
   }
 
@@ -261,7 +261,11 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   .pickCard .lv{display:flex;gap:3px;justify-content:center;height:8px} .pickCard .lv i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18)} .pickCard .lv i.on{background:#ffd76a;box-shadow:0 0 6px #ffd76a}
   .pickCard .go{margin-top:2px;background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;font-size:17px;font-weight:bold;border:3px solid #fff;border-radius:40px;padding:4px 14px}
   .pickClose{display:block;margin:14px auto 0;padding:8px 40px;border-radius:40px;border:4px solid #fff;background:linear-gradient(#b5a0ff,#7a52d6);color:#fff;font-size:22px;font-weight:bold;cursor:pointer;font-family:inherit}
-  .pickClose.qCard{background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;font-size:24px;padding:10px 34px}`;
+  .pickClose.qCard{background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;font-size:24px;padding:10px 34px}
+  .spCard{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;background:linear-gradient(rgba(150,100,255,.32),rgba(90,50,190,.32));border:3px solid #c9a6ff;
+    border-radius:20px;padding:12px 8px 10px;cursor:pointer;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 0 14px rgba(190,140,255,.45)}
+  .spCard:active{transform:scale(.94)} .spCard .ic{font-size:46px;line-height:1} .spCard .nm{color:#fff;font-size:19px;font-weight:bold}
+  .spCard .st{font-size:16px;min-height:20px;color:#ffe9a8} .spCard .go{margin-top:2px;background:linear-gradient(#e2ccff,#9a6aff);color:#2a0a5a;font-size:17px;font-weight:bold;border:3px solid #fff;border-radius:40px;padding:4px 14px}`;
   document.head.appendChild(css);
   const bell = document.createElement('button'); bell.id = 'bellBtn'; bell.className = 'gamebtn'; bell.innerHTML = '🔔<span class="bd">0</span>'; bell.setAttribute('aria-label', 'בחרו שיעור');
   document.body.appendChild(bell);
@@ -269,6 +273,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   function refreshBell() { try { bell.querySelector('.bd').textContent = HPL.progress.total(); } catch { /* lessons not loaded */ } }
   HPL.onProgress = refreshBell; refreshBell();
   const extras = [];                     // extra picker buttons (Quidditch registers one)
+  const cards = [];                      // extra grid cards (spell challenge courses register one each)
   function openPicker() {
     const P = HPL.progress, p = document.createElement('div'); p.className = 'pickP';
     const stk = P.streak ? P.streak() : 0;
@@ -282,6 +287,13 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       card.addEventListener('click', e => { e.stopPropagation(); closePicker(); go(l.key); });
       grid.appendChild(card);
     });
+    // spell challenge courses (spells.js): a card in the grid (the 8th slot is free in both layouts)
+    for (const c of cards) {
+      const n = c.best ? c.best() : 0, card = document.createElement('button'); card.type = 'button'; card.className = 'spCard'; card.dataset.sp = c.key;
+      card.innerHTML = '<div class="ic">' + c.icon + '</div><div class="nm">' + c.name + '</div><div class="st">' + '⭐'.repeat(n) + '☆'.repeat(3 - n) + '</div><div class="go">➤ אֶתְגָּר</div>';
+      card.addEventListener('click', e => { e.stopPropagation(); closePicker(); setTimeout(c.fn, 60); });
+      grid.appendChild(card);
+    }
     p.appendChild(grid);
     for (const x of extras) { const b = document.createElement('button'); b.type = 'button'; b.className = 'pickClose qCard'; b.textContent = x.label + (fun.store.qWins ? '  🏆×' + fun.store.qWins : ''); b.addEventListener('click', e => { e.stopPropagation(); closePicker(); setTimeout(x.fn, 60); }); p.appendChild(b); }
     const close = document.createElement('button'); close.className = 'pickClose'; close.textContent = 'סגור'; close.addEventListener('click', e => { e.stopPropagation(); closePicker(); }); p.appendChild(close);
@@ -338,5 +350,11 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   function anim(dt) { for (const s of interiors.active ? live : outdoor) if (s.chibi) animateFigure(s, dt, s.key === openKey); }
   // visibility only (used while a mini-game owns the frame)
   function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } syncColliders(); }
-  return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
+  // a spell course (spells.js) borrows the station's professor: hold a clip, play the signature
+  const stationOf = (key) => live.find(l => l.key === key) || outdoor.find(l => l.key === key) || null;
+  const figure = (key) => { const s = stationOf(key); return s ? s.chibi : null; };
+  const pose = (key, name) => { const s = stationOf(key); if (s) s.pose = name || null; };
+  const signature = (key) => { const s = stationOf(key); if (s && s.chibi && s.chibi.userData.acts && s.chibi.userData.acts.cast) { fadeTo(s.chibi, 'cast'); return true; } return false; };
+  return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }),
+    addPickerCard: (c) => cards.push(c), figure, pose, signature };
 }

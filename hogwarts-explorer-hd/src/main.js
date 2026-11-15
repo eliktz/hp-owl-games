@@ -26,6 +26,7 @@ import { createLessons } from './lessons.js';
 import { createStudents } from './students.js';
 import { createQuidditch } from './quidditch.js';
 import { createDelight } from './delight.js';
+import { createSpells } from './spells.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -155,7 +156,7 @@ async function boot() {
     renderer.setSize(innerWidth, innerHeight);
   });
   // Background music: the game's own original theme synthesised in code (src/theme.js) by default; a family-picked file (kept in IndexedDB on the device, none shipped) replaces it.
-  const music = initMusic({ audio, isMatch: () => { try { return !!takeover; } catch { return false; } } });   // takeover = a Quidditch match
+  const music = initMusic({ audio, isMatch: () => { try { return !!takeover && !takeover.spell; } catch { return false; } } });   // takeover = a Quidditch match (a spell course keeps the castle theme)
   wireButtons({ env, map, interiors, audio, player, music });
   // resume the audio context on the first user gesture (autoplay policy); also arms the music
   // (touchend/click too: on iOS Safari pointerdown alone is not always a media user-activation)
@@ -198,14 +199,22 @@ async function boot() {
   lessons = createLessons({ scene, player, interiors, heightAt, registerOutdoor: (o) => outdoorRoots.push(o), setModal, colliders });
   // A mini-game may take over the hero + camera for a while (the Quidditch match).
   let takeover = null;
+  const setTakeover = (o) => { takeover = o || null; input.releaseAll(); };
   const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, colliders, registerOutdoor: (o) => outdoorRoots.push(o),
-    setTakeover: (o) => { takeover = o || null; input.releaseAll(); }, isModal: () => modal, setModal, timeOfDay: () => env.time });
+    setTakeover, isModal: () => modal, setModal, timeOfDay: () => env.time });
   // Background students (decoration only: any failure -> simply none). Created after `quality`
   // so LOW can thin them out; the courtyard group is an outdoor root (hidden indoors).
   try { students = createStudents({ scene, camera, player, heightAt, tier: () => quality.tier, registerOutdoor: (o) => outdoorRoots.push(o), colliders }); }
   catch (e) { console.warn('[students] disabled -', e && e.message || e); students = null; }
   delight = createDelight({ scene, camera, player, interiors, heightAt, setModal, isModal: () => modal });
   lessons.addPickerButton('🧹 קְוִוידִיץ׳ — מִשְׂחָק!', () => quidditch.start());
+  // Spell challenge courses (lesson -> course -> reward), one per classroom: a 🪄 prompt beside the
+  // professor's ▶ and a card in the 🔔 picker. Any failure -> simply no courses.
+  let spells = null;
+  try {
+    spells = createSpells({ scene, camera, player, interiors, lessons, setTakeover, isModal: () => modal, isTakeover: () => !!takeover });
+    for (const k of Object.keys(spells.courses)) lessons.addPickerCard(spells.pickerCard(k));
+  } catch (e) { console.warn('[spells] disabled -', e && e.message || e); spells = null; }
   // Friends are never frustum-culled per mesh (odd bounds), so cull each whole figure by one
   // sphere test instead: an off-screen friend costs no draw calls (and no shadow draws).
   const frustum = new Frustum(), pm = new Matrix4(), sph = new Sphere(new Vector3(), 3.2);
@@ -225,6 +234,7 @@ async function boot() {
 
   const hooks = [];                      // extra per-frame systems (delight, quidditch): fn(dt, inside)
   if (students) hooks.push((dt, inside) => students.update(dt, inside));
+  if (spells) hooks.push(() => spells.idle());
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -304,7 +314,7 @@ async function boot() {
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
-    music, get modal() { return modal; }, setModal, quidditch, delight, students, get takeover() { return takeover; },
+    music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; },
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
