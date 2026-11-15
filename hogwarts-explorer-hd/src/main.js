@@ -190,7 +190,7 @@ async function boot() {
   // through as a pale pixelated "tower" behind the tables. Toggling visibility is the robust
   // fix (and reclaims the exterior's draw calls / shadow pass while you're inside).
   const outdoorRoots = [castleGroup, terrain, lake, ...(quests.roots || [])];
-  lessons = createLessons({ scene, player, interiors, heightAt, registerOutdoor: (o) => outdoorRoots.push(o), setModal });
+  lessons = createLessons({ scene, player, interiors, heightAt, registerOutdoor: (o) => outdoorRoots.push(o), setModal, colliders });
   // A mini-game may take over the hero + camera for a while (the Quidditch match).
   let takeover = null;
   const quidditch = createQuidditch({ scene, camera, player, heightAt, interiors, colliders, registerOutdoor: (o) => outdoorRoots.push(o),

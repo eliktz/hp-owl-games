@@ -63,7 +63,7 @@ function emojiTex(emoji, bg) {
   const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; return t;
 }
 
-export function createLessons({ scene, player, interiors, heightAt, registerOutdoor, setModal }) {
+export function createLessons({ scene, player, interiors, heightAt, registerOutdoor, setModal, colliders = [] }) {
   const HPL = window.HPLessons || {};
   const defs = {}; (HPL.LESSONS || []).forEach(l => (defs[l.key] = l));
   const live = [];                       // stations present right now: {key, x, z, y, chibi, world}
@@ -209,7 +209,12 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     const hx = PD.x - 3.0, hz = PD.z - 5 + 2.4, hagRest = Math.atan2(PD.x - hx, PD.z - 5 + 4.6 - hz);
     const hagrid = professor('creatures', scene, hx, heightAt(hx, hz), hz, hagRest);
     if (hagrid) registerOutdoor(hagrid);
-    outdoor.push({ key: 'creatures', x: PD.x, z: PD.z - 5, y: py, chibi: hagrid, fx: hx, fz: hz, rest: hagRest, figR: HAGRID_SWAP.r, world: true, critters, bob: psign, r: 5.2, root: pen });
+    // he is solid while he is shown (a circle in the outdoor colliders; r < 0 = switched off, as
+    // characters.js does for the hut Hagrid), and his lesson label floats over HIS head (3.5 m)
+    const col = hagrid ? { type: 'circle', x: hx, z: hz, r: -100, npc: 'hagrid-teach' } : null;
+    if (col) colliders.push(col);
+    outdoor.push({ key: 'creatures', x: PD.x, z: PD.z - 5, y: py, chibi: hagrid, fx: hx, fz: hz, rest: hagRest, figR: HAGRID_SWAP.r, world: true, critters, bob: psign, r: 5.2, root: pen,
+      col, colR: 0.6, lx: hx, lz: hz, ly: heightAt(hx, hz), labelY: 4.1 });
   })();
 
   // ---- start / go ----
@@ -315,13 +320,23 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     if (best && bd < (best.r || 4.4) && defs[best.key]) {
       nearKey = best.key; const def = defs[best.key];
       fun.offer('lesson:' + best.key, '▶', bd, () => start(best.key));
-      fun.say(head.set(best.x, best.y + (best.chibi ? (best.chibi.userData.labelY || 2.6) : 3), best.z), def.icon + ' ' + def.subject, 0.25, 'lesson');
+      fun.say(head.set(best.lx ?? best.x, (best.ly ?? best.y) + (best.labelY || (best.chibi ? (best.chibi.userData.labelY || 2.6) : 3)), best.lz ?? best.z), def.icon + ' ' + def.subject, 0.25, 'lesson');
+    }
+    syncColliders();
+  }
+  // a figure's collider is live only while the figure is actually drawn (outdoors, in range,
+  // not hidden by the outdoor-world toggle)
+  function syncColliders() {
+    for (const s of outdoor) {
+      if (!s.col) continue;
+      let on = !!s.chibi && !interiors.active; for (let o = s.chibi; on && o; o = o.parent) if (!o.visible) on = false;
+      s.col.r = on ? s.colR : -100;
     }
   }
   // while a modal (lesson overlay, picker) freezes update(): keep GLB professors breathing,
   // talking if their lesson is the one open
   function anim(dt) { for (const s of interiors.active ? live : outdoor) if (s.chibi) animateFigure(s, dt, s.key === openKey); }
   // visibility only (used while a mini-game owns the frame)
-  function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } }
+  function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } syncColliders(); }
   return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
 }
