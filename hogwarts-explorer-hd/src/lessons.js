@@ -5,11 +5,12 @@
 // whisks you to the classroom. Nothing is ever locked; progress is shared with v1.
 import {
   Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, ConeGeometry, TorusGeometry,
-  MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, Color, DoubleSide, InstancedMesh, Object3D, Vector3, SRGBColorSpace,
+  MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, Color, DoubleSide, InstancedMesh, Object3D, Vector3, SRGBColorSpace, Box3,
   AnimationMixer, LoopOnce,
 } from 'three';
 import { buildChibi, animateChibi } from './chibi.js';
 import { loadAnimated } from './models.js';
+import { buildHagrid, HAGRID_SWAP } from './characters.js';
 import { FLOOR_Y } from './rooms.js';
 import { PLACES } from './config.js';
 import * as fun from './fun.js';
@@ -35,7 +36,13 @@ const GLB_PROF = {
   snape:    { model: 'snape',      scale: 1.3, sig: 'Cast', h: 1.85 },
   defence:  { model: 'tonks',      scale: 1.3, sig: 'Cast', h: 1.7 },   // Tonks, Elik's choice for Defence (12 Nov)
   sprout:   { model: 'sprout',     scale: 1.3, sig: 'Wave', h: 1.7 },
+  // Hagrid is the giant: sized like the hut Hagrid (characters.js) by his measured rest height
+  // (`height` mode: standing height in metres; `rest` = the brief's 2.6 m if the measure is odd)
+  hagrid:   { model: 'hagrid', height: 3.5, rest: 2.6, sig: 'Wave', h: 2.6 },
 };
+// GLB and chibi professors turn gently toward a player within FACE_R m and back to their rest
+// yaw (facing the class / board) otherwise; never while the signature clip plays.
+const FACE_R = 6, TURN = 3;
 const FADE = 0.25;
 const GH = PLACES.greenhouse, PD = PLACES.paddock;
 export const STATIONS = {
@@ -65,8 +72,8 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
 
   function professor(key, par, x, y, z, faceYaw) {
     const def = defs[key]; if (!def) return null;
-    const look = LOOK[def.teacher]; if (!look) return null;
-    const c = buildChibi(look); c.position.set(x, y, z); c.rotation.y = faceYaw; par.add(c);
+    const look = LOOK[def.teacher]; if (!look && def.teacher !== 'hagrid') return null;
+    const c = def.teacher === 'hagrid' ? buildHagrid() : buildChibi(look); c.position.set(x, y, z); c.rotation.y = faceYaw; par.add(c);
     if (GLB_PROF[def.teacher]) upgradeProfessor(c, GLB_PROF[def.teacher]);
     return c;
   }
@@ -83,7 +90,18 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       const clip = n => r.clips.find(a => a.name === n);
       if (!clip('Idle')) { console.warn('[lessons] professor', spec.model, 'GLB has no Idle clip - keeping the chibi'); return; }
       // the chibi group may carry its own scale (Flitwick's is 0.78): cancel it so the GLB gets spec.scale in the world
-      const obj = r.obj; obj.scale.setScalar(spec.scale / (c.scale.x || 1)); obj.name = 'prof-' + spec.model;
+      const obj = r.obj; obj.name = 'prof-' + spec.model;
+      let worldScale = spec.scale;
+      if (spec.height) {
+        // bind-pose height from the skinned meshes' geometry, as characters.js measures the hut Hagrid
+        obj.updateMatrixWorld(true);
+        const box = new Box3(), b = new Box3();
+        obj.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); box.union(b); } });
+        let h = box.max.y - box.min.y; if (!(h > 0.5 && h < 10)) h = spec.rest;
+        worldScale = spec.height / h;
+        obj.position.y = -(box.min.y > -0.5 && box.min.y < 0.5 ? box.min.y : 0) * worldScale / (c.scale.x || 1);
+      }
+      obj.scale.setScalar(worldScale / (c.scale.x || 1));
       obj.traverse(o => {
         if (!o.isMesh) return;
         // outdoors (Sprout) a figure without a shadow floats on the lawn: cast one there. It is
@@ -102,7 +120,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       c.add(obj);
       ud.rig = null;                                   // animateChibi() becomes a no-op
       ud.mixer = mixer; ud.acts = acts; ud.cur = 'idle'; ud.casting = false;
-      ud.labelY = Math.min(2.6, spec.h * spec.scale + 0.4);
+      ud.labelY = Math.min(2.6, spec.h * worldScale + 0.4);
       // room teardown (interiors.js) calls this before disposing the room's geometry
       ud.onTeardown = () => {
         mixer.stopAllAction(); mixer.uncacheRoot(obj);
@@ -186,7 +204,12 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     });
     const psign = new Mesh(new PlaneGeometry(1.5, 1.5), new MeshBasicMaterial({ map: emojiTex('🐉'), transparent: true, side: DoubleSide })); psign.position.set(0, 3.6, 0); pen.add(psign);
     scene.add(pen); registerOutdoor(pen);
-    outdoor.push({ key: 'creatures', x: PD.x, z: PD.z - 5, y: py, chibi: null, world: true, critters, bob: psign, r: 5.2, root: pen });
+    // Hagrid teaches from just outside the fence on the side away from his hut, turned toward
+    // where the 🔔 drops the player (pen centre + 4.6 m south)
+    const hx = PD.x - 3.0, hz = PD.z - 5 + 2.4, hagRest = Math.atan2(PD.x - hx, PD.z - 5 + 4.6 - hz);
+    const hagrid = professor('creatures', scene, hx, heightAt(hx, hz), hz, hagRest);
+    if (hagrid) registerOutdoor(hagrid);
+    outdoor.push({ key: 'creatures', x: PD.x, z: PD.z - 5, y: py, chibi: hagrid, fx: hx, fz: hz, rest: hagRest, figR: HAGRID_SWAP.r, world: true, critters, bob: psign, r: 5.2, root: pen });
   })();
 
   // ---- start / go ----
@@ -263,6 +286,15 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   bell.addEventListener('click', e => { e.stopPropagation(); if (!window.__game.modal) openPicker(); });
   ov.addEventListener('pointerdown', e => { if (e.target === ov) closePicker(); });
 
+  // gentle turn toward a nearby player, else back to the rest yaw; held while the signature plays
+  function faceTurn(s, dt) {
+    const c = s.chibi; if (c.userData.casting) return;
+    const fx = s.fx ?? s.x, fz = s.fz ?? s.z, dx = player.pos.x - fx, dz = player.pos.z - fz;
+    const want = Math.hypot(dx, dz) < FACE_R ? Math.atan2(dx, dz) : (s.rest || 0);
+    let dy = want - c.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    c.rotation.y += dy * Math.min(1, dt * TURN);
+  }
+
   // ---- per-frame: animate professors, offer ▶ near one ----
   const head = new Vector3();
   let t = 0, nearKey = null;
@@ -275,9 +307,9 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z);
       if (s.chibi) { animateChibi(s.chibi.userData.rig, dt, { moving: false }); animateFigure(s, dt, d < (s.r || 4.4)); }
       // far-away lesson spots cost nothing: the little figures stream in at 55 m, the buildings at 95 m
-      if (s.world) { if (s.chibi) s.chibi.visible = d < 55; if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; }
+      if (s.world) { if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; }
       if (s.critters) for (const c of s.critters) { const k = Math.max(0, Math.sin(t * (d < 14 ? 5 : 2.2) + c.ph)); c.cr.position.y = k * (d < 14 ? 0.5 : 0.18); }
-      if (s.chibi && d < 9) s.chibi.rotation.y = Math.atan2(player.pos.x - s.x, player.pos.z - s.z);
+      if (s.chibi) faceTurn(s, dt);
       if (d < bd) { bd = d; best = s; }
     }
     if (best && bd < (best.r || 4.4) && defs[best.key]) {
@@ -290,6 +322,6 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   // talking if their lesson is the one open
   function anim(dt) { for (const s of interiors.active ? live : outdoor) if (s.chibi) animateFigure(s, dt, s.key === openKey); }
   // visibility only (used while a mini-game owns the frame)
-  function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < 55; if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } }
+  function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } }
   return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }) };
 }

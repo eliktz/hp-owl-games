@@ -8,12 +8,13 @@ import {
 } from 'three';
 import { loadModel, loadAnimated, fitModel } from './models.js';
 import { buildChibi, animateChibi } from './chibi.js';
-import { SPOTS } from './config.js';
+import { SPOTS, PLACES } from './config.js';
 
 const mat = (color, extra = {}) => new MeshStandardMaterial({ color, roughness: 0.85, ...extra });
 
-// Hagrid: a big, warm chibi in a brown coat with a huge bushy beard.
-function buildHagrid() {
+// Hagrid: a big, warm chibi in a brown coat with a huge bushy beard. Also the placeholder for
+// the Creatures-lesson teacher at the paddock (lessons.js).
+export function buildHagrid() {
   const g = buildChibi({ robe: 0x4a3524, trim: 0x30241a, house: 0x5a4030, skin: 0xd9ad86, hair: 0x3b352f, scale: 1.5 });
   const head = g.userData.rig.head;
   const beard = new Mesh(new ConeGeometry(0.34, 0.8, 14), mat(0x3b352f, { roughness: 1 }));
@@ -33,6 +34,12 @@ const RIGGED = {
   hermione: { model: 'hermione_young', height: 1.72, rest: 1.43 },
 };
 const FADE = 0.3, WAVE_R = 8, REARM_R = 20, ANIM_R = 60;
+// One Hagrid at a time: the Creatures-lesson Hagrid (lessons.js) stands at the paddock only
+// ~10 m from the hut Hagrid, so within `r` of the paddock centre the paddock teacher is shown
+// and the hut Hagrid (and his collider) steps away; beyond it the hut Hagrid is back and the
+// teacher is hidden. Both modules test the same point and radius, so they never overlap.
+export const HAGRID_SWAP = { x: PLACES.paddock.x, z: PLACES.paddock.z - 5, r: 40 };
+export const hagridAtPaddock = (p) => !!p && Math.hypot(p.x - HAGRID_SWAP.x, p.z - HAGRID_SWAP.z) < HAGRID_SWAP.r;
 function upgradeRigged(c, spec) {
   const g = c.group, who = c.name;
   loadAnimated(spec.model).then(r => {
@@ -118,7 +125,14 @@ export async function createCharacters({ scene, heightAt }) {
     update(dt, playerPos) {
       t += dt;
       let near = null, best = 1e9;
+      const hagridAway = hagridAtPaddock(playerPos);
       for (const c of chars) {
+        if (c.name === 'hagrid') {
+          // the hut collider (main.js) must not stay behind as an invisible post while he is away
+          const col = window.__game?.player?.colliders?.find(o => o.npc === 'hagrid');
+          if (col) { if (col.r0 === undefined) col.r0 = col.r; col.r = hagridAway ? -100 : col.r0; }
+          if (hagridAway) { c.group.visible = false; continue; }   // runs after main.js's friend culling
+        }
         const s = Math.sin(t * (c.kind === 'owl' ? 2.2 : 1.4) + c.phase);
         if (c.kind === 'owl') { c.group.position.y = c.baseY + s * 0.18 + 0.1; c.group.rotation.y += dt * 0.4; }
         else if (c.mixer) {
