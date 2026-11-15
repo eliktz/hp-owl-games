@@ -597,6 +597,8 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     const win = S.a > S.b, stars = S.a - S.b >= 150 ? 3 : win ? 2 : 1;
     endScreen(win, stars, win && stars >= 2);
   }
+  // a carried Quaffle sits in front of the rider's chest (it is 1.2 m across: at +1.5 m up it hid the rider's head)
+  function carryQuaffle(f, dy = 0) { const a = f.rotation.y; quaffle.position.set(f.position.x + Math.sin(a) * 1.15, f.position.y + 0.95 + dy, f.position.z + Math.cos(a) * 1.15); }
   function steer(obj, tx, ty, tz, spd, dt) {
     tmp.set(tx - obj.position.x, ty - obj.position.y, tz - obj.position.z); const k = tmp.length();
     if (k > 0.05) { obj.rotation.y = Math.atan2(tmp.x, tmp.z); tmp.multiplyScalar(Math.min(1, spd * dt / k)); obj.position.add(tmp); }
@@ -650,7 +652,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     const gx = mine ? GOAL_X - 7 : HOME_X + 7, tz = C.z + HOOP_DZ[H.hoop], ty = gy + HOOP_Y[H.hoop];
     const k = steer(car, gx, ty, tz, 5.5, dt);
     if (!teamOnly || !mine) steer(other, car.position.x - (mine ? 3 : -3), car.position.y, car.position.z + 2.5, 5.2, dt);
-    if (!teamOnly) { quaffle.position.set(car.position.x, car.position.y + 1.5, car.position.z); S.holder = H.carrier; }   // (Keeper match: the Quaffle is the shooter's)
+    if (!teamOnly) { carryQuaffle(car); S.holder = H.carrier; }   // (Keeper match: the Quaffle is the shooter's)
     if (k < 0.8) { helperGoal(mine); H.carrier = null; H.wait = (mine ? 6 : 7) + Math.random() * 3; if (teamOnly && S.a <= S.b) H.wait = 3.5; }
   }
   function keepersIdle(t) {
@@ -690,7 +692,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
         setHint(ok ? '🤾 זִרְקוּ לַטַּבַּעַת!' : '➡️ טוּסוּ לַטַּבָּעוֹת!');
       } else {
         throwB.classList.remove('ready'); aimRing.visible = false;
-        if (S.holder === 'rival') quaffle.position.set(rival.position.x, rival.position.y + 1.5, rival.position.z);
+        if (S.holder === 'rival') carryQuaffle(rival);
         else if (S.kick <= 0 && S.stun <= 0 && quaffle.position.distanceTo(P) < 2.4) { S.holder = 'me'; fun.sfx.pop(); }
         if (!S.over) setHint(S.snitchOn ? '✨ תִּפְסוּ אֶת הַסְּנִיץ׳!' : S.holder === 'rival' ? '💥 הִתְנַגְּשׁוּ בַּיָּרִיב לַחֲטֹף!' : '🔴 תִּפְסוּ אֶת הַכַּדּוּר הָאָדֹם!');
       }
@@ -858,14 +860,14 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
         k.t -= dt;
         const sx = HOME_X + 13, sz = C.z + HOOP_DZ[k.hoop] * 0.6 + Math.sin(S.t) * 1.5, sy = gy + HOOP_Y[k.hoop] - 0.5;
         steer(rival, sx, sy, sz, 9 + lv, dt);
-        quaffle.position.set(rival.position.x, rival.position.y + 1.5, rival.position.z); S.holder = 'rival';
+        carryQuaffle(rival); S.holder = 'rival';
         setHint('👀 לְאָן הוּא יִזְרֹק?');
         if (k.t <= 0 && rival.position.distanceTo(tmp.set(sx, sy, sz)) < 2.5) keeperShot(k.hoop);
       } else if (k.phase === 'windup') {
         k.t -= dt;
         rival.rotation.y = Math.atan2(ring.x - rival.position.x, ring.z - rival.position.z);
         rival.position.y += Math.sin(t * 14) * 0.02;
-        quaffle.position.set(rival.position.x, rival.position.y + 1.5 + (1 - k.t / KEEPER.windup) * 0.8, rival.position.z);
+        carryQuaffle(rival, (1 - k.t / KEEPER.windup) * 0.8);
         hoopGlow.visible = true; hoopGlow.position.copy(ring); hoopGlow.position.x += 0.2; hoopGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.1);
         dots.visible = true; setDots(quaffle.position, ring, t);
         setHint('🧤 לַטַּבַּעַת הַזּוֹהֶרֶת!');
@@ -968,8 +970,8 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
         if (!S.over) setHint(ok ? '🤾 זִרְקוּ לַטַּבַּעַת!' : S.passOk ? '🤝 מִסְרוּ לֶחָבֵר!' : '➡️ טוּסוּ לַטַּבָּעוֹת!');
       } else {
         S.passOk = false; throwB.classList.remove('ready'); aimRing.visible = false; if (throwB.textContent !== '🤾') throwB.textContent = '🤾';
-        if (S.holder === 'rival') quaffle.position.set(rival.position.x, rival.position.y + 1.5, rival.position.z);
-        else if (S.holder === 'mate') quaffle.position.set(mate.position.x, mate.position.y + 1.5, mate.position.z);
+        if (S.holder === 'rival') carryQuaffle(rival);
+        else if (S.holder === 'mate') carryQuaffle(mate);
         else if (!S.over && S.kick <= 0 && S.stun <= 0 && quaffle.position.distanceTo(P) < 2.4) { S.holder = 'me'; fun.sfx.pop(); }
         if (!S.over) setHint(S.holder === 'mate' ? '➡️ טוּסוּ לַטַּבָּעוֹת, הַחָבֵר יִמְסֹר!' : S.holder === 'rival' ? '💥 הִתְנַגְּשׁוּ בַּיָּרִיב לַחֲטֹף!' : '🔴 תִּפְסוּ אֶת הַכַּדּוּר הָאָדֹם!');
       }
