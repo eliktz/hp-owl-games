@@ -210,13 +210,17 @@ export function hallBanners(group, specs, { w = 1.6, len = 5.6 } = {}) {
 // Baked height falloff: multiply each vertex of the given meshes by a factor that eases
 // (smoothstep) from k0 at y0 to k1 at y1, via a vertex-colour copy of the material (cached, so
 // rebuilding the room every visit allocates nothing new). Meshes must own their geometry
-// (e.g. mergeStatic output).
+// (e.g. mergeStatic output). Heights are measured in the PARENT's (room's) space: a piece that
+// mergeStatic left on its own still carries its position (a lone wall at y H/2, a lintel over a
+// door), and shading its geometry-local y made it brighter than the merged walls beside it.
 const _shaded = new Map();
 export function heightShade(meshes, { y0 = 3, y1 = 16, k0 = 1.1, k1 = 0.35 } = {}) {
   for (const m of meshes) {
     const P = m.geometry.attributes.position, col = new Float32Array(P.count * 3);
+    m.updateMatrix(); const e = m.matrix.elements;            // local -> room: y' = e1 x + e5 y + e9 z + e13
     for (let i = 0; i < P.count; i++) {
-      const u = Math.min(1, Math.max(0, (P.getY(i) - y0) / (y1 - y0))), f = u * u * (3 - 2 * u), k = k0 + (k1 - k0) * f;
+      const y = e[1] * P.getX(i) + e[5] * P.getY(i) + e[9] * P.getZ(i) + e[13];
+      const u = Math.min(1, Math.max(0, (y - y0) / (y1 - y0))), f = u * u * (3 - 2 * u), k = k0 + (k1 - k0) * f;
       col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = k;
     }
     m.geometry.setAttribute('color', new Float32BufferAttribute(col, 3));
