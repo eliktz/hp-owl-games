@@ -154,7 +154,7 @@ async function boot() {
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
-  // Device-local background music (the family's own file, kept in IndexedDB; none shipped).
+  // Background music: the game's own original theme synthesised in code (src/theme.js) by default; a family-picked file (kept in IndexedDB on the device, none shipped) replaces it.
   const music = initMusic({ audio, isMatch: () => { try { return !!takeover; } catch { return false; } } });   // takeover = a Quidditch match
   wireButtons({ env, map, interiors, audio, player, music });
   // resume the audio context on the first user gesture (autoplay policy); also arms the music

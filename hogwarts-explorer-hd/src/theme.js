@@ -238,7 +238,7 @@ export function createTheme(ctx, { destination } = {}) {
       if (v === variation && !immediate) return;
       variation = v;
       const t = immediate ? 0 : Math.max(ctx.currentTime, playing ? nextBar : ctx.currentTime);   // next bar boundary
-      mFrom = immediate ? (v === 'quidditch' ? 1 : 0) : mixAt(t); mTo = v === 'quidditch' ? 1 : 0; fadeT0 = t;
+      mFrom = immediate ? (v === 'quidditch' ? 1 : 0) : mixAt(t); mTo = v === 'quidditch' ? 1 : 0; fadeT0 = immediate ? t : t - FADE / 2;   // the mix is sampled once per bar: the next bar is a half-and-half blend, the one after is fully the new variation
       if (immediate) { padLP.frequency.value = 950 + 900 * mTo; } else padCutoff(t, mTo);
     },
     renderAhead(seconds) {   // offline: schedule [0, seconds) up front

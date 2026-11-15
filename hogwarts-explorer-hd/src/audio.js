@@ -32,10 +32,12 @@ export function createAudio() {
   function startAmbient() {
     if (ambientOn || !ensure()) return;
     ambientOn = true;
-    // two detuned low pads for a warm, calm bed
-    for (const f of [110, 110.5, 164.8]) {
+    // two detuned low pads for a warm, calm bed: F2 + C3, the tonic and fifth of the built-in
+    // theme (src/theme.js, F major). They were A2 + E3, a semitone off the theme's borrowed chords,
+    // and as loud as the theme itself; now quieter so they sit under the music.
+    for (const f of [87.31, 87.71, 130.81]) {
       const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-      const g = ctx.createGain(); g.gain.value = 0.05;
+      const g = ctx.createGain(); g.gain.value = 0.028;
       o.connect(g); g.connect(master); o.start();
     }
     // filtered noise = gentle wind
