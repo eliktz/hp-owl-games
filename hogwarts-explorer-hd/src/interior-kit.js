@@ -96,9 +96,10 @@ export function floor(group, w, d, color = 0x9a8f7e, tileM = 2.5, rough = 0.92) 
 }
 
 // A textured stone wall segment centred at (x,z); tiles the map to its size.
-export function wall(group, x, z, w, h, t, rotY = 0, color = 0x8f8a80) {
+// `segs` splits it in height (for baked height shading, see hall-film.js heightShade).
+export function wall(group, x, z, w, h, t, rotY = 0, color = 0x8f8a80, segs = 1) {
   const long = Math.max(w, t);
-  const m = new Mesh(new BoxGeometry(w, h, t), stoneMat(long / 3, h / 3, color));
+  const m = new Mesh(new BoxGeometry(w, h, t, 1, segs, 1), stoneMat(long / 3, h / 3, color));
   m.position.set(x, h / 2, z); m.rotation.y = rotY; m.receiveShadow = true; group.add(m); return m;
 }
 
@@ -119,7 +120,7 @@ export function column(group, x, z, h, r = 0.5, cols = null) {
   // column). (This used to be `g.add(base).position.y = ...`: add() returns the GROUP, which
   // lifted every column up to the ceiling with its base and capital stacked at the shaft foot.)
   const geo = mergeGeometries([
-    new CylinderGeometry(r, r * 1.1, h, 12).translate(0, h / 2, 0),
+    new CylinderGeometry(r, r * 1.1, h, 12, 6).translate(0, h / 2, 0),   // 6 rings: room for baked height shading
     new CylinderGeometry(r * 1.5, r * 1.7, 0.5, 12).translate(0, 0.25, 0),
     new CylinderGeometry(r * 1.6, r * 1.2, 0.5, 12).translate(0, h - 0.25, 0),
   ]);
@@ -154,12 +155,21 @@ export function candle(x, y, z) {
 }
 
 // Wall torch (bracket + flame) with a warm emissive back-glow so walls read as lit.
-export function torch(group, x, y, z, color = 0xff8a2a) {
+// opts.glowBall: false drops the emissive glow sphere (the baked halo alone reads softer).
+// opts.shared: flame/glow use one cached material per colour so a row of torches merges into
+// two draw calls (mergeStatic); opts.wash: radius of the baked wall wash (bakeLight, default 2.8).
+const _torchMats = new Map();
+export function torch(group, x, y, z, color = 0xff8a2a, { shared = false, wash, glowBall = true } = {}) {
   const g = new Group();
+  let fm, gm;
+  if (shared) {
+    let t = _torchMats.get(color); if (!t) _torchMats.set(color, t = [emissive(color, 2.4), emissive(color, 0.18)]);
+    [fm, gm] = t;
+  } else { fm = emissive(color, 2.4); gm = emissive(color, 0.18); }
   const stick = new Mesh(new CylinderGeometry(0.03, 0.03, 0.4, 5), MAT.dark); stick.rotation.z = 0.5; g.add(stick);
-  const flame = new Mesh(new ConeGeometry(0.11, 0.34, 8), emissive(color, 2.4)); flame.position.set(0.12, 0.28, 0); g.add(flame);
-  const glow = new Mesh(new SphereGeometry(0.5, 8, 8), emissive(color, 0.18)); glow.position.set(0.12, 0.28, 0.1); g.add(glow);
-  g.position.set(x, y, z); g.userData.flame = flame; g.userData.light = { k: 'torch', c: color === 0xff8a2a ? 0xffa040 : color }; group.add(g); return g;
+  const flame = new Mesh(new ConeGeometry(0.11, 0.34, 8), fm); flame.position.set(0.12, 0.28, 0); g.add(flame);
+  if (glowBall) { const glow = new Mesh(new SphereGeometry(0.5, 8, 8), gm); glow.position.set(0.12, 0.28, 0.1); g.add(glow); }
+  g.position.set(x, y, z); g.userData.flame = flame; g.userData.light = { k: 'torch', c: color === 0xff8a2a ? 0xffa040 : color, wr: wash }; group.add(g); return g;
 }
 
 // Long dining table with two benches, a house-colour runner and golden plates.
@@ -348,6 +358,31 @@ export function window2(group, x, y, z, rotY = 0, hue = 0x7fb0ff, glow = 1.25, s
   const top = new Mesh(topGeo, mat);
   top.position.y = 2.5; g.add(top);
   g.userData.light = { k: 'window', c: hue };            // the glass throws a patch of its colour on the floor
+  group.add(g); return g;
+}
+
+// The great window behind the dais: three tall lancets (the middle one taller) and a rose in
+// the gable above, all built from window2 pieces with the same glass material as the hall's side
+// windows, so after mergeStatic they add no draw calls. Centre (x, z) on a wall facing +z
+// (rotY turns it); `y0` = bottom of the lancets' stone surrounds.
+export function greatWindow(group, x, z, { y0 = 4.2, rose = 17.3, hue = 0xffc98a, glow = 1.3, rotY = 0 } = {}) {
+  const g = new Group(); g.position.set(x, 0, z); g.rotation.y = rotY;
+  const mk = (px, s) => {                     // window2's surround spans y -3.5 .. 3.9 around its centre
+    const w = window2(g, px, y0 + 3.5 * s, 0, 0, hue, glow, 'hall'); w.scale.setScalar(s); return w;
+  };
+  mk(0, 1.42);
+  for (const sx of [-1, 1]) delete mk(sx * 3.72, 1.15).userData.light;   // one floor patch is plenty
+  if (rose) {
+    const mat = glassMat('hall', hue, glow), R = 1.45;
+    const rg = new CircleGeometry(R, 28), rp = rg.attributes.position, ru = rg.attributes.uv;
+    // sample the window texture round the arch's centre (pane-local 0, 2.5): crest, stars, border
+    for (let i = 0; i < ru.count; i++) ru.setXY(i, 0.5 + rp.getX(i) / R * (1.1 / GW), (5 + rp.getY(i) / R * 1.1) / GH);
+    const pane = new Mesh(rg, mat); pane.position.set(0, rose, 0); g.add(pane);
+    const ring = new Mesh(new CircleGeometry(R + 0.35, 28), MAT.dark); ring.position.set(0, rose, -0.08); g.add(ring);
+    for (let k = 0; k < 4; k++) {               // stone tracery: four spokes across the rose
+      const bar = new Mesh(new BoxGeometry(2 * R, 0.1, 0.08), MAT.dark); bar.position.set(0, rose, 0.04); bar.rotation.z = k * Math.PI / 4; g.add(bar);
+    }
+  }
   group.add(g); return g;
 }
 

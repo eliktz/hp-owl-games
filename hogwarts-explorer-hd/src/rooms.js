@@ -8,8 +8,9 @@ import {
 } from 'three';
 import {
   MAT, stoneMat, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
-  enchantedCeiling, emissive, glassGlow, mergeStatic,
+  enchantedCeiling, emissive, glassGlow, mergeStatic, greatWindow,
 } from './interior-kit.js';
+import { hallRoof, hallBanners, heightShade } from './hall-film.js';
 import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier } from './furniture.js';
 import { bakeLight } from './atmosphere.js';
 import { decorate } from './decor.js';
@@ -21,7 +22,7 @@ const HOUSE = [0x7a1020, 0x1a3a6a, 0xb08a1a, 0x1a5a2a];
 
 // Four axis-aligned walls + floor + ceiling; pushes box colliders. `open` lists wall sides
 // ('s'|'n'|'e'|'w') to leave as a walkable doorway gap (split into two stubs, no centre block).
-function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5, ceilColor = 0x3c3850, floorRough = 0.92, wallColor } = {}) {
+function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e, floorTile = 2.5, ceilColor = 0x3c3850, floorRough = 0.92, wallColor, wallSegs = 1 } = {}) {
   floor(g, W, D, floorColor, floorTile, floorRough);
   if (ceil) ceiling(g, W, D, H, ceilColor);
   const t = 1, GAP = 3.6;
@@ -36,7 +37,7 @@ function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e
       for (const sgn of [-1, 1]) {
         const cx = s.horizontal ? sgn * off : s.x, cz = s.horizontal ? s.z : sgn * off;
         const ww = s.horizontal ? stub : t, dd = s.horizontal ? t : stub;
-        wall(g, cx, cz, ww, H, dd, 0, wallColor); cols.push({ type: 'box', x: cx, z: cz, hw: ww / 2, hd: dd / 2, angle: 0 });
+        wall(g, cx, cz, ww, H, dd, 0, wallColor, wallSegs); cols.push({ type: 'box', x: cx, z: cz, hw: ww / 2, hd: dd / 2, angle: 0 });
       }
       // Lintel over the gap so the doorway is door-height, not a full-height slot to the void.
       const lh = H - DH;
@@ -47,7 +48,7 @@ function shell(g, cols, W, D, H, { ceil = true, open = [], floorColor = 0x9a8f7e
       }
     } else {
       const ww = s.horizontal ? s.w : t, dd = s.horizontal ? t : s.w;
-      wall(g, s.x, s.z, ww, H, dd, 0, wallColor); cols.push({ type: 'box', x: s.x, z: s.z, hw: ww / 2, hd: dd / 2, angle: 0 });
+      wall(g, s.x, s.z, ww, H, dd, 0, wallColor, wallSegs); cols.push({ type: 'box', x: s.x, z: s.z, hw: ww / 2, hd: dd / 2, angle: 0 });
     }
   }
 }
@@ -134,45 +135,72 @@ function entranceHall() {
 }
 
 // ---- The Great Hall: four long tables, a head table on a dais, floating candles ---------
+// Film look (art previews/film/greathall_after.png): a hammerbeam oak roof under a pitched
+// enchanted sky, a drift of floating candles, long house banners over the tables, a great
+// window behind the dais, torches on every bay, and baked height falloff on the stone.
 function greatHall() {
   const g = new Group(); const cols = []; const W = 20, D = 36, H = 15;
+  const WALL = 0xb88c60;   // warm honey stone: reads candle-lit at any outdoor time (fixed indoor IBL)
   shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0xb6a284, floorTile: 4, floorRough: 0.6,   // polished flags: candle sheen
-    wallColor: 0xb88c60 });   // warm honey stone: reads candle-lit at any outdoor time (fixed indoor IBL)
-  enchantedCeiling(g, W, D, H, { color: 0x141d3e, glow: 0x24315e, glowI: 0.7 });   // starry dusk blue
+    wallColor: WALL, wallSegs: 6 });
+  // trusses on every column and between them (z +-13.5 / +-4.5 are the columns, which carry them)
+  hallRoof(g, W, D, H, { rise: 5, trussZ: [-13.5, -9, -4.5, 0, 4.5, 9, 13.5], wallColor: WALL });
   carpet(g, 0, 0, 6, D - 5, 0x6e1420);                     // long crimson aisle runner
   const flames = [];
   // Four house tables framing the central aisle: benches, plates, and low candelabra.
   for (const tx of [-5, 5]) for (const tz of [-6, 9]) {
     longTable(g, tx, tz, 16);
-    for (let i = -6; i <= 6; i += 4) { const c = candle(tx, 1.45, tz + i); g.add(c); flames.push(c); }
+    for (let i = -6; i <= 6; i += 4) { const c = candle(tx, 1.45, tz + i); c.userData.light.top = 1.035; g.add(c); flames.push(c); }
   }
-  // The Great Hall's floating candles: two drifting rows high over the aisle.
-  for (let z = -11; z <= 13; z += 3) for (const ax of [-2.2, 2.2]) {
-    const c = candle(ax, 7.2 + Math.sin(z * 0.6) * 0.5, z); g.add(c); flames.push(c);
+  // House banners hang over each table from the roof, two per table (students.js HOUSE seats:
+  // Gryffindor x -5 / z -6, Ravenclaw x -5 / z 9, Hufflepuff x 5 / z -6, Slytherin x 5 / z 9),
+  // in the middle of the roof bays; they face the doors.
+  const BANNERS = [];
+  for (const [x, zs, house] of [[-5, [-11.25, -6.75], 'gryffindor'], [5, [-11.25, -6.75], 'hufflepuff'], [-5, [6.75, 11.25], 'ravenclaw'], [5, [6.75, 11.25], 'slytherin']])
+    for (const z of zs) BANNERS.push({ x, z, top: 15.6, house });
+  for (const b of BANNERS) for (const dx of [-0.75, 0.75]) {   // iron hangers up to the purlins
+    const ch = new Mesh(new BoxGeometry(0.04, 1.2, 0.04), MAT.dark); ch.position.set(b.x + dx, 16.1, b.z); g.add(ch);
   }
-  // Columns stand between the windows and clear of the banners (z ±7) and the west dungeon
-  // arch (z 3.5), which takes the west column's place at z 4.5.
+  for (const b of BANNERS) { const rod = new Mesh(new CylinderGeometry(0.05, 0.05, 1.9, 6), MAT.gold); rod.rotation.z = Math.PI / 2; rod.position.set(b.x, b.top + 0.02, b.z + 0.02); g.add(rod); }
+  // The floating candles: a drift of ~120 over the tables and the aisle (not over the dais), in a
+  // slab 6.5 .. 10.5 m up, kept clear of the banners. Instanced in room(): still 2 draw calls.
+  let seed = 5; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let n = 0, tries = 0; n < 120 && tries < 2000; tries++) {
+    const x = (rnd() - 0.5) * 16, z = -12 + rnd() * 27, y = 6.5 + rnd() * 4;
+    if (BANNERS.some(b => Math.abs(x - b.x) < 1.1 && Math.abs(z - b.z) < 0.6 && y > 9.4)) continue;
+    const c = candle(x, y, z); g.add(c); flames.push(c); n++;
+  }
+  // Columns stand between the windows and clear of the west dungeon arch (z 3.5), which takes
+  // the west column's place at z 4.5.
   // Solid (circle colliders at the plinth): all sit 8+ m from the aisle, 1.9 m beyond the wall
   // benches' seated students, clear of the doors, the dungeon arch and Trevor's corner spot.
   for (const z of [-13.5, -4.5, 4.5, 13.5]) { if (z !== 4.5) column(g, -W / 2 + 0.9, z, H, 0.5, cols); column(g, W / 2 - 0.9, z, H, 0.5, cols); }
   // windows hang 6 cm proud of the wall face (they used to be buried 30 cm inside the wall)
-  for (const sx of [-W / 2 + 0.56, W / 2 - 0.56]) for (const z of [-10, 0, 10])   // (±10: clear of the banners at ±7)
+  for (const sx of [-W / 2 + 0.56, W / 2 - 0.56]) for (const z of [-10, 0, 10])
     window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a, 1.3, 'hall');
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2, { lift: 0.12, crestGlow: 0.7 }));
+  // the great window behind the dais (same glass as the east windows: merges with their panes)
+  greatWindow(g, 0, -D / 2 + 0.56, { y0: 4.2, rose: 17.3, hue: 0xffc98a, glow: 1.3 });
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
-  for (const [x, z] of [[-W / 2 + 0.5, 11.8], [W / 2 - 0.5, 11.8]]) torch(g, x, 5, z);   // clear of the corner columns at z 13.5
+  // torches on every bay, low (3.6 m) so their baked wash climbs the lower walls; shared
+  // materials let all eight merge into a couple of draw calls
+  for (const sx of [-1, 1]) for (const z of [-15.6, -7, 7, 11.8]) torch(g, sx * (W / 2 - 0.5), 3.6, z, 0xff8a2a, { shared: true, wash: 3.6, glowBall: false });
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
+  // Static pieces sharing a material (walls, gables, window surrounds and mullions, stained-glass
+  // panes, columns, table tops and benches, torches, iron) merge into one mesh per material.
+  // The candles (instanced and bobbing in room()) are left alone.
+  mergeStatic(g, g.children.filter(c => !flames.includes(c)));
+  // baked height falloff on the merged stone: honey-bright low, shadowed under the roof
+  const stoneHex = [WALL, 0x7d7870].map(h => new Color(h).getHex());   // (colour-managed round trip, as the materials store it)
+  heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex())),
+    { y0: 2.5, y1: H - 2, k0: 1.2, k1: 0.22 });
+  const banners = hallBanners(g, BANNERS, { w: 1.6, len: 5.6 });
   // Dumbledore stands centred on the dais (top y 0.5) behind the head table (its cloth ends at
   // z -16.25), facing the hall doors; his robe train tucks against the north wall (z -17.5).
-  // Static pieces sharing a material (window surrounds and mullions, stained-glass panes,
-  // columns, table tops and benches, iron) merge into one mesh per material: same look, ~45
-  // fewer draw calls. The candles (instanced and bobbing in room()) are left alone.
-  mergeStatic(g, g.children.filter(c => !flames.includes(c)));
   const dumbledore = addDumbledore(g, 2.2, 0.5, -D / 2 + 1.15);   // off-centre so the owl lectern in the aisle does not hide him from the door
   return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
     id: 'greathall',
     flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.7, z: 3.5, r: 1.3, to: 'dungeon' }],
-    update: (dt) => dumbledore(dt),
+    update: (dt, t) => { dumbledore(dt); banners.update(t); },
   });
 }
 

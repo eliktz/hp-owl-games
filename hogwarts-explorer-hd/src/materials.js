@@ -138,7 +138,8 @@ function filmMaterial(src, kind, film) {
   const s = 1.0;   // 0.6x smeared the flagstones into a blur at classroom distance
   const st = uv().mul(vec2(rep.x * s, rep.y * s)).add(vec2(off.x, off.y));
   m = new MeshStandardNodeMaterial();
-  for (const k of ['roughness', 'metalness', 'side', 'transparent', 'opacity', 'depthWrite', 'envMapIntensity', 'emissiveIntensity', 'fog', 'flatShading'])
+  // (vertexColors: baked height shading, hall-film.js heightShade, multiplies the film colour)
+  for (const k of ['roughness', 'metalness', 'side', 'transparent', 'opacity', 'depthWrite', 'envMapIntensity', 'emissiveIntensity', 'fog', 'flatShading', 'vertexColors'])
     if (src[k] !== undefined) m[k] = src[k];
   if (src.emissive) m.emissive.copy(src.emissive);
   m.color.copy(src.color);

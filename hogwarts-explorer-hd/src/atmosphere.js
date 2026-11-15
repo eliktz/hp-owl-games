@@ -62,7 +62,7 @@ export function bakeLight(group, colliders) {
   function disc(x, y, z, r, color, a) {
     quad([x - r, y, z + r], [x + r, y, z + r], [x + r, y, z - r], [x - r, y, z - r], 0, 0, 1, 1, color, a);
   }
-  let high = 0, hx = 0, hz = 0;
+  let high = 0, hx = 0, hz = 0; const highs = [];
   group.traverse(o => {
     const L = o.userData && o.userData.light; if (!L) return;
     o.getWorldPosition(v); group.worldToLocal(v);
@@ -72,14 +72,16 @@ export function bakeLight(group, colliders) {
       const sx = w && w.axis === 'x' ? w.c + w.n * 0.8 : x, sz = w && w.axis === 'z' ? w.c + w.n * 0.8 : z;
       floorPool(x, z, 4.4, c, 0.5, sx, sz);
       if (w) {
-        const r = 2.8, y0 = Math.max(0.05, y - r), y1 = y + r, off = w.c + w.n * 0.04, V0 = (y0 - (y - r)) / (2 * r);
+        const r = L.wr || 2.8, y0 = Math.max(0.05, y - r), y1 = y + r, off = w.c + w.n * 0.04, V0 = (y0 - (y - r)) / (2 * r);
         if (w.axis === 'x') quad([off, y0, z - r], [off, y0, z + r], [off, y1, z + r], [off, y1, z - r], 0, V0, 1, 1, c, 0.42);
         else quad([x - r, y0, off], [x + r, y0, off], [x + r, y1, off], [x - r, y1, off], 0, V0, 1, 1, c, 0.42);
       }
       halo(x + (w ? (w.axis === 'x' ? w.n * 0.25 : 0) : 0), y + 0.3, z + (w && w.axis === 'z' ? w.n * 0.25 : 0), 0.85, c, 0.55);
     } else if (L.k === 'candle') {
-      if (y < 3) { floorPool(x, z, 2.4, c, 0.22); halo(x, y + 0.3, z, 0.42, c, 0.5); }
-      else { high++; hx += x; hz += z; halo(x, y + 0.3, z, 0.5, c, 0.6); }
+      if (y < 3) {
+        floorPool(x, z, 2.4, c, 0.22); halo(x, y + 0.3, z, 0.42, c, 0.5);
+        if (L.top) disc(x, L.top, z, 1.6, c, 0.34);                  // a warm pool on the table top it stands on
+      } else { high++; hx += x; hz += z; highs.push([x, z]); halo(x, y + 0.3, z, 0.5, c, 0.6); }
     } else if (L.k === 'chandelier') {
       floorPool(x, z, 7.5, c, 0.42);
       // hung high (rooms hang them ~0.6 m under the ceiling): upright crossed quads would pierce
@@ -93,7 +95,13 @@ export function bakeLight(group, colliders) {
     else if (L.k === 'window') { const fx = Math.sin(o.rotation.y), fz = Math.cos(o.rotation.y); floorPool(x + fx * 4.2, z + fz * 4.2, 3.4, c, 0.34); }
     else if (L.k === 'glow') { floorPool(x, z, L.r || 3, c, L.a || 0.3); }
   });
-  if (high > 6) floorPool(hx / high, hz / high, 11, 0xffc878, 0.2);      // the drift of floating candles warms the aisle
+  if (high > 40) {
+    // a big drift of floating candles (the Great Hall): warm the floor cell by cell (4 m cells),
+    // brighter where the candles crowd, so the light pools follow the candles instead of one disc
+    const cells = new Map();
+    for (const [x, z] of highs) { const k = Math.floor(x / 4) + ',' + Math.floor(z / 4); cells.set(k, (cells.get(k) || 0) + 1); }
+    for (const [k, n] of cells) { const [i, j] = k.split(',').map(Number); floorPool(i * 4 + 2, j * 4 + 2, 3.6, 0xffc070, Math.min(0.3, 0.05 * n)); }
+  } else if (high > 6) floorPool(hx / high, hz / high, 11, 0xffc878, 0.2);      // the drift of floating candles warms the aisle
   if (!pos.length) return { mesh: null, update() {} };
   const geo = new BufferGeometry();
   geo.setAttribute('position', new Float32BufferAttribute(pos, 3));

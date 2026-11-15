@@ -42,7 +42,7 @@ const BENCH_GAP = 0.17;
 // The Great Hall's furniture (rooms.js greatHall + interior-kit.js longTable), room-local:
 // tables at x = +-5, z = -6 / 9, 16 m long; table top 0.85..0.99 high, 1.5 m wide (edges at
 // +-0.75 from the table axis); benches at +-1.15 from the axis, 0.5 deep (front edge 0.9),
-// top at BENCH_TOP (interior-kit.js). House = the banner on the wall beside each table (rooms.js HOUSE order).
+// top at BENCH_TOP (interior-kit.js). House = the banners hanging over each table (rooms.js greatHall BANNERS).
 const HALL_TABLES = [
   { x: -5, z: -6, house: 'gryffindor' },
   { x: -5, z: 9,  house: 'ravenclaw' },
