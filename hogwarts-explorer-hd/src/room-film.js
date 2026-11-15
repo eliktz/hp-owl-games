@@ -77,7 +77,7 @@ export function grandDoors(group, x, z, rotY = 0, { w = 4.2, hs = 3.8, wallColor
     const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.6, uv.getY(i) * 0.35);   // vertical planks
     return g;
   };
-  const wood = new Mesh(mergeGeometries([leaf(-1), leaf(1)].map(g => g.toNonIndexed()), false), woodMat(1, 1, 0x8a5a34));   // lighter oak: the leaves read as wood, not a black void
+  const wood = new Mesh(mergeGeometries([leaf(-1), leaf(1)].map(g => (g.index ? g.toNonIndexed() : g)), false), woodMat(1, 1, 0x8a5a34));   // lighter oak: the leaves read as wood, not a black void
   wood.castShadow = true;
   const I = [];
   for (const s of [-1, 1]) {
