@@ -8,7 +8,7 @@ import {
 } from 'three';
 import {
   MAT, stoneMat, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
-  enchantedCeiling, emissive, glassGlow,
+  enchantedCeiling, emissive, glassGlow, mergeStatic,
 } from './interior-kit.js';
 import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier } from './furniture.js';
 import { bakeLight } from './atmosphere.js';
@@ -164,6 +164,10 @@ function greatHall() {
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
   // Dumbledore stands centred on the dais (top y 0.5) behind the head table (its cloth ends at
   // z -16.25), facing the hall doors; his robe train tucks against the north wall (z -17.5).
+  // Static pieces sharing a material (window surrounds and mullions, stained-glass panes,
+  // columns, table tops and benches, iron) merge into one mesh per material: same look, ~45
+  // fewer draw calls. The candles (instanced and bobbing in room()) are left alone.
+  mergeStatic(g, g.children.filter(c => !flames.includes(c)));
   const dumbledore = addDumbledore(g, 2.2, 0.5, -D / 2 + 1.15);   // off-centre so the owl lectern in the aisle does not hide him from the door
   return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
     id: 'greathall',
@@ -254,6 +258,7 @@ function staircase() {
       const step = new Mesh(new BoxGeometry(2.2, 0.3, 1), MAT.stone);
       step.position.set(0, s * 0.5, s * 0.9); step.castShadow = true; flight.add(step);
     }
+    mergeStatic(flight, [flight]);                          // the 9 steps: one mesh under the swaying pivot
     flight.position.set(sx * 4.1, 6.15, -9.35); flight.rotation.y = sx * 0.36;
     g.add(flight); flights.push({ node: flight, base: sx * 0.36, amp: 0.025 });   // a slow creak, not a swing: the top now meets a fixed landing
     // Somewhere to go: the flight's top step (about x +-6.8, y 10.4, z -2.2) meets a stone gallery
@@ -267,6 +272,10 @@ function staircase() {
   const ch = chandelier(g, 0, H - 5, 1);
   for (const [x, z] of [[-W / 2 + 0.3, -6], [-W / 2 + 0.3, 6], [W / 2 - 0.3, -6], [W / 2 - 0.3, 6]]) torch(g, x, 4, z);
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 10, i % 2 ? 5.5 : -7.6, c, (i < 2 ? 1 : -1) * Math.PI / 2));   // clear of the gallery landings at z -2.2
+  // Everything static that shares a material (walls, steps, landings, rails, archways, iron)
+  // becomes one mesh per material: same look, ~20 fewer draw calls. The flights keep swaying.
+  const swaying = flights.map(f => f.node);
+  mergeStatic(g, g.children.filter(c => !swaying.includes(c)));
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'staircase',
     portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'classrooms' },

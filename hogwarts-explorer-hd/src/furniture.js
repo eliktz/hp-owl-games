@@ -85,6 +85,7 @@ export function fireplace(group, x, z, rotY = 0) {
   group.add(g); return { group: g, fire };
 }
 
+const ARCH_DARK = new MeshStandardMaterial({ color: 0x0a0710, side: DoubleSide });
 // An arched opening (stone surround framing a doorway gap) that reads as a walkable door.
 export function archway(group, x, z, rotY = 0, { w = 3.4, h = 5 } = {}) {
   const g = new Group(); g.position.set(x, 0, z); g.rotation.y = rotY;
@@ -95,7 +96,7 @@ export function archway(group, x, z, rotY = 0, { w = 3.4, h = 5 } = {}) {
   const lintel = new Mesh(new BoxGeometry(w + 1.6, 0.8, 1.2), stone); lintel.position.set(0, h + 0.4, 0); g.add(lintel);
   const arch = new Mesh(new TorusGeometry(w / 2 + 0.4, 0.4, 8, 16, Math.PI), stone);
   arch.position.set(0, h, 0); g.add(arch);
-  const dark = new Mesh(new PlaneGeometry(w, h), new MeshStandardMaterial({ color: 0x0a0710, side: DoubleSide }));
+  const dark = new Mesh(new PlaneGeometry(w, h), ARCH_DARK);   // one shared material: the doorway voids merge (mergeStatic)
   // just in front of the wall plane: arches set against a solid wall (x/z = wall face) z-fought it at -0.05
   dark.position.set(0, h / 2, 0.1); g.add(dark);
   group.add(g); return g;

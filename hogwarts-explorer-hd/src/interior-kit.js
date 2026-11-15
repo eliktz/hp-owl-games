@@ -4,7 +4,7 @@
 // without adding runtime lights (iPad rule). Call `await ensureTex()` before building a room.
 import {
   Group, Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, ConeGeometry,
-  CircleGeometry, MeshStandardMaterial, Color, DoubleSide, RepeatWrapping, InstancedMesh, Object3D, SRGBColorSpace, CanvasTexture,
+  CircleGeometry, MeshStandardMaterial, Color, DoubleSide, RepeatWrapping, InstancedMesh, Object3D, SRGBColorSpace, CanvasTexture, Matrix4,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadTexture } from './assets.js';
@@ -44,6 +44,38 @@ function cached(kind, rx, ry, color, make) {
 }
 export const stoneMat = (rx, ry, color = 0x8f8a80) => cached('stone', rx, ry, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wall, rx, ry), roughness: 0.96 }));
 const woodMat = (rx = 1, ry = 1, color = 0x6a4428) => cached('wood', rx, ry, color, () => new MeshStandardMaterial({ color, map: tile(_tex?.wood, rx, ry), roughness: 0.85 }));
+// Draw-call saver: merge the plain, STATIC meshes found under `roots` (descendants of `into`)
+// into ONE mesh per shared material (+ the same shadow flags), parented to `into`. Geometry,
+// UVs and materials are unchanged, so the look is identical; only the draw-call count drops.
+// Never pass anything that moves or is referenced later (flames, swaying flights, enchant
+// targets); their groups stay put, empty groups keep their userData.light for bakeLight.
+// Instanced/skinned meshes, multi-material and mirrored (negative scale) meshes are skipped.
+export function mergeStatic(into, roots, name = 'merged-static') {
+  into.updateMatrixWorld(true);
+  const inv = new Matrix4().copy(into.matrixWorld).invert(), m = new Matrix4(), buckets = new Map();
+  for (const r of roots) r.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || Array.isArray(o.material) || !o.visible) return;
+    m.multiplyMatrices(inv, o.matrixWorld); if (m.determinant() <= 0) return;
+    const geo = o.geometry;
+    if (Object.keys(geo.morphAttributes).length) return;   // (face groups are fine: one material draws them all)
+    const key = o.material.uuid + '|' + o.castShadow + o.receiveShadow + o.renderOrder + '|' +
+      Object.keys(geo.attributes).sort().join(',') + (geo.index ? '|i' : '|n');
+    let b = buckets.get(key); if (!b) buckets.set(key, b = []);
+    b.push({ o, m: m.clone() });
+  });
+  let saved = 0;
+  for (const list of buckets.values()) {
+    if (list.length < 2) continue;
+    const merged = mergeGeometries(list.map(({ o, m }) => { const c = o.geometry.clone().applyMatrix4(m); c.clearGroups(); return c; }), false);
+    if (!merged) continue;
+    const { o } = list[0], mesh = new Mesh(merged, o.material);
+    mesh.castShadow = o.castShadow; mesh.receiveShadow = o.receiveShadow; mesh.renderOrder = o.renderOrder; mesh.name = name;
+    for (const it of list) it.o.parent.remove(it.o);
+    into.add(mesh); saved += list.length - 1;
+  }
+  return saved;
+}
+
 export const kitStats = () => ({ tiles: _tiles.size, mats: _mats.size });
 
 export const MAT = {
