@@ -56,5 +56,6 @@ export function createAudio() {
     hoot() { blip(300, 0.3, 'sine', 0.25); blip(260, 0.35, 'sine', 0.2, 0.18); },
     toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.5; return muted; },
     get muted() { return muted; },
+    get ctx() { return ctx; },          // shared with music.js (one AudioContext)
   };
 }

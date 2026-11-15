@@ -18,6 +18,7 @@ import { createQuests } from './quests.js';
 import { createMap } from './map.js';
 import { createInteriors } from './interiors.js';
 import { createAudio } from './audio.js';
+import { init as initMusic } from './music.js';
 import { SPOTS, PLACES, TIER, TIMES } from './config.js';
 import { blobShadow } from './atmosphere.js';
 import * as fun from './fun.js';
@@ -153,9 +154,11 @@ async function boot() {
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
-  wireButtons({ env, map, interiors, audio, player });
-  // resume the audio context on the first user gesture (autoplay policy)
-  const kick = () => { audio.resume(); removeEventListener('pointerdown', kick); removeEventListener('keydown', kick); };
+  // Device-local background music (the family's own file, kept in IndexedDB; none shipped).
+  const music = initMusic({ audio, isMatch: () => { try { return !!takeover; } catch { return false; } } });   // takeover = a Quidditch match
+  wireButtons({ env, map, interiors, audio, player, music });
+  // resume the audio context on the first user gesture (autoplay policy); also arms the music
+  const kick = () => { audio.resume(); music.unlock(); removeEventListener('pointerdown', kick); removeEventListener('keydown', kick); };
   addEventListener('pointerdown', kick); addEventListener('keydown', kick);
 
   // ---- dialogue bubble ----------------------------------------------------
@@ -299,7 +302,7 @@ async function boot() {
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
-    get modal() { return modal; }, setModal, quidditch, delight, students, get takeover() { return takeover; },
+    music, get modal() { return modal; }, setModal, quidditch, delight, students, get takeover() { return takeover; },
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
@@ -385,7 +388,7 @@ function holdBtn(id, fn) {
   el.addEventListener('pointercancel', stop);
 }
 
-function wireButtons({ env, map, interiors, audio, player }) {
+function wireButtons({ env, map, interiors, audio, player, music }) {
   // Camera controls: orbit left/right, zoom in/out (held = continuous), reset behind player.
   const cam = player.cam;
   holdBtn('camL', () => cam.orbit(-9, 0));
@@ -405,7 +408,7 @@ function wireButtons({ env, map, interiors, audio, player }) {
   const x = document.getElementById('exitBtn');
   if (x) x.addEventListener('click', () => interiors.exit());
   const mute = document.getElementById('muteBtn');
-  if (mute) mute.addEventListener('click', () => { audio.resume(); mute.textContent = audio.toggleMute() ? '🔇' : '🔊'; });
+  if (mute) mute.addEventListener('click', () => { audio.resume(); mute.textContent = audio.toggleMute() ? '🔇' : '🔊'; if (music) music.poke(); });
 }
 
 boot().catch(err => {
