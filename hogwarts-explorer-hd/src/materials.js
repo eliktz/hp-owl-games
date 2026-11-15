@@ -11,14 +11,16 @@
 // Each map is ONE texture object shared by every user (the node renderer uploads one GPU
 // texture per Texture object, so no per-surface clones): the castle tiles it through
 // world-scaled UVs (castle.js) and interiors through a per-material UV scale node.
-import { MeshStandardMaterial, MeshStandardNodeMaterial, Color, RepeatWrapping, Vector2, Vector3 } from 'three';
-import { texture, uv, vec2, normalMap, materialColor } from 'three/tsl';
+import { MeshStandardMaterial, MeshStandardNodeMaterial, Color, RepeatWrapping, Vector2, Vector3, LinearFilter, LinearMipmapLinearFilter } from 'three';
+import { texture, uv, vec2, vec3, normalMap, materialColor, positionView, smoothstep, mix, dot } from 'three/tsl';
 import { stoneTexture, slateTexture, woodTexture } from './textures.js';
 import { loadTexture as loadKtx2OrWebp } from './models.js';
 import { assetManifest } from './assets.js';
 
 // Metres of surface one film-texture tile covers (castle.js world-scaled UVs use these).
-export const FILM_TILE = { wall: 6.0, slate: 5.0 };
+// wall 10 m (was 6): at 6 m the coursed rubble shrank to 2-3 px stones from the lake (~110 m)
+// and read as fine noise; at 10 m the stones are ~0.5-1 m blocks, still crisp in the courtyard.
+export const FILM_TILE = { wall: 10.0, slate: 5.0 };
 // The maps are stored flipY=false (KTX2 cannot be flipped), so the GL normal's green axis
 // points down the image: negative Y scale puts the relief the right way up.
 const NRM = (k) => new Vector2(k, -k);
@@ -37,7 +39,13 @@ export function loadFilmMaps() {
         loadKtx2OrWebp('textures/film/' + stem + '_col'),
         loadKtx2OrWebp('textures/film/' + stem + '_nor', { linear: true }),
       ]);
-      for (const t of [col, nor]) if (t) { t.wrapS = t.wrapT = RepeatWrapping; t.anisotropy = 4; t.needsUpdate = true; }
+      // Trilinear + 8x anisotropic (the renderer clamps to the device max): the KTX2 files carry
+      // all 11 mip levels and the WebP fallback generates them, so distance filtering is smooth.
+      for (const t of [col, nor]) if (t) {
+        t.wrapS = t.wrapT = RepeatWrapping; t.anisotropy = 8; t.magFilter = LinearFilter;
+        t.minFilter = (t.isCompressedTexture && !(t.mipmaps?.length > 1)) ? LinearFilter : LinearMipmapLinearFilter;
+        t.needsUpdate = true;
+      }
       return col ? { col, nor } : null;
     };
     const [wall, slate, ashlar] = await Promise.all(['castle_wall_slates', 'roof_slates', 'sandstone_blocks'].map(one));
@@ -46,14 +54,35 @@ export function loadFilmMaps() {
   return _film;
 }
 
+// Exterior film stone. Close up (courtyard, < ~20 m) the coursed rubble keeps its full colour
+// variation and relief; with view distance (20..90 m) each texel is blended toward the map's
+// own average colour (its 2 x 2 mip) and the normal relief softens, so from the lake the
+// walls read as smooth pale stone instead of fine noise. A light desaturation everywhere pulls
+// the brown-and-blue rubble toward honey-grey. Same draw calls, no extra texture.
+const STONE_DESAT = 0.22, STONE_FAR_FLAT = 0.6, STONE_NRM_NEAR = 0.8, STONE_NRM_FAR = 0.28;
+function filmStone(set) {
+  const m = new MeshStandardNodeMaterial({ roughness: 0.9, metalness: 0.0 });
+  m.color.setRGB(1.12, 1.04, 0.9);             // linear: lighter + warmer (max texel x this ~0.67 < 0.84)
+  const far = smoothstep(20, 90, positionView.z.negate());
+  const col = texture(set.col, uv()).rgb;
+  const avg = texture(set.col, uv()).level(9).rgb;
+  const calm = mix(col, avg, far.mul(STONE_FAR_FLAT));
+  const lum = dot(calm, vec3(0.2126, 0.7152, 0.0722));
+  m.colorNode = mix(calm, vec3(lum), STONE_DESAT).mul(materialColor);
+  if (set.nor) {
+    const k = mix(STONE_NRM_NEAR, STONE_NRM_FAR, far);
+    m.normalNode = normalMap(texture(set.nor, uv()), vec2(k, k.negate()));
+  }
+  m.name = 'castle-stone-film';
+  m.userData.film = true;
+  return m;
+}
+
 export function makeMaterials(maps = {}) {
   const film = maps.film || {};
-  // Exterior stone: weathered grey-honey rubble. The colour lifts the AO-darkened map back to
-  // the pale, warm castle of castle_lake_after.png (mean albedo ~0.45, well under 0.84).
-  const stone = film.wall ? new MeshStandardMaterial({
-    map: film.wall.col, normalMap: film.wall.nor || null, normalScale: NRM(1.0),
-    color: 0xf4ead8, roughness: 0.9, metalness: 0.0,
-  }) : new MeshStandardMaterial({
+  // Exterior stone: weathered grey-honey rubble lifted toward the pale, warm ashlar of
+  // castle_lake_after.png. A node material calms it with distance (see filmStone).
+  const stone = film.wall ? filmStone(film.wall) : new MeshStandardMaterial({
     map: maps.stone || stoneTexture(1, '#6d6a63'),
     color: 0xb9b4a8, roughness: 0.92, metalness: 0.0,
   });
