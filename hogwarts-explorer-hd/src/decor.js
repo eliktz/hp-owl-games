@@ -133,19 +133,16 @@ export function decorate(id, g) {
       }
     });
   } else if (id === 'library') {
-    for (const tz of [-4, 4]) {
-      const lamp = new Group(); lamp.position.set(0.5, 0.98, tz + 1.6);
-      const brass = M(0xb8902a, { metalness: 0.6, roughness: 0.4 });
-      mk(lamp, new CylinderGeometry(0.13, 0.16, 0.05, 10), brass, 0, 0.03, 0); mk(lamp, new CylinderGeometry(0.025, 0.025, 0.42, 6), brass, 0, 0.24, 0);
-      const sh = mk(lamp, new CylinderGeometry(0.11, 0.17, 0.17, 10), M(0x2fae6a, { emissive: new Color(0x1f8a4a), emissiveIntensity: 1.4, roughness: 0.4 }), 0, 0.48, 0); sh.scale.z = 1.8;
-      lamp.userData.light = { k: 'glow', c: 0x9effc0, r: 2.2, a: 0.26 }; g.add(lamp);
-    }
+    // (the green reading lamps are part of the room now: rooms.js library)
     const globe = new Group(); globe.position.set(3.4, 0, 7.6);
-    mk(globe, new CylinderGeometry(0.4, 0.52, 0.16, 12), M(0x4a3016), 0, 0.08, 0); mk(globe, new CylinderGeometry(0.06, 0.08, 1.05, 8), M(0x4a3016), 0, 0.65, 0);
+    const oak = M(0x4a3016), brass = M(0xb8902a, { metalness: 0.6, roughness: 0.4 }), land = M(0x7ab85a);
+    mk(globe, new CylinderGeometry(0.4, 0.52, 0.16, 12), oak, 0, 0.08, 0); mk(globe, new CylinderGeometry(0.06, 0.08, 1.05, 8), oak, 0, 0.65, 0);
     const ball = mk(globe, new SphereGeometry(0.6, 18, 14), M(0x2a6fb0, { roughness: 0.5 }), 0, 1.65, 0); ball.rotation.z = 0.4;
-    for (let i = 0; i < 7; i++) { const land = mk(ball, new SphereGeometry(0.2 + (i % 3) * 0.06, 8, 6), M(0x7ab85a), 0, 0, 0); const a = i * 2.4, b = (i % 3 - 1) * 0.6; land.position.set(Math.cos(a) * Math.cos(b) * 0.5, Math.sin(b) * 0.5, Math.sin(a) * Math.cos(b) * 0.5); land.scale.set(1, 1, 0.5); land.lookAt(0, 0, 0); }
-    const arc = mk(globe, new TorusGeometry(0.7, 0.035, 6, 20, Math.PI), M(0xb8902a, { metalness: 0.6, roughness: 0.4 }), 0, 1.65, 0); arc.rotation.z = Math.PI / 2 + 0.4;
+    for (let i = 0; i < 7; i++) { const l = mk(ball, new SphereGeometry(0.2 + (i % 3) * 0.06, 8, 6), land, 0, 0, 0); const a = i * 2.4, b = (i % 3 - 1) * 0.6; l.position.set(Math.cos(a) * Math.cos(b) * 0.5, Math.sin(b) * 0.5, Math.sin(a) * Math.cos(b) * 0.5); l.scale.set(1, 1, 0.5); l.lookAt(0, 0, 0); }
+    const arc = mk(globe, new TorusGeometry(0.7, 0.035, 6, 20, Math.PI), brass, 0, 1.65, 0); arc.rotation.z = Math.PI / 2 + 0.4;
     g.add(globe);
+    mergeStatic(ball, ball.children.slice(), 'globe-lands');            // the seven lands: one mesh that turns with the ball
+    mergeStatic(globe, globe.children.filter(c => c !== ball), 'globe-stand');   // foot + stem (the brass arc stays its own material)
     let spin = 0;
     g.userData.enchant.push({ id: 'globe', obj: globe, cast() { spin = 2.5; return '🌍'; } });
     ticks.push((dt) => { ball.rotation.y += dt * (spin > 0 ? 9 : 0.4); if (spin > 0) spin -= dt; });

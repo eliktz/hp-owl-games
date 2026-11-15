@@ -6,11 +6,18 @@
 //   windowLight    warm daylight through the windows: slanted soft shaft cards + long floor
 //                  pools in ONE additive mesh that fades with the outdoor time of day
 //   propMesh       small props as ONE vertex-coloured mesh (books, feathers, cages, goblets)
-// Budgets: +2..4 draw calls per room, one 64x64 and one 32x128 canvas (~25 KB).
+// Library + common room (film6):
+//   bookcases      oak cases (one merged wood mesh) filled with book spines (one mesh, one shared
+//                  256 px canvas of leather spines with gilt bands), box colliders included
+//   floatingBooks  a few books drifting in the air: two instanced meshes (covers, pages)
+//   nightWindows   round-headed leaded windows onto a moonlit night sky (one 128x256 canvas)
+//   rug            a patterned crimson-and-gold rug (one 256x128 canvas)
+// Budgets: +2..4 draw calls per room, one 64x64 and one 32x128 canvas (~25 KB); film6 adds
+// ~0.75 MB of canvases (spines 256x256, night glass 128x256, rug 256x128, all mipmapped).
 import {
   Mesh, BoxGeometry, PlaneGeometry, CylinderGeometry, BufferGeometry, Float32BufferAttribute,
   MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, AdditiveBlending, DoubleSide, Color,
-  Shape, ExtrudeGeometry,
+  Shape, ExtrudeGeometry, RepeatWrapping, ClampToEdgeWrapping, InstancedMesh, Object3D, CircleGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { woodMat, stoneMat, MAT } from './interior-kit.js';
@@ -176,4 +183,186 @@ export function propMesh(group, parts, name = 'props') {
   });
   const m = new Mesh(mergeGeometries(geos, false), new MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }));
   m.name = name; m.castShadow = true; group.add(m); return m;
+}
+
+// ---- books ----
+// The spine canvas: four shelf rows (64 px each, 1.6 m of books across the 256 px width), each
+// a run of leather spines of varied width, height and colour, rounded by a soft side shade,
+// with gilt bands and the odd label; dark gaps where a book is missing. u repeats.
+let _spineMat = null;
+export function spineMat() {
+  if (_spineMat) return _spineMat;
+  const S = 256, R = 64, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d');
+  let seed = 23; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const LEATHER = ['#5a1a16', '#6e2418', '#3b2a1a', '#4a3020', '#1f3a2c', '#234030', '#1c2c48', '#2a2440', '#6a4a26', '#7a5a30', '#40201c', '#2e2a26', '#5e3a1c', '#16302a'];
+  x.fillStyle = '#0d0907'; x.fillRect(0, 0, S, S);
+  for (let r = 0; r < 4; r++) {
+    const base = r * R + R - 1;
+    for (let px = 0; px < S;) {
+      if (rnd() < 0.05) { px += 4 + rnd() * 8; continue; }                     // a missing book
+      const bw = Math.round(4 + rnd() * rnd() * 12), bh = Math.round(R * (0.6 + rnd() * 0.36));
+      const col = new Color(LEATHER[(rnd() * LEATHER.length) | 0]); const h = {}; col.getHSL(h); col.setHSL(h.h, h.s, Math.max(0.04, h.l * (0.75 + rnd() * 0.55)));
+      const lean = rnd() < 0.06 ? 3 : 0;                                       // a leaning one
+      x.save(); x.translate(px + bw / 2, base); if (lean) x.rotate(-0.12);
+      const g = x.createLinearGradient(-bw / 2, 0, bw / 2, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.3, 'rgba(255,255,255,0.08)'); g.addColorStop(0.55, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,0.6)');
+      x.fillStyle = '#' + col.getHexString(); x.fillRect(-bw / 2, -bh, bw, bh);
+      if (rnd() < 0.7) {                                                        // gilt bands
+        x.fillStyle = rnd() < 0.8 ? '#b8903e' : '#d8c08a';
+        for (const f of [0.1, 0.16, 0.84, 0.9]) x.fillRect(-bw / 2, -bh * f - 1, bw, 1);
+      }
+      if (bw > 6 && rnd() < 0.35) { x.fillStyle = rnd() < 0.5 ? '#cbb27a' : '#1a1410'; x.fillRect(-bw / 2 + 1.5, -bh * 0.62, bw - 3, bh * 0.14); }   // label patch
+      x.fillStyle = g; x.fillRect(-bw / 2, -bh, bw, bh);
+      x.restore();
+      px += bw + (rnd() < 0.3 ? 1 : 0);
+    }
+    x.fillStyle = 'rgba(0,0,0,0.5)'; x.fillRect(0, r * R, S, 4);              // shadow under the shelf above
+  }
+  const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.wrapS = RepeatWrapping; t.wrapT = ClampToEdgeWrapping; t.anisotropy = 4;
+  _spineMat = new MeshStandardMaterial({ map: t, roughness: 0.82, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.1 });   // a whisper of self-light: spines still read in the shadowed upper shelves
+  _spineMat.name = 'book-spines';
+  return _spineMat;
+}
+
+// Bookcases. specs: [{ x, z, w, h = 6.2, d = 0.6, a = 0, both = false, rows }]: a case w wide
+// centred (x, z) with its front facing angle a (0: +z, PI: -z, PI/2: +x, -PI/2: -x); `both`
+// = a free-standing stack with books on both faces. Pushes one box collider per case.
+// Returns { frame, books } (one wood mesh + one book mesh for all of them).
+export function bookcases(group, specs, cols, { wood = 0x3a2414, seed = 3 } = {}) {
+  const F = [], B = [];
+  let sd = seed; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+  for (const sp of specs) {
+    const { x, z, w, h = 6.2, d = 0.6, a = 0, both = false } = sp;
+    const t = 0.08, plinth = 0.24, corn = 0.3, rows = sp.rows || Math.max(3, Math.round((h - plinth - corn) / 0.52)), oh = (h - plinth - corn) / rows;
+    const L = [], K = [];
+    box(L, t, h - corn, d, -w / 2 + t / 2, (h - corn) / 2, 0); box(L, t, h - corn, d, w / 2 - t / 2, (h - corn) / 2, 0);   // sides
+    box(L, w, plinth, d + 0.04, 0, plinth / 2, 0);                                                               // plinth
+    box(L, w + 0.16, corn * 0.6, d + 0.14, 0, h - corn * 0.3, 0); box(L, w + 0.06, corn * 0.4, d + 0.06, 0, h - corn * 0.8, 0);   // moulded cornice
+    for (let r = 1; r < rows; r++) box(L, w - 2 * t, 0.05, d, 0, plinth + r * oh, 0);                             // shelves
+    const nb = Math.max(1, Math.round((w - 2 * t) / 1.35)), bw = (w - 2 * t) / nb;
+    for (let k = 1; k < nb; k++) box(L, 0.06, h - plinth - corn, d, -w / 2 + t + k * bw, plinth + (h - plinth - corn) / 2, 0);   // uprights
+    box(L, w - 2 * t, h - plinth - corn, 0.03, 0, plinth + (h - plinth - corn) / 2, both ? 0 : -d / 2 + 0.03);  // back / divider
+    for (const f of both ? [1, -1] : [1]) for (let r = 0; r < rows; r++) for (let k = 0; k < nb; k++) {
+      const pw = bw - 0.07, ph = oh - 0.06, q = new PlaneGeometry(pw, ph), uv = q.attributes.uv;
+      const tr = (r * 3 + k + (f < 0 ? 2 : 0) + ((rnd() * 4) | 0)) % 4, u0 = rnd(), v0 = 1 - (tr + 1) / 4;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * pw / 1.6, v0 + uv.getY(i) * 0.25);
+      if (f < 0) q.rotateY(Math.PI);
+      q.translate(-w / 2 + t + (k + 0.5) * bw, plinth + r * oh + 0.03 + ph / 2, f * (d / 2 - 0.14)); K.push(q);   // 14 cm behind the shelf fronts
+    }
+    for (const g of [...L, ...K]) { g.rotateY(a); g.translate(x, 0, z); }
+    F.push(...L); B.push(...K);
+    const side = Math.abs(Math.sin(a)) > 0.5;
+    if (cols) cols.push({ type: 'box', x, z, hw: side ? d / 2 : w / 2, hd: side ? w / 2 : d / 2, angle: 0, shelf: true });
+  }
+  const frame = new Mesh(mergeGeometries(F, false), woodMat(1, 3, wood)); frame.name = 'bookcases'; frame.castShadow = true; group.add(frame);
+  const books = new Mesh(mergeGeometries(B, false), spineMat()); books.name = 'book-spines'; group.add(books);
+  return { frame, books };
+}
+
+// A few books drifting in the air (spots: [{ x, y, z }]). Two instanced meshes (covers, pages);
+// returns { update(t) } that bobs, tilts and slowly turns them.
+export function floatingBooks(group, spots) {
+  const n = spots.length, d = new Object3D(), col = new Color();
+  const covers = new InstancedMesh(new BoxGeometry(0.26, 0.05, 0.36), new MeshStandardMaterial({ roughness: 0.7 }), n);
+  const pages = new InstancedMesh(new BoxGeometry(0.24, 0.036, 0.33).translate(0.012, 0, 0), new MeshStandardMaterial({ color: 0xe6d8b0, roughness: 0.9, emissive: 0xe6d8b0, emissiveIntensity: 0.12 }), n);
+  const TINT = [0x6a1e1a, 0x1f3b5e, 0x2c4a2a, 0x5a3a1e, 0x4a2a52];
+  spots.forEach((s, i) => covers.setColorAt(i, col.setHex(TINT[i % TINT.length])));
+  covers.name = 'floating-books'; pages.name = 'floating-pages';
+  covers.frustumCulled = pages.frustumCulled = false; group.add(covers, pages);
+  const update = (t) => {
+    spots.forEach((s, i) => {
+      d.position.set(s.x + Math.sin(t * 0.3 + i) * 0.25, s.y + Math.sin(t * 0.9 + i * 1.7) * 0.18, s.z + Math.cos(t * 0.25 + i * 2) * 0.25);
+      d.rotation.set(Math.sin(t * 0.7 + i) * 0.25, t * 0.15 + i * 1.3, 0.35 + Math.sin(t * 0.5 + i * 0.6) * 0.2); d.updateMatrix();
+      covers.setMatrixAt(i, d.matrix); pages.setMatrixAt(i, d.matrix);
+    });
+    covers.instanceMatrix.needsUpdate = pages.instanceMatrix.needsUpdate = true;
+  };
+  update(0);
+  return { covers, pages, update };
+}
+
+// ---- night windows ----
+// A round-headed leaded window looking onto a moonlit sky: dark-blue sky gradient, a soft moon,
+// stars, diamond quarries of old glass (each pane faintly different) and lead cames.
+let _nightMat = null;
+function nightMat() {
+  if (_nightMat) return _nightMat;
+  const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  let seed = 31; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0a1230'); g.addColorStop(0.55, '#16245a'); g.addColorStop(1, '#2a3c6e');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  for (let k = 0; k < 70; k++) { x.fillStyle = `rgba(255,244,214,${0.3 + rnd() * 0.6})`; x.beginPath(); x.arc(rnd() * W, rnd() * H * 0.8, rnd() < 0.1 ? 1.3 : 0.7, 0, 7); x.fill(); }
+  const mg = x.createRadialGradient(84, 58, 0, 84, 58, 34); mg.addColorStop(0, 'rgba(255,248,224,1)'); mg.addColorStop(0.3, 'rgba(255,240,200,0.95)'); mg.addColorStop(0.36, 'rgba(200,210,255,0.35)'); mg.addColorStop(1, 'rgba(120,140,220,0)');
+  x.fillStyle = mg; x.fillRect(40, 14, 88, 88);
+  const qw = 21, qh = 30;                                          // diamond quarries + lead
+  for (let j = -1; j < H / (qh / 2) + 1; j++) for (let i = -1; i <= W / qw + 1; i++) {
+    const cx = i * qw + (j % 2 ? qw / 2 : 0), cy = j * qh / 2;
+    x.beginPath(); x.moveTo(cx, cy - qh / 2); x.lineTo(cx + qw / 2, cy); x.lineTo(cx, cy + qh / 2); x.lineTo(cx - qw / 2, cy); x.closePath();
+    x.fillStyle = `rgba(${rnd() < 0.5 ? '40,70,60' : '70,60,40'},${0.06 + rnd() * 0.12})`; x.fill();
+    x.strokeStyle = '#07080c'; x.lineWidth = 1.6; x.stroke();
+  }
+  x.strokeStyle = '#07080c'; x.lineWidth = 5; x.strokeRect(0, 0, W, H);
+  const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.anisotropy = 4;
+  _nightMat = new MeshStandardMaterial({ color: 0x050608, roughness: 0.3, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 1.0, side: DoubleSide });
+  _nightMat.name = 'night-glass';
+  return _nightMat;
+}
+// specs: [{ x, y, z, a }]: window centre (x, y, z) on a wall, facing angle a (0: +z). w x h is the
+// rectangular part; a half-disc head sits on top. Stone-dark surround, mullion and transoms
+// (MAT.dark, so they merge with other iron/dark pieces), glass in one mesh. A cool moonlight
+// pool lands on the floor in front.
+export function nightWindows(group, specs, { w = 1.8, h = 3.6 } = {}) {
+  const G = [], D = [], th = h + w / 2;
+  for (const s of specs) {
+    const pane = new PlaneGeometry(w, h), pu = pane.attributes.uv;
+    for (let i = 0; i < pu.count; i++) pu.setY(i, pu.getY(i) * h / th);
+    const head = new CircleGeometry(w / 2, 16, 0, Math.PI), hp = head.attributes.position, hu = head.attributes.uv;
+    for (let i = 0; i < hu.count; i++) hu.setXY(i, hp.getX(i) / w + 0.5, (h + hp.getY(i)) / th);
+    head.translate(0, h / 2, 0); pane.deleteAttribute('normal'); head.deleteAttribute('normal');
+    const parts = [pane, head];
+    for (const g of parts) { g.translate(0, s.y, 0); g.rotateY(s.a || 0); g.translate(s.x, 0, s.z); }
+    G.push(...parts);
+    const sur = [];
+    box(sur, w + 0.5, h + 0.3, 0.2, 0, s.y - 0.1, -0.12);
+    const ring = new CylinderGeometry(w / 2 + 0.25, w / 2 + 0.25, 0.2, 18, 1, false, -Math.PI / 2, Math.PI); ring.rotateX(-Math.PI / 2); ring.translate(0, s.y + h / 2, -0.12); sur.push(ring.toNonIndexed());
+    box(sur, 0.09, h, 0.08, 0, s.y, 0.03);                                       // mullion
+    for (const f of [-0.2, 0.18]) box(sur, w, 0.08, 0.08, 0, s.y + f * h, 0.03);   // transoms
+    box(sur, w + 0.7, 0.16, 0.42, 0, s.y - h / 2 - 0.08, 0.06);                  // sill
+    for (const g of sur) { g.rotateY(s.a || 0); g.translate(s.x, 0, s.z); D.push(g.index ? g.toNonIndexed() : g); }
+    const o = new Object3D(); o.position.set(s.x + Math.sin(s.a || 0) * 2.2, 0.5, s.z + Math.cos(s.a || 0) * 2.2);
+    o.userData.light = { k: 'glow', c: 0x6a86d0, r: 2, a: 0.08 }; group.add(o);
+  }
+  const glass = new Mesh(mergeGeometries(G.map(g => { g.computeVertexNormals(); return g.index ? g.toNonIndexed() : g; }), false), nightMat()); glass.name = 'night-windows'; group.add(glass);
+  for (const g of D) if (g.attributes.uv) g.deleteAttribute('uv');
+  const frame = new Mesh(mergeGeometries(D, false), MAT.dark); frame.name = 'night-window-frames'; group.add(frame);
+  return { glass, frame };
+}
+
+// ---- rug ----
+let _rugMat = null;
+function rugMat() {
+  if (_rugMat) return _rugMat;
+  const W = 256, H = 128, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  let seed = 17; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  x.fillStyle = '#5e1016'; x.fillRect(0, 0, W, H);                                          // crimson field
+  for (let k = 0; k < 900; k++) { x.fillStyle = `rgba(${rnd() < 0.5 ? '0,0,0' : '150,40,40'},${rnd() * 0.12})`; x.fillRect(rnd() * W, rnd() * H, 2, 2); }   // wool mottling
+  const band = (i, col, wpx) => { x.strokeStyle = col; x.lineWidth = wpx; x.strokeRect(i, i, W - 2 * i, H - 2 * i); };
+  band(4, '#2a0a0c', 8); band(11, '#9a7232', 4); band(17, '#3a0c10', 6);
+  for (let i = 24; i < W - 24; i += 10) for (const y of [6, H - 6]) { x.fillStyle = '#a88038'; x.beginPath(); x.moveTo(i, y - 3); x.lineTo(i + 3, y); x.lineTo(i, y + 3); x.lineTo(i - 3, y); x.fill(); }
+  for (let j = 24; j < H - 20; j += 10) for (const xx of [6, W - 6]) { x.fillStyle = '#a88038'; x.beginPath(); x.moveTo(xx, j - 3); x.lineTo(xx + 3, j); x.lineTo(xx, j + 3); x.lineTo(xx - 3, j); x.fill(); }
+  band(22, '#a88038', 2);
+  x.save(); x.translate(W / 2, H / 2);                                                      // central medallion
+  x.fillStyle = '#2a0a0c'; x.beginPath(); x.ellipse(0, 0, 54, 34, 0, 0, 7); x.fill();
+  x.fillStyle = '#9a7232'; x.beginPath(); x.ellipse(0, 0, 48, 29, 0, 0, 7); x.fill();
+  x.fillStyle = '#7a1a1e'; x.beginPath(); x.ellipse(0, 0, 42, 24, 0, 0, 7); x.fill();
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; x.fillStyle = k % 2 ? '#b8913f' : '#24344a'; x.beginPath(); x.ellipse(Math.cos(a) * 26, Math.sin(a) * 14, 7, 4, a, 0, 7); x.fill(); }
+  x.fillStyle = '#b8913f'; x.beginPath(); x.arc(0, 0, 8, 0, 7); x.fill();
+  x.restore();
+  for (const [cx, cy] of [[48, 36], [W - 48, 36], [48, H - 36], [W - 48, H - 36]]) { x.fillStyle = '#9a7232'; x.beginPath(); x.moveTo(cx, cy - 10); x.lineTo(cx + 10, cy); x.lineTo(cx, cy + 10); x.lineTo(cx - 10, cy); x.fill(); x.fillStyle = '#2a0a0c'; x.fillRect(cx - 3, cy - 3, 6, 6); }
+  const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.anisotropy = 4;
+  _rugMat = new MeshStandardMaterial({ map: t, roughness: 0.96 }); _rugMat.name = 'rug';
+  return _rugMat;
+}
+export function rug(group, x, z, w, d, rotY = 0) {
+  const m = new Mesh(new PlaneGeometry(w, d), rugMat()); m.rotation.set(-Math.PI / 2, 0, rotY); m.position.set(x, 0.035, z); m.receiveShadow = true; m.name = 'rug'; group.add(m); return m;
 }
