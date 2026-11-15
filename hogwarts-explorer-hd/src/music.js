@@ -92,7 +92,7 @@ export function init({ audio, isMatch = () => false } = {}) {
   function tryPlay() {
     if (!url || !unlocked || document.hidden || !audible()) return;
     route();
-    if (routedCtx && routedCtx.state === 'suspended') routedCtx.resume().catch(() => {});
+    if (routedCtx && routedCtx.state !== 'running') routedCtx.resume().catch(() => {});   // iOS reports 'interrupted' after a lock or a call
     if (!el.paused) return;
     const p = el.play();
     if (p && p.catch) p.then(() => { lastPlayErr = null; render(); }, e => { lastPlayErr = e && e.name || 'error'; render(); });
@@ -146,8 +146,8 @@ export function init({ audio, isMatch = () => false } = {}) {
   addEventListener('pagehide', onHide);
   addEventListener('pageshow', () => { if (hiddenPaused && !document.hidden) { hiddenPaused = false; tryPlay(); } });
   // Any later tap retries (a play() that iOS refused outside a gesture, or after an interruption).
-  const retry = () => { if (unlocked && url && el.paused && audible() && !document.hidden) tryPlay(); };
-  ['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, retry, { capture: true, passive: true }));
+  const retry = () => { if (unlocked && url && audible() && !document.hidden) tryPlay(); };   // also when the element 'plays' into a context iOS interrupted
+  ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, retry, { capture: true, passive: true }));
 
   // ---------- storage ----------
   async function load() {

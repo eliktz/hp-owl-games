@@ -158,8 +158,10 @@ async function boot() {
   const music = initMusic({ audio, isMatch: () => { try { return !!takeover; } catch { return false; } } });   // takeover = a Quidditch match
   wireButtons({ env, map, interiors, audio, player, music });
   // resume the audio context on the first user gesture (autoplay policy); also arms the music
-  const kick = () => { audio.resume(); music.unlock(); removeEventListener('pointerdown', kick); removeEventListener('keydown', kick); };
-  addEventListener('pointerdown', kick); addEventListener('keydown', kick);
+  // (touchend/click too: on iOS Safari pointerdown alone is not always a media user-activation)
+  const KICK = ['pointerdown', 'touchend', 'click', 'keydown'];
+  const kick = () => { audio.resume(); music.unlock(); KICK.forEach(ev => removeEventListener(ev, kick)); };
+  KICK.forEach(ev => addEventListener(ev, kick));
 
   // ---- dialogue bubble ----------------------------------------------------
   const bubbleEl = document.getElementById('bubble');
