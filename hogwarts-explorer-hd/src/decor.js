@@ -9,6 +9,7 @@ import {
   Group, Mesh, InstancedMesh, Object3D, Color, SphereGeometry, CylinderGeometry, BoxGeometry,
   ConeGeometry, TorusGeometry, MeshStandardMaterial, Matrix4,
 } from 'three';
+import { mergeStatic } from './interior-kit.js';
 
 const M = (color, o = {}) => new MeshStandardMaterial({ color, roughness: 0.7, ...o });
 const mk = (par, geo, mat, x, y, z) => { const m = new Mesh(geo, mat); m.position.set(x, y, z); par.add(m); return m; };
@@ -101,6 +102,7 @@ function armour(g, x, z, rotY) {
   mk(A, new CylinderGeometry(0.03, 0.03, 2.2, 6), M(0x3a2a18), -0.5, 1.1, 0);
   mk(A, new ConeGeometry(0.08, 0.3, 6), steel, -0.5, 2.3, 0);
   A.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  mergeStatic(A, A.children.filter(c => c !== arm), 'armour');   // body + helmet + pauldrons + legs: one steel mesh (the saluting arm stays apart)
   g.add(A);
   const st = { wave: 2 + Math.random() * 5, dance: 0, group: A, arm, rotY };
   return st;

@@ -21,6 +21,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FLOOR_Y } from './rooms.js';
+import { mergeStatic } from './interior-kit.js';
 import * as fun from './fun.js';
 
 const M = (color, o = {}) => new MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -151,6 +152,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     const mouth = mk(hat, new BoxGeometry(0.38, 0.08, 0.05), dark, 0, 0.28, 0.51);
     grp.userData.light = { k: 'glow', c: 0xffd98a, r: 2.6, a: 0.3 };
     grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    mergeStatic(grp, grp.children.filter(c => c.isMesh), 'hat-stand');   // the stool's top + legs (the hat itself keeps moving)
     g.add(grp);
     // the four hourglasses by the stairs: gem piles = house points (yours is fed by your lessons)
     [-6.6, -4.6, 4.6, 6.6].forEach((x, i) => {
@@ -164,6 +166,7 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
       mk(G, new CylinderGeometry(0.44, 0.15, 0.7, 12), gemM, 0, 3.2, 0);
       const label = mk(G, new PlaneGeometry(1.3, 1.3), new MeshBasicMaterial({ map: numTex(housePts(h.key), h.crest), transparent: true, side: DoubleSide }), 0, 4.7, 0);
       G.userData.light = { k: 'glow', c: h.gem, r: 2, a: 0.25 }; G.userData.house = h.key; G.userData.label = label;
+      mergeStatic(G, [G], 'hourglass');   // brass caps + rods, and the two gem piles: one mesh each (the label stays its own)
       g.add(G);
     });
     return { grp, hat, tipG, mouth, talk: 0, quip: 3 };

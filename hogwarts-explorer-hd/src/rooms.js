@@ -4,13 +4,15 @@
 // returns walkable `portals` (doorway zones) so you can stroll between rooms and back out.
 import {
   Group, Mesh, BoxGeometry, MeshStandardMaterial, Color, SphereGeometry, CylinderGeometry, CircleGeometry, TorusGeometry,
-  InstancedMesh, Object3D,
+  InstancedMesh, Object3D, ConeGeometry,
 } from 'three';
 import {
   MAT, stoneMat, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
   enchantedCeiling, emissive, glassGlow, mergeStatic, greatWindow,
 } from './interior-kit.js';
 import { hallRoof, hallBanners, heightShade } from './hall-film.js';
+import { timberCeiling, grandDoors, windowLight, propMesh } from './room-film.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier } from './furniture.js';
 import { bakeLight } from './atmosphere.js';
 import { decorate } from './decor.js';
@@ -93,9 +95,16 @@ function room(g, cols, spawn, { flames = [], portals = [], update, id } = {}) {
 }
 
 // ---- Entrance Hall: the room you reach through the castle's front oak doors -------------
+// Film look: a timbered oak ceiling with depth (beams, joists, braces on stone corbels), warm
+// low torches washing honey stone that falls into shadow toward the beams (baked height shade),
+// the tall pointed front doors lit as a focal point, long house banners on the side walls and
+// one over each house hourglass by the stairs (lit by a warm wash on the north wall).
 function entranceHall() {
   const g = new Group(); const cols = []; const W = 16, D = 24, H = 11;
-  shell(g, cols, W, D, H, { open: ['w', 'e'] });            // west->Great Hall, east->Library
+  const WALL = 0xb09068;                                    // honey-grey ashlar
+  shell(g, cols, W, D, H, { ceil: false, open: ['w', 'e'], wallColor: WALL, wallSegs: 6, floorColor: 0xa89a82, floorTile: 3, floorRough: 0.7 });   // west->Great Hall, east->Library
+  // beams span the hall (x) between the doorway walls, clear of the chandelier ring (z -2)
+  timberCeiling(g, W - 1, D - 1, H, { along: 'x', at: [-10.4, -7.6, -4.8, 0.8, 3.6, 6.4, 9.2], joist: 1.25, corbel: WALL, brace: 1.4 });
   carpet(g, 0, 2, 4.4, D - 4);                              // welcome runner toward the stairs
   // the arches frame the shell's real doorway gaps (centred on z 0, like their portals)
   archway(g, -W / 2 + 0.3, 0, Math.PI / 2);                 // to Great Hall
@@ -105,13 +114,47 @@ function entranceHall() {
     const step = new Mesh(new BoxGeometry(8, 0.4, 1.2), MAT.stone);
     step.position.set(0, 0.2 + s * 0.4, -D / 2 + 1 + s * 1.1); step.castShadow = true; g.add(step);
   }
-  const ch = chandelier(g, 0, H - 0.6, -2);
+  // the castle's front doors on the south wall (the 'out' portal stands in front of them),
+  // lit from both sides and washed warm from above so they read from the stairs
+  grandDoors(g, 0, D / 2 - 0.5, Math.PI, { w: 4.2, hs: 3.8, wallColor: WALL });
+  for (const sx of [-3.9, 3.9]) torch(g, sx, 3.4, D / 2 - 0.6, 0xff8a2a, { shared: true, wash: 3.4, glowBall: false });
+  const doorWash = new Group(); doorWash.position.set(0, 4.6, D / 2 - 0.9);
+  doorWash.userData.light = { k: 'torch', c: 0xffb060, wr: 4.2, noHalo: true, off: 0.42, wa: 0.2, fr: 3.6, fa: 0.3 }; g.add(doorWash);
+  // the house hourglasses (delight.js, x +-4.6 / +-6.6, z -10.6): a warm wash behind each pair
+  // and a gem-coloured pool at each glass (delight adds them after the light is baked)
+  for (const sx of [-5.6, 5.6]) { const o = new Group(); o.position.set(sx, 2.8, -D / 2 + 0.9); o.userData.light = { k: 'torch', c: 0xffc070, wr: 3.2, noHalo: true, wa: 0.4, fr: 3, fa: 0.3 }; g.add(o); }
+  [[-6.6, 0xff3b4e], [-4.6, 0x2fe08a], [4.6, 0x4d8dff], [6.6, 0xffd23f]].forEach(([x, c]) => { const o = new Group(); o.position.set(x, 0.5, -10.6); o.userData.light = { k: 'glow', c, r: 1.4, a: 0.22 }; g.add(o); });
+  const ch = chandelier(g, 0, H - 1.5, -2);                  // hung below the beams
   // stand under the chandelier and wave the wand: it rocks and jingles and its candles flare
   let swing = 0;
   (g.userData.enchant = g.userData.enchant || []).push({ id: 'chandelier', obj: ch, r: 4.5, cast() { swing = 4; try { window.HPFun.sfx.tune([1568, 1319, 1568, 1047, 1319, 1568, 2093], 0.11, 'sine'); } catch { /* no audio yet */ } return '🕯️'; } });
   g.userData.chandelierSwing = () => swing;
-  for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 4.4, z);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 7, -4 + (i % 2) * 8, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+  // low torches (3.8 m) with wide washes so the lower walls glow and the tops fall into shadow
+  for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 3.8, z, 0xff8a2a, { shared: true, wash: 3.6, glowBall: false });
+  // Everything static that shares a material merges (walls, steps, arches, doors' stone, torches,
+  // carpet); the chandelier keeps swinging on its own.
+  mergeStatic(g, g.children.filter(c => c !== ch));
+  const stoneHex = [WALL, 0x8f8a80].map(h => new Color(h).getHex());
+  heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex()) && m.name !== 'corbels'),
+    { y0: 2.2, y1: H - 1, k0: 1.18, k1: 0.3 });
+  // long house banners: two per side wall (between the beams, clear of the torches) and one over
+  // each hourglass on the north wall; one mesh, gently stirring
+  const banners = hallBanners(g, [
+    { x: -W / 2 + 0.75, z: -6.2, top: 9.4, house: 'gryffindor', axis: 'x', amp: 0.35 },
+    { x: -W / 2 + 0.75, z: 5, top: 9.4, house: 'ravenclaw', axis: 'x', amp: 0.35 },
+    { x: W / 2 - 0.75, z: -6.2, top: 9.4, house: 'hufflepuff', axis: 'x', amp: 0.35 },
+    { x: W / 2 - 0.75, z: 5, top: 9.4, house: 'slytherin', axis: 'x', amp: 0.35 },
+    { x: -6.6, z: -D / 2 + 0.75, top: 9.6, house: 'gryffindor', len: 3.6, amp: 0.3 },
+    { x: -4.6, z: -D / 2 + 0.75, top: 9.6, house: 'slytherin', len: 3.6, amp: 0.3 },
+    { x: 4.6, z: -D / 2 + 0.75, top: 9.6, house: 'ravenclaw', len: 3.6, amp: 0.3 },
+    { x: 6.6, z: -D / 2 + 0.75, top: 9.6, house: 'hufflepuff', len: 3.6, amp: 0.3 },
+  ], { w: 1.5, len: 5.2 });
+  const rods = [];
+  for (const [x, z, ax] of [[-W / 2 + 0.8, -6.2, 1], [-W / 2 + 0.8, 5, 1], [W / 2 - 0.8, -6.2, 1], [W / 2 - 0.8, 5, 1], [-6.6, -D / 2 + 0.8, 0], [-4.6, -D / 2 + 0.8, 0], [4.6, -D / 2 + 0.8, 0], [6.6, -D / 2 + 0.8, 0]]) {
+    const r = new CylinderGeometry(0.045, 0.045, 1.75, 6); r.rotateZ(Math.PI / 2); if (ax) r.rotateY(Math.PI / 2);
+    r.translate(x, ax ? 9.42 : 9.62, z); rods.push(r);
+  }
+  const rodMesh = new Mesh(mergeGeometries(rods, false), MAT.gold); rodMesh.name = 'banner-rods'; g.add(rodMesh);
   const flames = [];
   const portals = [
     { x: 0, z: D / 2 - 1.2, r: 1.6, to: 'out' },            // south doors -> grounds
@@ -126,6 +169,7 @@ function entranceHall() {
     id: 'entrancehall',
     flames, portals,
     update: (dt, t) => {
+      banners.update(t);
       if (swing > 0) swing -= dt;
       const k = swing > 0 ? Math.min(1, swing / 1.5) : 0;        // rocks hard, then settles
       ch.rotation.z = k * Math.sin(t * 2.7) * 0.2; ch.rotation.x = k * Math.cos(t * 2.2) * 0.12;
@@ -340,18 +384,65 @@ function dungeon() {
 
 // ---- The classroom wing: one airy hall with three teaching corners (Charms, Transfiguration,
 //      Defence). The professors, boards and desks are placed by lessons.js. ----
+// Film look: tall leaded windows throw warm daylight shafts and long pools across the desks
+// (fading toward night), honey stone falling into shadow under a timbered ceiling, and a few
+// props at each corner: Charms (feathers, a feather stand, Flitwick's book pile), Transfiguration
+// (goblets and mice to transfigure, a birdcage), Defence (desk candles, a pixie cage, old tomes).
 function classrooms() {
   const g = new Group(); const cols = []; const W = 28, D = 18, H = 9;
-  shell(g, cols, W, D, H, { open: ['s'], floorColor: 0xa39884, floorTile: 3 });
+  const WALL = 0xae9070;
+  shell(g, cols, W, D, H, { ceil: false, open: ['s'], floorColor: 0xa39884, floorTile: 3, wallColor: WALL, wallSegs: 5 });
+  timberCeiling(g, W - 1, D - 1, H, { along: 'z', at: [-11.25, -6.75, -2.25, 2.25, 6.75, 11.25], joist: 1.25, corbel: WALL, brace: 1.3 });
   [[-9, 0x223a6a], [0, 0x6a1f2c], [9, 0x2a4a3a]].forEach(([x, c]) => carpet(g, x, -2.5, 7, 7, c));
   // solid columns: 4.8 m from every teaching station, 1.8 m+ from the desks, 4.5 m from the spawn
   for (const x of [-4.5, 4.5]) { column(g, x, -D / 2 + 1.2, H, 0.4, cols); column(g, x, 3, H, 0.4, cols); }
-  for (const x of [-9, 0, 9]) window2(g, x, 5.4, -D / 2 + 0.54, 0, x < 0 ? 0x9fc0ff : x > 0 ? 0x9fe8b0 : 0xffc98a, 1.2, 'class').scale.setScalar(0.62);
-  for (const [x, z] of [[-W / 2 + 0.4, -3], [W / 2 - 0.4, -3], [-W / 2 + 0.4, 5], [W / 2 - 0.4, 5]]) torch(g, x, 3.6, z);
-  const ch = chandelier(g, 0, H - 1.4, 1.5);
+  // taller windows behind each station + one in each side wall (between the torches)
+  const WS = 0.75, WY = 5.6, sun = [];
+  for (const x of [-9, 0, 9]) { window2(g, x, WY, -D / 2 + 0.54, 0, x < 0 ? 0x9fc0ff : x > 0 ? 0x9fe8b0 : 0xffc98a, 1.2, 'class').scale.setScalar(WS); sun.push({ x, y: WY, z: -D / 2 + 0.6, nx: 0, nz: 1, w: 2.2 * WS, h: 6.1 * WS }); }
+  for (const s of [-1, 1]) { window2(g, s * (W / 2 - 0.54), WY, 1, -s * Math.PI / 2, 0xffc98a, 1.2, 'class').scale.setScalar(WS); sun.push({ x: s * (W / 2 - 0.6), y: WY, z: 1, nx: -s, nz: 0, w: 2.2 * WS, h: 6.1 * WS }); }
+  for (const [x, z] of [[-W / 2 + 0.4, -3], [W / 2 - 0.4, -3], [-W / 2 + 0.4, 5], [W / 2 - 0.4, 5]]) torch(g, x, 3.6, z, 0xff8a2a, { shared: true, wash: 3.2, glowBall: false });
+  const ch = chandelier(g, 0, H - 1.4, 1.5, 1.6, { shared: true });
+  // ---- props: ONE vertex-coloured mesh for all three corners (+ instanced desk candles) ----
+  const P = [], flames = [];
+  const at = (geo, hex, x, y, z, ry = 0, rz = 0, rx = 0) => { if (rx) geo.rotateX(rx); if (rz) geo.rotateZ(rz); if (ry) geo.rotateY(ry); geo.translate(x, y, z); P.push([geo, hex]); };
+  const BOOK = [0x6a1e1e, 0x1f3b5e, 0x2c4a2a, 0x5a3a1e, 0x4a2a52, 0x7a5a1e];
+  const TOP = 0.85;                                           // desk top (lessons.js desks)
+  let seed = 9; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const book = (x, y, z, ry, i, w = 0.34, d = 0.24, h = 0.06) => { at(new BoxGeometry(w, h, d), BOOK[i % BOOK.length], x, y + h / 2, z, ry); at(new BoxGeometry(w - 0.02, h - 0.016, d - 0.03), 0xe9dcb8, x + 0.012, y + h / 2, z, ry); };
+  const pile = (x, z, n, big = 1) => { let y = 0; for (let i = 0; i < n; i++) { const h = (0.09 + rnd() * 0.06) * big; book(x + (rnd() - 0.5) * 0.06, y, z + (rnd() - 0.5) * 0.06, (rnd() - 0.5) * 0.5, i + n, 0.55 * big, 0.4 * big, h); y += h; } cols.push({ type: 'circle', x, z, r: 0.45 * big }); };
+  const feather = (x, y, z, ry, rz = 0.08) => { const f = new ConeGeometry(0.05, 0.42, 6); f.scale(1, 1, 0.25); at(f, 0xf2ece0, x, y, z, ry, Math.PI / 2 + rz); at(new CylinderGeometry(0.004, 0.004, 0.16, 3), 0xd8c9a0, x - 0.26 * Math.cos(ry), y, z + 0.26 * Math.sin(ry), ry, Math.PI / 2); };
+  const goblet = (x, z) => { at(new CylinderGeometry(0.06, 0.07, 0.02, 10), 0xb98b2e, x, TOP + 0.01, z); at(new CylinderGeometry(0.012, 0.012, 0.09, 6), 0xb98b2e, x, TOP + 0.06, z); at(new CylinderGeometry(0.06, 0.035, 0.09, 10, 1, true), 0xb98b2e, x, TOP + 0.15, z); };
+  const mouse = (x, z, ry) => { const b = new SphereGeometry(0.055, 8, 6); b.scale(1.5, 0.8, 1); at(b, 0x8a8078, x, TOP + 0.045, z, ry); at(new SphereGeometry(0.018, 5, 4), 0xd8a0a0, x + 0.08 * Math.cos(ry), TOP + 0.06, z - 0.08 * Math.sin(ry)); const t = new CylinderGeometry(0.006, 0.004, 0.16, 3); at(t, 0xc89090, x - 0.13 * Math.cos(ry), TOP + 0.02, z + 0.13 * Math.sin(ry), ry, Math.PI / 2 - 0.2); };
+  const stand = (x, z, h, hex = 0x3a2614) => { at(new CylinderGeometry(0.28, 0.32, 0.06, 12), hex, x, 0.03, z); at(new CylinderGeometry(0.035, 0.035, h, 6), hex, x, h / 2, z); at(new CylinderGeometry(0.2, 0.14, 0.05, 12), hex, x, h, z); cols.push({ type: 'circle', x, z, r: 0.4 }); };
+  const cage = (x, y, z, r, h, bars, hex) => { for (let k = 0; k < bars; k++) { const a = k / bars * Math.PI * 2; at(new CylinderGeometry(0.008, 0.008, h, 3), hex, x + Math.cos(a) * r, y + h / 2, z + Math.sin(a) * r); } for (const yy of [y, y + h]) { const ring = new TorusGeometry(r, 0.012, 4, 16); at(ring, hex, x, yy, z, 0, 0, Math.PI / 2); } const dome = new SphereGeometry(r, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2); at(dome, hex, x, y + h, z); at(new TorusGeometry(0.05, 0.01, 4, 8), hex, x, y + h + r + 0.04, z); };
+  const DESKS = [[-1.6, 3.2], [1.6, 3.2], [-1.6, 5.4], [1.6, 5.4]];
+  // Charms (x -9): a feather on every desk ready for the levitation charm, a brass feather stand
+  // with one feather already floating, and the pile of books Professor Flitwick stands on
+  for (const [dx, dz] of DESKS) { feather(-9 + dx + 0.15, TOP + 0.02, -6.2 + dz - 0.05, 0.4 + rnd()); book(-9 + dx - 0.35, TOP, -6.2 + dz + 0.1, 0.2, (dx + dz) | 0); }
+  stand(-11.2, -6.4, 1.05, 0xb98b2e); feather(-11.2, 1.45, -6.4, 0.6, 0.35);
+  pile(-6.9, -6.7, 7);
+  // Transfiguration (x 0): a goblet and a little mouse on each desk, a birdcage on a stand
+  for (const [dx, dz] of DESKS) { goblet(dx - 0.3, -6.2 + dz); mouse(dx + 0.25, -6.2 + dz + 0.05, rnd() * 6); }
+  stand(2.4, -6.8, 1.3); cage(2.4, 1.33, -6.8, 0.28, 0.5, 14, 0xb98b2e);
+  { const b = new SphereGeometry(0.08, 8, 6); b.scale(1, 1.2, 1); at(b, 0x7a9ab0, 2.4, 1.48, -6.8); }      // a small blue bird
+  pile(-2.4, -6.9, 5);
+  // Defence (x 9): a candle and a heavy tome on every desk, a pixie cage, a stack of old tomes
+  for (const [dx, dz] of DESKS) { book(9 + dx - 0.25, TOP, -6.2 + dz, -0.15, 2 + dz, 0.4, 0.3, 0.09); const c = candle(9 + dx + 0.4, TOP + 0.2, -6.2 + dz - 0.1); g.add(c); flames.push(c); }
+  stand(11.2, -6.4, 1.2, 0x241b14); cage(11.2, 1.23, -6.4, 0.32, 0.6, 16, 0x2e2b30);
+  for (let k = 0; k < 4; k++) { const a = k * 1.7; at(new SphereGeometry(0.05, 6, 5), 0x3f7fe0, 11.2 + Math.cos(a) * 0.15, 1.4 + k * 0.1, -6.4 + Math.sin(a) * 0.15); }   // Cornish pixies
+  pile(6.9, -6.7, 6, 1.1);
+  propMesh(g, P, 'class-props');
+  // Static pieces that share a material merge (walls, columns, window frames and glass, torches,
+  // carpets, the chandelier's iron and its flames); lessons.js adds the boards and desks later.
+  mergeStatic(g, g.children.filter(c => !flames.includes(c) && c !== ch));
+  mergeStatic(ch, [ch], 'chandelier');
+  const stoneHex = [WALL, 0x7d7870].map(h => new Color(h).getHex());
+  heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex()) && m.name !== 'corbels'),
+    { y0: 2, y1: H - 0.5, k0: 1.15, k1: 0.36 });
+  const daylight = windowLight(g, sun, { slope: 1.15, strength: 0.8 });
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {
-    id: 'classrooms', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
-    update: (dt, t) => { for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4; },
+    id: 'classrooms', flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
+    update: (dt, t) => { daylight.update(t); ch.userData.flames[0].material.emissiveIntensity = 2 + Math.sin(t * 8) * 0.4; },
   });
 }
 

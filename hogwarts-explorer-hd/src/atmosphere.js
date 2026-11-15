@@ -70,13 +70,14 @@ export function bakeLight(group, colliders) {
     if (L.k === 'torch') {
       const w = wallNear(x, z);
       const sx = w && w.axis === 'x' ? w.c + w.n * 0.8 : x, sz = w && w.axis === 'z' ? w.c + w.n * 0.8 : z;
-      floorPool(x, z, 4.4, c, 0.5, sx, sz);
+      floorPool(x, z, L.fr || 4.4, c, L.fa ?? 0.5, sx, sz);
       if (w) {
-        const r = L.wr || 2.8, y0 = Math.max(0.05, y - r), y1 = y + r, off = w.c + w.n * 0.04, V0 = (y0 - (y - r)) / (2 * r);
-        if (w.axis === 'x') quad([off, y0, z - r], [off, y0, z + r], [off, y1, z + r], [off, y1, z - r], 0, V0, 1, 1, c, 0.42);
-        else quad([x - r, y0, off], [x + r, y0, off], [x + r, y1, off], [x - r, y1, off], 0, V0, 1, 1, c, 0.42);
+        const r = L.wr || 2.8, y0 = Math.max(0.05, y - r), y1 = y + r, off = w.c + w.n * (L.off || 0.04), V0 = (y0 - (y - r)) / (2 * r);
+        if (w.axis === 'x') quad([off, y0, z - r], [off, y0, z + r], [off, y1, z + r], [off, y1, z - r], 0, V0, 1, 1, c, L.wa ?? 0.42);
+        else quad([x - r, y0, off], [x + r, y0, off], [x + r, y1, off], [x - r, y1, off], 0, V0, 1, 1, c, L.wa ?? 0.42);
       }
-      halo(x + (w ? (w.axis === 'x' ? w.n * 0.25 : 0) : 0), y + 0.3, z + (w && w.axis === 'z' ? w.n * 0.25 : 0), 0.85, c, 0.55);
+      // (noHalo: a bare 'wash' marker lighting a focal point, e.g. the grand doors or the hourglasses)
+      if (!L.noHalo) halo(x + (w ? (w.axis === 'x' ? w.n * 0.25 : 0) : 0), y + 0.3, z + (w && w.axis === 'z' ? w.n * 0.25 : 0), 0.85, c, 0.55);
     } else if (L.k === 'candle') {
       if (y < 3) {
         floorPool(x, z, 2.4, c, 0.22); halo(x, y + 0.3, z, 0.42, c, 0.5);

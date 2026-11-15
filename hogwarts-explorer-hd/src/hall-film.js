@@ -171,17 +171,18 @@ function bannerMat() {
   return _bannerMat;
 }
 
-// specs: [{ x, z, top, house }]: each banner faces down the hall (normal +z), w x len metres.
-// Returns { mesh, update(t) }.
+// specs: [{ x, z, top, house, axis?, len? }]: a banner faces down the hall (normal +z), or with
+// axis 'x' hangs flat against a side wall (normal along x); w x len metres. Returns { mesh, update(t) }.
 export function hallBanners(group, specs, { w = 1.6, len = 5.6 } = {}) {
   const NX = 4, NY = 14, pos = [], uv = [], idx = [], rest = [];
   specs.forEach((s, b) => {
-    const col = BANNER_HOUSES[s.house].i, n0 = pos.length / 3;
+    const col = BANNER_HOUSES[s.house].i, n0 = pos.length / 3, L = s.len || len, ax = s.axis === 'x';
     for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) {
-      const u = i / NX, v = j / NY, px = s.x + (u - 0.5) * w, py = s.top - v * len;
+      const u = i / NX, v = j / NY, a = (u - 0.5) * w, py = s.top - v * L;
       const fold = Math.sin(u * Math.PI * 3) * 0.05;                       // static cloth folds
-      pos.push(px, py, s.z + fold); uv.push((col + u) / 4, 1 - v);
-      rest.push({ b, z: s.z + fold, drop: v, ph: b * 1.7 + u * 0.6 });
+      if (ax) pos.push(s.x + fold, py, s.z + a * Math.sign(s.x || 1)); else pos.push(s.x + a, py, s.z + fold);
+      uv.push((col + u) / 4, 1 - v);
+      rest.push({ b, z: (ax ? s.x : s.z) + fold, ax, amp: s.amp ?? 1, drop: v, ph: b * 1.7 + u * 0.6 });
     }
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
       const a = n0 + j * (NX + 1) + i, c = a + NX + 1;
@@ -197,8 +198,9 @@ export function hallBanners(group, specs, { w = 1.6, len = 5.6 } = {}) {
     mesh,
     update(t) {                                        // a slow draught: the tails move most
       for (let k = 0; k < rest.length; k++) {
-        const r = rest[k], a = Math.pow(r.drop, 1.6);
-        P.setZ(k, r.z + Math.sin(t * 0.8 + r.ph + r.drop * 2.2) * 0.16 * a + Math.sin(t * 1.9 + r.b) * 0.03 * a);
+        const r = rest[k], a = Math.pow(r.drop, 1.6) * r.amp;
+        const d = r.z + Math.sin(t * 0.8 + r.ph + r.drop * 2.2) * 0.16 * a + Math.sin(t * 1.9 + r.b) * 0.03 * a;
+        if (r.ax) P.setX(k, d); else P.setZ(k, d);
       }
       P.needsUpdate = true;
     },
