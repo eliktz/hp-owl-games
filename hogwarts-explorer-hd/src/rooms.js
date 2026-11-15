@@ -424,7 +424,7 @@ function commonRoom() {
     } }
   // mantel candles (instanced in room()), a Gryffindor shield over the chimney is the banner below
   const flames = [];
-  for (const x of [-2.2, -1.5, 1.5, 2.2]) { const cd = candle(x, 3.95, -D / 2 + 1.2); cd.userData.light = { k: 'candle', c: 0xffc070 }; g.add(cd); flames.push(cd); }
+  for (const x of [-2.2, -1.5, 1.5, 2.2]) { const cd = candle(x, 3.95, -D / 2 + 1.8); cd.userData.light = { k: 'candle', c: 0xffc070 }; g.add(cd); flames.push(cd); }
   propMesh(g, P, 'common-props');
   // round-headed leaded windows onto the night sky (west wall), a torch each side of the door
   nightWindows(g, [{ x: -IN + 0.06, y: 4.4, z: -2.4, a: Math.PI / 2 }, { x: -IN + 0.06, y: 4.4, z: 3.4, a: Math.PI / 2 }], { w: 1.8, h: 3.4 });
