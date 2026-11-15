@@ -6,6 +6,7 @@ import {
 } from 'three';
 import { TIMES, INDOOR_EXPOSURE, INDOOR_ENV, INDOOR_SUN, HDRI_SKIES, PROCEDURAL_SKY } from './config.js';
 import { loadHDRI } from './assets.js';
+import { EXPOSURE_SCALE } from './renderer.js';
 
 // Procedural equirect gradient sky used when no HDRI file is present.
 function proceduralSky(top, horizon, ground) {
@@ -67,7 +68,7 @@ export class Environment {
     const was = this.indoor;
     this.indoor = !!v;
     if (this.indoor) {
-      if (this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE;
+      if (this.renderer) this.renderer.toneMappingExposure = INDOOR_EXPOSURE * EXPOSURE_SCALE;
       this.scene.backgroundIntensity = 1;
       if (!was) this.savedEnv = [this.scene.environment, this.scene.environmentIntensity];
       // the sun is never re-added, only re-aimed: one fixed warm key so every visit looks alike
@@ -117,7 +118,7 @@ export class Environment {
     this.time = key;
     if (this.windowMat) this.windowMat.emissiveIntensity = p.win ?? 1.6;
     if (this.indoor) return;
-    if (this.renderer) this.renderer.toneMappingExposure = p.exposure ?? 1.0;
+    if (this.renderer) this.renderer.toneMappingExposure = (p.exposure ?? 1.0) * EXPOSURE_SCALE;
     // Sun placement from elevation/azimuth.
     const el = MathUtils.degToRad(p.elev), az = MathUtils.degToRad(p.azim);
     const d = 150;

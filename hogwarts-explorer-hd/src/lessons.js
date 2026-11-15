@@ -33,6 +33,7 @@ const GLB_PROF = {
   mcgon:    { model: 'mcgonagall', scale: 1.3, sig: 'Cast', h: 1.9 },
   flitwick: { model: 'flitwick',   scale: 1.3, sig: 'Cast', h: 1.1 },
   snape:    { model: 'snape',      scale: 1.3, sig: 'Cast', h: 1.85 },
+  defence:  { model: 'tonks',      scale: 1.3, sig: 'Cast', h: 1.7 },   // Tonks, Elik's choice for Defence (12 Nov)
   sprout:   { model: 'sprout',     scale: 1.3, sig: 'Wave', h: 1.7 },
 };
 const FADE = 0.25;

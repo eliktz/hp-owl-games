@@ -8,11 +8,12 @@ import {
 } from 'three';
 import {
   MAT, stoneMat, floor, wall, ceiling, column, candle, torch, longTable, window2, banner,
-  enchantedCeiling, emissive,
+  enchantedCeiling, emissive, glassGlow,
 } from './interior-kit.js';
 import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier } from './furniture.js';
 import { bakeLight } from './atmosphere.js';
 import { decorate } from './decor.js';
+import { addDumbledore } from './dumbledore.js';
 
 export const FLOOR_Y = -200;
 // Gryffindor red, Ravenclaw blue, Hufflepuff gold, Slytherin green.
@@ -83,7 +84,7 @@ function room(g, cols, spawn, { flames = [], portals = [], update, id } = {}) {
     group: g, colliders: cols, portals,
     spawn: { x: spawn.x, z: spawn.z, y: FLOOR_Y, yaw: spawn.yaw ?? 0 },
     update(dt, t) {
-      light.update(t); if (extra) extra(dt, t);
+      light.update(t); glassGlow(t); if (extra) extra(dt, t);
       if (candleTick) candleTick(t);
       update && update(dt, t);
     },
@@ -95,8 +96,9 @@ function entranceHall() {
   const g = new Group(); const cols = []; const W = 16, D = 24, H = 11;
   shell(g, cols, W, D, H, { open: ['w', 'e'] });            // west->Great Hall, east->Library
   carpet(g, 0, 2, 4.4, D - 4);                              // welcome runner toward the stairs
-  archway(g, -W / 2 + 0.3, 2, Math.PI / 2);                 // to Great Hall
-  archway(g, W / 2 - 0.3, 2, -Math.PI / 2);                 // to Library
+  // the arches frame the shell's real doorway gaps (centred on z 0, like their portals)
+  archway(g, -W / 2 + 0.3, 0, Math.PI / 2);                 // to Great Hall
+  archway(g, W / 2 - 0.3, 0, -Math.PI / 2);                 // to Library
   // a short grand staircase at the north end (climb toward the gallery)
   for (let s = 0; s < 6; s++) {
     const step = new Mesh(new BoxGeometry(8, 0.4, 1.2), MAT.stone);
@@ -108,12 +110,15 @@ function entranceHall() {
   (g.userData.enchant = g.userData.enchant || []).push({ id: 'chandelier', obj: ch, r: 4.5, cast() { swing = 4; try { window.HPFun.sfx.tune([1568, 1319, 1568, 1047, 1319, 1568, 2093], 0.11, 'sine'); } catch { /* no audio yet */ } return '🕯️'; } });
   g.userData.chandelierSwing = () => swing;
   for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 4.4, z);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 7, -4 + (i % 2) * 8, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 7, -4 + (i % 2) * 8, c, (i < 2 ? 1 : -1) * Math.PI / 2));
   const flames = [];
   const portals = [
     { x: 0, z: D / 2 - 1.2, r: 1.6, to: 'out' },            // south doors -> grounds
-    { x: -W / 2 + 1.2, z: 2, r: 1.5, to: 'greathall' },
-    { x: W / 2 - 1.2, z: 2, r: 1.5, to: 'library' },
+    // wide enough for the whole doorway gap + arch (z -1.3..3.3): at z 2 / r 1.5 a child walking
+    // through the middle of the arch (z 0) missed the portal and strolled out into the void, and at
+    // z 0 / r 1.5 the old approach line at z 2 (gameplay test journey) missed it
+    { x: -W / 2 + 1.2, z: 1, r: 2.3, to: 'greathall' },
+    { x: W / 2 - 1.2, z: 1, r: 2.3, to: 'library' },
     { x: 0, z: -D / 2 + 3.4, r: 1.7, to: 'staircase' },      // up the steps -> the grand staircase hall
   ];
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
@@ -145,16 +150,25 @@ function greatHall() {
   for (let z = -11; z <= 13; z += 3) for (const ax of [-2.2, 2.2]) {
     const c = candle(ax, 7.2 + Math.sin(z * 0.6) * 0.5, z); g.add(c); flames.push(c);
   }
-  for (let z = -D / 2 + 4; z <= D / 2 - 4; z += 7) { column(g, -W / 2 + 0.9, z, H); column(g, W / 2 - 0.9, z, H); }
-  for (const sx of [-W / 2 + 0.2, W / 2 - 0.2]) for (const z of [-9, 0, 9])
-    window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a, 0.8);
+  // Columns stand between the windows and clear of the banners (z ±7) and the west dungeon
+  // arch (z 3.5), which takes the west column's place at z 4.5.
+  // Solid (circle colliders at the plinth): all sit 8+ m from the aisle, 1.9 m beyond the wall
+  // benches' seated students, clear of the doors, the dungeon arch and Trevor's corner spot.
+  for (const z of [-13.5, -4.5, 4.5, 13.5]) { if (z !== 4.5) column(g, -W / 2 + 0.9, z, H, 0.5, cols); column(g, W / 2 - 0.9, z, H, 0.5, cols); }
+  // windows hang 6 cm proud of the wall face (they used to be buried 30 cm inside the wall)
+  for (const sx of [-W / 2 + 0.56, W / 2 - 0.56]) for (const z of [-10, 0, 10])   // (±10: clear of the banners at ±7)
+    window2(g, sx, 7, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2, sx < 0 ? 0x7fb0ff : 0xffc98a, 1.3, 'hall');
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.6), 10.5, -7 + (i % 2) * 14, c, (i < 2 ? 1 : -1) * Math.PI / 2, { lift: 0.12, crestGlow: 0.7 }));
   headTable(g, 0, -D / 2 + 3.2, W - 7).rotation.y = Math.PI / 2;   // head table + dais at the north end
-  for (const [x, z] of [[-W / 2 + 0.5, 13], [W / 2 - 0.5, 13]]) torch(g, x, 5, z);
+  for (const [x, z] of [[-W / 2 + 0.5, 11.8], [W / 2 - 0.5, 11.8]]) torch(g, x, 5, z);   // clear of the corner columns at z 13.5
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
+  // Dumbledore stands centred on the dais (top y 0.5) behind the head table (its cloth ends at
+  // z -16.25), facing the hall doors; his robe train tucks against the north wall (z -17.5).
+  const dumbledore = addDumbledore(g, 2.2, 0.5, -D / 2 + 1.15);   // off-centre so the owl lectern in the aisle does not hide him from the door
   return room(g, cols, { x: 0, z: 11, yaw: Math.PI }, {
     id: 'greathall',
     flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.7, z: 3.5, r: 1.3, to: 'dungeon' }],
+    update: (dt) => dumbledore(dt),
   });
 }
 
@@ -163,7 +177,10 @@ function library() {
   const g = new Group(); const cols = []; const W = 22, D = 22, H = 10;
   shell(g, cols, W, D, H, { open: ['w'] });                // west doorway -> Entrance Hall
   archway(g, -W / 2 + 0.3, 0, Math.PI / 2);
-  for (let r = 0; r < 4; r++) for (const sx of [-8, 8]) bookshelf(g, sx, -8 + r * 5.2, sx > 0 ? 1 : -1);
+  // east wall: four shelves; west wall: the same four pushed apart so the doorway arch (z 0)
+  // stays visible between them
+  for (let r = 0; r < 4; r++) bookshelf(g, 8, -8 + r * 5.2, 1);
+  for (const z of [-8.2, -3.8, 3.8, 8.2]) bookshelf(g, -8, z, -1);
   const flames = [];
   for (const [tx, tz] of [[0, -4], [0, 4]]) {
     longTable(g, tx, tz, 7, 0x2b5a8a);
@@ -195,7 +212,8 @@ function commonRoom() {
   armchair(g, -3.6, -2.4, Math.PI - 0.35); armchair(g, 3.6, -2.4, Math.PI + 0.35); armchair(g, 0, -3.4, Math.PI);
   bookshelf(g, -W / 2 + 0.8, 5, 1); bookshelf(g, W / 2 - 0.8, 5, -1);
   for (const [x, z] of [[-W / 2 + 0.4, 2], [W / 2 - 0.4, 2]]) torch(g, x, 3.4, z);
-  banner(g, 0, 3.6, -D / 2 + 0.3, HOUSE[0]);   // kept clear of the low (H=7) ceiling
+  // over the mantel, just proud of the wall (it used to hang inside the wall behind the hearth)
+  banner(g, 0, 6.5, -D / 2 + 0.56, HOUSE[0]).scale.setScalar(0.8);
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'commonroom', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
     update: (dt, t) => {
@@ -224,20 +242,31 @@ function staircase() {
   const landing = new Mesh(new BoxGeometry(8, 0.5, 4), MAT.stone);
   landing.position.set(0, 5.75, -11); landing.castShadow = true; g.add(landing);
   archway(g, 0, -D / 2 + 0.5, 0, { w: 3.4, h: 5.5 }).position.y = 6;
-  // Two animated 'moving' flights that sway, flanking the grand stair.
+  // Two 'moving' flights swing from the landing's outer corners up into the stairwell, like the
+  // film's staircases. The foot step rests on the landing (top y 6) outboard of the north arch;
+  // the flights climb south-outward and their swinging ends stay 2.5 m+ above the side arches'
+  // rings, clear of the walls and banners (they used to hang at y 2.6..6 across the side
+  // arches). Overhead scenery: nothing to walk on, so no colliders, like the landing itself.
   const flights = [];
   for (const sx of [-1, 1]) {
     const flight = new Group();
-    for (let s = 0; s < 8; s++) {
-      const step = new Mesh(new BoxGeometry(2.4, 0.3, 1), MAT.stone);
-      step.position.set(0, s * 0.5, s * 0.9 - 3); step.castShadow = true; flight.add(step);
+    for (let s = 0; s < 9; s++) {
+      const step = new Mesh(new BoxGeometry(2.2, 0.3, 1), MAT.stone);
+      step.position.set(0, s * 0.5, s * 0.9); step.castShadow = true; flight.add(step);
     }
-    flight.position.set(sx * 7, 2.6, -1); flight.rotation.y = sx * 0.55;
-    g.add(flight); flights.push({ node: flight, base: sx * 0.55, amp: 0.22 });
+    flight.position.set(sx * 4.1, 6.15, -9.35); flight.rotation.y = sx * 0.36;
+    g.add(flight); flights.push({ node: flight, base: sx * 0.36, amp: 0.025 });   // a slow creak, not a swing: the top now meets a fixed landing
+    // Somewhere to go: the flight's top step (about x +-6.8, y 10.4, z -2.2) meets a stone gallery
+    // landing on the side wall, with a balustrade and a dark doorway to the floors above.
+    // Overhead scenery only (nothing at walking height), so no colliders.
+    const lx = sx * 8.25, ly = 10.45, lz = -2.2;
+    const slab = new Mesh(new BoxGeometry(3.3, 0.4, 3.4), MAT.stone); slab.position.set(lx, ly, lz); slab.castShadow = true; g.add(slab);
+    for (const dz of [-1.6, 1.6]) { const rail = new Mesh(new BoxGeometry(3.3, 0.9, 0.18), MAT.stone); rail.position.set(lx, ly + 0.65, lz + dz); g.add(rail); }
+    archway(g, sx * (W / 2 - 0.3), lz, -sx * Math.PI / 2, { w: 2.2, h: 3.4 }).position.y = ly + 0.2;
   }
   const ch = chandelier(g, 0, H - 5, 1);
   for (const [x, z] of [[-W / 2 + 0.3, -6], [-W / 2 + 0.3, 6], [W / 2 - 0.3, -6], [W / 2 - 0.3, 6]]) torch(g, x, 4, z);
-  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.5), 10, -5 + (i % 2) * 10, c, (i < 2 ? 1 : -1) * Math.PI / 2));
+  HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 10, i % 2 ? 5.5 : -7.6, c, (i < 2 ? 1 : -1) * Math.PI / 2));   // clear of the gallery landings at z -2.2
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'staircase',
     portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'classrooms' },
@@ -278,8 +307,9 @@ function classrooms() {
   const g = new Group(); const cols = []; const W = 28, D = 18, H = 9;
   shell(g, cols, W, D, H, { open: ['s'], floorColor: 0xa39884, floorTile: 3 });
   [[-9, 0x223a6a], [0, 0x6a1f2c], [9, 0x2a4a3a]].forEach(([x, c]) => carpet(g, x, -2.5, 7, 7, c));
-  for (const x of [-4.5, 4.5]) { column(g, x, -D / 2 + 1.2, H, 0.4); column(g, x, 3, H, 0.4); }
-  for (const x of [-9, 0, 9]) window2(g, x, 5.4, -D / 2 + 0.25, 0, x < 0 ? 0x9fc0ff : x > 0 ? 0x9fe8b0 : 0xffc98a).scale.setScalar(0.62);
+  // solid columns: 4.8 m from every teaching station, 1.8 m+ from the desks, 4.5 m from the spawn
+  for (const x of [-4.5, 4.5]) { column(g, x, -D / 2 + 1.2, H, 0.4, cols); column(g, x, 3, H, 0.4, cols); }
+  for (const x of [-9, 0, 9]) window2(g, x, 5.4, -D / 2 + 0.54, 0, x < 0 ? 0x9fc0ff : x > 0 ? 0x9fe8b0 : 0xffc98a, 1.2, 'class').scale.setScalar(0.62);
   for (const [x, z] of [[-W / 2 + 0.4, -3], [W / 2 - 0.4, -3], [-W / 2 + 0.4, 5], [W / 2 - 0.4, 5]]) torch(g, x, 3.6, z);
   const ch = chandelier(g, 0, H - 1.4, 1.5);
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {

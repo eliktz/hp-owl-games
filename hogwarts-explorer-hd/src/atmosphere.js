@@ -58,6 +58,10 @@ export function bakeLight(group, colliders) {
     quad([x - s, y - s, z], [x + s, y - s, z], [x + s, y + s, z], [x - s, y + s, z], 0, 0, 1, 1, color, a);
     quad([x, y - s, z - s], [x, y - s, z + s], [x, y + s, z + s], [x, y + s, z - s], 0, 0, 1, 1, color, a);
   }
+  // a horizontal soft disc (one quad; the radial texture makes it round)
+  function disc(x, y, z, r, color, a) {
+    quad([x - r, y, z + r], [x + r, y, z + r], [x + r, y, z - r], [x - r, y, z - r], 0, 0, 1, 1, color, a);
+  }
   let high = 0, hx = 0, hz = 0;
   group.traverse(o => {
     const L = o.userData && o.userData.light; if (!L) return;
@@ -76,7 +80,15 @@ export function bakeLight(group, colliders) {
     } else if (L.k === 'candle') {
       if (y < 3) { floorPool(x, z, 2.4, c, 0.22); halo(x, y + 0.3, z, 0.42, c, 0.5); }
       else { high++; hx += x; hz += z; halo(x, y + 0.3, z, 0.5, c, 0.6); }
-    } else if (L.k === 'chandelier') { floorPool(x, z, 7.5, c, 0.42); halo(x, y, z, 2.2, c, 0.3); }
+    } else if (L.k === 'chandelier') {
+      floorPool(x, z, 7.5, c, 0.42);
+      // hung high (rooms hang them ~0.6 m under the ceiling): upright crossed quads would pierce
+      // the ceiling and show a hard-edged bow-tie from below, so a high chandelier gets ONE
+      // horizontal soft disc at its candle line — a round warm glow from below, an ellipse from
+      // the side, never touching stone. Low ones keep the crossed halo.
+      if (y > 4) disc(x, y + 0.12, z, 2.3, c, 0.5);
+      else halo(x, y, z, 2.2, c, 0.3);
+    }
     else if (L.k === 'fire') { floorPool(x, z + (L.dz || 0), 7, 0xff8030, 0.7, x, z + (L.dz || 1.5)); halo(x, y + 0.8, z + (L.dz ? 0.6 : 0), 1.8, 0xff8a3a, 0.45); }
     else if (L.k === 'window') { const fx = Math.sin(o.rotation.y), fz = Math.cos(o.rotation.y); floorPool(x + fx * 4.2, z + fz * 4.2, 3.4, c, 0.34); }
     else if (L.k === 'glow') { floorPool(x, z, L.r || 3, c, L.a || 0.3); }

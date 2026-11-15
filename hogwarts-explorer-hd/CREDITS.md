@@ -34,6 +34,9 @@ Fetched + optimised by `tools/fetch-assets.mjs`. Total ~7.5 MB.
 | `assets/textures/slate_roof_1k.jpg` | `slate_floor` | Diffuse 1K | CC0 1.0 | https://polyhaven.com/a/slate_floor |
 | `assets/textures/wood_1k.jpg` | `wood_floor_deck` | Diffuse 1K | CC0 1.0 | https://polyhaven.com/a/wood_floor_deck |
 | `assets/textures/grass_1k.jpg` | `aerial_grass_rock` | Diffuse 1K | CC0 1.0 | https://polyhaven.com/a/aerial_grass_rock |
+| `assets/textures/film/castle_wall_slates_{col,nor}.{ktx2,webp}` | `castle_wall_slates` (Castle Wall Slates, by Rob Tuytel) | Colour (AO baked in) + GL normal, 1K from 2K | CC0 1.0 | https://polyhaven.com/a/castle_wall_slates |
+| `assets/textures/film/roof_slates_{col,nor}.{ktx2,webp}` | `roof_slates_03` (Roof Slates 03, by Rob Tuytel) | Colour (AO baked in) + GL normal, 1K from 2K, ridge-cap row cropped | CC0 1.0 | https://polyhaven.com/a/roof_slates_03 |
+| `assets/textures/film/sandstone_blocks_{col,nor}.{ktx2,webp}` | `sandstone_blocks_05` (Sandstone Blocks 05, by Rob Tuytel) | Colour (AO baked in) + GL normal, 1K from 2K | CC0 1.0 | https://polyhaven.com/a/sandstone_blocks_05 |
 | `assets/hdri/kloofendal_day_1k.hdr` | `kloofendal_48d_partly_cloudy_puresky` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
 | `assets/hdri/dusk_1k.hdr` | `spruit_sunrise` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/spruit_sunrise |
 | `assets/hdri/night_1k.hdr` | `rogland_clear_night` | HDRI 1K | CC0 1.0 | https://polyhaven.com/a/rogland_clear_night |
