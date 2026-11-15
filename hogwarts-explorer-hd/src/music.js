@@ -1,19 +1,23 @@
-// Device-local background music. The game ships, fetches and names NO track: the family
-// picks an audio file on each device ('מוּזִיקָה 🎵' button), it is kept in IndexedDB on that
-// device only (one store, one key) and played as a gentle loop. Nothing is uploaded.
+// Background music. By default the game plays its own ORIGINAL theme, synthesised live with
+// WebAudio from note data (src/theme.js; no audio file anywhere). The family may instead pick
+// an audio file on each device ('מוּזִיקָה 🎵' button): it is kept in IndexedDB on that device
+// only (one store, one key), replaces the theme and plays as a gentle loop. Nothing is uploaded.
+// 'חֲזָרָה לַמּוּזִיקָה שֶׁל הַמִּשְׂחָק' forgets the picked file and goes back to the theme.
 //
 //   init({ audio, isMatch })  -> api        (audio = createAudio(); its AudioContext is reused)
 //   api.choose(file)  store + play (call from the tap that chose it)
-//   api.remove()      delete the stored track and stop
+//   api.remove()      delete the stored track and go back to the built-in theme
 //   api.setOn(bool)   music on/off, remembered in localStorage 'hpMusicOn1'
 //   api.duck(ms)      lower to ~35% for ms (Web Speech is also detected by polling)
 //   api.unlock()      call from the first user gesture (iOS autoplay rules)
 //   api.poke()        call from any gesture that may make music audible again (unmute)
 //   api.state()       for tests
 //
-// Volume: ~0.18 castle/grounds, ~0.32 in a Quidditch match, ~1 s smooth ramps. iOS ignores
+// Volume (theme and picked file alike): ~0.18 castle/grounds, ~0.32 in a Quidditch match, ~1 s smooth ramps. iOS ignores
 // HTMLAudioElement.volume, so the element is routed through the game's AudioContext
 // (MediaElementSource -> Gain -> destination) once one exists; element.volume elsewhere.
+// The theme follows the same isMatch signal for its variation (castle / quidditch cross-fade).
+import { createTheme } from './theme.js';
 const ON_KEY = 'hpMusicOn1';
 const DB_NAME = 'hpMusic1', STORE = 'track', REC = 'current';
 const VOL_CASTLE = 0.18, VOL_MATCH = 0.32, DUCK = 0.35, TAU = 0.33;   // TAU: ~95% in 1 s
@@ -21,8 +25,9 @@ const VOL_CASTLE = 0.18, VOL_MATCH = 0.32, DUCK = 0.35, TAU = 0.33;   // TAU: ~9
 const T = {
   title: 'מוּזִיקָה 🎵',
   choose: 'בַּחֲרוּ שִׁיר',
-  remove: 'הָסֵר',
-  none: 'עוֹד לֹא נִבְחַר שִׁיר, אָז אֵין מוּזִיקָה.',
+  back: 'חֲזָרָה לַמּוּזִיקָה שֶׁל הַמִּשְׂחָק',
+  builtin: 'מוּזִיקַת הַמִּשְׂחָק',
+  builtinHint: 'אֶפְשָׁר גַּם לִבְחוֹר שִׁיר מֵהַמַּכְשִׁיר.',
   hint: 'הַשִּׁיר נִשְׁמָר רַק בַּמַּכְשִׁיר הַזֶּה.',
   session: 'הַשִּׁיר יִתְנַגֵּן עַכְשָׁו, אֲבָל לֹא יִזָּכֵר בַּפַּעַם הַבָּאָה.',
   quota: 'הַקּוֹבֶץ גָּדוֹל מִדַּי לִשְׁמִירָה בַּמַּכְשִׁיר. הוּא יִתְנַגֵּן רַק עַכְשָׁו.',
@@ -61,16 +66,30 @@ export function init({ audio, isMatch = () => false } = {}) {
   let unlocked = false, primed = false, hiddenPaused = false;
   let level = 0, duckUntil = 0, src = null, gain = null, routedCtx = null, lastPlayErr = null;
   let dbP = null, loadMs = -1;
+  let theme = null, themeCtx = null;     // the built-in theme (created once the game's AudioContext exists)
   const db = () => (dbP = dbP || (typeof indexedDB === 'undefined' ? Promise.reject(new Error('no idb')) : openDB()));
 
   const globalMuted = () => !!(audio && audio.muted);
   const speaking = () => { try { return !!(window.speechSynthesis && speechSynthesis.speaking); } catch { return false; } };
   const ducked = () => performance.now() < duckUntil || speaking();
+  const source = () => hasTrack ? 'track' : 'theme';
   function target() {
-    if (!hasTrack || !on || globalMuted()) return 0;
+    if (!on || globalMuted()) return 0;
     return (isMatch() ? VOL_MATCH : VOL_CASTLE) * (ducked() ? DUCK : 1);
   }
-  const audible = () => hasTrack && on && !globalMuted();
+  const audible = () => on && !globalMuted();
+  const themePlaying = () => !!(theme && theme.state().playing);
+
+  // The theme lives in the game's AudioContext (one context; iOS volume); its own GainNode
+  // goes straight to the destination like the routed element, so the level rules are shared.
+  function ensureTheme() {
+    if (theme) return theme;
+    const ctx = audio && audio.ctx;
+    if (!ctx) return null;
+    try { theme = createTheme(ctx, { destination: ctx.destination }); themeCtx = ctx; theme.setVariation(isMatch() ? 'quidditch' : 'castle', true); }
+    catch (e) { theme = null; }
+    return theme;
+  }
 
   // Route through the game's AudioContext (iOS volume). Only once per element (spec rule).
   function route() {
@@ -90,7 +109,17 @@ export function init({ audio, isMatch = () => false } = {}) {
   }
 
   function tryPlay() {
-    if (!url || !unlocked || document.hidden || !audible()) return;
+    if (!unlocked || document.hidden || !audible()) return;
+    if (!hasTrack) {                       // built-in theme
+      if (!ensureTheme()) return;
+      if (themeCtx.state !== 'running') themeCtx.resume().catch(() => {});
+      if (!themePlaying()) {               // (re)start from silence and fade in over ~1 s
+        level = 0; try { theme.out.gain.cancelScheduledValues(0); } catch { /* */ } theme.out.gain.value = 0;
+        theme.start(); render();
+      }
+      return;
+    }
+    if (!url) return;
     route();
     if (routedCtx && routedCtx.state !== 'running') routedCtx.resume().catch(() => {});   // iOS reports 'interrupted' after a lock or a call
     if (!el.paused) return;
@@ -115,6 +144,7 @@ export function init({ audio, isMatch = () => false } = {}) {
   }
 
   function setSource(blob, nm) {
+    if (theme) theme.stop();
     if (url) URL.revokeObjectURL(url);
     url = URL.createObjectURL(blob); name = nm || ''; hasTrack = true;
     el.muted = false; el.src = url; level = 0; apply();
@@ -123,6 +153,8 @@ export function init({ audio, isMatch = () => false } = {}) {
     el.pause(); hasTrack = false; name = '';
     if (url) { URL.revokeObjectURL(url); url = null; }
     el.removeAttribute('src'); try { el.load(); } catch { /* */ }
+    level = 0;                              // the theme fades in from silence
+    if (theme) { try { theme.out.gain.cancelScheduledValues(0); } catch { /* */ } theme.out.gain.value = 0; }
   }
 
   // ---------- loop: ramps, auto pause when silent ----------
@@ -133,12 +165,22 @@ export function init({ audio, isMatch = () => false } = {}) {
     const tg = target();
     level += (tg - level) * (1 - Math.exp(-dt / TAU));
     if (Math.abs(tg - level) < 0.0015) level = tg;
-    apply();
-    if (tg === 0 && level === 0 && !el.paused && !audible()) el.pause();
+    if (hasTrack) apply();
+    else if (theme) {
+      try { theme.out.gain.setTargetAtTime(level, themeCtx.currentTime, 0.03); } catch { theme.out.gain.value = level; }
+      theme.setVariation(isMatch() ? 'quidditch' : 'castle');   // cross-fades on the next bar
+    }
+    if (tg === 0 && level === 0 && !audible()) {
+      if (!el.paused) el.pause();
+      if (themePlaying()) { theme.stop(); render(); }
+    }
   }, 50);
 
   // ---------- visibility ----------
-  function onHide() { if (!el.paused) { hiddenPaused = true; el.pause(); } }
+  function onHide() {
+    if (!el.paused) { hiddenPaused = true; el.pause(); }
+    if (themePlaying()) { hiddenPaused = true; theme.stop(); }   // stop scheduling + silence
+  }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) onHide();
     else if (hiddenPaused) { hiddenPaused = false; tryPlay(); }
@@ -146,7 +188,7 @@ export function init({ audio, isMatch = () => false } = {}) {
   addEventListener('pagehide', onHide);
   addEventListener('pageshow', () => { if (hiddenPaused && !document.hidden) { hiddenPaused = false; tryPlay(); } });
   // Any later tap retries (a play() that iOS refused outside a gesture, or after an interruption).
-  const retry = () => { if (unlocked && url && audible() && !document.hidden) tryPlay(); };   // also when the element 'plays' into a context iOS interrupted
+  const retry = () => { if (unlocked && (url || !hasTrack) && audible() && !document.hidden) tryPlay(); };   // also when the element 'plays' into a context iOS interrupted
   ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, retry, { capture: true, passive: true }));
 
   // ---------- storage ----------
@@ -192,6 +234,8 @@ export function init({ audio, isMatch = () => false } = {}) {
     font:bold 22px 'Rubik',sans-serif;padding:0 18px;cursor:pointer;touch-action:manipulation}
   #musicPanel .row button:active,#musicPanel .x:active{transform:scale(.93)}
   #musicPanel .row button[disabled]{opacity:.4}
+  #musicPanel .row button.rm{font-size:19px;flex-basis:100%;max-width:360px}
+  #musicPanel .row button[hidden]{display:none}
   #musicPanel .tg{font-size:30px !important}
   #musicFile{display:none}`;
   document.head.appendChild(css);
@@ -203,7 +247,7 @@ export function init({ audio, isMatch = () => false } = {}) {
     <button class="x" aria-label="סְגִירָה">✕</button>
     <h3>${T.title}</h3>
     <div class="nm"></div><div class="nt"></div>
-    <div class="row"><button class="ch">${T.choose}</button><button class="tg" aria-label="${T.on}">🎵</button><button class="rm">${T.remove}</button></div>
+    <div class="row"><button class="ch">${T.choose}</button><button class="tg" aria-label="${T.on}">🎵</button><button class="rm">${T.back}</button></div>
     <input id="musicFile" type="file" accept="audio/*">
   </div>`;
   document.body.appendChild(btn); document.body.appendChild(panel);
@@ -213,14 +257,14 @@ export function init({ audio, isMatch = () => false } = {}) {
   [btn, panel].forEach(n => ['pointerdown', 'touchstart', 'mousedown'].forEach(ev => n.addEventListener(ev, e => e.stopPropagation(), { passive: true })));
 
   function render() {
-    nmEl.textContent = hasTrack ? '🎶 ' + name : T.none;
+    nmEl.textContent = '🎶 ' + (hasTrack ? name : T.builtin);
     let n = note;
-    if (!n && hasTrack) n = persisted ? T.hint : T.session;
+    if (!n) n = hasTrack ? (persisted ? T.hint : T.session) : T.builtinHint;
     if (hasTrack && audible() && el.paused && lastPlayErr === 'NotAllowedError') n = T.tap;
     ntEl.textContent = n;
     tgB.textContent = on ? '🎵' : '🔇'; tgB.setAttribute('aria-label', on ? T.on : T.off); tgB.setAttribute('aria-pressed', String(on));
-    rmB.disabled = !hasTrack;
-    btn.classList.toggle('off', !on || !hasTrack);
+    rmB.hidden = !hasTrack;               // the one way back to the built-in theme
+    btn.classList.toggle('off', !on);
   }
   const open = () => { panel.classList.add('on'); render(); };
   const close = () => panel.classList.remove('on');
@@ -246,8 +290,9 @@ export function init({ audio, isMatch = () => false } = {}) {
       render();
       return persisted;
     },
-    async remove() {
+    async remove() {                   // forget the picked file: back to the built-in theme
       clearSource(); persisted = false; note = ''; render();
+      tryPlay();
       try { await db().then(d => tx(d, 'readwrite', s => s.delete(REC))); } catch { /* nothing stored */ }
       return true;
     },
@@ -259,9 +304,12 @@ export function init({ audio, isMatch = () => false } = {}) {
     duck(ms = 2500) { duckUntil = Math.max(duckUntil, performance.now() + ms); },
     open, close,
     state() {
-      return { hasTrack, name, on, unlocked, persisted, playing: !el.paused, paused: el.paused, currentTime: el.currentTime,
-        level, target: target(), gain: gain ? gain.gain.value : el.volume, routed: !!gain, ducked: ducked(), match: !!isMatch(),
-        globalMuted: globalMuted(), note: ntEl.textContent, panelOpen: panel.classList.contains('on'), loadMs };
+      const th = theme ? theme.state() : null, src = source();
+      const playing = src === 'track' ? !el.paused : !!(th && th.playing);
+      return { source: src, hasTrack, name, on, unlocked, persisted, playing, paused: !playing, elPaused: el.paused,
+        currentTime: src === 'track' ? el.currentTime : (th ? th.time : 0),
+        level, target: target(), gain: src === 'track' ? (gain ? gain.gain.value : el.volume) : (th ? th.out : 0), routed: src === 'theme' ? !!th : !!gain,
+        ducked: ducked(), match: !!isMatch(), globalMuted: globalMuted(), note: ntEl.textContent, panelOpen: panel.classList.contains('on'), loadMs, theme: th };
     },
     el,
   };
