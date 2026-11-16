@@ -265,7 +265,17 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   .spCard{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;background:linear-gradient(rgba(150,100,255,.32),rgba(90,50,190,.32));border:3px solid #c9a6ff;
     border-radius:20px;padding:12px 8px 10px;cursor:pointer;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 0 14px rgba(190,140,255,.45)}
   .spCard:active{transform:scale(.94)} .spCard .ic{font-size:46px;line-height:1} .spCard .nm{color:#fff;font-size:19px;font-weight:bold}
-  .spCard .st{font-size:16px;min-height:20px;color:#ffe9a8} .spCard .go{margin-top:2px;background:linear-gradient(#e2ccff,#9a6aff);color:#2a0a5a;font-size:17px;font-weight:bold;border:3px solid #fff;border-radius:40px;padding:4px 14px}`;
+  .spCard .st{font-size:16px;min-height:20px;color:#ffe9a8} .spCard .go{margin-top:2px;background:linear-gradient(#e2ccff,#9a6aff);color:#2a0a5a;font-size:17px;font-weight:bold;border:3px solid #fff;border-radius:40px;padding:4px 14px}
+  .pickP{max-height:100vh;overflow-y:auto}
+  /* a phone on its side (844x390): smaller cards, no ➤ pill (the whole card is the button), so all fits */
+  @media (max-height:520px){
+    .pickP{padding:6px 12px 8px;border-width:4px} .pickT{font-size:21px;margin:0 0 5px} .pickStreak{font-size:15px}
+    .pickGrid{gap:6px} .pickCard,.spCard{padding:5px 6px 5px;gap:2px;border-radius:14px}
+    .pickCard .ic,.spCard .ic{font-size:30px} .pickCard .nm,.spCard .nm{font-size:15px} .pickCard .st,.spCard .st{font-size:13px;min-height:16px}
+    .pickCard .rk{font-size:15px;top:2px;right:4px} .pickCard .lv{height:6px} .pickCard .lv i{width:6px;height:6px}
+    .pickCard .go,.spCard .go{display:none}
+    .pickClose{margin:6px auto 0;padding:4px 30px;font-size:17px;border-width:3px} .pickClose.qCard{font-size:18px;padding:5px 26px}
+  }`;
   document.head.appendChild(css);
   const bell = document.createElement('button'); bell.id = 'bellBtn'; bell.className = 'gamebtn'; bell.innerHTML = '🔔<span class="bd">0</span>'; bell.setAttribute('aria-label', 'בחרו שיעור');
   document.body.appendChild(bell);
@@ -304,7 +314,8 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
         const ch = document.createElement('div'); ch.className = 'pickGrid spChooser';
         for (const c of cards) ch.appendChild(courseCard(c));
         const back = document.createElement('button'); back.type = 'button'; back.className = 'pickCard spBack'; back.innerHTML = '<div class="ic">↩️</div><div class="nm">חֲזָרָה</div>';
-        back.addEventListener('click', ev => { ev.stopPropagation(); ch.replaceWith(grid); fun.sfx.pop(); });
+        const tt = p.querySelector('.pickT'), t0 = tt.innerHTML; tt.textContent = '🪄 אֶתְגָּרִים 🪄';
+        back.addEventListener('click', ev => { ev.stopPropagation(); ch.replaceWith(grid); tt.innerHTML = t0; fun.sfx.pop(); });
         ch.appendChild(back);
         grid.replaceWith(ch);
       });
