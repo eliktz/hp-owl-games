@@ -149,13 +149,15 @@ export const COURSES = {
           after: 'dominoes', afterT: 3.6, afterSfx: 'none' },
         { id: 'ball', icon: '🌉', say: 'גַּלְגֵּל אֶת הַכַּדּוּר אֶל הַקְּעָרָה!',
           walk: [[9.0, 8.2], [12.6, 8.3], [13.3, 8.3]], face: [13.3, 3],
-          cam: { pos: [10.2, 3.6, 1.0], look: [13.0, 0.2, 5.6] },
+          // behind the hero's left shoulder, looking down the groove: the ball big in front, the bowl
+          // at the far end (from the old south-west view the far dummy sat mid-frame, the ball tiny)
+          cam: { pos: [12.3, 2.6, 8.4], look: [13.3, 0.2, 6.0] },
           lifts: [{ m: 'ball', path: [[13.3, 0.17, 7.4], [13.3, 0.17, 5.5], [13.3, 0.15, 3.7], [13.3, 0.12, 3.45]], rot0: [0, 0, 0], rot1: [-23, 0, 0] }],
           after: 'bridgeDown', afterSfx: 'boing' },
         { id: 'finish', icon: '🏁', say: 'דְּחֹף אֶת הַבֻּבָּה אֶל קַו הַסִּיּוּם!',
           walk: [[12.75, 8.1], [12.75, 5.6]], face: [12.7, 0],
           cam: { pos: [10.5, 3.3, 7.6], look: [12.8, 0.6, 1.0] },
-          lifts: [{ m: 'dummy3', aimY: 1.0, path: [[12.7, 0, 4.4], [12.7, 0.17, 3.0], [12.7, 0.17, 1.9], [12.7, 0, 0.7], [12.7, 0, -0.9]], rot0: [0, 0, 0], rot1: [0, 0, 0] }],
+          lifts: [{ m: 'dummy3', aimY: 1.0, path: [[12.7, 0, 3.4], [12.7, 0.17, 2.5], [12.7, 0.17, 1.6], [12.7, 0, 0.6], [12.7, 0, -0.9]], rot0: [0, 0, 0], rot1: [0, 0, 0] }],
           after: 'bow', afterT: 2.6, afterSfx: 'tada', afterConfetti: ['🏁', '⭐', '✨'] },
       ],
     },
@@ -353,7 +355,12 @@ function buildDefence(kit) {
   // the ball: two-tone stripes so the roll reads
   kit.mesh('ball', paint(new SphereGeometry(0.17, 16, 12), 0xe8473a, 0xf2c230, 'z'), { glowHex: 0xffd27a });
 
-  const DX = (i) => 9.3 + i * 0.38, lean = (i) => (i === 6 ? -0.75 : -0.468);
+  // fallen books rest on each other like shingles: each leans until its top corner meets the back of
+  // the next (solved for 0.38 m spacing, 0.62 x 0.1 m books, the last one against the bell): first
+  // a book tips to 0.468 rad (touching the upright next one), then settles as the next one falls
+  const DX = (i) => 9.3 + i * 0.38, REST = [1.301, 1.296, 1.285, 1.257, 1.19, 1.041, 0.75], TOUCH = 0.468;
+  const fallK = (t, i) => { const k = Math.max(0, Math.min(1, (t - i * 0.2) / 0.22)); return k * k; };
+  const lean = (t, i) => -(Math.min(TOUCH, REST[i]) * (i ? fallK(t, i) : 1) + Math.max(0, REST[i] - TOUCH) * (i < 6 ? fallK(t, i + 1) : fallK(t, i)));
   let rang = 0, fell = 0;
   return {
     reset(M) {
@@ -363,16 +370,17 @@ function buildDefence(kit) {
       M.bridge.pose(12.7, 0.12, 1.9, -Math.PI / 2, 0, 0);
       rang = 0; fell = 0;
     },
-    tick() {},
+    // once the row has fallen the first book (a lift: the runner re-poses it every frame) rests too
+    tick(M) { if (fell >= 6) M.domino0.pose(DX(0), 0, 7.6, 0, 0, -REST[0]); },
     effects: {
       // the portcullis rises (1.4 s)
       gateRise(M, t) { const k = Math.min(1, t / 1.2), e = k * k * (3 - 2 * k); M.gate.pose(9.0, e * 2.4, 2.9, 0, 0, 0); return t < 1.4; },
       // the books fall one by one, the last taps the bell, which swings and rings (3.4 s)
       dominoes(M, t, quiet) {
+        M.domino0.pose(DX(0), 0, 7.6, 0, 0, lean(t, 0));
         for (let i = 1; i < 7; i++) {
-          const k = Math.max(0, Math.min(1, (t - i * 0.2) / 0.22));
-          M['domino' + i].pose(DX(i), 0, 7.6, 0, 0, lean(i) * k * k);
-          if (k > 0 && fell < i) { fell = i; if (!quiet) fun.sfx.tink(1 + (i % 3)); }
+          M['domino' + i].pose(DX(i), 0, 7.6, 0, 0, lean(t, i));
+          if (fallK(t, i) > 0 && fell < i) { fell = i; if (!quiet) fun.sfx.tink(1 + (i % 3)); }
         }
         const tb = 6 * 0.2 + 0.2;
         if (t >= tb) {
