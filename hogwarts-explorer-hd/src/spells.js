@@ -184,8 +184,10 @@ function buildCharms(kit) {
       M.lid.pose(-6.3, 0.46, 3.64, 0, 0, 0);
       ringAt.forEach(([x, y, z, ry], i) => { M['ring' + i].pose(x, y, z, 0, ry, 0); M['ring' + i].color(0x8a6a30); });
     },
-    // idle life: the owl bobs, the rings drift
-    tick(M, t) {
+    // idle life: the owl bobs, the rings drift. The rings only show from station 5 on (from the
+    // station-1 camera they were a big yellow arc across the shelf)
+    tick(M, t, st) {
+      M.ring0.mesh.visible = st.phase === 'reward' || (st.phase === 'course' && st.step >= 4);
       ringAt.forEach(([x, y, z, ry], i) => M['ring' + i].pose(x, y + Math.sin(t * 1.3 + i * 2) * 0.05, z, 0, ry + Math.sin(t * 0.7 + i) * 0.08, 0, M['ring' + i].lit ? 1.12 : 1));
     },
     effects: {
@@ -397,6 +399,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const k = K; K = null;
     if (k.group.parent && !inTeardown) k.group.parent.remove(k.group);
     k.group.userData.onTeardown = null;
+    k.group.traverse(o => { if (o.isInstancedMesh) { try { o.dispose(); } catch { /* backend quirk */ } } });
     for (const g of k.geos) { try { g.dispose(); } catch { /* backend quirk */ } }
     for (const m of k.mats) { try { m.dispose(); } catch { /* backend quirk */ } }
     try { k.pTex.dispose(); } catch { /* ignore */ }
@@ -416,7 +419,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     L.mv.pose(tmp2.x, tmp2.y + bob, tmp2.z, r0[0] + (r1[0] - r0[0]) * e, r0[1] + (r1[1] - r0[1]) * e + (L.done && L.spec.flutter ? Math.sin(t * 0.8 + L.ph) * 0.3 : 0), r0[2] + (r1[2] - r0[2]) * e + fl);
   }
   const open = () => { if (!S.lifts) return null; for (const L of S.lifts) if (!L.done) return L; return null; };
-  function select(L) { if (L && !L.done && S.sel !== L) { S.sel = L; fun.sfx.tink(2); } }
+  function select(L) { if (L && !L.done && S.sel !== L) { S.sel = L; fun.sfx.tink(2); setPips(); } }
   function liftWorld(L, out) { samplePath(L, L.p, out); return out.add(worldOff); }
   function pick(x, y) {
     if (!S.lifts) return null;
@@ -631,6 +634,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     endOv.classList.remove('on'); S.q.length = 0;
     resetKit(K, false); S.drops = 0; S.casts = 0; S.doneStations = 0; S.praise = 0; S.result = null; S.stars = 0; S.phase = 'course'; S.tCourse = 0;
     startStation(0);
+    // straight to station 1 (a little sparkle hop), not the long walk back via the lesson spot
+    const st = S.C.course.stations[0], p = st.walk[st.walk.length - 1];
+    placeHero(p[0], p[1], yawTo(p[0], p[1], st.face[0], st.face[1]));
+    burst(p[0], 1.0, p[1], 16); fun.sfx.sparkle();
+    arrive();
   }
 
   // ---- start / leave ----
@@ -640,7 +648,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!C || S.on || isModal() || isTakeover()) return false;
     if (interiors.active !== C.room || !interiors.room) return false;
     S.key = key; S.C = C;
-    Object.assign(S, { on: true, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null });
+    Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null });
     S.q.length = 0; pipKey = '';
     try { K = buildKit(C, interiors.room); } catch (e) { console.warn('[spells] course props failed -', e && e.message || e); K = null; S.on = false; return false; }
     setTakeover(takeover);
@@ -715,7 +723,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.hold) S.holdT += dt;
     if (S.sub === 'cast') {
       S.idle += dt;
-      if (S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; } }   // finger still down: carry on with the next object
+      if (S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; setPips(); } }   // finger still down: carry on with the next object
       if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / HOLD); if (S.sel.p >= SNAP) snapLift(S.sel); }
     }
     for (let s = -1; s < K.stations.length; s++) {
@@ -732,7 +740,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         poseLift(L, t);
       }
     }
-    K.B.tick(K.movers, t);
+    K.B.tick(K.movers, t, S);
     if (S.fx) { S.fxT += dt; if (!S.fx(K.movers, S.fxT)) S.fx = null; }
 
     // glow, outline, ghost hand
@@ -751,7 +759,6 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
       if (!hand.classList.contains('on')) { hand.classList.add('on'); }
     } else if (hand.classList.contains('on')) hideHand();
-    if (S.sub === 'cast') setPips();
     tickSparks(dt, t);
 
     // a gentle camera: eased toward the station's framing, never a cut, never a shake
@@ -785,6 +792,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     };
   }
 
+  // test hooks answer only with ?debug=1 or when a test sets window.__game.test = true
+  const testOK = () => /[?&]debug=1/.test(location.search) || !!(window.__game && window.__game.test === true);
   const api = {
     courses: COURSES, start, quit, idle, pickerCard, best,
     state() {
@@ -794,6 +803,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     },
     // test hooks
     _cast() {
+      if (!testOK()) return false;
       if (!S.on || S.phase === 'reward') return false;
       if (S.sub === 'walk' && S.walk) { const w = S.walk, p = w.pts[w.pts.length - 1]; player.pos.x = p[0] + worldOff.x; player.pos.z = p[1] + worldOff.z; arrive(); }
       flushUntil(() => S.sub === 'cast');
@@ -801,11 +811,13 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       L.moved = true; liftDone(L); return true;
     },
     _drop() {
+      if (!testOK()) return false;
       if (!S.on || S.sub !== 'cast') return false;
       const L = (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return false;
       L.p = 0; drop(L); return true;
     },
     _skipTo(step) {
+      if (!testOK()) return false;
       if (!S.on || !K) return false;
       S.q.length = 0; endOv.classList.remove('on');
       for (const L of K.lesson) if (!L.done) { L.done = true; L.p = 1; }
@@ -816,15 +828,15 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (step >= n) { finish(); return true; }
       startStation(step); return true;
     },
-    _flush() { flushUntil(() => false); },
-    _speed(k) { S.speed = Math.max(0.1, Math.min(8, +k || 1)); return S.speed; },
+    _flush() { if (testOK()) flushUntil(() => false); },
+    _speed(k) { if (!testOK()) return 1; S.speed = Math.max(0.1, Math.min(8, +k || 1)); return S.speed; },   // reset to 1 on every start()
     _target() {                            // screen point of the thing to lift now (for real-touch tests)
-      if (!S.on || !S.lifts) return null;
+      if (!testOK() || !S.on || !S.lifts) return null;
       const L = (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return null;
       liftWorld(L, tmp).project(camera);
       return { x: (tmp.x * 0.5 + 0.5) * innerWidth, y: (-tmp.y * 0.5 + 0.5) * innerHeight, p: L.p };
     },
-    get _kit() { return K; },
+    get _kit() { return testOK() ? K : null; },
   };
   fun.mods.spells = api;
   return api;
