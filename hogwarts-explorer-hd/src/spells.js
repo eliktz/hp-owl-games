@@ -8,9 +8,13 @@
 //   the runner     one generic state machine: lesson -> course -> reward. start(key), quit(),
 //                  state(), test hooks. It owns the hero + camera through main.js's takeover
 //                  slot (like Quidditch), so the joystick / wand / other prompts never fight it.
-//   verbs          a course's `verb` picks the gesture: 'lift' (Charms) or 'push' (Defence). A push
-//                  swipes along the thing's path as seen on screen (away from the hero), the ghost
-//                  hand shows that direction; hold / tap / quick flick work the same for both.
+//   verbs          a course's `verb` picks the gesture: 'lift' (Charms), 'push' (Defence) or 'light'
+//                  (Astronomy). A push swipes along the thing's path as seen on screen (away from the
+//                  hero), the ghost hand shows that direction; hold / tap / quick flick work the same for
+//                  both. A light target stays put and its progress is how lit it is: touch it (keep the
+//                  finger on it = brighter) or hold / tap the 🪄 button; let go and it fades slowly.
+//   dim            a course with `dim: true` darkens the room through ONE reversible factor (dimApply)
+//                  toward S.dimGoal (set by the course's tick), restored exactly on any leave.
 //   the gesture    Wingardium Leviosa = "swish and flick": touch a glowing thing (or the big
 //                  🪄 button) and swipe UP; or hold the 🪄 button; or tap it a few times. The
 //                  thing rises along a path to a glowing outline and snaps when close. Let go
@@ -18,7 +22,7 @@
 //   reward         1-3 stars, house points through HPLessons.progress.bonus (the same pool the
 //                  Entrance Hall hourglasses show), best stars saved in localStorage hpSpells1.
 //
-// Budget: everything a course draws is ~11 draw calls (one merged vertex-coloured static mesh,
+// Budget: everything a course draws is ~11 draw calls (Astronomy: 9) (one merged vertex-coloured static mesh,
 // instanced feathers / blocks / rings, a handful of single movers, one outline, one sparkle
 // instanced quad set with a 32 px canvas texture), built on start and disposed on leave or room exit.
 // No per-frame allocations in update(): temp vectors and pre-sampled paths only.
@@ -227,8 +231,8 @@ export const COURSES = {
           cam: { pos: [3.2, 2.3, -0.4], look: [6.6, 1.3, -6.4] },
           lifts: [bulbLift(9)], after: 'owlWake', afterT: 3.2, afterSfx: 'none' },
         { id: 'sky', icon: '🐱', say: 'הַדְלֵק אֶת הַכּוֹכָבִים בַּשָּׁמַיִם!',
-          walk: [[3.0, -0.6], [0, 1.6]], face: [0, -4],
-          cam: { pos: [0, 1.7, 4.6], look: [0, 8.0, -4.2] },
+          walk: [[3.0, -0.6], [0, -0.4]], face: [0, -4],
+          cam: { pos: [0, 2.2, 6.6], look: [0, 6.8, -4.2] },     // Harry's head and shoulders at the bottom, the cat above
           lifts: [10, 11, 12, 13, 14].map(bulbLift), after: 'catShine', afterT: 2.6, afterSfx: 'none' },
         { id: 'telescope', icon: '🔭', say: 'הַדְלֵק אֶת הַמְּנוֹרָה הַגְּדוֹלָה!',
           walk: [[2.2, 0.2], [3.4, -1.2]], face: [6.0, -3.2],
