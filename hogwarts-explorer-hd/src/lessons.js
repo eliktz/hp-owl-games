@@ -287,11 +287,27 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       card.addEventListener('click', e => { e.stopPropagation(); closePicker(); go(l.key); });
       grid.appendChild(card);
     });
-    // spell challenge courses (spells.js): a card in the grid (the 8th slot is free in both layouts)
-    for (const c of cards) {
+    // spell challenge courses (spells.js) take the 8th slot (free in both layouts): one course = its own
+    // card; two or more = ONE '🪄 אֶתְגָּרִים' card that swaps the grid for a small chooser with their stars
+    const courseCard = (c) => {
       const n = c.best ? c.best() : 0, card = document.createElement('button'); card.type = 'button'; card.className = 'spCard'; card.dataset.sp = c.key;
       card.innerHTML = '<div class="ic">' + c.icon + '</div><div class="nm">' + c.name + '</div><div class="st">' + '⭐'.repeat(n) + '☆'.repeat(3 - n) + '</div><div class="go">➤ אֶתְגָּר</div>';
       card.addEventListener('click', e => { e.stopPropagation(); closePicker(); setTimeout(c.fn, 60); });
+      return card;
+    };
+    if (cards.length === 1) grid.appendChild(courseCard(cards[0]));
+    else if (cards.length > 1) {
+      const got = cards.reduce((a, c) => a + (c.best ? c.best() : 0), 0), card = document.createElement('button'); card.type = 'button'; card.className = 'spCard'; card.dataset.sp = 'all';
+      card.innerHTML = '<div class="ic">🪄</div><div class="nm">אֶתְגָּרִים</div><div class="st">⭐ <span dir="ltr">' + got + '/' + cards.length * 3 + '</span></div><div class="go">➤ בְּחַר</div>';
+      card.addEventListener('click', e => {
+        e.stopPropagation(); fun.sfx.flip();
+        const ch = document.createElement('div'); ch.className = 'pickGrid spChooser';
+        for (const c of cards) ch.appendChild(courseCard(c));
+        const back = document.createElement('button'); back.type = 'button'; back.className = 'pickCard spBack'; back.innerHTML = '<div class="ic">↩️</div><div class="nm">חֲזָרָה</div>';
+        back.addEventListener('click', ev => { ev.stopPropagation(); ch.replaceWith(grid); fun.sfx.pop(); });
+        ch.appendChild(back);
+        grid.replaceWith(ch);
+      });
       grid.appendChild(card);
     }
     p.appendChild(grid);

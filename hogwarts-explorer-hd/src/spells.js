@@ -8,6 +8,9 @@
 //   the runner     one generic state machine: lesson -> course -> reward. start(key), quit(),
 //                  state(), test hooks. It owns the hero + camera through main.js's takeover
 //                  slot (like Quidditch), so the joystick / wand / other prompts never fight it.
+//   verbs          a course's `verb` picks the gesture: 'lift' (Charms) or 'push' (Defence). A push
+//                  swipes along the thing's path as seen on screen (away from the hero), the ghost
+//                  hand shows that direction; hold / tap / quick flick work the same for both.
 //   the gesture    Wingardium Leviosa = "swish and flick": touch a glowing thing (or the big
 //                  🪄 button) and swipe UP; or hold the 🪄 button; or tap it a few times. The
 //                  thing rises along a path to a glowing outline and snaps when close. Let go
@@ -34,6 +37,7 @@ const HOVER = 1.1;                        // seconds a let-go thing hovers befor
 const FALL = 0.4;                         // progress per second while floating back down
 const HOLD = 1.0;                         // seconds of holding the 🪄 button for a full lift
 const TAP = 0.34;                         // one tap on the 🪄 button lifts this much
+const PUSH_HOVER = 0.6, PUSH_FALL = 0.55;  // a let-go push wobbles a moment, then slides back to its start
 const HINT_AFTER = 4;                     // seconds of no input before the ghost hand shows
 const WALK = 2.2;                         // auto-walk speed between stations (m/s)
 const CREST = { gryf: '🦁', slyt: '🐍', rave: '🦅', huff: '🦡' };
@@ -91,6 +95,68 @@ export const COURSES = {
           cam: { pos: [-6.0, 2.5, 5.6], look: [-8.8, 1.9, -1.4] },
           lifts: [{ m: 'feather3', flutter: true, rings: ['ring0', 'ring1', 'ring2'],
             path: [[-8.5, 0.87, 0.7], [-8.7, 1.3, 0.2], [-8.9, 1.8, -0.5], [-9.0, 2.5, -1.7], [-9.0, 3.1, -3.0], [-9.0, 3.3, -3.9]], rot0: [0, Math.PI / 2, 0], rot1: [0.1, Math.PI / 2, 0.35] }] },
+      ],
+    },
+  },
+  // -------------------------------------------------------------------------------------
+  // Course #2: Defence Against the Dark Arts, Tonks, Flipendo (a gentle push). Tonks stands at
+  // (9, -6.2); the course lives on the free floor of the Defence corner (x 5.4..13.6, z 1..8.3)
+  // and in the free east lane beside the desks (x 12..13.6) for the finish.
+  // -------------------------------------------------------------------------------------
+  defence: {
+    spell: { he: 'פְלִיפֶּנְדוֹ', icon: '💨', gesture: 'push' },
+    verb: 'push', who: '🧙‍♀️', pitch: 1.15, oneBubble: true,
+    title: 'אֶתְגַּר הַדְּחִיפָה', name: 'אֶתְגָּר: הִתְגּוֹנְנוּת',
+    teacher: 'defence', room: 'classrooms', station: 'spells',
+    build: buildDefence,
+    confetti: ['💨', '⭐', '✨', '🌟', '💚'],
+    lesson: {
+      stand: [9, -3.0], face: [9, -4.6], pip: '🎯',
+      cam: { pos: [12.3, 2.4, -2.4], look: [8.8, 0.8, -4.9] },
+      intro: [
+        { pose: 'talk', line: 'שָׁלוֹם! הַיּוֹם נִלְמַד לִדְחֹף דְּבָרִים בְּקֶסֶם!', t: 3.4 },
+        { pose: 'cast', line: 'פְלִיפֶּנְדוֹ!', t: 2.8, burst: [9, 1.0, -4.3] },
+        { pose: 'talk', line: 'עַכְשָׁו אַתָּה! גַּע בַּבֻּבָּה וְהַחְלֵק קָדִימָה!', t: 3.2 },
+      ],
+      // three straw practice dummies topple softly back onto a blue mat
+      lifts: [0, 1, 2].map(i => ({ m: 'dummy' + i, aimY: 0.7, dir: [0, 0, -1],
+        path: [[8.2 + i * 0.8, 0, -4.2], [8.2 + i * 0.8, 0, -4.32], [8.2 + i * 0.8, 0.02, -4.45]], rot0: [0, 0, 0], rot1: [-1.25, 0.15 - i * 0.15, 0] })),
+      outro: 'עַכְשָׁו — לָאֶתְגָּר!',
+    },
+    praise: ['יָפֶה מְאֹד!', 'מְצֻיָּן!', 'כָּל הַכָּבוֹד!', 'נִפְלָא!'],
+    oops: 'אוּפְּס! נַסֵּה שׁוּב',
+    finale: 'אַתָּה קוֹסֵם אַמִּיץ!',
+    course: {
+      star3: 240,
+      stations: [
+        { id: 'gate', icon: '📦', say: 'דְּחֹף אֶת הָאַרְגָּז מֵהַכַּפְתּוֹר!',
+          walk: [[9.0, -2.2], [9.0, 0.4], [9.0, 1.6]], face: [12, 1.6],
+          cam: { pos: [6.9, 2.6, -0.6], look: [10.4, 0.6, 2.3] },
+          lifts: [{ m: 'crate', aimY: 0.4, path: [[10.1, 0.07, 1.6], [10.9, 0, 1.63], [11.7, 0, 1.6]], rot0: [0, 0, 0], rot1: [0, 0.3, 0] }],
+          after: 'gateRise', afterSfx: 'chime' },
+        { id: 'barrels', icon: '🛢️', say: 'פַּנֵּה אֶת הֶחָבִיּוֹת מֵהַדֶּרֶךְ!', inOrder: true,
+          walk: [[9.0, 2.7], [10.3, 3.3], [10.6, 4.4]], face: [6, 4.4],
+          cam: { pos: [11.4, 2.7, 6.9], look: [7.9, 0.5, 4.1] },
+          lifts: [
+            { m: 'barrel0', path: [[9.0, 0.81, 4.4], [8.4, 0.62, 4.4], [7.9, 0.3, 4.2], [6.95, 0.3, 3.8]], rot0: [0, 0, 0], rot1: [0, 0, 8.5] },
+            { m: 'barrel1', path: [[8.68, 0.3, 4.4], [7.7, 0.3, 4.45], [6.95, 0.3, 4.45]], rot0: [0, 0, 0], rot1: [0, 0, 5.8] },
+            { m: 'barrel2', path: [[9.32, 0.3, 4.4], [8.0, 0.3, 4.8], [6.95, 0.3, 5.1]], rot0: [0, 0, 0], rot1: [0, 0, 8.0] },
+          ] },
+        { id: 'books', icon: '📚', say: 'הַפֵּל אֶת הַסְּפָרִים עַד הַפַּעֲמוֹן!',
+          walk: [[8.0, 4.4], [8.0, 6.6], [8.6, 7.6]], face: [12, 7.6],
+          cam: { pos: [10.0, 2.3, 4.9], look: [10.5, 0.5, 7.6] },
+          lifts: [{ m: 'domino0', aimY: 0.35, dir: [1, 0, 0], path: [[9.3, 0, 7.6], [9.33, 0, 7.6]], rot0: [0, 0, 0], rot1: [0, 0, -0.468] }],
+          after: 'dominoes', afterT: 3.6, afterSfx: 'none' },
+        { id: 'ball', icon: '🌉', say: 'גַּלְגֵּל אֶת הַכַּדּוּר אֶל הַקְּעָרָה!',
+          walk: [[9.0, 8.2], [12.6, 8.3], [13.3, 8.3]], face: [13.3, 3],
+          cam: { pos: [11.0, 2.7, 8.3], look: [13.1, 0.4, 3.9] },
+          lifts: [{ m: 'ball', path: [[13.3, 0.17, 7.4], [13.3, 0.17, 5.5], [13.3, 0.15, 3.7], [13.3, 0.12, 3.45]], rot0: [0, 0, 0], rot1: [-23, 0, 0] }],
+          after: 'bridgeDown', afterSfx: 'boing' },
+        { id: 'finish', icon: '🏁', say: 'דְּחֹף אֶת הַבֻּבָּה אֶל קַו הַסִּיּוּם!',
+          walk: [[12.75, 8.1], [12.75, 5.6]], face: [12.7, 0],
+          cam: { pos: [11.0, 2.8, 6.4], look: [12.8, 0.8, 0.6] },
+          lifts: [{ m: 'dummy3', aimY: 1.0, path: [[12.7, 0, 4.4], [12.7, 0.1, 3.0], [12.7, 0.1, 1.9], [12.7, 0, 0.6], [12.7, 0, -0.9]], rot0: [0, 0, 0], rot1: [0, 0, 0] }],
+          after: 'bow', afterT: 2.6, afterSfx: 'tada', afterConfetti: ['🏁', '⭐', '✨'] },
       ],
     },
   },
@@ -208,6 +274,121 @@ function buildCharms(kit) {
   };
 }
 
+// A friendly straw practice dummy on a little wheeled base, a painted target on its chest and
+// button eyes (origin: floor centre, faces +z = toward the child). Used for the lesson and the finish.
+function dummyGeo() {
+  const STRAW = 0xd9b45c, STRAW2 = 0xe8cc7a, WOOD = 0x6a4424;
+  const disc = (r, hex, z) => paint(place(new CylinderGeometry(r, r, 0.012, 20), 0, 0.82, z, Math.PI / 2), hex);
+  return merge([
+    paint(place(new BoxGeometry(0.5, 0.08, 0.46), 0, 0.15, 0), WOOD),
+    ...[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([a, b]) => paint(place(new CylinderGeometry(0.075, 0.075, 0.05, 10), a * 0.22, 0.075, b * 0.17, 0, 0, Math.PI / 2), 0x2e2b30)),
+    paint(place(new CylinderGeometry(0.035, 0.035, 0.3, 6), 0, 0.33, 0), WOOD),
+    paint(place(new CylinderGeometry(0.2, 0.24, 0.62, 12), 0, 0.78, 0), STRAW, STRAW2),
+    paint(place(new CylinderGeometry(0.21, 0.21, 0.04, 12), 0, 0.62, 0), 0x8a5a2e),                  // rope belt
+    paint(place(new CylinderGeometry(0.05, 0.05, 0.84, 6), 0, 0.98, 0, 0, 0, Math.PI / 2), STRAW),      // arms
+    paint(place(new SphereGeometry(0.17, 12, 10), 0, 1.27, 0), STRAW2, STRAW),
+    disc(0.17, 0xd8382c, 0.235), disc(0.12, 0xf4eee0, 0.243), disc(0.065, 0xd8382c, 0.251),            // the painted target
+    paint(place(new SphereGeometry(0.025, 6, 5), -0.06, 1.3, 0.155), 0x1a1420), paint(place(new SphereGeometry(0.025, 6, 5), 0.06, 1.3, 0.155), 0x1a1420),
+    paint(place(new TorusGeometry(0.05, 0.012, 5, 10, Math.PI), 0, 1.23, 0.16, 0, 0, Math.PI), 0x8a3a2a),  // a smile
+  ]);
+}
+
+// The Defence course props (see COURSES.defence for where each station stands).
+function buildDefence(kit) {
+  const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x7a6a56, STONE2 = 0x9a8a70, BRASS = 0xb98b2e, GOLD = 0xffd23f, STRAW = 0xd9b45c;
+  const BOOKS = [0xb3262a, 0x1f5e9e, 0x2c7a3a, 0xc88a1e, 0x6a3a92, 0xd0602a, 0x1e6a6a];
+  const { solid } = kit;
+  // lesson: a big soft blue mat behind the three dummies
+  solid(paint(place(new BoxGeometry(3.0, 0.07, 1.6), 9, 0.035, -4.95), 0x3a5aa0, 0x4a6ab8));
+  kit.inst('dummy', dummyGeo(), 4, [0xffffff, 0xffffff, 0xffffff, 0xffffff], { glowHex: 0xffd27a, scales: [0.85, 0.85, 0.85, 1.2] });
+  // 1 a floor button under a crate; a golden line runs to a little portcullis in a low fence
+  solid(paint(place(new CylinderGeometry(0.42, 0.46, 0.04, 20), 10.1, 0.02, 1.6), BRASS));
+  solid(paint(place(new CylinderGeometry(0.3, 0.3, 0.05, 20), 10.1, 0.05, 1.6), 0xd8382c));
+  solid(paint(place(new BoxGeometry(0.06, 0.01, 0.95), 10.05, 0.006, 2.38), GOLD));
+  for (const x of [8.0, 10.0]) solid(paint(place(new BoxGeometry(0.2, 3.5, 0.2), x, 1.75, 2.9), WOOD, 0x8a5a30));
+  solid(paint(place(new BoxGeometry(2.3, 0.2, 0.24), 9.0, 3.45, 2.9), DARK));
+  for (const [x0, x1] of [[5.4, 7.9], [10.1, 12.1]]) {
+    for (let x = x0; x <= x1 + 0.01; x += (x1 - x0) / Math.round((x1 - x0) / 0.8)) solid(paint(place(new BoxGeometry(0.1, 0.75, 0.1), x, 0.375, 2.9), DARK));
+    for (const y of [0.32, 0.62]) solid(paint(place(new BoxGeometry(x1 - x0, 0.08, 0.06), (x0 + x1) / 2, y, 2.9), WOOD));
+  }
+  const gate = [paint(place(new BoxGeometry(1.8, 0.1, 0.08), 0, 0.95, 0), DARK), paint(place(new BoxGeometry(1.8, 0.1, 0.08), 0, 0.3, 0), DARK)];
+  for (let i = 0; i < 9; i++) gate.push(paint(place(new BoxGeometry(0.06, 1.0, 0.06), -0.8 + i * 0.2, 0.5, 0), 0x4a4650, 0x6a6670));
+  kit.mesh('gate', merge(gate), { glow: false });
+  kit.mesh('crate', merge([paint(place(new BoxGeometry(0.66, 0.66, 0.66), 0, 0.33, 0), 0x9a6a36, 0xb07c40),
+    ...[-1, 1].flatMap(s => [paint(place(new BoxGeometry(0.7, 0.08, 0.04), 0, 0.33, s * 0.33), DARK), paint(place(new BoxGeometry(0.04, 0.08, 0.7), s * 0.33, 0.33, 0), DARK),
+      paint(place(new BoxGeometry(0.7, 0.05, 0.7), 0, s < 0 ? 0.03 : 0.64, 0), 0x7a4a22)])]), { glowHex: 0xffc070 });
+  // 2 straw bales either side of a stacked-barrel plug; a low pen on the west where barrels go
+  for (const z of [3.55, 5.25]) solid(paint(place(new BoxGeometry(1.2, 0.5, 0.6), 9.0, 0.25, z), STRAW, 0xe8cc7a));
+  for (let z = 3.3; z <= 5.71; z += 0.8) solid(paint(place(new BoxGeometry(0.1, 0.6, 0.1), 6.45, 0.3, z), DARK));
+  solid(paint(place(new BoxGeometry(0.06, 0.08, 2.4), 6.45, 0.45, 4.5), WOOD));
+  kit.inst('barrel', merge([paint(place(new CylinderGeometry(0.3, 0.3, 0.62, 14), 0, 0, 0, Math.PI / 2), 0xffffff, 0xd8d0c0, 'z'),
+    paint(place(new CylinderGeometry(0.255, 0.255, 0.63, 14), 0, 0, 0, Math.PI / 2), 0x5a3a1e),
+    ...[-0.2, 0.2].map(z => paint(place(new TorusGeometry(0.3, 0.018, 4, 18), 0, 0, z), 0x2e2b30))]), 3, [0xa8743e, 0x9a6a36, 0xb07c40], { glowHex: 0xffc070 });
+  // 3 a row of big standing books (dominoes; pivot on the +x bottom edge) and a bell on a gallows
+  kit.inst('domino', merge([paint(place(new BoxGeometry(0.1, 0.62, 0.42), -0.05, 0.31, 0), 0xffffff),
+    paint(place(new BoxGeometry(0.104, 0.58, 0.38), -0.05, 0.31, 0.025), 0xf0e4c0)]), 7, BOOKS, { glowHex: 0xffd27a });
+  solid(paint(place(new BoxGeometry(0.1, 1.1, 0.1), 12.4, 0.55, 7.6), DARK));
+  solid(paint(place(new BoxGeometry(0.45, 0.08, 0.08), 12.2, 1.06, 7.6), DARK));
+  solid(paint(place(new BoxGeometry(0.4, 0.05, 0.4), 12.4, 0.025, 7.6), DARK));
+  kit.mesh('bell', merge([paint(place(new CylinderGeometry(0.008, 0.008, 0.16, 4), 0, -0.08, 0), 0x2e2b30),
+    paint(place(new CylinderGeometry(0.07, 0.15, 0.22, 14, 1, true), 0, -0.27, 0), 0xffd86a, 0xc89a30), paint(place(new SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0, -0.16, 0), 0xffd86a),
+    paint(place(new SphereGeometry(0.035, 6, 5), 0, -0.36, 0), 0x8a6a30)]), { glow: false });
+  // 4 a wooden groove to a brass bowl; a golden line runs to the drawbridge over a little moat
+  solid(paint(place(new BoxGeometry(0.5, 0.03, 4.1), 13.3, 0.015, 5.6), WOOD));
+  for (const dx of [-0.2, 0.2]) solid(paint(place(new BoxGeometry(0.05, 0.1, 4.1), 13.3 + dx, 0.05, 5.6), DARK));
+  solid(paint(place(new CylinderGeometry(0.27, 0.18, 0.22, 16, 1, true), 13.3, 0.11, 3.45), BRASS, 0xd8b04a));
+  solid(paint(place(new CylinderGeometry(0.18, 0.18, 0.02, 16), 13.3, 0.01, 3.45), BRASS));
+  solid(paint(place(new BoxGeometry(0.06, 0.01, 0.4), 13.25, 0.006, 3.08), GOLD));
+  solid(paint(place(new BoxGeometry(1.6, 0.03, 0.9), 12.9, 0.015, 2.45), 0x2a6ac8, 0x5aa0e8, 'x'));
+  for (const z of [1.94, 2.96]) solid(paint(place(new BoxGeometry(1.6, 0.12, 0.12), 12.9, 0.06, z), STONE, STONE2));
+  for (const x of [12.15, 13.25]) solid(paint(place(new BoxGeometry(0.14, 1.3, 0.14), x, 0.65, 1.82), STONE, STONE2));
+  kit.mesh('bridge', merge([paint(place(new BoxGeometry(0.9, 0.06, 1.12), 0, 0.03, 0.56), 0x8a5a30, 0xa06a38),
+    ...[0.15, 0.45, 0.75, 1.0].map(z => paint(place(new BoxGeometry(0.92, 0.065, 0.04), 0, 0.03, z), DARK))]), { glow: false });
+  // 5 the finish: a chequered line across the east lane, two little flags
+  for (let i = 0; i < 10; i++) for (let j = 0; j < 2; j++) solid(paint(place(new BoxGeometry(0.2, 0.012, 0.2), 11.7 + i * 0.2, 0.006, -0.4 - j * 0.2), (i + j) % 2 ? 0x1a1420 : 0xf4eee0));
+  for (const x of [11.5, 13.7]) {
+    solid(paint(place(new CylinderGeometry(0.025, 0.025, 1.4, 6), x, 0.7, -0.5), DARK));
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) solid(paint(place(new BoxGeometry(0.012, 0.12, 0.12), x, 1.32 - j * 0.12, -0.5 + 0.06 + i * 0.12), (i + j) % 2 ? 0x1a1420 : 0xf4eee0));
+  }
+  // the ball: two-tone stripes so the roll reads
+  kit.mesh('ball', paint(new SphereGeometry(0.17, 16, 12), 0xe8473a, 0xf2c230, 'z'), { glowHex: 0xffd27a });
+
+  const DX = (i) => 9.3 + i * 0.38, lean = (i) => (i === 6 ? -0.62 : -0.468);
+  let rang = 0, fell = 0;
+  return {
+    reset(M) {
+      M.gate.pose(9.0, 0, 2.9, 0, 0, 0);
+      for (let i = 1; i < 7; i++) M['domino' + i].pose(DX(i), 0, 7.6, 0, 0, 0);
+      M.bell.pose(12.05, 1.02, 7.6, 0, 0, 0);
+      M.bridge.pose(12.7, 0.12, 1.9, -Math.PI / 2, 0, 0);
+      rang = 0; fell = 0;
+    },
+    tick() {},
+    effects: {
+      // the portcullis rises (1.4 s)
+      gateRise(M, t) { const k = Math.min(1, t / 1.2), e = k * k * (3 - 2 * k); M.gate.pose(9.0, e * 2.4, 2.9, 0, 0, 0); return t < 1.4; },
+      // the books fall one by one, the last taps the bell, which swings and rings (3.4 s)
+      dominoes(M, t, quiet) {
+        for (let i = 1; i < 7; i++) {
+          const k = Math.max(0, Math.min(1, (t - i * 0.2) / 0.22));
+          M['domino' + i].pose(DX(i), 0, 7.6, 0, 0, lean(i) * k * k);
+          if (k > 0 && fell < i) { fell = i; if (!quiet) fun.sfx.tink(1 + (i % 3)); }
+        }
+        const tb = 6 * 0.2 + 0.2;
+        if (t >= tb) {
+          const u = t - tb; M.bell.pose(12.05, 1.02, 7.6, 0, 0, quiet ? 0 : -0.5 * Math.sin(u * 9) * Math.exp(-u * 1.3));
+          if (!rang) { rang = 1; if (!quiet) { fun.sfx.chime(); fun.sfx.tune([1568, 2093, 1568, 2093], 0.12, 'sine'); } }
+        }
+        return t < 3.4;
+      },
+      // the drawbridge lowers over the moat (1.6 s)
+      bridgeDown(M, t) { const k = Math.min(1, t / 1.3), e = 1 - (1 - k) * (1 - k); M.bridge.pose(12.7, 0.12, 1.9, -Math.PI / 2 * (1 - e), 0, 0); return t < 1.6; },
+      // the big dummy bows twice past the finish line (2.4 s)
+      bow(M, t) { const k = Math.min(1, t / 2.0); M.dummy3.pose(12.7, 0, -0.9, Math.max(0, Math.sin(k * Math.PI * 2)) * 0.55, 0, 0); return t < 2.4; },
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------------------
 // the runner
 // ---------------------------------------------------------------------------------------
@@ -247,6 +428,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   #spSay.on{opacity:1;transform:translateX(-50%) scale(1)}
   #spHand{position:fixed;z-index:15;font-size:64px;pointer-events:none;display:none;margin:-10px 0 0 -26px;filter:drop-shadow(0 0 10px #fff)}
   #spHand.on{display:block;animation:spHand 1.5s ease-in-out infinite}
+  #spHand.on.push{animation:spHandP 1.5s ease-in-out infinite}
+  @keyframes spHandP{0%{transform:translate(calc(var(--dx) * -40px),calc(var(--dy) * -40px));opacity:0}15%{opacity:1}70%{transform:translate(calc(var(--dx) * 130px),calc(var(--dy) * 130px));opacity:1}100%{transform:translate(calc(var(--dx) * 150px),calc(var(--dy) * 150px));opacity:0}}
   @keyframes spHand{0%{transform:translateY(40px);opacity:0}15%{opacity:1}70%{transform:translateY(-130px);opacity:1}100%{transform:translateY(-150px);opacity:0}}
   #spEnd{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(40,24,90,.7),rgba(5,3,25,.92));font-family:'Rubik',sans-serif;direction:rtl}
   #spEnd.on{display:flex}
@@ -275,7 +458,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     try {
       if (window.HP && window.HP.sfx && window.HP.sfx.isMuted && window.HP.sfx.isMuted()) return;
       if (!('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(text.replace(/[—!]/g, ' ')); u.lang = 'he-IL'; u.rate = 0.92; u.pitch = 1.35;   // Flitwick: a little higher
+      const u = new SpeechSynthesisUtterance(text.replace(/[—!]/g, ' ')); u.lang = 'he-IL'; u.rate = 0.92; u.pitch = (S.C && S.C.pitch) || 1.35;   // Flitwick: a little higher
       const v = (speechSynthesis.getVoices() || []).find(x => /^(he|iw)/i.test(x.lang)); if (v) u.voice = v;
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     } catch { /* no speech here */ }
@@ -305,9 +488,10 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function prof() { return lessons.figure ? lessons.figure(S.C.station) : null; }
   function pose(name) { if (lessons.pose) lessons.pose(S.C.station, name); }
   function line(text, sec = 3.2, profPose = 'talk') {
-    sayEl.textContent = '🧙‍♂️ ' + text; sayEl.classList.add('on'); S.sayT = sec;
-    speak(text);
     const f = prof();
+    // oneBubble courses: in the lesson only the bubble over the teacher (no copy in the top bar)
+    if (!(S.C.oneBubble && f && S.phase === 'lesson')) { sayEl.textContent = (S.C.who || '🧙‍♂️') + ' ' + text; sayEl.classList.add('on'); S.sayT = sec; }
+    speak(text);
     if (f && S.phase === 'lesson') { f.getWorldPosition(tmp);   // in the course the top speech bar is enough (a 3D bubble covered the rings on a phone)
       tmp.y += f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9; fun.say(tmp, text, sec, 'spell'); }
     if (profPose === 'cast') { if (!(lessons.signature && lessons.signature(S.C.station))) hop(); }
@@ -363,16 +547,18 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     mats.push(pMat); geos.push(pGeo);
     const parts = []; for (let i = 0; i < NP; i++) parts.push({ mode: 0, a: Math.random() * 6.3, r: 0.25 + Math.random() * 0.2, sp: 1.5 + Math.random() * 2, y: Math.random(), vx: 0, vy: 0, vz: 0, x: 0, yy: 0, z: 0, life: 0 });
     // pre-sample every lift path (arc-length spaced), so update() only reads arrays
-    const mkLift = (L) => {
+    const push = C.verb === 'push';
+    const mkLift = (L, st) => {
       const mv = movers[L.m]; if (!mv) return null;
       const pts = L.path.map(p => new Vector3(p[0], p[1], p[2]));
       const N = 48, curve = new CatmullRomCurve3(pts, false, 'centripetal'), sp = curve.getSpacedPoints(N - 1), arr = new Float32Array(N * 3);
       sp.forEach((v, i) => { arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z; });
       const rings = (L.rings || []).map(n => { const r = movers[n]; return r ? { mv: r, u: 0, ringIdx: n } : null; }).filter(Boolean);
-      return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings };
+      return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings,
+        push, hov0: push ? PUSH_HOVER : HOVER, fall: push ? PUSH_FALL : FALL, inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
     };
-    const lesson = C.lesson.lifts.map(mkLift).filter(Boolean);
-    const stations = C.course.stations.map(st => st.lifts.map(mkLift).filter(Boolean));
+    const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
+    const stations = C.course.stations.map(st => st.lifts.map(l => mkLift(l, st)).filter(Boolean));
     room.group.add(group);
     group.updateMatrixWorld(true); group.getWorldPosition(worldOff);
     group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
@@ -413,20 +599,21 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function poseLift(L, t) {
     const e = L.p * L.p * (3 - 2 * L.p);
     samplePath(L, L.p, tmp2);
-    const live = L.p > 0.01 && !L.done, bob = (L.spec.bob || live) ? Math.sin(t * 2.4 + L.ph) * (L.done ? 0.025 : 0.04) : 0;
+    const live = L.p > 0.01 && !L.done && !L.push, bob = (L.spec.bob || live) ? Math.sin(t * 2.4 + L.ph) * (L.done ? 0.025 : 0.04) : 0;
     const fl = L.spec.flutter ? Math.sin(t * 4 + L.ph) * 0.3 * Math.min(1, L.p * 3) : 0;
     const r0 = L.rot0, r1 = L.rot1;
     L.mv.pose(tmp2.x, tmp2.y + bob, tmp2.z, r0[0] + (r1[0] - r0[0]) * e, r0[1] + (r1[1] - r0[1]) * e + (L.done && L.spec.flutter ? Math.sin(t * 0.8 + L.ph) * 0.3 : 0), r0[2] + (r1[2] - r0[2]) * e + fl);
   }
   const open = () => { if (!S.lifts) return null; for (const L of S.lifts) if (!L.done) return L; return null; };
   function select(L) { if (L && !L.done && S.sel !== L) { S.sel = L; fun.sfx.tink(2); setPips(); } }
-  function liftWorld(L, out) { samplePath(L, L.p, out); return out.add(worldOff); }
+  function liftWorld(L, out) { samplePath(L, L.p, out); out.y += L.aimY; return out.add(worldOff); }
   function pick(x, y) {
     if (!S.lifts) return null;
     const R = Math.max(80, Math.min(innerWidth, innerHeight) * 0.13);   // >= 160 px across on every screen
     let best = null, bd = R;
+    const first = open();
     for (const L of S.lifts) {
-      if (L.done) continue;
+      if (L.done || (L.inOrder && L !== first)) continue;
       liftWorld(L, tmp).project(camera); if (tmp.z > 1) continue;
       const d = Math.hypot((tmp.x * 0.5 + 0.5) * innerWidth - x, (-tmp.y * 0.5 + 0.5) * innerHeight - y);
       if (d < bd) { bd = d; best = L; }
@@ -436,7 +623,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function nudge(L, v) {                     // set a lift's progress from a gesture
     if (!L || L.done || L.snap >= 0) return;
     if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); fun.sfx.whoosh(); }
-    L.p = Math.max(0, Math.min(1, v)); L.hover = HOVER; if (L.p > L.peak) L.peak = L.p;
+    L.p = Math.max(0, Math.min(1, v)); L.hover = L.hov0; if (L.p > L.peak) L.peak = L.p;
     S.idle = 0;
   }
   function snapLift(L) { if (L.done || L.snap >= 0) return; L.snap = 0; L.p = Math.max(L.p, SNAP); fun.sfx.chime(); }
@@ -487,7 +674,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         oi++;
         samplePath(target, target.p, tmp2);
         const a = p.a + t * p.sp, r = p.r * (target === S.sel ? 1.25 : 1) * (target.mv.scale > 1.5 ? 1.6 : 1);
-        pos[i * 3] = tmp2.x + Math.cos(a) * r; pos[i * 3 + 1] = tmp2.y + 0.1 + ((p.y + t * 0.35) % 1) * 0.45; pos[i * 3 + 2] = tmp2.z + Math.sin(a) * r;
+        pos[i * 3] = tmp2.x + Math.cos(a) * r; pos[i * 3 + 1] = tmp2.y + target.aimY * 0.6 + 0.1 + ((p.y + t * 0.35) % 1) * 0.45; pos[i * 3 + 2] = tmp2.z + Math.sin(a) * r;
       } else { pos[i * 3] = 0; pos[i * 3 + 1] = -60; pos[i * 3 + 2] = 0; }
     }
     const q = camera.quaternion;
@@ -504,7 +691,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function setPips() {
     if (!S.on) return;
     let html = '', key = S.phase + ':';
-    if (S.phase === 'lesson') { const ls = K ? K.lesson : []; ls.forEach((L, i) => { const c = L.done ? 'on' : (open() === L ? 'cur' : ''); key += c + i; html += '<i class="' + c + '">🪶</i>'; }); }
+    if (S.phase === 'lesson') { const ls = K ? K.lesson : []; ls.forEach((L, i) => { const c = L.done ? 'on' : (open() === L ? 'cur' : ''); key += c + i; html += '<i class="' + c + '">' + (S.C.lesson.pip || '🪶') + '</i>'; }); }
     else { S.C.course.stations.forEach((st, i) => { const c = i < S.doneStations ? 'on' : i === S.step && S.phase === 'course' ? 'cur' : S.phase === 'reward' ? 'on' : ''; key += c + i; html += '<i class="' + c + '">' + st.icon + '</i>'; }); }
     if (key !== pipKey) { pipKey = key; top.innerHTML = html; }
   }
@@ -512,22 +699,38 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
 
   // ---- gestures ----
   const range = () => Math.max(110, Math.min(300, innerHeight * 0.3));
+  // the screen direction a swipe should go: up for a lift; for a push, along the thing's path
+  // as the camera sees it (from where it is now toward its outline, or along spec.dir)
+  const sdA = new Vector3(), sdB = new Vector3(), swipeDir = { x: 0, y: -1 };
+  function dirOf(L) {
+    swipeDir.x = 0; swipeDir.y = -1;
+    if (!L || !L.push) return swipeDir;
+    liftWorld(L, sdA);
+    const d = L.spec.dir;
+    if (d) sdB.set(sdA.x + d[0], sdA.y + d[1], sdA.z + d[2]);
+    else { const a = L.arr, n = (L.N - 1) * 3; sdB.set(a[n], a[n + 1] + L.aimY, a[n + 2]).add(worldOff); }
+    sdA.project(camera); sdB.project(camera);
+    const x = (sdB.x - sdA.x) * innerWidth, y = -(sdB.y - sdA.y) * innerHeight, l = Math.hypot(x, y);
+    if (l > 8) { swipeDir.x = x / l; swipeDir.y = y / l; }
+    return swipeDir;
+  }
   ov.addEventListener('pointerdown', e => {
     if (!S.on || S.sub !== 'cast') return;
     e.preventDefault(); S.idle = 0;
     const hit = pick(e.clientX, e.clientY);
     if (hit) select(hit); else if (!S.sel || S.sel.done) select(open());
-    drag = { id: e.pointerId, y0: e.clientY, p0: S.sel ? S.sel.p : 0, t0: performance.now(), moved: false, onTarget: !!hit };
+    const sd = dirOf(S.sel);
+    drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ux: sd.x, uy: sd.y, p0: S.sel ? S.sel.p : 0, t0: performance.now(), moved: false, onTarget: !!hit };
     try { ov.setPointerCapture(e.pointerId); } catch { /* ignore */ }
   });
   ov.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.id || !S.sel) return;
-    const dy = drag.y0 - e.clientY;
+    const dy = (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy;   // lift: ux 0, uy -1 = pixels up
     if (dy > 10 || drag.moved) { drag.moved = true; nudge(S.sel, drag.p0 + Math.max(0, dy - 10) / range()); if (S.sel && S.sel.p >= SNAP) snapLift(S.sel); }
   });
   const endDrag = (e) => {
     if (!drag || (e && e.pointerId !== drag.id)) return;
-    const L = S.sel, dy = drag.y0 - (e ? e.clientY : drag.y0), quick = performance.now() - drag.t0 < 350;
+    const L = S.sel, dy = e ? (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy : 0, quick = performance.now() - drag.t0 < 350;
     if (L && !L.done) {
       if (drag.moved && quick && dy > 50) snapLift(L);                     // a quick flick up: the swish-and-flick
       else if (!drag.moved && drag.onTarget) nudge(L, L.p + TAP * 0.6);   // a tap on the thing: a little hop up
@@ -585,8 +788,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.doneStations = S.step + 1; setPips();
     line(S.C.praise[S.praise++ % S.C.praise.length], 2.0);
     const fx = st.after && K.B.effects[st.after];
-    if (fx) { S.fx = fx; S.fxT = 0; if (st.after === 'chestOpen') { fun.sfx.tada(); fun.confetti(['⭐', '🪙', '✨', '💛'], 18); } else fun.sfx.hoot(); }
-    at(fx ? 2.8 : 1.6, () => { S.fx = null; if (S.step + 1 < S.C.course.stations.length) startStation(S.step + 1); else finish(); });
+    if (fx) {
+      S.fx = fx; S.fxT = 0;
+      if (st.afterSfx) { if (fun.sfx[st.afterSfx]) fun.sfx[st.afterSfx](); if (st.afterConfetti) fun.confetti(st.afterConfetti, 18); }
+      else if (st.after === 'chestOpen') { fun.sfx.tada(); fun.confetti(['⭐', '🪙', '✨', '💛'], 18); } else fun.sfx.hoot();
+    }
+    at(fx ? (st.afterT || 2.8) : 1.6, () => { S.fx = null; if (S.step + 1 < S.C.course.stations.length) startStation(S.step + 1); else finish(); });
   }
   function startStation(i) {
     const st = S.C.course.stations[i];
@@ -608,7 +815,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.stars = three ? 3 : 2;
     award(S.stars);
     line(C.finale, 2.6, 'cast'); player.play('Cheer');
-    fun.sfx.tada(); fun.confetti(['🪶', '⭐', '✨', '🌟', '💜'], 34);
+    fun.sfx.tada(); fun.confetti(C.confetti || ['🪶', '⭐', '✨', '🌟', '💜'], 34);
     at(2.6, showReward);
   }
   function award(stars) {
@@ -733,7 +940,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         if (!L.done && L.snap >= 0) { L.snap += dt; L.p = Math.min(1, L.p + dt * 2.4); if (L.p >= 1 || L.snap > 0.4) { liftDone(L); if (!S.on) return; continue; } }
         else if (!L.done && L.p > 0 && !(drag && S.sel === L) && !(S.hold && S.sel === L)) {
           if (L.p >= SNAP) snapLift(L);
-          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * FALL; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3) drop(L); else L.peak = 0; L.moved = false; } } }
+          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3) drop(L); else L.peak = 0; L.moved = false; } } }
         }
         // rings light as the feather passes them (and stay lit)
         for (const r of L.rings) if (!r.mv.lit && L.p >= r.u) { r.mv.lit = true; r.mv.color(0xffe07a); fun.sfx.tink(3); }
@@ -757,7 +964,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (cur && S.idle > HINT_AFTER && cur.p < 0.05) {
       liftWorld(cur, tmp).project(camera);
       hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
-      if (!hand.classList.contains('on')) { hand.classList.add('on'); }
+      if (!hand.classList.contains('on')) {
+        const sd = dirOf(cur), pushy = !!cur.push;
+        hand.classList.toggle('push', pushy);
+        if (pushy) { hand.style.setProperty('--dx', sd.x.toFixed(2)); hand.style.setProperty('--dy', sd.y.toFixed(2)); }
+        hand.classList.add('on');
+      }
     } else if (hand.classList.contains('on')) hideHand();
     tickSparks(dt, t);
 
@@ -783,7 +995,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function pickerCard(key) {
     const C = COURSES[key];
     return {
-      key, icon: '🎯', name: C.name, best: () => best(key),
+      key, icon: C.spell.icon, name: C.name, best: () => best(key),
       fn: async () => {
         if (S.on) return;
         await lessons.go(C.station);
@@ -822,6 +1034,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       S.q.length = 0; endOv.classList.remove('on');
       for (const L of K.lesson) if (!L.done) { L.done = true; L.p = 1; }
       const n = S.C.course.stations.length;
+      for (let i = 0; i < Math.min(step, n); i++) { const fx = S.C.course.stations[i].after && K.B.effects[S.C.course.stations[i].after]; if (fx) fx(K.movers, 99, true); }
       for (let i = 0; i < Math.min(step, n); i++) for (const L of K.stations[i]) { L.done = true; L.p = 1; for (const r of L.rings) { r.mv.lit = true; r.mv.color(0xffe07a); } }
       if (S.phase !== 'course') { S.phase = 'course'; S.tCourse = 0; }
       S.doneStations = Math.min(step, n);
