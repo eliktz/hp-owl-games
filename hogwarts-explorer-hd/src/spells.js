@@ -112,7 +112,7 @@ export const COURSES = {
     confetti: ['💨', '⭐', '✨', '🌟', '💚'],
     lesson: {
       stand: [9, -3.0], face: [9, -4.6], pip: '🎯',
-      cam: { pos: [12.3, 2.4, -2.4], look: [8.8, 0.8, -4.9] },
+      cam: { pos: [11.9, 3.3, -1.9], look: [8.8, 0.7, -5.0] },
       intro: [
         { pose: 'talk', line: 'שָׁלוֹם! הַיּוֹם נִלְמַד לִדְחֹף דְּבָרִים בְּקֶסֶם!', t: 3.4 },
         { pose: 'cast', line: 'פְלִיפֶּנְדוֹ!', t: 2.8, burst: [9, 1.0, -4.3] },
@@ -131,16 +131,16 @@ export const COURSES = {
       stations: [
         { id: 'gate', icon: '📦', say: 'דְּחֹף אֶת הָאַרְגָּז מֵהַכַּפְתּוֹר!',
           walk: [[9.0, -2.2], [9.0, 0.4], [9.0, 1.6]], face: [12, 1.6],
-          cam: { pos: [6.9, 2.6, -0.6], look: [10.4, 0.6, 2.3] },
+          cam: { pos: [6.0, 3.6, -1.5], look: [10.3, 0.5, 2.1] },
           lifts: [{ m: 'crate', aimY: 0.4, path: [[10.1, 0.07, 1.6], [10.9, 0, 1.63], [11.7, 0, 1.6]], rot0: [0, 0, 0], rot1: [0, 0.3, 0] }],
           after: 'gateRise', afterSfx: 'chime' },
         { id: 'barrels', icon: '🛢️', say: 'פַּנֵּה אֶת הֶחָבִיּוֹת מֵהַדֶּרֶךְ!', inOrder: true,
           walk: [[9.0, 2.7], [10.3, 3.3], [10.6, 4.4]], face: [6, 4.4],
           cam: { pos: [11.4, 2.7, 6.9], look: [7.9, 0.5, 4.1] },
           lifts: [
-            { m: 'barrel0', path: [[9.0, 0.81, 4.4], [8.4, 0.62, 4.4], [7.9, 0.3, 4.2], [6.95, 0.3, 3.8]], rot0: [0, 0, 0], rot1: [0, 0, 8.5] },
-            { m: 'barrel1', path: [[8.68, 0.3, 4.4], [7.7, 0.3, 4.45], [6.95, 0.3, 4.45]], rot0: [0, 0, 0], rot1: [0, 0, 5.8] },
-            { m: 'barrel2', path: [[9.32, 0.3, 4.4], [8.0, 0.3, 4.8], [6.95, 0.3, 5.1]], rot0: [0, 0, 0], rot1: [0, 0, 8.0] },
+            { m: 'barrel0', path: [[9.0, 0.81, 4.4], [8.4, 0.62, 4.4], [7.9, 0.3, 4.1], [6.95, 0.3, 3.55]], rot0: [0, 0, 0], rot1: [0, 0, 8.5] },
+            { m: 'barrel1', path: [[8.68, 0.3, 4.4], [8.0, 0.3, 4.42], [7.6, 0.3, 4.45]], rot0: [0, 0, 0], rot1: [0, 0, 3.6] },
+            { m: 'barrel2', path: [[9.32, 0.3, 4.4], [8.0, 0.3, 4.9], [6.95, 0.3, 5.35]], rot0: [0, 0, 0], rot1: [0, 0, 8.0] },
           ] },
         { id: 'books', icon: '📚', say: 'הַפֵּל אֶת הַסְּפָרִים עַד הַפַּעֲמוֹן!',
           walk: [[8.0, 4.4], [8.0, 6.6], [8.6, 7.6]], face: [12, 7.6],
@@ -149,13 +149,13 @@ export const COURSES = {
           after: 'dominoes', afterT: 3.6, afterSfx: 'none' },
         { id: 'ball', icon: '🌉', say: 'גַּלְגֵּל אֶת הַכַּדּוּר אֶל הַקְּעָרָה!',
           walk: [[9.0, 8.2], [12.6, 8.3], [13.3, 8.3]], face: [13.3, 3],
-          cam: { pos: [11.0, 2.7, 8.3], look: [13.1, 0.4, 3.9] },
+          cam: { pos: [10.2, 3.6, 1.0], look: [13.0, 0.2, 5.6] },
           lifts: [{ m: 'ball', path: [[13.3, 0.17, 7.4], [13.3, 0.17, 5.5], [13.3, 0.15, 3.7], [13.3, 0.12, 3.45]], rot0: [0, 0, 0], rot1: [-23, 0, 0] }],
           after: 'bridgeDown', afterSfx: 'boing' },
         { id: 'finish', icon: '🏁', say: 'דְּחֹף אֶת הַבֻּבָּה אֶל קַו הַסִּיּוּם!',
           walk: [[12.75, 8.1], [12.75, 5.6]], face: [12.7, 0],
-          cam: { pos: [11.0, 2.8, 6.4], look: [12.8, 0.8, 0.6] },
-          lifts: [{ m: 'dummy3', aimY: 1.0, path: [[12.7, 0, 4.4], [12.7, 0.1, 3.0], [12.7, 0.1, 1.9], [12.7, 0, 0.6], [12.7, 0, -0.9]], rot0: [0, 0, 0], rot1: [0, 0, 0] }],
+          cam: { pos: [10.5, 3.3, 7.6], look: [12.8, 0.6, 1.0] },
+          lifts: [{ m: 'dummy3', aimY: 1.0, path: [[12.7, 0, 4.4], [12.7, 0.17, 3.0], [12.7, 0.17, 1.9], [12.7, 0, 0.7], [12.7, 0, -0.9]], rot0: [0, 0, 0], rot1: [0, 0, 0] }],
           after: 'bow', afterT: 2.6, afterSfx: 'tada', afterConfetti: ['🏁', '⭐', '✨'] },
       ],
     },
@@ -277,7 +277,7 @@ function buildCharms(kit) {
 // A friendly straw practice dummy on a little wheeled base, a painted target on its chest and
 // button eyes (origin: floor centre, faces +z = toward the child). Used for the lesson and the finish.
 function dummyGeo() {
-  const STRAW = 0xd9b45c, STRAW2 = 0xe8cc7a, WOOD = 0x6a4424;
+  const STRAW = 0xb88a3a, STRAW2 = 0xcaa050, WOOD = 0x6a4424;
   const disc = (r, hex, z) => paint(place(new CylinderGeometry(r, r, 0.012, 20), 0, 0.82, z, Math.PI / 2), hex);
   return merge([
     paint(place(new BoxGeometry(0.5, 0.08, 0.46), 0, 0.15, 0), WOOD),
@@ -295,12 +295,12 @@ function dummyGeo() {
 
 // The Defence course props (see COURSES.defence for where each station stands).
 function buildDefence(kit) {
-  const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x7a6a56, STONE2 = 0x9a8a70, BRASS = 0xb98b2e, GOLD = 0xffd23f, STRAW = 0xd9b45c;
+  const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x7a6a56, STONE2 = 0x9a8a70, BRASS = 0xb98b2e, GOLD = 0xffd23f, STRAW = 0xb88a3a;
   const BOOKS = [0xb3262a, 0x1f5e9e, 0x2c7a3a, 0xc88a1e, 0x6a3a92, 0xd0602a, 0x1e6a6a];
   const { solid } = kit;
   // lesson: a big soft blue mat behind the three dummies
   solid(paint(place(new BoxGeometry(3.0, 0.07, 1.6), 9, 0.035, -4.95), 0x3a5aa0, 0x4a6ab8));
-  kit.inst('dummy', dummyGeo(), 4, [0xffffff, 0xffffff, 0xffffff, 0xffffff], { glowHex: 0xffd27a, scales: [0.85, 0.85, 0.85, 1.2] });
+  kit.inst('dummy', dummyGeo(), 4, [0xffffff, 0xffffff, 0xffffff, 0xffffff], { glowHex: 0xff9a40, scales: [0.85, 0.85, 0.85, 1.2] });
   // 1 a floor button under a crate; a golden line runs to a little portcullis in a low fence
   solid(paint(place(new CylinderGeometry(0.42, 0.46, 0.04, 20), 10.1, 0.02, 1.6), BRASS));
   solid(paint(place(new CylinderGeometry(0.3, 0.3, 0.05, 20), 10.1, 0.05, 1.6), 0xd8382c));
@@ -318,17 +318,17 @@ function buildDefence(kit) {
     ...[-1, 1].flatMap(s => [paint(place(new BoxGeometry(0.7, 0.08, 0.04), 0, 0.33, s * 0.33), DARK), paint(place(new BoxGeometry(0.04, 0.08, 0.7), s * 0.33, 0.33, 0), DARK),
       paint(place(new BoxGeometry(0.7, 0.05, 0.7), 0, s < 0 ? 0.03 : 0.64, 0), 0x7a4a22)])]), { glowHex: 0xffc070 });
   // 2 straw bales either side of a stacked-barrel plug; a low pen on the west where barrels go
-  for (const z of [3.55, 5.25]) solid(paint(place(new BoxGeometry(1.2, 0.5, 0.6), 9.0, 0.25, z), STRAW, 0xe8cc7a));
+  for (const z of [3.55, 5.25]) solid(paint(place(new BoxGeometry(1.2, 0.5, 0.6), 9.0, 0.25, z), 0x9a7030, 0xc89a48));
   for (let z = 3.3; z <= 5.71; z += 0.8) solid(paint(place(new BoxGeometry(0.1, 0.6, 0.1), 6.45, 0.3, z), DARK));
   solid(paint(place(new BoxGeometry(0.06, 0.08, 2.4), 6.45, 0.45, 4.5), WOOD));
   kit.inst('barrel', merge([paint(place(new CylinderGeometry(0.3, 0.3, 0.62, 14), 0, 0, 0, Math.PI / 2), 0xffffff, 0xd8d0c0, 'z'),
-    paint(place(new CylinderGeometry(0.255, 0.255, 0.63, 14), 0, 0, 0, Math.PI / 2), 0x5a3a1e),
+    paint(place(new CylinderGeometry(0.255, 0.255, 0.63, 14), 0, 0, 0, Math.PI / 2), 0x8a5a2e),
     ...[-0.2, 0.2].map(z => paint(place(new TorusGeometry(0.3, 0.018, 4, 18), 0, 0, z), 0x2e2b30))]), 3, [0xa8743e, 0x9a6a36, 0xb07c40], { glowHex: 0xffc070 });
   // 3 a row of big standing books (dominoes; pivot on the +x bottom edge) and a bell on a gallows
   kit.inst('domino', merge([paint(place(new BoxGeometry(0.1, 0.62, 0.42), -0.05, 0.31, 0), 0xffffff),
-    paint(place(new BoxGeometry(0.104, 0.58, 0.38), -0.05, 0.31, 0.025), 0xf0e4c0)]), 7, BOOKS, { glowHex: 0xffd27a });
-  solid(paint(place(new BoxGeometry(0.1, 1.1, 0.1), 12.4, 0.55, 7.6), DARK));
-  solid(paint(place(new BoxGeometry(0.45, 0.08, 0.08), 12.2, 1.06, 7.6), DARK));
+    paint(place(new BoxGeometry(0.104, 0.58, 0.38), -0.05, 0.31, 0.025), 0xf0e4c0)]), 7, BOOKS, { glow: false });
+  solid(paint(place(new BoxGeometry(0.1, 1.0, 0.1), 12.4, 0.5, 7.6), DARK));
+  solid(paint(place(new BoxGeometry(0.45, 0.08, 0.08), 12.2, 0.94, 7.6), DARK));
   solid(paint(place(new BoxGeometry(0.4, 0.05, 0.4), 12.4, 0.025, 7.6), DARK));
   kit.mesh('bell', merge([paint(place(new CylinderGeometry(0.008, 0.008, 0.16, 4), 0, -0.08, 0), 0x2e2b30),
     paint(place(new CylinderGeometry(0.07, 0.15, 0.22, 14, 1, true), 0, -0.27, 0), 0xffd86a, 0xc89a30), paint(place(new SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0, -0.16, 0), 0xffd86a),
@@ -353,13 +353,13 @@ function buildDefence(kit) {
   // the ball: two-tone stripes so the roll reads
   kit.mesh('ball', paint(new SphereGeometry(0.17, 16, 12), 0xe8473a, 0xf2c230, 'z'), { glowHex: 0xffd27a });
 
-  const DX = (i) => 9.3 + i * 0.38, lean = (i) => (i === 6 ? -0.62 : -0.468);
+  const DX = (i) => 9.3 + i * 0.38, lean = (i) => (i === 6 ? -0.75 : -0.468);
   let rang = 0, fell = 0;
   return {
     reset(M) {
       M.gate.pose(9.0, 0, 2.9, 0, 0, 0);
       for (let i = 1; i < 7; i++) M['domino' + i].pose(DX(i), 0, 7.6, 0, 0, 0);
-      M.bell.pose(12.05, 1.02, 7.6, 0, 0, 0);
+      M.bell.pose(12.05, 0.9, 7.6, 0, 0, 0);
       M.bridge.pose(12.7, 0.12, 1.9, -Math.PI / 2, 0, 0);
       rang = 0; fell = 0;
     },
@@ -376,7 +376,7 @@ function buildDefence(kit) {
         }
         const tb = 6 * 0.2 + 0.2;
         if (t >= tb) {
-          const u = t - tb; M.bell.pose(12.05, 1.02, 7.6, 0, 0, quiet ? 0 : -0.5 * Math.sin(u * 9) * Math.exp(-u * 1.3));
+          const u = t - tb; M.bell.pose(12.05, 0.9, 7.6, 0, 0, quiet ? 0 : -0.5 * Math.sin(u * 9) * Math.exp(-u * 1.3));
           if (!rang) { rang = 1; if (!quiet) { fun.sfx.chime(); fun.sfx.tune([1568, 2093, 1568, 2093], 0.12, 'sine'); } }
         }
         return t < 3.4;
@@ -730,7 +730,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   });
   const endDrag = (e) => {
     if (!drag || (e && e.pointerId !== drag.id)) return;
-    const L = S.sel, dy = e ? (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy : 0, quick = performance.now() - drag.t0 < 350;
+    const L = S.sel, dy = e ? (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy : 0, quick = performance.now() - drag.t0 < (L && L.push ? 450 : 350);   // a push flick gets a little longer (a sweep, not a snap of the wrist)
     if (L && !L.done) {
       if (drag.moved && quick && dy > 50) snapLift(L);                     // a quick flick up: the swish-and-flick
       else if (!drag.moved && drag.onTarget) nudge(L, L.p + TAP * 0.6);   // a tap on the thing: a little hop up
@@ -954,7 +954,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const pulse = 0.3 + Math.sin(t * 5) * 0.15;   // gentle: at 0.9 the red book and coloured blocks washed out to white
     for (const m of K.glowMats) m.emissiveIntensity = 0;
     const cur = S.sub === 'cast' ? (S.sel && !S.sel.done ? S.sel : open()) : null;
-    if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done) L.mv.mat.emissiveIntensity = pulse;
+    if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done && L.mv.glows) L.mv.mat.emissiveIntensity = pulse;
     if (cur) {
       const g = K.ghost; if (g.geometry !== cur.mv.geo) g.geometry = cur.mv.geo;
       const a = cur.arr, n = (cur.N - 1) * 3, r1 = cur.rot1;
@@ -1046,8 +1046,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     _target() {                            // screen point of the thing to lift now (for real-touch tests)
       if (!testOK() || !S.on || !S.lifts) return null;
       const L = (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return null;
+      const sd = dirOf(L);
       liftWorld(L, tmp).project(camera);
-      return { x: (tmp.x * 0.5 + 0.5) * innerWidth, y: (-tmp.y * 0.5 + 0.5) * innerHeight, p: L.p };
+      return { x: (tmp.x * 0.5 + 0.5) * innerWidth, y: (-tmp.y * 0.5 + 0.5) * innerHeight, p: L.p, dx: sd.x, dy: sd.y };
     },
     get _kit() { return testOK() ? K : null; },
   };
