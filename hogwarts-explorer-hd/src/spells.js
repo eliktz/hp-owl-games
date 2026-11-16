@@ -106,7 +106,7 @@ export const COURSES = {
   defence: {
     spell: { he: 'פְלִיפֶּנְדוֹ', icon: '💨', gesture: 'push' },
     verb: 'push', who: '🧙‍♀️', pitch: 1.15, oneBubble: true,
-    title: 'אֶתְגַּר הַדְּחִיפָה', name: 'אֶתְגָּר: הִתְגּוֹנְנוּת',
+    title: 'אֶתְגַּר הַדְּחִיפָה', name: 'אֶתְגָּר: הֲגַנָּה',
     teacher: 'defence', room: 'classrooms', station: 'spells',
     build: buildDefence,
     confetti: ['💨', '⭐', '✨', '🌟', '💚'],
@@ -723,14 +723,19 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ux: sd.x, uy: sd.y, p0: S.sel ? S.sel.p : 0, t0: performance.now(), moved: false, onTarget: !!hit };
     try { ov.setPointerCapture(e.pointerId); } catch { /* ignore */ }
   });
+  // How far the finger has swiped. Lift: pixels up. Push: ANY direction counts (the distance swiped):
+  // the push direction on screen changes per station (sideways, away, even toward the viewer), and a
+  // 7-year-old who swipes the 'wrong' way must still see the thing move (review finding).
+  const swiped = (e) => (S.sel && S.sel.push) ? Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0)
+    : (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy;
   ov.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.id || !S.sel) return;
-    const dy = (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy;   // lift: ux 0, uy -1 = pixels up
+    const dy = swiped(e);
     if (dy > 10 || drag.moved) { drag.moved = true; nudge(S.sel, drag.p0 + Math.max(0, dy - 10) / range()); if (S.sel && S.sel.p >= SNAP) snapLift(S.sel); }
   });
   const endDrag = (e) => {
     if (!drag || (e && e.pointerId !== drag.id)) return;
-    const L = S.sel, dy = e ? (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy : 0, quick = performance.now() - drag.t0 < (L && L.push ? 450 : 350);   // a push flick gets a little longer (a sweep, not a snap of the wrist)
+    const L = S.sel, dy = e ? swiped(e) : 0, quick = performance.now() - drag.t0 < (L && L.push ? 450 : 350);   // a push flick gets a little longer (a sweep, not a snap of the wrist)
     if (L && !L.done) {
       if (drag.moved && quick && dy > 50) snapLift(L);                     // a quick flick up: the swish-and-flick
       else if (!drag.moved && drag.onTarget) nudge(L, L.p + TAP * 0.6);   // a tap on the thing: a little hop up

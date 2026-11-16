@@ -266,7 +266,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     border-radius:20px;padding:12px 8px 10px;cursor:pointer;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 0 14px rgba(190,140,255,.45)}
   .spCard:active{transform:scale(.94)} .spCard .ic{font-size:46px;line-height:1} .spCard .nm{color:#fff;font-size:19px;font-weight:bold}
   .spCard .st{font-size:16px;min-height:20px;color:#ffe9a8} .spCard .go{margin-top:2px;background:linear-gradient(#e2ccff,#9a6aff);color:#2a0a5a;font-size:17px;font-weight:bold;border:3px solid #fff;border-radius:40px;padding:4px 14px}
-  .pickP{max-height:100vh;overflow-y:auto}
+  .pickP{max-height:100vh;max-height:100dvh;overflow-y:auto}
   /* a phone on its side (844x390): smaller cards, no ➤ pill (the whole card is the button), so all fits */
   @media (max-height:520px){
     .pickP{padding:6px 12px 8px;border-width:4px} .pickT{font-size:21px;margin:0 0 5px} .pickStreak{font-size:15px}
@@ -308,7 +308,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     if (cards.length === 1) grid.appendChild(courseCard(cards[0]));
     else if (cards.length > 1) {
       const got = cards.reduce((a, c) => a + (c.best ? c.best() : 0), 0), card = document.createElement('button'); card.type = 'button'; card.className = 'spCard'; card.dataset.sp = 'all';
-      card.innerHTML = '<div class="ic">🪄</div><div class="nm">אֶתְגָּרִים</div><div class="st">⭐ <span dir="ltr">' + got + '/' + cards.length * 3 + '</span></div><div class="go">➤ בְּחַר</div>';
+      card.innerHTML = '<div class="ic">🏆</div><div class="nm">אֶתְגָּרִים</div><div class="st">⭐ <span dir="ltr">' + got + '/' + cards.length * 3 + '</span></div><div class="go">➤ בְּחַר</div>';
       card.addEventListener('click', e => {
         e.stopPropagation(); fun.sfx.flip();
         const ch = document.createElement('div'); ch.className = 'pickGrid spChooser';
