@@ -620,11 +620,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!S.on) return;
     const r = S.result, crest = CREST[fun.store.house] || CREST.gryf;
     endOv.innerHTML = '<div class="p"><div class="tr">' + S.C.spell.icon + '</div><div class="ti">' + (r.stars >= 3 ? 'כָּל הַכָּבוֹד!' : 'יָפֶה מְאֹד!') + '</div>'
-      + '<div class="st">' + '⭐'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + '</div><div class="sc">' + crest + ' +' + r.pts + '</div>'
-      + '<div class="row"><button class="again">🔁 שׁוּב</button><button class="done">סִיּוּם</button></div></div>';
+      + '<div class="st">' + '⭐'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + '</div><div class="sc">' + crest + ' <span dir="ltr">+' + r.pts + '</span></div>'
+      + '<div class="row"><button class="again">🔁 שׁוּב</button><button class="done">✅ סִיּוּם</button></div></div>';
     endOv.querySelector('.again').addEventListener('click', e => { e.stopPropagation(); again(); });
     endOv.querySelector('.done').addEventListener('click', e => { e.stopPropagation(); leave(true); });
-    endOv.classList.add('on'); speak(r.stars >= 3 ? 'כָּל הַכָּבוֹד! שָׁלוֹשׁ כּוֹכָבִים!' : 'יָפֶה מְאֹד!');
+    endOv.classList.add('on'); speak(r.stars >= 3 ? 'כָּל הַכָּבוֹד! שְׁלוֹשָׁה כּוֹכָבִים!' : 'יָפֶה מְאֹד!');
   }
   function again() {
     if (!S.on) return;
@@ -646,7 +646,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     setTakeover(takeover);
     document.body.classList.add('inSpell'); promptB.classList.remove('on');
     // things that follow you or roam the room hold still / hide while the course owns the frame
-    for (const n of ['pip', 'trevor', 'peeves']) { const o = scene.getObjectByName(n); if (o) o.visible = false; }
+    S.hid = []; for (const n of ['pip', 'trevor', 'peeves']) { const o = scene.getObjectByName(n); if (o && o.visible) { o.visible = false; S.hid.push(o); } }
     player._applyFade && player._applyFade(1);
     camPos.copy(camera.position); camera.getWorldDirection(tmp); camLook.copy(camera.position).addScaledVector(tmp, 6);
     fun.sfx.sparkle();
@@ -658,6 +658,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const C = S.C;
     S.on = false; S.q.length = 0; drag = null; S.hold = false; S.walk = null; S.fx = null;
     hush(); hideHand(); setBtn(false);
+    if (S.hid) { for (const o of S.hid) o.visible = true; S.hid = null; }   // Peeves' visibility is only set on spawn: put back what start() hid
     endOv.classList.remove('on'); sayEl.classList.remove('on');
     document.body.classList.remove('inSpell');
     try { pose(null); } catch { /* lessons gone */ }
@@ -714,6 +715,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.hold) S.holdT += dt;
     if (S.sub === 'cast') {
       S.idle += dt;
+      if (S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; } }   // finger still down: carry on with the next object
       if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / HOLD); if (S.sel.p >= SNAP) snapLift(S.sel); }
     }
     for (let s = -1; s < K.stations.length; s++) {
@@ -734,7 +736,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.fx) { S.fxT += dt; if (!S.fx(K.movers, S.fxT)) S.fx = null; }
 
     // glow, outline, ghost hand
-    const pulse = 0.55 + Math.sin(t * 5) * 0.35;
+    const pulse = 0.3 + Math.sin(t * 5) * 0.15;   // gentle: at 0.9 the red book and coloured blocks washed out to white
     for (const m of K.glowMats) m.emissiveIntensity = 0;
     const cur = S.sub === 'cast' ? (S.sel && !S.sel.done ? S.sel : open()) : null;
     if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done) L.mv.mat.emissiveIntensity = pulse;
