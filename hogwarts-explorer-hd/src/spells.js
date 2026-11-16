@@ -79,7 +79,7 @@ export const COURSES = {
           after: 'owlCross' },
         { id: 'arch', icon: '🚪', say: 'הָרֵם אֶת הַכָּרִית מֵהַדֶּלֶת!',
           walk: [[-10.0, 6.7]], face: [-8, 6.7],
-          cam: { pos: [-12.6, 2.4, 4.4], look: [-8.0, 1.5, 6.7] },
+          cam: { pos: [-11.6, 2.5, 8.7], look: [-8.0, 1.5, 6.3] },
           lifts: [{ m: 'cushion', bob: true, path: [[-8.0, 1.0, 6.7], [-8.25, 2.1, 6.7], [-8.0, 2.95, 6.7], [-8.0, 2.47, 6.7]], rot0: [0, 0, 0], rot1: [0, 0.6, 0] }] },
         { id: 'chest', icon: '🔑', say: 'הָרֵם אֶת הַמַּפְתֵּחַ אֶל הַוָּו!',
           walk: [[-8.0, 6.7], [-6.6, 6.7], [-5.3, 6.1]], face: [-4.8, 3.6],
@@ -306,7 +306,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     sayEl.textContent = '🧙‍♂️ ' + text; sayEl.classList.add('on'); S.sayT = sec;
     speak(text);
     const f = prof();
-    if (f) { f.getWorldPosition(tmp); tmp.y += f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9; fun.say(tmp, text, sec, 'spell'); }
+    if (f && S.phase === 'lesson') { f.getWorldPosition(tmp);   // in the course the top speech bar is enough (a 3D bubble covered the rings on a phone)
+      tmp.y += f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9; fun.say(tmp, text, sec, 'spell'); }
     if (profPose === 'cast') { if (!(lessons.signature && lessons.signature(S.C.station))) hop(); }
     else if (profPose) { pose(profPose); at(Math.max(1, sec - 0.6), () => pose(null)); }
   }
@@ -773,7 +774,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function pickerCard(key) {
     const C = COURSES[key];
     return {
-      key, icon: '🪄', name: C.name, best: () => best(key),
+      key, icon: '🎯', name: C.name, best: () => best(key),
       fn: async () => {
         if (S.on) return;
         await lessons.go(C.station);
