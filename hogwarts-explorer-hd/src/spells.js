@@ -282,7 +282,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
 
   // ---- state ----
   const S = { on: false, key: null, C: null, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0,
-    q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null };
+    speed: 1, q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null };
   let K = null;                            // the built kit for the running course: { group, movers, lesson, stations, ... }
   let drag = null;
   const tmp = new Vector3(), tmp2 = new Vector3(), camPos = new Vector3(), camLook = new Vector3(), camPosGoal = new Vector3(), camLookGoal = new Vector3();
@@ -372,7 +372,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const stations = C.course.stations.map(st => st.lifts.map(mkLift).filter(Boolean));
     room.group.add(group);
     group.updateMatrixWorld(true); group.getWorldPosition(worldOff);
-    group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false); };   // the room is being disposed
+    group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
     const k = { group, movers, mats, geos, B, ghost, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations };
     k.glowMats = glowMats;
     resetKit(k, true);
@@ -391,10 +391,10 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (lessonToo) for (const L of k.lesson) resetLift(L);
     for (const set of k.stations) for (const L of set) resetLift(L);
   }
-  function disposeKit() {
+  function disposeKit(inTeardown = false) {
     if (!K) return;
     const k = K; K = null;
-    if (k.group.parent) k.group.parent.remove(k.group);
+    if (k.group.parent && !inTeardown) k.group.parent.remove(k.group);
     k.group.userData.onTeardown = null;
     for (const g of k.geos) { try { g.dispose(); } catch { /* backend quirk */ } }
     for (const m of k.mats) { try { m.dispose(); } catch { /* backend quirk */ } }
@@ -652,7 +652,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     startLesson();
     return true;
   }
-  function leave(restore) {
+  function leave(restore, inTeardown = false) {
     if (!S.on) return;
     const C = S.C;
     S.on = false; S.q.length = 0; drag = null; S.hold = false; S.walk = null; S.fx = null;
@@ -661,7 +661,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     document.body.classList.remove('inSpell');
     try { pose(null); } catch { /* lessons gone */ }
     const f = prof(); if (f && f.userData.rig) f.position.y = 0;
-    disposeKit();
+    disposeKit(inTeardown);
     setTakeover(null);
     if (restore && interiors.active === C.room) {
       const st = lessons.stations && lessons.stations[C.station];
@@ -681,6 +681,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function update(dt) {
     if (!S.on) return;
     if (!K || interiors.active !== S.C.room || !K.group.parent) { leave(false); return; }
+    dt *= S.speed;                         // 1 in play; tests on a slow software renderer may raise it
     S.clock += dt; const t = S.clock;
     if (S.phase === 'course' && S.sub !== 'reward') S.tCourse += dt;
     runQueue(); if (!S.on) return;
@@ -813,6 +814,13 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       startStation(step); return true;
     },
     _flush() { flushUntil(() => false); },
+    _speed(k) { S.speed = Math.max(0.1, Math.min(8, +k || 1)); return S.speed; },
+    _target() {                            // screen point of the thing to lift now (for real-touch tests)
+      if (!S.on || !S.lifts) return null;
+      const L = (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return null;
+      liftWorld(L, tmp).project(camera);
+      return { x: (tmp.x * 0.5 + 0.5) * innerWidth, y: (-tmp.y * 0.5 + 0.5) * innerHeight, p: L.p };
+    },
     get _kit() { return K; },
   };
   fun.mods.spells = api;
