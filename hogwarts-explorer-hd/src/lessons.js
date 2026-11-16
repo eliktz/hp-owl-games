@@ -21,7 +21,7 @@ const LOOK = {
   flitwick: { robe: 0x3a2f5e, trim: 0x2a2148, hair: 0xe8e4ea, skin: 0xf1d2b0, house: 0x1b3a6b, scale: 0.78 },
   mcgon:    { robe: 0x1a4030, trim: 0x8a1a2a, hair: 0x2a1d16, skin: 0xe6c3a0, house: 0x7a1420, hat: 0x14110c, glasses: true },
   defence:  { robe: 0x5a4a32, trim: 0x8a7a3a, hair: 0xbf9a5a, skin: 0xe8c6a0, house: 0x7a1420, wand: true },
-  sinistra: { robe: 0x1b2456, trim: 0xb08a2e, hair: 0x14100c, skin: 0x8a5e44, house: 0x1b3a6b, hat: 0x1b2456 },
+  sinistra: { robe: 0x1b2456, trim: 0xb08a2e, hair: 0x14100c, skin: 0x8a5e44, house: 0x1b3a6b, hat: 0x1b2456, wand: true },   // her wand lights for Lumos (spells.js)
   sprout:   { robe: 0x5a4326, trim: 0x8a6a2a, hair: 0xb9b2a6, skin: 0xe9b58a, house: 0xb8902a, hat: 0x6a5330 },
 };
 // Film-look professors: a rigged GLB (feet origin, faces +Z like the chibi) swapped in over

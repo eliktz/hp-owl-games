@@ -212,7 +212,7 @@ async function boot() {
   // professor's ▶ and a card in the 🔔 picker. Any failure -> simply no courses.
   let spells = null;
   try {
-    spells = createSpells({ scene, camera, player, interiors, lessons, setTakeover, isModal: () => modal, isTakeover: () => !!takeover });
+    spells = createSpells({ scene, camera, player, interiors, lessons, setTakeover, isModal: () => modal, isTakeover: () => !!takeover, env, renderer });
     for (const k of Object.keys(spells.courses)) lessons.addPickerCard(spells.pickerCard(k));
   } catch (e) { console.warn('[spells] disabled -', e && e.message || e); spells = null; }
   // Friends are never frustum-culled per mesh (odd bounds), so cull each whole figure by one

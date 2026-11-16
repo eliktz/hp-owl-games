@@ -25,7 +25,7 @@
 import {
   Group, Mesh, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, TorusGeometry, ConeGeometry, ShapeGeometry, Shape, PlaneGeometry,
   MeshStandardMaterial, MeshBasicMaterial, BufferAttribute, CanvasTexture, SRGBColorSpace,
-  Color, Vector3, Matrix4, Quaternion, Euler, CatmullRomCurve3, AdditiveBlending, DoubleSide,
+  Color, Vector3, Matrix4, Quaternion, Euler, CatmullRomCurve3, AdditiveBlending, NormalBlending, DoubleSide,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { animateChibi } from './chibi.js';
@@ -36,6 +36,9 @@ const SNAP = 0.86;                        // lift progress at which the thing sn
 const HOVER = 1.1;                        // seconds a let-go thing hovers before it floats back down
 const FALL = 0.4;                         // progress per second while floating back down
 const HOLD = 1.0;                         // seconds of holding the 🪄 button for a full lift
+const LIGHT_HOLD = 1.5, LIGHT_TAP = 0.4;   // Lumos: holding longer = brighter (full in 1.5 s); one tap = this much
+const LIGHT_HOVER = 1.2, LIGHT_FALL = 0.22;   // a half-lit thing stays a moment, then fades slowly (retry any time)
+const DIM_T = 1.5;                        // seconds for the room to dim / come back
 const TAP = 0.34;                         // one tap on the 🪄 button lifts this much
 const PUSH_HOVER = 0.6, PUSH_FALL = 0.55;  // a let-go push wobbles a moment, then slides back to its start
 const HINT_AFTER = 4;                     // seconds of no input before the ghost hand shows
@@ -47,6 +50,25 @@ const CREST = { gryf: '🦁', slyt: '🐍', rave: '🦅', huff: '🦡' };
 // in the classroom wing (28 x 18 m, Charms corner x -9). Flitwick stands at (-9, -6.2);
 // the course lives on the free floor south of the Charms desks (x -13.5..-4.5, z 0.5..8).
 // ---------------------------------------------------------------------------------------
+// Course #3 light targets ('bulbs', one instanced mesh) in the Astronomy tower (16 x 16 m, room-local,
+// Sinistra at (-3.2, -4.6), the brass telescope at (4.6, -4.2)). The constellation's five stars hang in a
+// plane square to the station-4 camera, so the cat they draw reads flat on screen.
+const STAR_C = [0, 8.6, -4.2], STAR_V = [0, 0.814, 0.583], STAR_S = 1.5;
+const starAt = (x, y) => [STAR_C[0] + x * STAR_S, STAR_C[1] + STAR_V[1] * y * STAR_S, STAR_C[2] + STAR_V[2] * y * STAR_S];
+const CAT = [[-1.5, 1.3], [1.5, 1.3], [1.8, -0.5], [0, -1.6], [-1.8, -0.5]];   // ear, ear, cheek, chin, cheek
+const ASTRO = {
+  bulbs: [
+    [-2.75, 0.94, -3.85, 1.0], [-2.2, 0.94, -3.85, 1.0], [-1.65, 0.94, -3.85, 1.0],       // 0-2 lesson lanterns on a low desk beside Sinistra
+    [-7.22, 1.45, 1.2, 0.9], [-7.22, 1.95, -0.4, 0.9], [-7.22, 2.25, -2.0, 0.9],           // 3-5 sconces up the west stair
+    [2.8, 1.4, -6.6, 1.1], [0.4, 1.4, -6.6, 1.1], [1.6, 1.75, -6.6, 1.1],                 // 6-8 star lamps (lit in this order)
+    [6.75, 2.25, -6.75, 1.2],                                                             // 9 the lantern in the dark corner
+    ...CAT.map(([x, y]) => [...starAt(x, y), 2.0]),                                       // 10-14 the constellation
+    [6.0, 2.1, -3.2, 2.4],                                                                // 15 the big telescope lamp
+    [0, 0, 0, 0.28], [0, 0, 0, 0.7], [0, 0, 0, 0.28],                                     // 16 hero wand tip, 17 the light orb, 18 Sinistra's wand tip
+  ],
+};
+const bulbLift = (i) => ({ m: 'bulb' + i, path: [ASTRO.bulbs[i].slice(0, 3)] });
+
 export const COURSES = {
   charms: {
     spell: { he: 'וִינְגַרְדְיוּם לֶבִיּוֹסָה', icon: '🪶', gesture: 'up' },
@@ -159,6 +181,60 @@ export const COURSES = {
           cam: { pos: [10.5, 3.3, 7.6], look: [12.8, 0.6, 1.0] },
           lifts: [{ m: 'dummy3', aimY: 1.0, path: [[12.7, 0, 3.4], [12.7, 0.17, 2.5], [12.7, 0.17, 1.6], [12.7, 0, 0.6], [12.7, 0, -0.9]], rot0: [0, 0, 0], rot1: [0, 0, 0] }],
           after: 'bow', afterT: 2.6, afterSfx: 'tada', afterConfetti: ['🏁', '⭐', '✨'] },
+      ],
+    },
+  },
+  // -------------------------------------------------------------------------------------
+  // Course #3: Astronomy, Professor Sinistra (a code-drawn chibi), Lumos. The tower dims when the
+  // course starts (one reversible `dim` factor, see dimApply) and every light the child makes brings
+  // some of it back; the big telescope lamp brings it all back and fills the dome with stars.
+  // -------------------------------------------------------------------------------------
+  astronomy: {
+    spell: { he: 'לוּמוֹס', icon: '🌟', gesture: 'light' },
+    verb: 'light', who: '🧙🏾‍♀️', pitch: 1.2, oneBubble: true, dim: true,
+    title: 'אֶתְגַּר הָאוֹר', name: 'אֶתְגָּר: כּוֹכָבִים',
+    teacher: 'sinistra', room: 'tower', station: 'astronomy',
+    build: buildAstronomy,
+    confetti: ['🌟', '⭐', '✨', '💫', '💛'],
+    lesson: {
+      stand: [-1.5, -2.3], face: [-2.4, -4.2], pip: '🏮',
+      cam: { pos: [-4.9, 2.1, -0.6], look: [-2.3, 1.0, -4.3] },
+      intro: [
+        { pose: 'talk', line: 'שָׁלוֹם! הַמִּגְדָּל חָשׁוּךְ הַלַּיְלָה.', t: 3.0 },
+        { pose: 'talk', line: 'בּוֹא נִלְמַד לְהַדְלִיק אוֹר בְּקֶסֶם!', t: 3.0 },
+        { pose: 'cast', line: 'לוּמוֹס!', t: 3.0 },
+        { pose: 'talk', line: 'עַכְשָׁו אַתָּה! גַּע בַּפָּנָס וְהַחְזֵק!', t: 3.2 },
+      ],
+      lifts: [0, 1, 2].map(bulbLift),
+      outro: 'עַכְשָׁו — לָאֶתְגָּר!',
+    },
+    praise: ['יָפֶה מְאֹד!', 'מְצֻיָּן!', 'כָּל הַכָּבוֹד!', 'נִפְלָא!'],
+    oops: 'נַסֵּה שׁוּב',
+    finale: 'הֵאַרְתָּ אֶת כָּל הַמִּגְדָּל!',
+    course: {
+      star3: 240,
+      stations: [
+        { id: 'stair', icon: '🕯️', say: 'הַדְלֵק אֶת הַפָּנָסִים בַּמַּדְרֵגוֹת!',
+          walk: [[-3.6, -0.8], [-4.7, 0.8]], face: [-7.2, 0.0],
+          cam: { pos: [-2.4, 2.4, 3.4], look: [-6.6, 1.6, -0.6] },
+          lifts: [3, 4, 5].map(bulbLift), after: 'stairPath', afterT: 2.0, afterSfx: 'chime' },
+        { id: 'lamps', icon: '⭐', say: 'הַדְלֵק אֶת הַכּוֹכָב שֶׁמְּנַצְנֵץ!', inOrder: true,
+          walk: [[-2.5, -0.6], [-0.6, -2.6], [-0.5, -4.0]], face: [1.6, -6.6],
+          cam: { pos: [2.2, 2.3, -1.2], look: [1.4, 1.35, -6.4] },
+          lifts: [6, 7, 8].map(bulbLift), after: 'lampChord', afterT: 1.8, afterSfx: 'none' },
+        { id: 'corner', icon: '🦉', say: 'הָאֵר אֶת הַפִּנָּה הַחֲשׁוּכָה!',
+          walk: [[3.2, -2.4], [5.6, -2.0]], face: [6.75, -6.75],
+          cam: { pos: [3.2, 2.3, -0.4], look: [6.6, 1.3, -6.4] },
+          lifts: [bulbLift(9)], after: 'owlWake', afterT: 3.2, afterSfx: 'none' },
+        { id: 'sky', icon: '🐱', say: 'הַדְלֵק אֶת הַכּוֹכָבִים בַּשָּׁמַיִם!',
+          walk: [[3.0, -0.6], [0, 1.6]], face: [0, -4],
+          cam: { pos: [0, 1.7, 4.6], look: [0, 8.0, -4.2] },
+          lifts: [10, 11, 12, 13, 14].map(bulbLift), after: 'catShine', afterT: 2.6, afterSfx: 'none' },
+        { id: 'telescope', icon: '🔭', say: 'הַדְלֵק אֶת הַמְּנוֹרָה הַגְּדוֹלָה!',
+          walk: [[2.2, 0.2], [3.4, -1.2]], face: [6.0, -3.2],
+          cam: { pos: [0.8, 2.3, 0.9], look: [5.4, 1.9, -3.6] },
+          afterCam: { pos: [0.6, 1.8, 4.4], look: [0.8, 8.6, -3.8] },
+          lifts: [bulbLift(15)], after: 'skyFill', afterT: 4.2, afterSfx: 'tada', afterConfetti: ['🌟', '⭐', '✨', '🔭'] },
       ],
     },
   },
@@ -397,10 +473,307 @@ function buildDefence(kit) {
   };
 }
 
+// A sleepy owl (eyes shut: two little lash arcs) for the dark corner; his open eyes are a separate
+// mover (owlEyesGeo, centred on the eye line) that blinks by squashing.
+function owlSleepyGeo() {
+  return merge([
+    paint(place(new SphereGeometry(0.2, 12, 10), 0, 0.22, 0, 0, 0, 0, 1, 1.15, 0.95), 0x8a7a6c),
+    paint(place(new SphereGeometry(0.15, 10, 8), 0, 0.19, 0.08), 0xd8ccb8),
+    paint(place(new TorusGeometry(0.04, 0.009, 4, 10, Math.PI), -0.08, 0.3, 0.205, 0, 0, Math.PI), 0x3a2a20),
+    paint(place(new TorusGeometry(0.04, 0.009, 4, 10, Math.PI), 0.08, 0.3, 0.205, 0, 0, Math.PI), 0x3a2a20),
+    paint(place(new ConeGeometry(0.035, 0.08, 5), 0, 0.24, 0.21, Math.PI / 2), 0xff8a10),
+    paint(place(new ConeGeometry(0.05, 0.12, 4), -0.12, 0.44, 0, 0, 0, 0.3), 0x6a5a4c), paint(place(new ConeGeometry(0.05, 0.12, 4), 0.12, 0.44, 0, 0, 0, -0.3), 0x6a5a4c),
+  ]);
+}
+function owlEyesGeo() {
+  return merge([
+    paint(place(new SphereGeometry(0.062, 10, 8), -0.08, 0, 0), 0xffc030), paint(place(new SphereGeometry(0.062, 10, 8), 0.08, 0, 0), 0xffc030),
+    paint(place(new SphereGeometry(0.03, 8, 6), -0.08, 0, 0.045), 0x1a1420), paint(place(new SphereGeometry(0.03, 8, 6), 0.08, 0, 0.045), 0x1a1420),
+    paint(place(new SphereGeometry(0.01, 4, 4), -0.07, 0.012, 0.072), 0xffffff), paint(place(new SphereGeometry(0.01, 4, 4), 0.09, 0.012, 0.072), 0xffffff),
+  ]);
+}
+
+// The Astronomy course props and its light (see COURSES.astronomy). Everything that glows is one of:
+//   bulbs   ONE instanced unlit sphere set (lanterns, sconces, star lamps, stars, the wand tips, the orb):
+//           instance colour = brightness (above 1 blooms on HIGH)
+//   light   ONE instanced additive quad set with a soft radial canvas: the pools each lit thing throws on
+//           the floor / walls / desk, the halos, the hero's moonlight rim and wand pool
+//   lines   the constellation (thin unlit bars that grow between lit stars), sky = the extra dome stars
+// No real lights. tick() reads the lift levels (L.p, L.done) the runner keeps and paints all of it.
+function buildAstronomy(kit) {
+  const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x77707e, STONE2 = 0x938b98, BRASS = 0xb98b2e, GOLD = 0xd8b04a;
+  const { solid, ctx } = kit;
+  const BL = ASTRO.bulbs, NB = BL.length, WAND = 16, ORB = 17, PROF = 18, TELE = 15;
+  const lantern = (x, y, z, s = 1) => {           // a little brass cage round a bulb at (x, y, z)
+    solid(paint(place(new CylinderGeometry(0.1 * s, 0.11 * s, 0.035 * s, 10), x, y - 0.15 * s, z), BRASS));
+    for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) solid(paint(place(new BoxGeometry(0.018 * s, 0.3 * s, 0.018 * s), x + a * 0.085 * s, y, z + b * 0.085 * s), BRASS));
+    solid(paint(place(new ConeGeometry(0.13 * s, 0.12 * s, 4), x, y + 0.2 * s, z, 0, Math.PI / 4), DARK));
+    solid(paint(place(new TorusGeometry(0.035 * s, 0.01 * s, 4, 10), x, y + 0.29 * s, z), BRASS));
+  };
+  // lesson: a little desk in front of Sinistra with three lanterns
+  solid(paint(place(new BoxGeometry(1.6, 0.08, 0.5), -2.2, 0.72, -3.85), WOOD));
+  for (const sx of [-0.7, 0.7]) solid(paint(place(new BoxGeometry(0.08, 0.7, 0.42), -2.2 + sx, 0.35, -3.85), DARK));
+  for (let i = 0; i < 3; i++) lantern(BL[i][0], BL[i][1], BL[i][2]);
+  // 1 a stone stair up the west wall to a landing, a sconce over the steps
+  for (let k = 0; k < 4; k++) solid(paint(place(new BoxGeometry(1.2, 0.25 * (k + 1), 0.8), -6.9, 0.125 * (k + 1), 1.2 - 0.8 * k), STONE, STONE2));
+  solid(paint(place(new BoxGeometry(1.2, 1.0, 1.6), -6.9, 0.5, -2.4), STONE, STONE2));
+  for (let i = 3; i < 6; i++) {
+    const [x, y, z] = BL[i];
+    solid(paint(place(new BoxGeometry(0.26, 0.05, 0.05), x - 0.11, y - 0.2, z), DARK));
+    solid(paint(place(new CylinderGeometry(0.13, 0.06, 0.12, 10, 1, true), x, y - 0.13, z), BRASS, GOLD));
+    solid(paint(place(new CylinderGeometry(0.06, 0.06, 0.02, 10), x, y - 0.19, z), BRASS));
+  }
+  // 2 three star lamps on brass posts along the north wall
+  for (let i = 6; i < 9; i++) {
+    const [x, y, z] = BL[i];
+    solid(paint(place(new CylinderGeometry(0.035, 0.045, y - 0.15, 6), x, (y - 0.15) / 2, z), BRASS, GOLD));
+    solid(paint(place(new CylinderGeometry(0.2, 0.24, 0.05, 12), x, 0.025, z), DARK));
+    for (let k = 0; k < 5; k++) {                  // a little gold star crown round the bulb (faces the room)
+      const a = k / 5 * Math.PI * 2;
+      solid(paint(place(new ConeGeometry(0.045, 0.14, 4), x + Math.sin(a) * 0.2, y + Math.cos(a) * 0.2, z, 0, 0, -a), GOLD));
+    }
+  }
+  // 3 the dark corner: a stool with the sleepy owl and the telescope key, a lantern on a wall bracket
+  const CX = 6.75, CZ = -6.75;
+  solid(paint(place(new CylinderGeometry(0.32, 0.3, 0.07, 14), CX, 0.885, CZ), WOOD));
+  for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2 + 0.4; solid(paint(place(new CylinderGeometry(0.03, 0.035, 0.86, 5), CX + Math.cos(a) * 0.2, 0.43, CZ + Math.sin(a) * 0.2), DARK)); }
+  solid(paint(place(new BoxGeometry(0.05, 0.05, 0.75), BL[9][0], BL[9][1] + 0.5, -7.1), DARK));
+  solid(paint(place(new BoxGeometry(0.03, 0.2, 0.03), BL[9][0], BL[9][1] + 0.38, BL[9][2]), DARK));
+  lantern(BL[9][0], BL[9][1], BL[9][2], 1.2);
+  // 5 the big telescope lamp: a brass post with a ring round a big globe
+  {
+    const [x, y, z] = BL[TELE];
+    solid(paint(place(new CylinderGeometry(0.05, 0.07, y - 0.25, 8), x, (y - 0.25) / 2, z), BRASS, GOLD));
+    solid(paint(place(new CylinderGeometry(0.3, 0.36, 0.06, 14), x, 0.03, z), DARK));
+    solid(paint(place(new TorusGeometry(0.33, 0.025, 6, 20), x, y, z, Math.PI / 2), GOLD));
+    solid(paint(place(new CylinderGeometry(0.12, 0.2, 0.08, 12), x, y - 0.3, z), BRASS));
+    solid(paint(place(new ConeGeometry(0.2, 0.16, 12), x, y + 0.36, z), BRASS));
+  }
+
+  // ---- the glowing things ----
+  const bulbs = kit.inst('bulb', new SphereGeometry(0.12, 14, 10), NB, new Array(NB).fill(0x332a20), { basic: true, glow: false, scales: BL.map(b => b[3]) });
+  const owl = kit.mesh('owl', owlSleepyGeo(), { glow: false }), eyes = kit.mesh('owlEyes', owlEyesGeo(), { glow: false });
+  const key = kit.mesh('key', place(merge([paint(place(new TorusGeometry(0.055, 0.017, 6, 14), -0.15), 0xffd86a), paint(new BoxGeometry(0.24, 0.03, 0.03), 0xe8c050),
+    paint(place(new BoxGeometry(0.03, 0.06, 0.02), 0.09, -0.04), 0xe8c050), paint(place(new BoxGeometry(0.03, 0.045, 0.02), 0.04, -0.035), 0xe8c050)]), 0, 0, 0, 0, 0, 0, 1.6), { glow: false, glowHex: 0xffd86a });
+  key.mat.emissiveIntensity = 0.35;
+  // the soft radial light texture (the course's one new canvas, 64 px)
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.62)'); gr.addColorStop(0.55, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+  const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
+  // light quads: { b: bulb index or a channel, k: 'floor'|'wallX+'|'wallX-'|'wallZ'|'halo', p, r, c, a }
+  const WARM = [1.0, 0.74, 0.42], COOL = [0.78, 0.84, 1.0], Q = [];
+  const pool = (b, k, x, y, z, r, a, c = WARM) => Q.push({ b, k, p: [x, y, z], r, a, c });
+  for (let i = 0; i < 3; i++) pool(i, 'floor', BL[i][0], 0.765, BL[i][2], 0.5, 0.55);
+  pool(-1, 'floor', -2.2, 0.02, -3.2, 1.6, 0.32);                               // the lesson pool (all three)
+  const STEP = [0.25, 0.75, 1.0];
+  for (let i = 3; i < 6; i++) { pool(i, 'wallX+', -7.46, BL[i][1], BL[i][2], 1.15, 0.5); pool(i, 'floor', -6.9, STEP[i - 3] + 0.012, BL[i][2], 0.62, 0.55); }
+  for (const [y, z] of [[0.5, 0.4], [1.0, -1.2], [0.0, 2.1]]) pool(-2, 'floor', y ? -6.9 : -6.4, y + 0.012, z, y ? 0.6 : 1.0, 0.5);   // the path: lit when the stair is done
+  for (let i = 6; i < 9; i++) { pool(i, 'wallZ', BL[i][0], BL[i][1], -7.46, 1.0, 0.45); pool(i, 'floor', BL[i][0], 0.02, -6.3, 0.85, 0.4); }
+  pool(9, 'floor', 6.5, 0.02, -6.5, 2.1, 0.6); pool(9, 'wallZ', 6.3, 1.7, -7.46, 1.8, 0.5); pool(9, 'wallX-', 7.46, 1.7, -6.3, 1.8, 0.5);
+  pool(TELE, 'floor', BL[TELE][0], 0.02, BL[TELE][2], 3.4, 0.55); pool(TELE, 'wallX-', 7.46, 2.2, BL[TELE][2], 2.6, 0.4);
+  const NPOOL = Q.length;
+  for (let i = 0; i < NB; i++) Q.push({ b: i, k: 'halo', p: [0, 0, 0], r: i >= 10 && i < 15 ? 0.75 : i === TELE ? 1.5 : i >= WAND ? (i === ORB ? 0.75 : 0.42) : 0.42, a: 1, c: i >= 10 && i < 15 ? COOL : WARM });
+  const RIM = Q.length; Q.push({ b: -3, k: 'halo', p: [0, 0, 0], r: 1.25, a: 1, c: COOL });            // moonlight behind the hero (a rim round his silhouette)
+  const HPOOL = Q.length; Q.push({ b: -3, k: 'floor', p: [0, 0.03, 0], r: 1.3, a: 1, c: WARM });          // the wand's pool at his feet
+  const quads = kit.inst('light', new PlaneGeometry(1, 1), Q.length, new Array(Q.length).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  quads.renderOrder = 3;
+  Q.forEach((q, i) => {
+    if (q.k === 'halo') return;
+    const ry = q.k === 'wallX+' ? Math.PI / 2 : q.k === 'wallX-' ? -Math.PI / 2 : 0, rx = q.k === 'floor' ? -Math.PI / 2 : 0;
+    _m4.compose(_v.set(q.p[0], q.p[1], q.p[2]), _q.setFromEuler(_e.set(rx, ry, 0)), _s.set(q.r * 2, q.r * 2, 1)); quads.setMatrixAt(i, _m4);
+  });
+  // the constellation: 7 outline bars (ear notches between the ears) + the face that appears at the end
+  const P = CAT, A = [-0.6, 0.45], Bn = [0.6, 0.45];
+  const SEG = [[P[0], A, 0, 1], [A, Bn, 0, 1], [Bn, P[1], 0, 1], [P[1], P[2], 1, 2], [P[2], P[3], 2, 3], [P[3], P[4], 3, 4], [P[4], P[0], 4, 0]];
+  for (const sx of [-1, 1]) { SEG.push([[sx * 0.62, -0.05], [sx * 0.62, 0.15], -1, -1]); SEG.push([[sx * 0.45, -0.78], [sx * 1.45, -0.55], -1, -1]); SEG.push([[sx * 0.45, -0.9], [sx * 1.45, -1.05], -1, -1]); }
+  SEG.push([[-0.12, -0.6], [0.12, -0.6], -1, -1]);
+  const lines = kit.inst('lines', new BoxGeometry(1, 0.07, 0.07), SEG.length, new Array(SEG.length).fill(0xffe9a0), { basic: true, glow: false });
+  const segs = SEG.map(([a, b, i, j]) => {
+    const A3 = new Vector3(...starAt(a[0], a[1])), B3 = new Vector3(...starAt(b[0], b[1])), d = B3.clone().sub(A3), len = d.length();
+    return { A: A3, d: d.normalize(), len, q: new Quaternion().setFromUnitVectors(new Vector3(1, 0, 0), d), i: i + 10, j: j + 10, face: i < 0, k: 0 };
+  });
+  for (let i = 0; i < SEG.length; i++) lines.setColorAt(i, _c.setRGB(2.2, 1.9, 1.1));
+  // the dome fills with stars at the end: 90 more, faded in by scale
+  const NS = 90, sky = kit.inst('sky', new SphereGeometry(0.07, 6, 5), NS, new Array(NS).fill(0xffffff), { basic: true, glow: false });
+  const skyAt = []; for (let i = 0; i < NS; i++) skyAt.push([Math.sin(i * 7.7 + 1) * 7.2, 12.75 - (i % 5) * 0.05, Math.cos(i * 3.1 + 2) * 7.2, 0.6 + ((i * 37) % 10) / 10, (i * 53 % 90) / 90]);
+  for (let i = 0; i < NS; i++) sky.setColorAt(i, _c.setRGB(2.4, 2.3, 1.9));
+
+  // ---- state the effects leave behind (put back by reset) ----
+  let pathK = 0, flare = 0, awake = 0, keyK = 0, faceK = 0, skyK = 0, wandK = 0, profK = 0, orbT = -1, orbCool = 0, pb = 0, hooted = 0;
+  const lev = new Float32Array(NB), lastP = new Map(), orbA = new Vector3(), orbB = new Vector3(), tip = new Vector3(), ptip = new Vector3(), vA = new Vector3(), vB = new Vector3(), cdir = new Vector3();
+  let liftOf = null, hand = null, arm = null, heroObj = null, pwand = null, pfig = null;
+  const OWL = [CX, 0.92, CZ, -Math.PI / 4, 1.5], KEY0 = [6.25, 0.04, -6.2], KEY1 = [4.6, 1.5, -4.2];
+  const eyeAt = [CX + Math.sin(OWL[3]) * 0.16 * OWL[4], OWL[1] + 0.3 * OWL[4], CZ + Math.cos(OWL[3]) * 0.16 * OWL[4]];
+  function poseOwl(t, open) {
+    owl.pose(OWL[0], OWL[1] + (awake ? Math.max(0, Math.sin(t * 2.2)) * 0.02 : 0), OWL[2], awake ? 0 : 0.12, OWL[3] + (awake ? Math.sin(t * 0.9) * 0.15 : 0), awake ? 0 : Math.sin(t * 0.8) * 0.05, OWL[4]);
+    eyes.pose(eyeAt[0], eyeAt[1], eyeAt[2], 0, OWL[3] + (awake ? Math.sin(t * 0.9) * 0.15 : 0), 0, OWL[4]);
+    eyes.mesh.scale.y = OWL[4] * Math.max(0.02, open); eyes.mesh.visible = open > 0.03;
+  }
+  function poseKey(t, k) {
+    const e = k * k * (3 - 2 * k), hop = Math.sin(Math.min(1, k * 1.4) * Math.PI) * 0.9;
+    key.pose(KEY0[0] + (KEY1[0] - KEY0[0]) * e, KEY0[1] + (KEY1[1] - KEY0[1]) * e + hop + (k >= 1 ? Math.sin(t * 2) * 0.03 : 0), KEY0[2] + (KEY1[2] - KEY0[2]) * e,
+      k > 0 ? 0 : Math.PI / 2, k >= 1 ? t * 0.8 : k * 6, k > 0 ? -Math.PI / 2 * e : 0.5);
+  }
+  const blinkOpen = (t) => { const u = t % 3.7; return u < 0.12 ? 0.1 : 1; };
+  const setBulb = (i, x, y, z, s, r, g, b) => { _m4.compose(_v.set(x, y, z), _q.identity(), _s.setScalar(BL[i][3] * s)); bulbs.setMatrixAt(i, _m4); bulbs.setColorAt(i, _c.setRGB(r, g, b)); };
+
+  return {
+    reset() {
+      pathK = 0; flare = 0; awake = 0; keyK = 0; faceK = 0; skyK = 0; orbT = -1; orbCool = 0; pb = 0; hooted = 0; lastP.clear();
+      poseOwl(0, 0); poseKey(0, 0);
+      for (const s of segs) s.k = 0;
+    },
+    tick(M, t, st, K, dt = 0.016) {
+      if (!K) return;
+      const { player, camera, worldOff } = ctx;
+      if (!liftOf) { liftOf = new Array(NB).fill(null); for (const L of [...K.lesson, ...K.stations.flat()]) { L.bi = Number(L.mv.name.slice(4)); liftOf[L.bi] = L; } }
+      // levels: a done thing is fully lit; the one being lit follows its p
+      let rising = null, done = 0;
+      for (let i = 0; i <= TELE; i++) {
+        const L = liftOf[i]; const want = L ? (L.done ? 1 : L.p) : 0;
+        lev[i] += (want - lev[i]) * Math.min(1, dt * 8);
+        if (L && L.done) done++;
+        if (L && !L.done && st.sub === 'cast') { const lp = lastP.get(L) ?? 0; if (L.p > lp + 1e-4) rising = L; lastP.set(L, L.p); }
+      }
+      // the room dims while the course runs and each light gives some back; the big lamp gives it all
+      st.dimGoal = (st.phase === 'reward' || (liftOf[TELE] && liftOf[TELE].done)) ? 0 : Math.max(0.35, 1 - done * 0.035);
+      // the hero's wand tip: the hand_r bone of the rigged hero (pushed out along the forearm), else the chibi's hand
+      const hero = player.hero && player.hero.obj;
+      if (hero !== heroObj) { heroObj = hero; hand = hero ? hero.getObjectByName('hand_r') : null; arm = hero ? hero.getObjectByName('lowerarm_r') : null; }
+      if (hand && arm) { hand.getWorldPosition(tip); arm.getWorldPosition(vA); tip.addScaledVector(vB.copy(tip).sub(vA).normalize(), 0.24); }
+      else tip.set(player.pos.x + Math.sin(player.yaw) * 0.45, player.pos.y + 1.05, player.pos.z + Math.cos(player.yaw) * 0.45);
+      tip.sub(worldOff);
+      const wantW = rising || st.hold ? 1 : st.sub === 'cast' ? 0.3 : 0;
+      wandK += (wantW - wandK) * Math.min(1, dt * 6);
+      // a warm orb flies from the wand to the thing being lit, again every half second while it is fed
+      orbCool -= dt;
+      if (rising && orbCool <= 0 && orbT < 0) { const b = BL[rising.bi]; orbA.copy(tip); orbB.set(b[0], b[1], b[2]); orbT = 0; orbCool = 0.5; }
+      let orbL = 0;
+      if (orbT >= 0) {
+        orbT += dt / Math.min(0.55, 0.2 + orbA.distanceTo(orbB) * 0.035); const k = Math.min(1, orbT);
+        vA.lerpVectors(orbA, orbB, k); vA.y += Math.sin(k * Math.PI) * 0.35; orbL = 1;
+        if (k >= 1) { orbT = -1; kit.burst(orbB.x, orbB.y, orbB.z, 4); }
+      }
+      // Sinistra's wand: raised while she says Lumos (the runner holds st.raise), its tip lit
+      const f = ctx.prof();
+      if (f !== pfig) { pfig = f; pwand = null; const rig = f && f.userData.rig; if (rig) for (const c of rig.armR.children) if (c.geometry && c.geometry.parameters && c.geometry.parameters.radiusTop === 0.012) pwand = c; }
+      profK += ((st.raise > 0 ? 1 : 0) - profK) * Math.min(1, dt * 5);
+      if (pwand && profK > 0.01) {
+        pwand.updateWorldMatrix(true, false); pwand.localToWorld(ptip.set(0, 0.17, 0)); pwand.localToWorld(vB.set(0, -0.17, 0));
+        f.userData.rig.armR.getWorldPosition(cdir); if (vB.distanceTo(cdir) > ptip.distanceTo(cdir)) ptip.copy(vB);
+        ptip.sub(worldOff);
+      }
+
+      // bulbs
+      let cur = null;
+      if (st.sub === 'cast' && st.lifts) { if (st.sel && !st.sel.done) cur = st.sel; else for (const L of st.lifts) if (!L.done) { cur = L; break; } }
+      for (let i = 0; i <= TELE; i++) {
+        const L = liftOf[i], b = BL[i], l = lev[i], star = i >= 10 && i < 15;
+        const open = L && !L.done && st.sub === 'cast' && st.lifts && st.lifts.includes(L) && (!L.inOrder || L === cur);
+        const tw = open ? 0.3 + 0.22 * Math.sin(t * 6 + i) : 0;
+        const k = 0.5 + 2.6 * l + (i >= 6 && i < 9 ? flare : 0) + (i === TELE ? skyK * 1.5 : 0);
+        const base = star ? 0.25 : 0.2, cr = star ? 0.85 : 1, cg = star ? 0.9 : 0.8, cb = star ? 1 : 0.46;
+        if (l > 0.02) setBulb(i, b[0], b[1], b[2], 1 + 0.12 * l + (star ? Math.sin(t * 3 + i) * 0.06 * l : 0), cr * k, cg * k, cb * k);
+        else setBulb(i, b[0], b[1], b[2], 1 + tw * 0.25, base + tw * cr, base * 0.85 + tw * cg, base * 0.6 + tw * cb * 0.7);
+      }
+      setBulb(WAND, tip.x, tip.y, tip.z, wandK > 0.02 ? 1 + 0.2 * Math.sin(t * 9) * wandK : 0, 3 * wandK, 2.6 * wandK, 1.6 * wandK);
+      setBulb(ORB, vA.x, vA.y, vA.z, orbL, 3.2, 2.6, 1.4);
+      setBulb(PROF, ptip.x, ptip.y, ptip.z, profK > 0.02 ? 1 + 0.25 * Math.sin(t * 8) : 0, 3 * profK, 2.7 * profK, 1.8 * profK);
+      bulbs.instanceMatrix.needsUpdate = true; bulbs.instanceColor.needsUpdate = true;
+
+      // light quads: pools follow their bulb, halos face the camera
+      const fl = 0.94 + 0.04 * Math.sin(t * 7.3) + 0.02 * Math.sin(t * 17.1), dimK = st.dim || 0;
+      const lesson3 = (lev[0] + lev[1] + lev[2]) / 3;
+      for (let i = 0; i < Q.length; i++) {
+        const q = Q[i]; let a;
+        if (i < NPOOL) a = q.b === -1 ? lesson3 : q.b === -2 ? pathK : lev[q.b];
+        else if (i === RIM || i === HPOOL) a = i === RIM ? 0.05 + 0.13 * dimK : 0.15 * dimK + 0.45 * wandK;
+        else {
+          a = q.b === WAND ? wandK * 0.8 : q.b === ORB ? orbL * 0.9 : q.b === PROF ? profK : lev[q.b] * 0.55 + (q.b === TELE ? skyK * 0.4 : 0);
+          const open = liftOf[q.b] && !liftOf[q.b].done && cur && (cur === liftOf[q.b] || (!cur.inOrder && st.lifts.includes(liftOf[q.b])));
+          if (open && lev[q.b] < 0.3) a += 0.18 + 0.12 * Math.sin(t * 6 + q.b);   // the unlit target twinkles
+          const p = q.b === WAND ? tip : q.b === ORB ? vA : q.b === PROF ? ptip : vB.set(BL[q.b][0], BL[q.b][1], BL[q.b][2]);
+          _m4.compose(p, camera.quaternion, _s.setScalar(q.r * 2 * (0.8 + 0.4 * Math.min(1, a)))); quads.setMatrixAt(i, _m4);
+        }
+        if (i === RIM) {        // behind the hero, away from the camera: his silhouette gets a soft moonlit edge
+          vB.set(player.pos.x, player.pos.y + 0.95, player.pos.z); cdir.copy(vB).sub(camera.position).normalize();   // along the view ray: straight behind him on screen
+          vB.addScaledVector(cdir, 0.45).sub(worldOff);
+          _m4.compose(vB, camera.quaternion, _s.set(0.95, 2.0, 1)); quads.setMatrixAt(i, _m4);
+        } else if (i === HPOOL) {
+          _m4.compose(vB.set(player.pos.x - worldOff.x, 0.03, player.pos.z - worldOff.z), _q.setFromEuler(_e.set(-Math.PI / 2, 0, 0)), _s.set(2.6, 2.6, 1)); quads.setMatrixAt(i, _m4);
+        }
+        a *= q.a * (i < NPOOL ? fl : 1);
+        quads.setColorAt(i, _c.setRGB(q.c[0] * a, q.c[1] * a, q.c[2] * a));
+      }
+      quads.instanceMatrix.needsUpdate = true; quads.instanceColor.needsUpdate = true;
+
+      // the constellation grows between lit stars; the face comes with catShine
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i], want = s.face ? faceK : (liftOf[s.i].done && liftOf[s.j].done ? 1 : 0);
+        s.k += (want - s.k) * Math.min(1, dt * 4);
+        const L = s.len * s.k;
+        _m4.compose(vB.copy(s.A).addScaledVector(s.d, L / 2), s.q, _s.set(Math.max(0.0001, L), s.k > 0.01 ? 1 : 0, s.k > 0.01 ? 1 : 0)); lines.setMatrixAt(i, _m4);
+      }
+      lines.instanceMatrix.needsUpdate = true;
+      lines.visible = st.phase === 'reward' || (st.phase === 'course' && st.step >= 3);
+      sky.visible = skyK > 0;
+      if (sky.visible) {
+        for (let i = 0; i < NS; i++) { const s = skyAt[i], k = Math.max(0, Math.min(1, (skyK - s[4] * 0.6) / 0.4)); _m4.compose(_v.set(s[0], s[1], s[2]), _q.identity(), _s.setScalar(k * s[3] * (0.85 + 0.25 * Math.sin(t * 3 + i)))); sky.setMatrixAt(i, _m4); }
+        sky.instanceMatrix.needsUpdate = true;
+      }
+      if (!st.fx) { poseOwl(t, awake ? blinkOpen(t) : 0); poseKey(t, keyK); }
+    },
+    effects: {
+      // the stair path lights step by step (2 s)
+      stairPath(M, t, quiet) {
+        pathK = Math.min(1, t / 1.2);
+        const n = Math.min(3, Math.floor(t / 0.35));
+        while (pb < n) { const z = [2.1, 0.4, -1.2][pb], y = [0, 0.5, 1.0][pb]; pb++; if (!quiet) { kit.burst(-6.8, y + 0.2, z, 8); fun.sfx.tink(1 + pb); } }
+        return t < 1.8;
+      },
+      // the three star lamps sing a little chord and flare together (1.6 s)
+      lampChord(M, t, quiet) {
+        if (!quiet && t < 0.05 && !hooted) { hooted = 1; fun.sfx.tune([1047, 1319, 1568, 2093], 0.12, 'sine'); for (let i = 6; i < 9; i++) kit.burst(BL[i][0], BL[i][1], BL[i][2], 8); }
+        flare = Math.max(0, Math.sin(Math.min(1, t / 1.4) * Math.PI)) * 2.2;
+        if (t >= 1.6) { flare = 0; hooted = 0; }
+        return t < 1.6;
+      },
+      // the sleepy owl blinks awake, hoots, and the key he was keeping hops over to the telescope (3 s)
+      owlWake(M, t, quiet) {
+        awake = 1;
+        const open = t < 0.5 ? t / 0.5 : (t > 1.0 && t < 1.12) || (t > 1.4 && t < 1.52) ? 0.1 : 1;
+        if (!quiet && t > 0.5 && hooted < 1) { hooted = 1; fun.sfx.hoot(); }
+        if (!quiet && t > 1.3 && hooted < 2) { hooted = 2; fun.sfx.hoot(); }
+        keyK = Math.max(0, Math.min(1, (t - 1.5) / 1.1));
+        if (!quiet && keyK >= 1 && hooted < 3) { hooted = 3; kit.burst(KEY1[0], KEY1[1], KEY1[2], 12); fun.sfx.chime(); }
+        poseOwl(t, open); poseKey(t, keyK);
+        if (t >= 3.0) hooted = 0;
+        return t < 3.0;
+      },
+      // the cat's face appears between the stars, it twinkles (2.4 s)
+      catShine(M, t, quiet) {
+        faceK = Math.min(1, t / 1.0);
+        if (!quiet && !hooted && t > 0.05) { hooted = 1; fun.sfx.tune([784, 988, 1175, 1568], 0.14, 'sine'); kit.burst(STAR_C[0], STAR_C[1], STAR_C[2], 16); }
+        if (t >= 2.4) hooted = 0;
+        return t < 2.4;
+      },
+      // the big lamp blazes, the dome fills with stars and the tower is bright again (4 s)
+      skyFill(M, t, quiet) {
+        skyK = Math.min(1, t / 2.6);
+        if (!quiet && Math.floor(t / 0.5) > hooted && t < 3) { hooted++; kit.burst(Math.sin(hooted * 2.3) * 5, 10.5, Math.cos(hooted * 1.7) * 5 - 1, 10); fun.sfx.tink(1 + (hooted % 3)); }
+        if (t >= 4.0) hooted = 0;
+        return t < 4.0;
+      },
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------------------
 // the runner
 // ---------------------------------------------------------------------------------------
-export function createSpells({ scene, camera, player, interiors, lessons, setTakeover, isModal, isTakeover }) {
+export function createSpells({ scene, camera, player, interiors, lessons, setTakeover, isModal, isTakeover, env = null, renderer = null }) {
   let save = {};
   try { save = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { save = {}; }
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* private mode */ } };
@@ -437,6 +810,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   #spHand{position:fixed;z-index:15;font-size:64px;pointer-events:none;display:none;margin:-10px 0 0 -26px;filter:drop-shadow(0 0 10px #fff)}
   #spHand.on{display:block;animation:spHand 1.5s ease-in-out infinite}
   #spHand.on.push{animation:spHandP 1.5s ease-in-out infinite}
+  #spHand.on.tap{animation:spHandT 1.1s ease-in-out infinite}
+  @keyframes spHandT{0%,100%{transform:translateY(18px) scale(1)}45%{transform:translateY(0) scale(.86)}60%{transform:translateY(0) scale(.86)}}
   @keyframes spHandP{0%{transform:translate(calc(var(--dx) * -40px),calc(var(--dy) * -40px));opacity:0}15%{opacity:1}70%{transform:translate(calc(var(--dx) * 130px),calc(var(--dy) * 130px));opacity:1}100%{transform:translate(calc(var(--dx) * 150px),calc(var(--dy) * 150px));opacity:0}}
   @keyframes spHand{0%{transform:translateY(40px);opacity:0}15%{opacity:1}70%{transform:translateY(-130px);opacity:1}100%{transform:translateY(-150px);opacity:0}}
   #spEnd{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(40,24,90,.7),rgba(5,3,25,.92));font-family:'Rubik',sans-serif;direction:rtl}
@@ -475,7 +850,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
 
   // ---- state ----
   const S = { on: false, key: null, C: null, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0,
-    speed: 1, q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null };
+    speed: 1, q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null,
+    raise: 0, raiseK: 0, dim: 0, dimGoal: 0 };
   let K = null;                            // the built kit for the running course: { group, movers, lesson, stations, ... }
   let drag = null;
   const tmp = new Vector3(), tmp2 = new Vector3(), camPos = new Vector3(), camLook = new Vector3(), camPosGoal = new Vector3(), camLookGoal = new Vector3();
@@ -502,7 +878,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     speak(text);
     if (f && S.phase === 'lesson') { f.getWorldPosition(tmp);   // in the course the top speech bar is enough (a 3D bubble covered the rings on a phone)
       tmp.y += f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9; fun.say(tmp, text, sec, 'spell'); }
-    if (profPose === 'cast') { if (!(lessons.signature && lessons.signature(S.C.station))) hop(); }
+    if (profPose === 'cast') { if (!(lessons.signature && lessons.signature(S.C.station))) hop(); if (S.C.verb === 'light') S.raise = sec; }
     else if (profPose) { pose(profPose); at(Math.max(1, sec - 0.6), () => pose(null)); }
   }
   let hopT = 0;
@@ -511,9 +887,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // ---- kit: build the course props into the room ----
   function buildKit(C, room) {
     const group = new Group(); group.name = 'spell-' + S.key;
-    const solids = [], movers = {}, mats = [], geos = [], glowMats = [];
+    const solids = [], movers = {}, mats = [], geos = [], glowMats = [], texs = [];
     const kit = {
       solid: (g) => solids.push(g),
+      tex: (t) => { texs.push(t); return t; },
+      burst: (x, y, z, n) => burst(x, y, z, n),
+      ctx: { player, camera, worldOff, prof: () => prof() },
       mesh(name, geo, o = {}) {
         const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: DoubleSide, emissive: new Color(o.glowHex || 0xffd27a), emissiveIntensity: 0 });
         const m = new Mesh(geo, mat); m.name = 'spell-' + name; m.frustumCulled = false; m.raycast = () => {}; group.add(m);
@@ -521,9 +900,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         movers[name] = { name, mesh: m, geo, mat, scale: 1, glows: o.glow !== false,
           pose(x, y, z, rx, ry, rz, s = 1) { m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.setScalar(s); },
           color(hex) { mat.color.setHex(hex); } };
+        return movers[name];
       },
       inst(name, geo, n, colors, o = {}) {
-        const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.55, side: DoubleSide, emissive: new Color(o.emissive || o.glowHex || 0xffd27a), emissiveIntensity: o.emissiveIntensity || 0 });
+        // o.basic: unlit (instance colour = brightness, above 1 blooms); o.additive + o.map: soft light quads
+        const mat = o.basic ? new MeshBasicMaterial({ color: 0xffffff, map: o.map || null, transparent: !!o.additive, depthWrite: !o.additive, blending: o.additive ? AdditiveBlending : NormalBlending, side: DoubleSide, fog: false })
+          : new MeshStandardMaterial({ vertexColors: true, roughness: 0.55, side: DoubleSide, emissive: new Color(o.emissive || o.glowHex || 0xffd27a), emissiveIntensity: o.emissiveIntensity || 0 });
         const im = new InstancedMesh(geo, mat, n); im.name = 'spell-' + name; im.frustumCulled = false; im.raycast = () => {}; group.add(im);
         mats.push(mat); geos.push(geo); if (o.glow !== false) glowMats.push(mat);
         for (let i = 0; i < n; i++) {
@@ -533,6 +915,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
             pose(x, y, z, rx, ry, rz, s = 1) { _m4.compose(_v.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.setScalar(s * s0)); im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; },
             color(hex) { im.setColorAt(i, _c.setHex(hex)); im.instanceColor.needsUpdate = true; } };
         }
+        return im;
       },
     };
     const B = C.build(kit);
@@ -555,22 +938,26 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     mats.push(pMat); geos.push(pGeo);
     const parts = []; for (let i = 0; i < NP; i++) parts.push({ mode: 0, a: Math.random() * 6.3, r: 0.25 + Math.random() * 0.2, sp: 1.5 + Math.random() * 2, y: Math.random(), vx: 0, vy: 0, vz: 0, x: 0, yy: 0, z: 0, life: 0 });
     // pre-sample every lift path (arc-length spaced), so update() only reads arrays
-    const push = C.verb === 'push';
+    const push = C.verb === 'push', light = C.verb === 'light';
     const mkLift = (L, st) => {
       const mv = movers[L.m]; if (!mv) return null;
-      const pts = L.path.map(p => new Vector3(p[0], p[1], p[2]));
-      const N = 48, curve = new CatmullRomCurve3(pts, false, 'centripetal'), sp = curve.getSpacedPoints(N - 1), arr = new Float32Array(N * 3);
-      sp.forEach((v, i) => { arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z; });
+      const N = light ? 2 : 48, arr = new Float32Array(N * 3);
+      if (light) { for (let i = 0; i < N; i++) { arr[i * 3] = L.path[0][0]; arr[i * 3 + 1] = L.path[0][1]; arr[i * 3 + 2] = L.path[0][2]; } }   // a light target stays put: p = how lit
+      else {
+        const pts = L.path.map(p => new Vector3(p[0], p[1], p[2]));
+        const curve = new CatmullRomCurve3(pts, false, 'centripetal'), sp = curve.getSpacedPoints(N - 1);
+        sp.forEach((v, i) => { arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z; });
+      }
       const rings = (L.rings || []).map(n => { const r = movers[n]; return r ? { mv: r, u: 0, ringIdx: n } : null; }).filter(Boolean);
       return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings,
-        push, hov0: push ? PUSH_HOVER : HOVER, fall: push ? PUSH_FALL : FALL, inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
+        push, light, hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : FALL, inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
     const stations = C.course.stations.map(st => st.lifts.map(l => mkLift(l, st)).filter(Boolean));
     room.group.add(group);
     group.updateMatrixWorld(true); group.getWorldPosition(worldOff);
     group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
-    const k = { group, movers, mats, geos, B, ghost, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations };
+    const k = { group, movers, mats, geos, texs, B, ghost, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations };
     k.glowMats = glowMats;
     resetKit(k, true);
     // ring params: how far along the feather's path each ring sits (the sample nearest its centre)
@@ -597,6 +984,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     for (const g of k.geos) { try { g.dispose(); } catch { /* backend quirk */ } }
     for (const m of k.mats) { try { m.dispose(); } catch { /* backend quirk */ } }
     try { k.pTex.dispose(); } catch { /* ignore */ }
+    for (const t of k.texs) { try { t.dispose(); } catch { /* ignore */ } }
   }
 
   // ---- lifts ----
@@ -607,12 +995,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function poseLift(L, t) {
     const e = L.p * L.p * (3 - 2 * L.p);
     samplePath(L, L.p, tmp2);
-    const live = L.p > 0.01 && !L.done && !L.push, bob = (L.spec.bob || live) ? Math.sin(t * 2.4 + L.ph) * (L.done ? 0.025 : 0.04) : 0;
+    const live = L.p > 0.01 && !L.done && !L.push && !L.light, bob = (L.spec.bob || live) ? Math.sin(t * 2.4 + L.ph) * (L.done ? 0.025 : 0.04) : 0;
     const fl = L.spec.flutter ? Math.sin(t * 4 + L.ph) * 0.3 * Math.min(1, L.p * 3) : 0;
     const r0 = L.rot0, r1 = L.rot1;
     L.mv.pose(tmp2.x, tmp2.y + bob, tmp2.z, r0[0] + (r1[0] - r0[0]) * e, r0[1] + (r1[1] - r0[1]) * e + (L.done && L.spec.flutter ? Math.sin(t * 0.8 + L.ph) * 0.3 : 0), r0[2] + (r1[2] - r0[2]) * e + fl);
   }
   const open = () => { if (!S.lifts) return null; for (const L of S.lifts) if (!L.done) return L; return null; };
+  let twT = 0;
+  function twinkle() {                       // the thing to light next sparkles (a hint, never a penalty)
+    const L = open(); if (!L || S.clock - twT < 0.4) return;
+    twT = S.clock; liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 10); fun.sfx.tink(3);
+  }
   function select(L) { if (L && !L.done && S.sel !== L) { S.sel = L; fun.sfx.tink(2); setPips(); } }
   function liftWorld(L, out) { samplePath(L, L.p, out); out.y += L.aimY; return out.add(worldOff); }
   function pick(x, y) {
@@ -630,7 +1023,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   }
   function nudge(L, v) {                     // set a lift's progress from a gesture
     if (!L || L.done || L.snap >= 0) return;
-    if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); fun.sfx.whoosh(); }
+    if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); if (L.light) fun.sfx.sparkle(); else fun.sfx.whoosh(); }
     L.p = Math.max(0, Math.min(1, v)); L.hover = L.hov0; if (L.p > L.peak) L.peak = L.p;
     S.idle = 0;
   }
@@ -665,6 +1058,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const k = K, pos = k.pPos;
     // orbiting sparkles: the not-yet-done lifts of the current set (the selected one gets most)
     let nOpen = 0; if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done) nOpen++;
+    const ordered = nOpen > 0 && S.lifts[0].inOrder;     // a follow-me set: only the next one twinkles
     let oi = 0;
     for (let i = 0; i < k.parts.length; i++) {
       const p = k.parts[i];
@@ -677,8 +1071,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (nOpen && oi < 36) {
         // spread orbiters over the open lifts
         let target = null, j = oi % nOpen;
-        for (const L of S.lifts) { if (L.done) continue; if (j-- === 0) { target = L; break; } }
-        if (S.sel && !S.sel.done && oi % 3 !== 0) target = S.sel;
+        for (const L of S.lifts) { if (L.done) continue; if (ordered || j-- === 0) { target = L; break; } }
+        if (S.sel && !S.sel.done && oi % 3 !== 0 && !ordered) target = S.sel;
         oi++;
         samplePath(target, target.p, tmp2);
         const a = p.a + t * p.sp, r = p.r * (target === S.sel ? 1.25 : 1) * (target.mv.scale > 1.5 ? 1.6 : 1);
@@ -725,6 +1119,16 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   ov.addEventListener('pointerdown', e => {
     if (!S.on || S.sub !== 'cast') return;
     e.preventDefault(); S.idle = 0;
+    if (S.C.verb === 'light') {
+      // Lumos: touch the glowing thing and it starts to light; keep the finger on it = brighter. A touch
+      // anywhere else (or the wrong star lamp) only makes the right one twinkle again: no penalty.
+      const hit = pick(e.clientX, e.clientY);
+      if (hit) { select(hit); S.hold = true; S.holdT = 0; nudge(hit, hit.p + 0.08); }
+      else twinkle();
+      drag = { id: e.pointerId, t0: performance.now(), light: true, onTarget: !!hit };
+      try { ov.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      return;
+    }
     const hit = pick(e.clientX, e.clientY);
     if (hit) select(hit); else if (!S.sel || S.sel.done) select(open());
     const sd = dirOf(S.sel);
@@ -737,12 +1141,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   const swiped = (e) => (S.sel && S.sel.push) ? Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0)
     : (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy;
   ov.addEventListener('pointermove', e => {
-    if (!drag || e.pointerId !== drag.id || !S.sel) return;
+    if (!drag || drag.light || e.pointerId !== drag.id || !S.sel) return;
     const dy = swiped(e);
     if (dy > 10 || drag.moved) { drag.moved = true; nudge(S.sel, drag.p0 + Math.max(0, dy - 10) / range()); if (S.sel && S.sel.p >= SNAP) snapLift(S.sel); }
   });
   const endDrag = (e) => {
     if (!drag || (e && e.pointerId !== drag.id)) return;
+    if (drag.light) {
+      const L = S.sel;
+      if (drag.onTarget) { S.hold = false; if (L && !L.done && S.holdT < 0.25) nudge(L, L.p + LIGHT_TAP); }
+      drag = null; return;
+    }
     const L = S.sel, dy = e ? swiped(e) : 0, quick = performance.now() - drag.t0 < (L && L.push ? 450 : 350);   // a push flick gets a little longer (a sweep, not a snap of the wrist)
     if (L && !L.done) {
       if (drag.moved && quick && dy > 50) snapLift(L);                     // a quick flick up: the swish-and-flick
@@ -762,7 +1171,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (e) e.stopPropagation();
     if (!S.hold) return;
     S.hold = false; spB.classList.remove('hold');
-    if (S.holdT < 0.25 && S.sel) nudge(S.sel, S.sel.p + TAP);              // a tap: a third of the way up
+    if (S.holdT < 0.25 && S.sel) nudge(S.sel, S.sel.p + (S.sel.light ? LIGHT_TAP : TAP));   // a tap: a third of the way up
   };
   spB.addEventListener('pointerup', endHold); spB.addEventListener('pointercancel', endHold);
   xB.addEventListener('click', e => { e.stopPropagation(); quit(); });
@@ -801,6 +1210,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.doneStations = S.step + 1; setPips();
     line(S.C.praise[S.praise++ % S.C.praise.length], 2.0);
     const fx = st.after && K.B.effects[st.after];
+    if (st.afterCam) camTo(st.afterCam);
     if (fx) {
       S.fx = fx; S.fxT = 0;
       if (st.afterSfx) { if (fun.sfx[st.afterSfx]) fun.sfx[st.afterSfx](); if (st.afterConfetti) fun.confetti(st.afterConfetti, 18); }
@@ -861,6 +1271,46 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     arrive();
   }
 
+  // ---- the room dim (Lumos) ----
+  // ONE reversible factor d (0 = the room as built, 1 = dimmed) scales what lights the room: tone-mapping
+  // exposure a little, the indoor ambient / hemisphere / key sun / IBL a lot, the room's emissives (torch
+  // flames, ceiling stars, the night-sky ceiling) and its baked light-pool mesh. The base values are
+  // captured once at start and written back EXACTLY by dimRestore() (leave, ✕, room exit, mid-fade too).
+  // The course's own lights (spell-* group), the hero and the teacher are never dimmed.
+  let DIM = null;
+  function dimCapture() {
+    if (DIM || !interiors.room) return;
+    const mats = [], pools = [], seen = new Set(), skip = new Set();
+    if (K) K.group.traverse(o => skip.add(o));
+    const f = prof(); if (f) f.traverse(o => skip.add(o));
+    interiors.room.group.traverse(o => {
+      if (!o.isMesh || skip.has(o)) return;
+      for (const m of [].concat(o.material)) {
+        if (!m || seen.has(m)) continue; seen.add(m);
+        if (o.name === 'lightPools') pools.push([m, m.opacity]);
+        else if (m.emissive && m.emissiveIntensity > 0 && (m.emissive.r + m.emissive.g + m.emissive.b) > 0) mats.push([m, m.emissiveIntensity]);
+      }
+    });
+    DIM = { exp: renderer ? renderer.toneMappingExposure : null, envI: scene.environmentIntensity,
+      amb: env && env.amb ? env.amb.intensity : null, hemi: env && env.hemi ? env.hemi.intensity : null, sun: env && env.sun ? env.sun.intensity : null, mats, pools };
+  }
+  function dimApply(d) {
+    if (!DIM) return;
+    const e = d * d * (3 - 2 * d);
+    if (renderer && DIM.exp != null) renderer.toneMappingExposure = DIM.exp * (1 - 0.22 * e);
+    if (DIM.envI != null) scene.environmentIntensity = DIM.envI * (1 - 0.75 * e);
+    if (DIM.amb != null) env.amb.intensity = DIM.amb * (1 - 0.68 * e);
+    if (DIM.hemi != null) env.hemi.intensity = DIM.hemi * (1 - 0.68 * e);
+    if (DIM.sun != null) env.sun.intensity = DIM.sun * (1 - 0.6 * e);
+    for (const [m, v] of DIM.mats) m.emissiveIntensity = v * (1 - 0.8 * e);
+    for (const [m, v] of DIM.pools) m.opacity = v * (1 - 0.85 * e);
+  }
+  function dimRestore() {
+    if (!DIM) return;
+    dimApply(0);                             // e = 0: every value is exactly its captured base
+    DIM = null; S.dim = 0; S.dimGoal = 0;
+  }
+
   // ---- start / leave ----
   const takeover = { spell: true, update };
   function start(key = 'charms') {
@@ -868,7 +1318,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!C || S.on || isModal() || isTakeover()) return false;
     if (interiors.active !== C.room || !interiors.room) return false;
     S.key = key; S.C = C;
-    Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null });
+    Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null,
+      raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0 });
     S.q.length = 0; pipKey = '';
     try { K = buildKit(C, interiors.room); } catch (e) { console.warn('[spells] course props failed -', e && e.message || e); K = null; S.on = false; return false; }
     setTakeover(takeover);
@@ -878,6 +1329,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     player._applyFade && player._applyFade(1);
     camPos.copy(camera.position); camera.getWorldDirection(tmp); camLook.copy(camera.position).addScaledVector(tmp, 6);
     fun.sfx.sparkle();
+    if (C.dim) dimCapture();
     startLesson();
     return true;
   }
@@ -886,6 +1338,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const C = S.C;
     S.on = false; S.q.length = 0; drag = null; S.hold = false; S.walk = null; S.fx = null;
     hush(); hideHand(); setBtn(false);
+    try { dimRestore(); } catch (e) { console.warn('[spells] dim restore -', e && e.message || e); DIM = null; }
     if (S.hid) { for (const o of S.hid) o.visible = true; S.hid = null; }   // Peeves' visibility is only set on spawn: put back what start() hid
     endOv.classList.remove('on'); sayEl.classList.remove('on');
     document.body.classList.remove('inSpell');
@@ -915,6 +1368,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.clock += dt; const t = S.clock;
     if (S.phase === 'course' && S.sub !== 'reward') S.tCourse += dt;
     runQueue(); if (!S.on) return;
+    if (DIM) {                              // the room dim eases toward the goal the course sets (DIM_T s end to end)
+      const g = S.phase === 'reward' ? 0 : S.dimGoal, st = dt / DIM_T;
+      S.dim = S.dim < g ? Math.min(g, S.dim + st) : Math.max(g, S.dim - st);
+      dimApply(S.dim);
+    }
     if (S.sayT > 0) { S.sayT -= dt; if (S.sayT <= 0) sayEl.classList.remove('on'); }
 
     // hero: auto-walk between stations, else turn to the work
@@ -936,6 +1394,10 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       const ud = f.userData;
       if (!ud.casting) { f.getWorldPosition(tmp); let fy = Math.atan2(player.pos.x - tmp.x, player.pos.z - tmp.z) - f.rotation.y; fy = Math.atan2(Math.sin(fy), Math.cos(fy)); f.rotation.y += fy * Math.min(1, dt * 3); }
       if (ud.rig) { animateChibi(ud.rig, dt, { moving: false }); if (hopT > 0) { hopT -= dt; f.position.y = Math.sin((1 - hopT / 0.6) * Math.PI) * 0.35; } else f.position.y = 0; }
+      // Lumos: the chibi teacher raises her wand arm high while she casts (eased up and down)
+      if (S.raise > 0) S.raise -= dt;
+      S.raiseK += ((S.raise > 0 ? 1 : 0) - S.raiseK) * Math.min(1, dt * 6);
+      if (ud.rig && S.raiseK > 0.01) ud.rig.armR.rotation.x += (-2.6 - ud.rig.armR.rotation.x) * S.raiseK;
     }
     if (lessons.anim) lessons.anim(dt);
 
@@ -944,7 +1406,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.sub === 'cast') {
       S.idle += dt;
       if (S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; setPips(); } }   // finger still down: carry on with the next object
-      if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / HOLD); if (S.sel.p >= SNAP) snapLift(S.sel); }
+      if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
     }
     for (let s = -1; s < K.stations.length; s++) {
       const set = s < 0 ? K.lesson : K.stations[s];
@@ -953,14 +1415,14 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         if (!L.done && L.snap >= 0) { L.snap += dt; L.p = Math.min(1, L.p + dt * 2.4); if (L.p >= 1 || L.snap > 0.4) { liftDone(L); if (!S.on) return; continue; } }
         else if (!L.done && L.p > 0 && !(drag && S.sel === L) && !(S.hold && S.sel === L)) {
           if (L.p >= SNAP) snapLift(L);
-          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3) drop(L); else L.peak = 0; L.moved = false; } } }
+          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3 && !L.light) drop(L); else L.peak = 0; L.moved = false; } } }
         }
         // rings light as the feather passes them (and stay lit)
         for (const r of L.rings) if (!r.mv.lit && L.p >= r.u) { r.mv.lit = true; r.mv.color(0xffe07a); fun.sfx.tink(3); }
         poseLift(L, t);
       }
     }
-    K.B.tick(K.movers, t, S);
+    K.B.tick(K.movers, t, S, K, dt);
     if (S.fx) { S.fxT += dt; if (!S.fx(K.movers, S.fxT)) S.fx = null; }
 
     // glow, outline, ghost hand
@@ -971,7 +1433,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (cur) {
       const g = K.ghost; if (g.geometry !== cur.mv.geo) g.geometry = cur.mv.geo;
       const a = cur.arr, n = (cur.N - 1) * 3, r1 = cur.rot1;
-      g.position.set(a[n], a[n + 1], a[n + 2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(cur.mv.scale * 1.06);
+      g.position.set(a[n], a[n + 1], a[n + 2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(cur.mv.scale * (cur.light ? 1.7 : 1.06));
       K.ghostMat.opacity = 0.42 + Math.sin(t * 4) * 0.16; g.visible = true;
     } else K.ghost.visible = false;
     if (cur && S.idle > HINT_AFTER && cur.p < 0.05) {
@@ -979,7 +1441,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
       if (!hand.classList.contains('on')) {
         const sd = dirOf(cur), pushy = !!cur.push;
-        hand.classList.toggle('push', pushy);
+        hand.classList.toggle('push', pushy); hand.classList.toggle('tap', !!cur.light);
         if (pushy) { hand.style.setProperty('--dx', sd.x.toFixed(2)); hand.style.setProperty('--dy', sd.y.toFixed(2)); }
         hand.classList.add('on');
       }
@@ -1024,7 +1486,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     state() {
       return { on: S.on, key: S.key, phase: S.on ? S.phase : null, sub: S.on ? S.sub : null, step: S.step, casts: S.casts, drops: S.drops, stars: S.stars,
         best: S.key ? best(S.key) : 0, t: Math.round(S.tCourse * 10) / 10, doneStations: S.doneStations, result: S.result,
-        lifts: S.lifts ? S.lifts.map(L => ({ p: Math.round(L.p * 100) / 100, done: L.done })) : null, prompt: promptOn };
+        lifts: S.lifts ? S.lifts.map(L => ({ p: Math.round(L.p * 100) / 100, done: L.done })) : null, prompt: promptOn,
+        dim: Math.round(S.dim * 1000) / 1000, dimmed: !!DIM, raise: S.raise > 0 };
     },
     // test hooks
     _cast() {
