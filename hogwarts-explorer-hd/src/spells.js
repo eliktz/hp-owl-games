@@ -13,6 +13,13 @@
 //                  hero), the ghost hand shows that direction; hold / tap / quick flick work the same for
 //                  both. A light target stays put and its progress is how lit it is: touch it (keep the
 //                  finger on it = brighter) or hold / tap the 🪄 button; let go and it fades slowly.
+//                  A 'change' target (Transfiguration) also stays put; its progress is how far the
+//                  change has gone: touch it and stir / scribble with the finger (accumulated finger
+//                  travel, any direction), or keep the finger on it, or hold / tap the 🪄 button. It
+//                  wobbles harder as it fills, sparkles spiral in; at the snap it pops (a puff) into its
+//                  "after" shape (a second mover, or the same mesh with its geometry swapped). Let go
+//                  early: it wobbles back down, never a drop. A glowing silhouette of the after shape
+//                  floats above every open target (up to 3 ghosts) so the child knows what it becomes.
 //   dim            a course with `dim: true` darkens the room through ONE reversible factor (dimApply)
 //                  toward S.dimGoal (set by the course's tick), restored exactly on any leave.
 //   the gesture    Wingardium Leviosa = "swish and flick": touch a glowing thing (or the big
@@ -27,7 +34,7 @@
 // instanced quad set with a 32 px canvas texture), built on start and disposed on leave or room exit.
 // No per-frame allocations in update(): temp vectors and pre-sampled paths only.
 import {
-  Group, Mesh, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, TorusGeometry, ConeGeometry, ShapeGeometry, Shape, PlaneGeometry,
+  Group, Mesh, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, TorusGeometry, ConeGeometry, ShapeGeometry, Shape, PlaneGeometry, ExtrudeGeometry,
   MeshStandardMaterial, MeshBasicMaterial, BufferAttribute, CanvasTexture, SRGBColorSpace,
   Color, Vector3, Matrix4, Quaternion, Euler, CatmullRomCurve3, AdditiveBlending, NormalBlending, DoubleSide,
 } from 'three';
@@ -45,6 +52,10 @@ const LIGHT_HOVER = 1.2, LIGHT_FALL = 0.22;   // a half-lit thing stays a moment
 const DIM_T = 1.5;                        // seconds for the room to dim / come back
 const TAP = 0.34;                         // one tap on the 🪄 button lifts this much
 const PUSH_HOVER = 0.6, PUSH_FALL = 0.55;  // a let-go push wobbles a moment, then slides back to its start
+const CHANGE_HOLD = 1.6, CHANGE_TAP = 0.3;  // Vera Verto: a finger kept on the thing (or the 🪄 button) changes it in 1.6 s; a tap = this much
+const CHANGE_STIR = 2.4;                  // ...or stir: this many gesture ranges of finger travel (any direction) for a full change
+const CHANGE_HOVER = 0.8, CHANGE_FALL = 0.45;  // let go early: it wobbles a moment, then settles back (no penalty)
+const POP = 0.5;                          // seconds of the pop: the before shape shrinks away, the after shape springs up
 const HINT_AFTER = 4;                     // seconds of no input before the ghost hand shows
 const WALK = 2.2;                         // auto-walk speed between stations (m/s)
 const CREST = { gryf: '🦁', slyt: '🐍', rave: '🦅', huff: '🦡' };
@@ -72,6 +83,11 @@ const ASTRO = {
   ],
 };
 const bulbLift = (i) => ({ m: 'bulb' + i, path: [ASTRO.bulbs[i].slice(0, 3)] });
+// Course #4 places (classrooms, room-local): the book pile below the star shelf (west), the three pumpkins
+// in the dim nook (east), the broken chair standing in the puddle (middle), the three pedestals by the
+// south wall, the cat statue's plinth beside McGonagall (her desk at (0, -6.2)).
+const TF = { pile: [-2.62, 0, 1.2], shelfX: -3.72, star: [-3.68, 1.98, 1.2], pumpkins: [[3.5, 0.55], [3.78, 1.3], [3.5, 2.05]],
+  puddle: [0, 0, 3.6], peds: [-1.4, -2.6, -3.8], pedZ: 6.0, plinth: [-1.5, 0.5, -5.0], catSit: [-1.08, 0, -5.78] };
 
 export const COURSES = {
   charms: {
@@ -239,6 +255,73 @@ export const COURSES = {
           cam: { pos: [0.8, 2.3, 0.9], look: [5.4, 1.9, -3.6] },
           afterCam: { pos: [0.6, 1.8, 4.4], look: [0.8, 8.6, -3.8] },
           lifts: [bulbLift(15)], after: 'skyFill', afterT: 4.2, afterSfx: 'tada', afterConfetti: ['🌟', '⭐', '✨', '🔭'] },
+      ],
+    },
+  },
+  // -------------------------------------------------------------------------------------
+  // Course #4: Transfiguration, Professor McGonagall, Vera Verto (verb 'change'). McGonagall stands at
+  // (0, -6.2) in the classrooms; the lesson table is in front of her, the course lives in the free centre
+  // lane south of her desks (x -4..4, z 0.5..6.3: book stairs west, the dim nook east, the puddle in the
+  // middle, three pedestals by the south wall) and the finale is back beside her (the statue plinth).
+  // -------------------------------------------------------------------------------------
+  transfiguration: {
+    spell: { he: 'וֵרָה וֵרְטוֹ', icon: '🐱', gesture: 'change' },
+    verb: 'change', who: '🧙‍♀️', pitch: 1.05, oneBubble: true,
+    title: 'שִׁנּוּי צוּרָה', name: 'אֶתְגָּר: שִׁנּוּי צוּרָה',
+    teacher: 'mcgon', room: 'classrooms', station: 'transfiguration',
+    build: buildTransfiguration,
+    confetti: ['🐱', '⭐', '✨', '🐭', '💛'],
+    lesson: {
+      stand: [0, -3.55], face: [0, -4.75], pip: '☕',
+      cam: { pos: [1.75, 1.95, -2.45], look: [-0.05, 0.95, -5.25] },
+      intro: [
+        { pose: 'talk', line: 'שָׁלוֹם! הַיּוֹם נִלְמַד לְשַׁנּוֹת צוּרָה!', t: 3.2 },
+        { pose: 'cast', line: 'וֵרָה וֵרְטוֹ!', t: 3.6, fx: 'demo' },
+        { pose: 'talk', line: 'רָאִיתָ? הַגָּבִיעַ הָפַךְ לְצִפּוֹר!', t: 3.0 },
+        { pose: 'talk', line: 'עַכְשָׁו אַתָּה! גַּע בַּסֵּפֶל וְסוֹבֵב בָּאֶצְבַּע!', t: 3.4 },
+      ],
+      // three teacups become three little mice that scurry in a circle and sit up
+      lifts: [0, 1, 2].map(i => ({ m: 'cup' + i, to: 'mouse' + i, path: [[-0.5 + i * 0.45, 0.78, -4.72]], rot0: [0, 0.4, 0], rot1: [0, 0.25 - i * 0.25, 0],
+        aimY: 0.12, hint: 0.42, r: 0.24, free: true })),
+      outro: 'עַכְשָׁו — לָאֶתְגָּר!',
+    },
+    praise: ['יָפֶה מְאֹד!', 'מְצֻיָּן!', 'כָּל הַכָּבוֹד!', 'נִפְלָא!'],
+    oops: 'נַסֵּה שׁוּב',
+    finale: 'אַתָּה קוֹסֵם מֻפְלָא!',
+    course: {
+      star3: 240,
+      stations: [
+        { id: 'stairs', icon: '📚', say: 'הֲפֹךְ אֶת הַסְּפָרִים לְמַדְרֵגוֹת!',
+          walk: [[0, -2.0], [0, 0.4], [-1.05, 1.35]], face: [-3.6, 1.2],
+          cam: { pos: [0.9, 2.3, 3.9], look: [-2.7, 1.0, 1.0] },
+          lifts: [{ m: 'books', to: 'steps', path: [TF.pile], rot0: [0, 0, 0], rot1: [0, 0, 0], aimY: 0.35, hint: 1.25, hs: 0.45, r: 0.6 }],
+          after: 'starHop', afterT: 2.6, afterSfx: 'none' },
+        { id: 'lanterns', icon: '🎃', say: 'הֲפֹךְ אֶת הַדְּלָעוֹת לְפָנָסִים!',
+          walk: [[0.2, 1.4], [1.35, 1.3]], face: [3.7, 1.3],
+          cam: { pos: [-0.5, 2.4, 3.9], look: [3.4, 0.6, 1.1] },
+          lifts: TF.pumpkins.map(([x, z], i) => ({ m: 'pumpkin' + i, to: 'lantern' + i, path: [[x, 0, z]], rot0: [0, -1.2 + i * 0.5, 0], rot1: [0, -Math.PI / 2, 0],
+            aimY: 0.2, hint: 0.85, r: 0.3 })),
+          after: 'lampGlow', afterT: 2.0, afterSfx: 'none' },
+        { id: 'bridge', icon: '🌉', say: 'הֲפֹךְ אֶת הַכִּסֵּא לְגֶשֶׁר!',
+          walk: [[0.6, 1.7], [0, 2.1]], face: [0, 3.6],
+          cam: { pos: [-1.35, 2.45, 0.7], look: [0.1, 0.2, 3.7] },
+          lifts: [{ m: 'chair', to: 'bridge', path: [TF.puddle], rot0: [0, 0.5, 0.07], rot1: [0, 0, 0], aimY: 0.4, hint: 1.05, hs: 0.6, r: 0.45 }],
+          after: 'bridgeSettle', afterT: 1.6, afterSfx: 'boing' },
+        { id: 'shapes', icon: '🎩', say: 'הֲפֹךְ כָּל דָּבָר לַצּוּרָה שֶׁמֵּעָלָיו!',
+          walk: [[0, 2.6], [0, 4.2], [-0.85, 4.35]], face: [-2.6, 6.0],
+          cam: { pos: [0.7, 2.2, 4.2], look: [-2.5, 0.85, 6.1] },     // from the east: the three pedestals in a row against the wall, the hero at the side
+          lifts: [
+            { m: 'hat', to: 'rabbit', path: [[TF.peds[0], 0.78, TF.pedZ]], rot0: [0, 2.07, 0], rot1: [0, 1.9, 0], aimY: 0.16, hint: 0.66, r: 0.26, free: true },
+            { m: 'feather', to: 'quill', path: [[TF.peds[1], 0.78, TF.pedZ]], rot0: [0, 2.07, 0], rot1: [0, 2.07, 0], aimY: 0.2, hint: 0.78, hs: 1.15, r: 0.26, free: true },
+            { m: 'button', to: 'beetle', path: [[TF.peds[2], 0.78, TF.pedZ]], rot0: [0, 2.07, 0], rot1: [0, 2.4, 0], aimY: 0.15, hint: 0.62, r: 0.26, free: true },
+          ],
+          after: 'parade', afterT: 2.6, afterSfx: 'chime' },
+        { id: 'cat', icon: '🐱', say: 'הֲפֹךְ אֶת הַפֶּסֶל לְחָתוּל!',
+          walk: [[-0.3, 4.0], [0, 2.6], [0, 0.0], [0.2, -3.3]], face: [TF.plinth[0], TF.plinth[2]],
+          cam: { pos: [-0.9, 2.3, -1.0], look: [-0.75, 0.85, -5.3] },        // the statue mid-frame, McGonagall beside it, the hero to the right
+          afterCam: { pos: [-0.3, 1.8, -1.9], look: [-0.7, 0.75, -5.6] },
+          lifts: [{ m: 'statue', to: 'tabby', path: [[TF.plinth[0], TF.plinth[1], TF.plinth[2]]], rot0: [0, 0.6, 0], rot1: [0, 0.6, 0], aimY: 0.45, hint: 1.25, hs: 0.6, r: 0.5, free: true }],
+          after: 'catWake', afterT: 5.4, afterSfx: 'none', afterLine: 'אֵיזֶה חָתוּל נֶחְמָד!', afterLineT: 3.6 },
       ],
     },
   },
@@ -774,6 +857,346 @@ function buildAstronomy(kit) {
   };
 }
 
+// A sitting cat (origin: floor centre, faces +z). tabby: warm orange with stripes, a cream chest and two
+// little square "spectacle" marks round the eyes (a nod to Professor McGonagall); else a grey stone statue.
+function catGeo(tabby) {
+  const A = tabby ? 0xd8893a : 0x6e6b66, B = tabby ? 0xe8a050 : 0x8e8a82, CREAM = tabby ? 0xf4e2bc : 0x827e76, EAR = tabby ? 0xf0a0a0 : 0x6e6b66;
+  const fur = (g) => tabby ? stripe(g, A, 0x9a5420, 'y', 34) : paint(g, A, B);
+  const parts = [
+    fur(place(new SphereGeometry(0.2, 14, 10), 0, 0.2, -0.03, 0, 0, 0, 0.85, 1.08, 1.0)),
+    paint(place(new SphereGeometry(0.13, 12, 8), 0, 0.24, 0.09), CREAM),
+    ...[-1, 1].map(s => fur(place(new SphereGeometry(0.11, 10, 8), s * 0.12, 0.1, -0.06))),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.05, 8, 6), s * 0.07, 0.035, 0.15, 0, 0, 0, 1, 0.7, 1.3), CREAM)),
+    fur(place(new SphereGeometry(0.14, 14, 10), 0, 0.47, 0.06, 0, 0, 0, 1.1, 0.95, 1)),
+    paint(place(new SphereGeometry(0.06, 10, 8), 0, 0.43, 0.165, 0, 0, 0, 1.3, 0.8, 1), CREAM),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.055, 0.11, 4), s * 0.085, 0.6, 0.05, 0, Math.PI / 4, -s * 0.25), A)),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.03, 0.06, 4), s * 0.085, 0.595, 0.062, 0, Math.PI / 4, -s * 0.25), EAR)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.026, 8, 6), s * 0.052, 0.49, 0.178), tabby ? 0x7ac04a : 0x9a968e)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.013, 6, 4), s * 0.052, 0.49, 0.2, 0, 0, 0, 0.6, 1.2, 1), tabby ? 0x141018 : 0x7a766e)),
+    paint(place(new SphereGeometry(0.016, 6, 4), 0, 0.45, 0.225), tabby ? 0xe88a9a : 0x8a867e),
+    fur(place(new TorusGeometry(0.15, 0.032, 6, 12, Math.PI * 1.1), 0.02, 0.03, -0.04, -Math.PI / 2, 0, -0.3)),
+  ];
+  if (tabby) for (const s of [-1, 1]) parts.push(paint(place(new TorusGeometry(0.036, 0.006, 4, 4), s * 0.052, 0.49, 0.183, 0, 0, Math.PI / 4), 0x3a2010));
+  return merge(parts);
+}
+// stripes: hexB bands across `axis` (freq bands per metre), else hexA
+function stripe(geo, hexA, hexB, axis = 'y', freq = 30) {
+  const n = geo.attributes.position.count, col = new Float32Array(n * 3), a = new Color(hexA), b = new Color(hexB), ax = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+  for (let i = 0; i < n; i++) { const v = geo.attributes.position.getComponent(i, ax), k = Math.sin(v * freq) > 0.45 ? 1 : 0; _c.copy(a).lerp(b, k * 0.75); col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
+  geo.setAttribute('color', new BufferAttribute(col, 3));
+  return geo;
+}
+function starGeo(r = 0.16) {
+  const s = new Shape();
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, rr = i % 2 ? r * 0.45 : r; const x = Math.sin(a) * rr, y = Math.cos(a) * rr; if (i) s.lineTo(x, y); else s.moveTo(x, y); }
+  return paint(new ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.012, bevelSegments: 1 }).translate(0, 0, -0.02), 0xffe070, 0xffb020);
+}
+
+// The Transfiguration course props (see COURSES.transfiguration). Every change target is a pair of movers:
+// the "before" shape (glows while it waits) and the "after" shape the runner pops in (scale 0 until then).
+// A mesh (or an instanced set) is only drawn while its station is near and something of it is showing, so
+// the course draws <= 12 meshes at any moment. Free "after" shapes (mice, rabbit, quill, beetle, the cat)
+// are posed here once their pop has finished; the effects only advance timers that tick() reads.
+function buildTransfiguration(kit) {
+  const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x8a8478, STONE2 = 0xa8a294, BRASS = 0xb98b2e, GOLD = 0xd8b04a;
+  const BOOKS = [0xb3262a, 0x1f5e9e, 0x2c7a3a, 0xc88a1e, 0x6a3a92, 0xd0602a, 0x1e6a6a];
+  const { solid, ctx } = kit;
+  const book = (x, y, z, w, h, d, ry, i, out) => {
+    out.push(paint(place(new BoxGeometry(w, h, d), x, y + h / 2, z, 0, ry), BOOKS[i % BOOKS.length]));
+    out.push(paint(place(new BoxGeometry(w - 0.03, h - 0.025, d + 0.006), x + 0.012, y + h / 2, z, 0, ry), 0xf0e4c0));
+  };
+  // ---- lesson: a table in front of McGonagall, a goblet, a brass perch; three teacups -> three mice ----
+  solid(paint(place(new BoxGeometry(1.8, 0.08, 0.6), -0.05, 0.74, -4.72), WOOD, 0x7a5030));
+  for (const sx of [-0.8, 0.7]) solid(paint(place(new BoxGeometry(0.08, 0.7, 0.5), sx, 0.35, -4.72), DARK));
+  const PERCH = [1.3, 1.375, -5.0], GOB = [0.72, 0.78, -4.86];
+  solid(paint(place(new CylinderGeometry(0.22, 0.26, 0.05, 14), PERCH[0], 0.025, PERCH[2]), DARK));
+  solid(paint(place(new CylinderGeometry(0.025, 0.03, 1.36, 6), PERCH[0], 0.68, PERCH[2]), BRASS, GOLD));
+  solid(paint(place(new CylinderGeometry(0.018, 0.018, 0.46, 6), PERCH[0], 1.36, PERCH[2], 0, 0, Math.PI / 2), GOLD));
+  const cupGeo = merge([
+    paint(place(new CylinderGeometry(0.085, 0.06, 0.1, 14, 1, true), 0, 0.075, 0), 0xf8f4ec, 0x4a7ad0),
+    paint(place(new CylinderGeometry(0.06, 0.06, 0.01, 14), 0, 0.027, 0), 0xf8f4ec),
+    paint(place(new CylinderGeometry(0.075, 0.08, 0.008, 12), 0, 0.12, 0), 0x6a3a1e),            // tea
+    paint(place(new CylinderGeometry(0.12, 0.1, 0.022, 16), 0, 0.011, 0), 0xf8f4ec, 0xd8e4f8),   // saucer
+    paint(place(new TorusGeometry(0.03, 0.009, 5, 10), 0.09, 0.08, 0, 0, 0, 0), 0xf8f4ec),
+  ]);
+  kit.inst('cup', place(cupGeo, 0, 0, 0, 0, 0, 0, 1.5), 3, [0xffffff, 0xffeef0, 0xfff6e0], { glowHex: 0xffe08a });
+  const mouseGeo = merge([
+    paint(place(new SphereGeometry(0.07, 12, 8), 0, 0.06, -0.01, 0, 0, 0, 0.85, 0.8, 1.25), 0xa89a90, 0xc8bab0),
+    paint(place(new SphereGeometry(0.05, 10, 8), 0, 0.085, 0.085, 0, 0, 0, 0.9, 0.9, 1.1), 0xb8aaa0),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.03, 8, 6), s * 0.04, 0.135, 0.07, 0, 0, 0, 1, 1, 0.35), 0xf0b0b8)),
+    paint(place(new SphereGeometry(0.012, 6, 4), 0, 0.085, 0.14), 0xe87a8a),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.009, 5, 4), s * 0.025, 0.1, 0.125), 0x141018)),
+    paint(place(new TorusGeometry(0.06, 0.006, 4, 10, Math.PI), 0, 0.03, -0.1, Math.PI / 2, 0, Math.PI / 2), 0xe0a0a8),
+  ]);
+  kit.inst('mouse', place(mouseGeo, 0, 0, 0, 0, 0, 0, 1.6), 3, [0xffffff, 0xfff0e8, 0xf0f0ff], { glow: false });
+  kit.mesh('goblet', merge([paint(place(new CylinderGeometry(0.07, 0.08, 0.02, 12), 0, 0.01, 0), BRASS), paint(place(new CylinderGeometry(0.014, 0.014, 0.1, 6), 0, 0.07, 0), GOLD),
+    paint(place(new CylinderGeometry(0.075, 0.04, 0.12, 12, 1, true), 0, 0.18, 0), 0xffd86a, BRASS)]), { glow: false });
+  kit.mesh('bird', merge([
+    paint(place(new SphereGeometry(0.07, 10, 8), 0, 0.07, 0, 0, 0, 0, 0.9, 0.85, 1.2), 0x4a8ad8, 0x8ac0f0),
+    paint(place(new SphereGeometry(0.05, 10, 8), 0, 0.13, 0.06), 0x5a9ae0),
+    paint(place(new ConeGeometry(0.016, 0.04, 5), 0, 0.125, 0.115, Math.PI / 2), 0xffb020),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.008, 5, 4), s * 0.025, 0.145, 0.1), 0x141018)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.05, 8, 6), s * 0.06, 0.08, -0.01, 0, 0, s * 0.5, 0.25, 0.7, 1.1), 0x3a6ac0)),
+    paint(place(new BoxGeometry(0.06, 0.012, 0.09), 0, 0.06, -0.1, 0.4), 0x3a6ac0),
+    paint(place(new SphereGeometry(0.04, 8, 6), 0, 0.05, 0.035, 0, 0, 0, 0.9, 0.7, 0.8), 0xf0d8a0),
+  ]), { glow: false });
+
+  // ---- 1 a bookcase with the star on top; a pile of big books -> three book steps up to it ----
+  const SX = TF.shelfX, SZ = TF.pile[2];
+  solid(paint(place(new BoxGeometry(0.04, 1.85, 1.0), SX - 0.2, 0.925, SZ), DARK));
+  for (const dz of [-0.5, 0.5]) solid(paint(place(new BoxGeometry(0.4, 1.85, 0.05), SX, 0.925, SZ + dz), WOOD));
+  for (const y of [0.04, 0.64, 1.24, 1.83]) solid(paint(place(new BoxGeometry(0.42, 0.045, 1.04), SX, y, SZ), WOOD, 0x7a5030));
+  { const P = []; let k = 0; for (const y of [0.665, 1.265]) for (let z = SZ - 0.45; z < SZ + 0.42;) { const t = 0.07 + ((k * 37) % 5) * 0.012, h = 0.3 + ((k * 53) % 4) * 0.04; P.push(paint(place(new BoxGeometry(0.26, h, t), SX + 0.03, y + h / 2, z + t / 2), BOOKS[k % BOOKS.length])); z += t + 0.008; k++; } P.forEach(solid); }
+  const pile = []; [[0.62, 0.13, 0.46, 0.1], [0.56, 0.12, 0.42, -0.25], [0.6, 0.14, 0.44, 0.3], [0.5, 0.11, 0.38, -0.1], [0.44, 0.1, 0.34, 0.45]].reduce((y, [w, h, d, ry], i) => { book(0, y, 0, w, h, d, ry, i, pile); return y + h; }, 0);
+  kit.mesh('books', merge(pile), { glowHex: 0xffd27a });
+  const steps = []; let si = 0;
+  for (let k = 0; k < 3; k++) { const x = 0.28 - k * 0.45; let y = 0; for (let j = 0; j < (k + 1) * 3; j++) { const h = 0.35 / 3; book(x + ((j * 7) % 3 - 1) * 0.012, y, 0, 0.45, h, 0.8, ((j * 5) % 3 - 1) * 0.03, si++, steps); y += h; } }
+  kit.mesh('steps', merge(steps), { glow: false });
+  const star = kit.mesh('star', starGeo(), { glow: false, glowHex: 0xffc030 }); star.mat.emissiveIntensity = 0.9;
+
+  // ---- 2 the dim nook (a dark drape and rug): three pumpkins -> three glowing lanterns ----
+  solid(paint(place(new BoxGeometry(0.05, 2.6, 2.8), 4.2, 1.3, 1.2), 0x1a1830, 0x2c2646));
+  solid(paint(place(new BoxGeometry(0.12, 0.12, 2.9), 4.18, 2.62, 1.2), DARK));
+  solid(paint(place(new BoxGeometry(1.3, 0.012, 2.8), 3.6, 0.006, 1.2), 0x24202e, 0x302a3c, 'x'));
+  const pumpGeo = merge([
+    stripe(place(new SphereGeometry(0.26, 16, 10), 0, 0.2, 0, 0, 0, 0, 1, 0.78, 1), 0xf08a20, 0xc86010, 'x', 22),
+    paint(place(new CylinderGeometry(0.025, 0.035, 0.1, 6), 0, 0.42, 0, 0, 0, 0.2), 0x4a6a2a),
+    paint(place(new TorusGeometry(0.05, 0.012, 4, 8, Math.PI), 0.05, 0.42, 0, Math.PI / 2), 0x5a8a3a),
+  ]);
+  kit.inst('pumpkin', pumpGeo, 3, [0xffffff, 0xfff0e0, 0xffe8d0], { glowHex: 0xffa040 });
+  const lanternGeo = merge([
+    paint(place(new CylinderGeometry(0.16, 0.18, 0.05, 8), 0, 0.025, 0), 0x2e2b30),
+    paint(place(new CylinderGeometry(0.12, 0.12, 0.3, 8), 0, 0.2, 0), 0xfff2b0, 0xffd870),
+    ...[0, 1, 2, 3].map(i => paint(place(new BoxGeometry(0.025, 0.32, 0.025), Math.cos(i * Math.PI / 2 + Math.PI / 4) * 0.12, 0.2, Math.sin(i * Math.PI / 2 + Math.PI / 4) * 0.12), 0x2e2b30)),
+    paint(place(new ConeGeometry(0.17, 0.14, 8), 0, 0.42, 0), 0x2e2b30, 0x4a4650),
+    paint(place(new TorusGeometry(0.04, 0.01, 4, 10), 0, 0.53, 0), BRASS),
+  ]);
+  const lanterns = kit.inst('lantern', place(lanternGeo, 0, 0, 0, 0, 0, 0, 1.3), 3, [0xffffff, 0xffffff, 0xffffff], { glow: false, emissive: 0xffa030, emissiveIntensity: 0.3 });
+  // the warm light of the lanterns: ONE instanced additive quad set with a soft canvas (the course's one new canvas)
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(0.6, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+  const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
+  const NQ = 7, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  glow.renderOrder = 3;
+  const LP = TF.pumpkins.map(([x, z]) => [x, 0, z]);
+  for (let i = 0; i < 3; i++) { _m4.compose(_v.set(LP[i][0], 0.02, LP[i][2]), _q.setFromEuler(_e.set(-Math.PI / 2, 0, 0)), _s.set(1.7, 1.7, 1)); glow.setMatrixAt(3 + i, _m4); }
+  _m4.compose(_v.set(4.17, 1.1, 1.2), _q.setFromEuler(_e.set(0, -Math.PI / 2, 0)), _s.set(3.4, 2.6, 1)); glow.setMatrixAt(6, _m4);
+
+  // ---- 3 a puddle across the lane: a wobbly broken chair -> a little wooden bridge ----
+  solid(paint(place(new CylinderGeometry(0.85, 0.85, 0.012, 24), TF.puddle[0], 0.007, TF.puddle[2], 0, 0, 0, 1.25, 1, 0.75), 0x173f7a, 0x2f6aae));
+  for (const [x, z, r] of [[-0.75, 3.2, 0.12], [0.85, 3.95, 0.1], [0.6, 3.05, 0.08]]) solid(paint(place(new CylinderGeometry(r, r, 0.012, 10), x, 0.008, z), 0x1f4a88));
+  kit.mesh('chair', merge([
+    paint(place(new BoxGeometry(0.46, 0.05, 0.44), 0, 0.46, 0), 0x8a5a30, 0x9a6a38),
+    ...[[-1, -1, 0.46], [1, -1, 0.46], [-1, 1, 0.46], [1, 1, 0.3]].map(([a, b, h]) => paint(place(new BoxGeometry(0.05, h, 0.05), a * 0.19, h / 2 + (0.46 - h), b * 0.18), WOOD)),
+    ...[-1, 1].map(a => paint(place(new BoxGeometry(0.05, 0.55, 0.05), a * 0.19, 0.76, -0.19), WOOD)),
+    paint(place(new BoxGeometry(0.44, 0.07, 0.04), 0, 1.0, -0.19, 0, 0, 0.12), 0x8a5a30),
+    paint(place(new BoxGeometry(0.2, 0.06, 0.035), -0.08, 0.72, -0.19, 0, 0, -0.35), 0x8a5a30),
+  ]), { glowHex: 0xffc070 });
+  const br = [];
+  for (let i = 0; i < 9; i++) { const z = -0.8 + i * 0.2, y = 0.06 + Math.sin((i / 8) * Math.PI) * 0.16; br.push(paint(place(new BoxGeometry(0.78, 0.05, 0.18), 0, y, z, Math.cos((i / 8) * Math.PI) * 0.3), 0x9a6a38, 0xb07c40)); }
+  for (const sx of [-1, 1]) {
+    for (let i = 0; i < 5; i++) { const z = -0.8 + i * 0.4, y = 0.06 + Math.sin((i / 4) * Math.PI) * 0.16; br.push(paint(place(new BoxGeometry(0.05, 0.4, 0.05), sx * 0.37, y + 0.2, z), DARK)); }
+    for (let i = 0; i < 4; i++) { const z0 = -0.8 + i * 0.4, y0 = 0.46 + Math.sin((i / 4) * Math.PI) * 0.16, y1 = 0.46 + Math.sin(((i + 1) / 4) * Math.PI) * 0.16; br.push(paint(place(new BoxGeometry(0.045, 0.045, 0.42), sx * 0.37, (y0 + y1) / 2, z0 + 0.2, -Math.atan2(y1 - y0, 0.4)), WOOD)); }
+  }
+  kit.mesh('bridge', merge(br), { glow: false });
+
+  // ---- 4 three stone pedestals by the south wall: hat -> rabbit, feather -> quill, button -> beetle ----
+  for (const x of TF.peds) {
+    solid(paint(place(new BoxGeometry(0.5, 0.06, 0.5), x, 0.03, TF.pedZ), STONE));
+    solid(paint(place(new CylinderGeometry(0.17, 0.2, 0.68, 10), x, 0.4, TF.pedZ), STONE, STONE2));
+    solid(paint(place(new BoxGeometry(0.46, 0.05, 0.46), x, 0.755, TF.pedZ), STONE2));
+  }
+  kit.mesh('hat', merge([paint(place(new CylinderGeometry(0.2, 0.2, 0.018, 18), 0, 0.009, 0), 0x1a1420), paint(place(new CylinderGeometry(0.12, 0.13, 0.26, 16), 0, 0.14, 0), 0x241c2c, 0x1a1420),
+    paint(place(new CylinderGeometry(0.133, 0.133, 0.05, 16), 0, 0.045, 0), 0xb3262a)]), { glowHex: 0xc080ff });
+  kit.mesh('rabbit', place(merge([
+    paint(place(new SphereGeometry(0.11, 12, 10), 0, 0.1, -0.02, 0, 0, 0, 0.9, 0.95, 1.1), 0xf4f0ea, 0xffffff),
+    paint(place(new SphereGeometry(0.075, 12, 10), 0, 0.22, 0.06), 0xffffff),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.03, 8, 6), s * 0.03, 0.34, 0.04, 0, 0, s * -0.15, 0.7, 2.6, 0.5), 0xffffff)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.018, 6, 5), s * 0.03, 0.34, 0.052, 0, 0, s * -0.15, 0.6, 2.3, 0.3), 0xf6b0c0)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.012, 6, 4), s * 0.032, 0.235, 0.125), 0x141018)),
+    paint(place(new SphereGeometry(0.012, 6, 4), 0, 0.21, 0.135), 0xf08aa0),
+    paint(place(new SphereGeometry(0.04, 8, 6), 0, 0.08, -0.14), 0xffffff),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.035, 8, 6), s * 0.05, 0.02, 0.07, 0, 0, 0, 0.8, 0.5, 1.4), 0xf4f0ea)),
+  ]), 0, 0, 0, 0, 0, 0, 1.3), { glow: false });
+  kit.mesh('feather', place(featherGeo(), 0, 0.02, 0, 0, 0.5, 0.08, 0.9), { glowHex: 0xffd27a });
+  kit.mesh('quill', place(merge([
+    paint(place(new CylinderGeometry(0.07, 0.08, 0.1, 12), 0, 0.05, 0), 0x1a2a4a, 0x2a3a6a),
+    paint(place(new CylinderGeometry(0.035, 0.05, 0.03, 10), 0, 0.11, 0), 0x2a3a6a),
+    place(featherGeo(), 0.03, 0.33, 0, 0, 0, Math.PI / 2 - 0.25, 0.95),
+  ]), 0, 0, 0, 0, 0, 0, 1.2), { glow: false });
+  kit.mesh('button', merge([paint(place(new CylinderGeometry(0.14, 0.14, 0.04, 20), 0, 0.02, 0, Math.PI / 2 * 0), 0xd8382c, 0xf05a4a),
+    paint(place(new TorusGeometry(0.12, 0.014, 5, 20), 0, 0.042, 0, Math.PI / 2), 0xa82a20),
+    ...[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([a, b]) => paint(place(new CylinderGeometry(0.016, 0.016, 0.01, 8), a * 0.035, 0.044, b * 0.035), 0x5a1410))]), { glowHex: 0xff8a6a });
+  kit.mesh('beetle', place(merge([
+    paint(place(new SphereGeometry(0.08, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.02, -0.01, 0, 0, 0, 0.9, 0.7, 1.15), 0x1a8a6a, 0x3ad0a0),
+    paint(place(new BoxGeometry(0.004, 0.056, 0.17), 0, 0.05, -0.01), 0x0a3a2a),
+    paint(place(new SphereGeometry(0.035, 8, 6), 0, 0.03, 0.09), 0x1a2a2a),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.01, 5, 4), s * 0.018, 0.045, 0.115), 0xffffff)),
+    ...[-1, 0, 1].flatMap(k => [-1, 1].map(s => paint(place(new BoxGeometry(0.06, 0.008, 0.01), s * 0.085, 0.015, k * 0.045, 0, 0, s * -0.4), 0x1a2a2a))),
+    ...[-1, 1].map(s => paint(place(new CylinderGeometry(0.004, 0.004, 0.06, 3), s * 0.02, 0.06, 0.13, 0.9, 0, s * -0.4), 0x1a2a2a)),
+  ]), 0, 0, 0, 0, 0, 0, 1.6), { glow: false });
+
+  // ---- 5 the finale: a stone plinth beside McGonagall, a big grey cat statue -> a friendly tabby ----
+  solid(paint(place(new BoxGeometry(0.66, 0.46, 0.6), TF.plinth[0], 0.23, TF.plinth[2]), STONE, STONE2));
+  solid(paint(place(new BoxGeometry(0.74, 0.05, 0.68), TF.plinth[0], 0.475, TF.plinth[2]), STONE2));
+  kit.mesh('statue', merge([place(catGeo(false), 0, 0.04, 0, 0, 0, 0, 1.45), paint(place(new BoxGeometry(0.46, 0.05, 0.5), 0, 0.025, 0), 0x66625c)]), { glowHex: 0xffb840 });
+  kit.mesh('tabby', place(catGeo(true), 0, 0, 0, 0, 0, 0, 1.1), { glow: false });
+
+  // ---- state the effects leave behind (put back by reset) ----
+  let demoT = 0, demoPop = 0, miceT0 = -1, starT = 0, flareT = 0, chord = 0, settle = 0, paradeT = 0, catT = 0, catSfx = 0;
+  let Lof = null;
+  const lev = new Float32Array(3);
+  const popped = (L) => !!L && L.done && L.popT >= POP;
+  const ease = (k) => k * k * (3 - 2 * k);
+  const clamp01 = (k) => Math.max(0, Math.min(1, k));
+  const STAR_HOPS = [[TF.star[0], TF.star[1], TF.star[2]], [-3.24, 1.21, 1.2], [-2.79, 0.86, 1.2], [-2.34, 0.51, 1.2], [-1.2, 1.25, 1.33]];
+  const TABLE = [-0.05, 0.78, -4.72];
+  // a mesh / instanced set is drawn only while it is showing something and its station is near
+  const shows = (mv) => mv.s > 0.001;
+  function vis(M, names, near) { let on = false; if (near) for (const n of names) if (M[n] && shows(M[n])) { on = true; break; } M[names[0]].mesh.visible = on; }
+  return {
+    reset(M) {
+      demoT = 0; demoPop = 0; miceT0 = -1; starT = 0; flareT = 0; chord = 0; settle = 0; paradeT = 0; catT = 0; catSfx = 0; lev.fill(0);
+      M.goblet.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 1); M.bird.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 0);
+      M.star.pose(STAR_HOPS[0][0], STAR_HOPS[0][1], STAR_HOPS[0][2], 0, 1.04, 0, 1);
+      for (let i = 0; i < 7; i++) glow.setColorAt(i, _c.setRGB(0, 0, 0));
+    },
+    tick(M, t, st, K, dt = 0.016) {
+      if (!K) return;
+      if (!Lof) { Lof = {}; for (const L of [...K.lesson, ...K.stations.flat()]) Lof[L.mv.name] = L; }
+      const ph = st.phase, step = ph === 'course' ? st.step : ph === 'reward' ? 4 : -1;
+      const near = (s) => step >= 0 && Math.abs(step - s) <= 1;
+      // the goblet -> bird demo (McGonagall's Vera Verto): the goblet wobbles, pops, the bird flutters to the perch
+      if (demoT <= 0) { M.goblet.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 1); M.bird.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 0); }
+      else if (demoT < 0.9) { const k = demoT / 0.9; M.goblet.pose(GOB[0], GOB[1], GOB[2], 0, Math.sin(t * 9) * 0.3 * k, Math.sin(t * 17) * 0.15 * k, 1 + 0.1 * k); M.bird.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 0); }
+      else {
+        M.goblet.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 0);
+        const u = clamp01((demoT - 0.9) / 1.8), e = ease(u), s = Math.min(1, (demoT - 0.9) / 0.25);
+        const x = GOB[0] + (PERCH[0] - GOB[0]) * e, y = GOB[1] + 0.15 + (PERCH[1] - GOB[1] - 0.15) * e + Math.sin(u * Math.PI) * 0.45, z = GOB[2] + (PERCH[2] - GOB[2]) * e;
+        if (u < 1) M.bird.pose(x, y + Math.sin(t * 30) * 0.02, z, 0, Math.atan2(PERCH[0] - GOB[0], PERCH[2] - GOB[2]), Math.sin(t * 34) * 0.25, s * 1.25);
+        else M.bird.pose(PERCH[0], PERCH[1] + Math.max(0, Math.sin(t * 2.6)) * 0.015, PERCH[2], 0, 0.5 + Math.sin(t * 0.9) * 0.35, Math.sin(t * 1.7) * 0.06, 1.25);
+      }
+      // the mice: a sniff while they wait, then (all three changed) a scurry round the table and they sit up
+      const mice = [0, 1, 2].map(i => Lof['cup' + i]);
+      if (mice.every(popped)) { if (miceT0 < 0) miceT0 = t; } else miceT0 = -1;
+      const mt = miceT0 < 0 ? -1 : t - miceT0;
+      for (let i = 0; i < 3; i++) {
+        const L = mice[i]; if (!popped(L)) continue;
+        const hx = L.arr[0], hy = L.arr[1], hz = L.arr[2], r1 = L.rot1, mv = M['mouse' + i];
+        if (mt < 0 || mt > 3.2) { const sit = mt > 3.2 ? Math.min(1, (mt - 3.2) / 0.3) : 0; mv.pose(hx, hy, hz, -0.5 * sit, r1[1] + Math.sin(t * 5 + i * 2) * 0.12, 0, 1 + Math.sin(t * 9 + i) * 0.02); continue; }
+        const a = i * 2.1 + mt * 3.0, ex = TABLE[0] + Math.cos(a) * 0.62, ez = TABLE[2] + Math.sin(a) * 0.17;
+        const kIn = ease(clamp01(mt / 0.35)), kOut = ease(clamp01((mt - 2.7) / 0.5)), k = kIn * (1 - kOut);
+        const yaw = k > 0.5 ? Math.atan2(-Math.sin(a) * 0.62, Math.cos(a) * 0.17) : r1[1];
+        mv.pose(hx + (ex - hx) * k, hy + Math.abs(Math.sin(mt * 22 + i)) * 0.012 * k, hz + (ez - hz) * k, 0, yaw, 0, 1);
+      }
+      // the star waits on the bookcase, then hops down the book steps to the hero and is gone in a sparkle
+      if (starT <= 0) M.star.pose(STAR_HOPS[0][0], STAR_HOPS[0][1] + Math.sin(t * 2) * 0.03, STAR_HOPS[0][2], 0, 1.04 + Math.sin(t * 1.3) * 0.35, 0, 1);
+      else {
+        const seg = Math.min(3, Math.floor(starT / 0.5)), u = clamp01((starT - seg * 0.5) / 0.5), A = STAR_HOPS[seg], B = STAR_HOPS[seg + 1];
+        const gone = starT > 2.25 ? clamp01((starT - 2.25) / 0.2) : 0;
+        M.star.pose(A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u + Math.sin(u * Math.PI) * (seg < 3 ? 0.3 : 0.15), A[2] + (B[2] - A[2]) * u, 0, 1.04 + starT * 6, 0, (1 - gone) * (1 + gone * 0.5));
+      }
+      // the lanterns' light: each lit one glows (eased), the chord flares them together
+      const flare = flareT > 0 && flareT < 1.6 ? Math.sin(flareT / 1.6 * Math.PI) * 0.8 : 0;
+      for (let i = 0; i < 3; i++) { lev[i] += ((popped(Lof['pumpkin' + i]) ? 1 : 0) - lev[i]) * Math.min(1, dt * 3); }
+      if (near(1) && (lev[0] + lev[1] + lev[2]) > 0.01) {
+        const q = ctx.camera.quaternion, fl = 0.93 + 0.05 * Math.sin(t * 7.3) + 0.02 * Math.sin(t * 17.1);
+        for (let i = 0; i < 3; i++) {
+          const l = lev[i] * fl + flare * lev[i], P = LP[i];
+          _m4.compose(_v.set(P[0], 0.3, P[2]), q, _s.setScalar(lev[i] > 0.01 ? 0.75 + 0.2 * l : 0)); glow.setMatrixAt(i, _m4);
+          glow.setColorAt(i, _c.setRGB(2.0 * l, 1.45 * l, 0.75 * l)); glow.setColorAt(3 + i, _c.setRGB(0.75 * l, 0.52 * l, 0.26 * l));
+        }
+        const w = (lev[0] + lev[1] + lev[2]) / 3 * fl + flare * 0.3; glow.setColorAt(6, _c.setRGB(0.4 * w, 0.28 * w, 0.14 * w));
+        glow.instanceMatrix.needsUpdate = true; glow.instanceColor.needsUpdate = true; glow.visible = true;
+      } else glow.visible = false;
+      lanterns.material.emissiveIntensity = 0.15 + 0.3 * Math.max(lev[0], lev[1], lev[2]) + flare * 0.4;
+      // station 4: the rabbit hops, the quill writes, the beetle walks off the pedestal (all after the parade starts)
+      const rab = Lof.hat, qu = Lof.feather, bt = Lof.button;
+      if (popped(rab)) { const a = rab.arr, hop = paradeT > 0 && paradeT < 1.6 ? Math.abs(Math.sin(paradeT / 1.6 * Math.PI * 3)) * 0.2 : 0; M.rabbit.pose(a[0], a[1] + hop, a[2], Math.sin(t * 7) * 0.03, rab.rot1[1] + Math.sin(t * 0.8) * 0.2, 0, 1); }
+      if (popped(qu)) { const a = qu.arr, w = paradeT > 0 && paradeT < 2.6 ? 1 : 0.25; M.quill.pose(a[0], a[1], a[2], Math.sin(t * 6) * 0.12 * w, qu.rot1[1] + Math.sin(t * 3) * 0.2 * w, Math.cos(t * 6) * 0.1 * w, 1); }
+      if (popped(bt)) {
+        const a = bt.arr, k = clamp01(paradeT / 2.6);
+        let x = a[0], y = a[1], z = a[2], yaw = bt.rot1[1];
+        if (k > 0) {
+          const u1 = clamp01(k / 0.22), u2 = clamp01((k - 0.22) / 0.18), u3 = clamp01((k - 0.4) / 0.6);
+          x = a[0] - 0.24 * u1 - 0.22 * u2 - 0.3 * u3; z = a[2] - 0.65 * u3; y = u2 > 0 ? a[1] * (1 - u2) + Math.sin(u2 * Math.PI) * 0.15 : a[1];
+          yaw = u3 > 0 ? Math.atan2(-0.3, -0.65) : -Math.PI / 2;
+        }
+        M.beetle.pose(x, y + Math.abs(Math.sin(t * 18)) * 0.006 * (k > 0 && k < 1 ? 1 : 0), z, 0, yaw + Math.sin(t * 9) * 0.06, 0, 1);
+      }
+      // the finale cat: stretch, purr (a little shiver), hop down, trot to McGonagall's side and sit facing the child
+      const cat = Lof.statue;
+      if (popped(cat)) {
+        const a = cat.arr, SIT = TF.catSit, k = catT;
+        let x = a[0], y = a[1], z = a[2], yaw = cat.rot1[1], sx = 1, sy = 1, sz = 1, rx = 0;
+        if (k > 0 && k < 1.4) { const s = Math.sin(k / 1.4 * Math.PI); sz = 1 + 0.2 * s; sy = 1 - 0.14 * s; rx = 0.22 * s; }
+        else if (k >= 1.4 && k < 2.4) { x += Math.sin(t * 70) * 0.004; yaw = cat.rot1[1] - 0.3 * ease(clamp01((k - 1.4) / 0.4)); sy = 1 + Math.sin(t * 40) * 0.01; }
+        else if (k >= 2.4 && k < 3.2) { const u = (k - 2.4) / 0.8; x = a[0] + (-1.35 - a[0]) * u; z = a[2] + (-5.42 - a[2]) * u; y = a[1] * (1 - u) + Math.sin(u * Math.PI) * 0.3; yaw = Math.atan2(-1.35 - a[0], -5.42 - a[2]); }
+        else if (k >= 3.2 && k < 4.6) { const u = ease((k - 3.2) / 1.4); x = -1.35 + (SIT[0] + 1.35) * u; z = -5.42 + (SIT[2] + 5.42) * u; y = Math.abs(Math.sin(k * 11)) * 0.03; yaw = Math.atan2(SIT[0] + 1.35, SIT[2] + 5.42); }
+        else if (k >= 4.6) { x = SIT[0]; y = 0; z = SIT[2]; yaw = 0.42 + Math.sin(t * 0.5) * 0.1; sy = 1 + Math.sin(t * 2.2) * 0.015; }
+        M.tabby.pose(x, y, z, rx, yaw, 0, 1); M.tabby.mesh.scale.set(sx, sy, sz);
+      }
+      // what is drawn: the lesson things in the lesson; each station's things while it (or a neighbour) is on
+      const les = ph === 'lesson';
+      vis(M, ['cup0', 'cup1', 'cup2'], les); vis(M, ['mouse0', 'mouse1', 'mouse2'], les);
+      M.goblet.mesh.visible = les && shows(M.goblet); M.bird.mesh.visible = les && shows(M.bird);
+      vis(M, ['books'], near(0)); vis(M, ['steps'], near(0)); vis(M, ['star'], near(0));
+      vis(M, ['pumpkin0', 'pumpkin1', 'pumpkin2'], near(1)); vis(M, ['lantern0', 'lantern1', 'lantern2'], near(1));
+      vis(M, ['chair'], near(2)); vis(M, ['bridge'], near(2));
+      for (const n of ['hat', 'rabbit', 'feather', 'quill', 'button', 'beetle']) vis(M, [n], near(3));
+      vis(M, ['statue'], les || near(4)); vis(M, ['tabby'], les || near(4));
+    },
+    effects: {
+      // McGonagall's Vera Verto in the lesson: the goblet wobbles, pops into a little bird that flutters to the perch (3 s)
+      demo(M, t, quiet) {
+        demoT = t;
+        if (t > 0.9 && !demoPop) { demoPop = 1; if (!quiet) { kit.burst(GOB[0], GOB[1] + 0.15, GOB[2], 22); fun.sfx.poof(); fun.sfx.tweet(); } }
+        if (!quiet && t > 2.7 && demoPop === 1) { demoPop = 2; fun.sfx.tweet(); }
+        return t < 3.0;
+      },
+      // the star hops down the new book steps into the hero's hands (2.6 s)
+      starHop(M, t, quiet) {
+        const n = Math.min(5, Math.floor(t / 0.5));
+        if (!quiet) while (chord < n) { chord++; if (chord <= 3) fun.sfx.tink(chord); else if (chord === 4) { kit.burst(STAR_HOPS[4][0], STAR_HOPS[4][1], STAR_HOPS[4][2], 18); fun.sfx.chime(); } }
+        else chord = 5;
+        starT = t; if (t >= 2.6) chord = 0;
+        return t < 2.6;
+      },
+      // the three lanterns sing a little chord and flare together (2 s)
+      lampGlow(M, t, quiet) {
+        flareT = t;
+        if (!quiet && !chord) { chord = 1; fun.sfx.tune([784, 988, 1175, 1568], 0.12, 'sine'); for (const P of LP) kit.burst(P[0], 0.4, P[2], 8); }
+        if (t >= 2.0) chord = 0;
+        return t < 2.0;
+      },
+      // a few sparkles run along the new bridge (1.6 s)
+      bridgeSettle(M, t, quiet) {
+        const n = Math.min(3, Math.floor(t / 0.3));
+        if (!quiet) while (settle < n) { kit.burst(TF.puddle[0], 0.3, TF.puddle[2] - 0.6 + settle * 0.6, 8); fun.sfx.tink(settle); settle++; }
+        else settle = 3;
+        return t < 1.6;
+      },
+      // the rabbit hops, the quill writes, the beetle walks off (2.6 s)
+      parade(M, t, quiet) {
+        if (!quiet && paradeT < 0.01 && t > 0) fun.sfx.tune([659, 784, 988], 0.1, 'triangle');
+        paradeT = t; return t < 2.6;
+      },
+      // the cat stretches, purrs, hops down and sits beside McGonagall (5.4 s)
+      catWake(M, t, quiet) {
+        catT = t;
+        if (!quiet) {
+          if (catSfx < 1 && t > 1.4) { catSfx = 1; for (let i = 0; i < 9; i++) fun.sfx.tone(70 + (i % 2) * 8, 0.09, 'triangle', 0.07, i * 0.1); }
+          if (catSfx < 2 && t > 2.2) { catSfx = 2; fun.sfx.tone(620, 0.32, 'sine', 0.12, 0, 820); fun.sfx.tone(820, 0.25, 'sine', 0.1, 0.3, 560); }
+          if (catSfx < 3 && t > 4.6) { catSfx = 3; kit.burst(TF.catSit[0], 0.5, TF.catSit[2], 14); fun.sfx.heart(); }
+        } else catSfx = 3;
+        return t < 5.4;
+      },
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------------------
 // the runner
 // ---------------------------------------------------------------------------------------
@@ -815,6 +1238,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   #spHand.on{display:block;animation:spHand 1.5s ease-in-out infinite}
   #spHand.on.push{animation:spHandP 1.5s ease-in-out infinite}
   #spHand.on.tap{animation:spHandT 1.1s ease-in-out infinite}
+  #spHand.on.stir{animation:spHandS 1.2s linear infinite}
+  @keyframes spHandS{0%{transform:translate(44px,0)}25%{transform:translate(0,30px)}50%{transform:translate(-44px,0)}75%{transform:translate(0,-30px)}100%{transform:translate(44px,0)}}
   @keyframes spHandT{0%,100%{transform:translateY(18px) scale(1)}45%{transform:translateY(0) scale(.86)}60%{transform:translateY(0) scale(.86)}}
   @keyframes spHandP{0%{transform:translate(calc(var(--dx) * -40px),calc(var(--dy) * -40px));opacity:0}15%{opacity:1}70%{transform:translate(calc(var(--dx) * 130px),calc(var(--dy) * 130px));opacity:1}100%{transform:translate(calc(var(--dx) * 150px),calc(var(--dy) * 150px));opacity:0}}
   @keyframes spHand{0%{transform:translateY(40px);opacity:0}15%{opacity:1}70%{transform:translateY(-130px);opacity:1}100%{transform:translateY(-150px);opacity:0}}
@@ -901,8 +1326,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: DoubleSide, emissive: new Color(o.glowHex || 0xffd27a), emissiveIntensity: 0 });
         const m = new Mesh(geo, mat); m.name = 'spell-' + name; m.frustumCulled = false; m.raycast = () => {}; group.add(m);
         mats.push(mat); geos.push(geo); if (o.glow !== false) glowMats.push(mat);
-        movers[name] = { name, mesh: m, geo, mat, scale: 1, glows: o.glow !== false,
-          pose(x, y, z, rx, ry, rz, s = 1) { m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.setScalar(s); },
+        movers[name] = { name, mesh: m, geo, mat, scale: 1, s: 1, glows: o.glow !== false,
+          pose(x, y, z, rx, ry, rz, s = 1) { m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.setScalar(s); this.s = s; },
           color(hex) { mat.color.setHex(hex); } };
         return movers[name];
       },
@@ -915,8 +1340,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         for (let i = 0; i < n; i++) {
           const s0 = (o.scales && o.scales[i]) || 1;
           im.setColorAt(i, _c.setHex(colors[i]));
-          movers[name + i] = { name: name + i, mesh: im, geo, mat, scale: s0, glows: o.glow !== false, lit: false,
-            pose(x, y, z, rx, ry, rz, s = 1) { _m4.compose(_v.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.setScalar(s * s0)); im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; },
+          movers[name + i] = { name: name + i, mesh: im, geo, mat, scale: s0, s: 1, glows: o.glow !== false, lit: false,
+            pose(x, y, z, rx, ry, rz, s = 1) { _m4.compose(_v.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.setScalar(s * s0)); im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; this.s = s; },
             color(hex) { im.setColorAt(i, _c.setHex(hex)); im.instanceColor.needsUpdate = true; } };
         }
         return im;
@@ -932,6 +1357,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const ghostMat = new MeshBasicMaterial({ color: 0xffe58a, transparent: true, opacity: 0.35, depthWrite: false, blending: AdditiveBlending, side: DoubleSide });
     const ghost = new Mesh(new BoxGeometry(0.1, 0.1, 0.1), ghostMat); ghost.visible = false; ghost.frustumCulled = false; ghost.raycast = () => {}; ghost.renderOrder = 4; group.add(ghost);
     mats.push(ghostMat); geos.push(ghost.geometry);
+    // Vera Verto: up to three glowing silhouettes of what each open thing will become (they share the ghost material)
+    const ghosts = [];
+    if (C.verb === 'change') for (let i = 0; i < 3; i++) { const gm = new Mesh(ghost.geometry, ghostMat); gm.visible = false; gm.frustumCulled = false; gm.raycast = () => {}; gm.renderOrder = 4; group.add(gm); ghosts.push(gm); }
     const NP = 64, pPos = new Float32Array(NP * 3), pGeo = new PlaneGeometry(1, 1);
     const cv = document.createElement('canvas'); cv.width = cv.height = 32; const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(16, 16, 0, 16, 16, 16);
     gr.addColorStop(0, 'rgba(255,255,240,1)'); gr.addColorStop(0.35, 'rgba(255,220,120,.85)'); gr.addColorStop(1, 'rgba(255,200,80,0)'); g2.fillStyle = gr; g2.fillRect(0, 0, 32, 32);
@@ -942,11 +1370,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     mats.push(pMat); geos.push(pGeo);
     const parts = []; for (let i = 0; i < NP; i++) parts.push({ mode: 0, a: Math.random() * 6.3, r: 0.25 + Math.random() * 0.2, sp: 1.5 + Math.random() * 2, y: Math.random(), vx: 0, vy: 0, vz: 0, x: 0, yy: 0, z: 0, life: 0 });
     // pre-sample every lift path (arc-length spaced), so update() only reads arrays
-    const push = C.verb === 'push', light = C.verb === 'light';
+    const push = C.verb === 'push', light = C.verb === 'light', change = C.verb === 'change';
     const mkLift = (L, st) => {
       const mv = movers[L.m]; if (!mv) return null;
-      const N = light ? 2 : 48, arr = new Float32Array(N * 3);
-      if (light) { for (let i = 0; i < N; i++) { arr[i * 3] = L.path[0][0]; arr[i * 3 + 1] = L.path[0][1]; arr[i * 3 + 2] = L.path[0][2]; } }   // a light target stays put: p = how lit
+      const N = (light || change) ? 2 : 48, arr = new Float32Array(N * 3);
+      if (light || change) { for (let i = 0; i < N; i++) { arr[i * 3] = L.path[0][0]; arr[i * 3 + 1] = L.path[0][1]; arr[i * 3 + 2] = L.path[0][2]; } }   // a light target stays put: p = how lit
       else {
         const pts = L.path.map(p => new Vector3(p[0], p[1], p[2]));
         const curve = new CatmullRomCurve3(pts, false, 'centripetal'), sp = curve.getSpacedPoints(N - 1);
@@ -954,14 +1382,15 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       }
       const rings = (L.rings || []).map(n => { const r = movers[n]; return r ? { mv: r, u: 0, ringIdx: n } : null; }).filter(Boolean);
       return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings,
-        push, light, hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : FALL, inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
+        push, light, change, to: change ? (movers[L.to] || null) : null, popT: -1,
+        hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : change ? CHANGE_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : change ? CHANGE_FALL : FALL, inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
     const stations = C.course.stations.map(st => st.lifts.map(l => mkLift(l, st)).filter(Boolean));
     room.group.add(group);
     group.updateMatrixWorld(true); group.getWorldPosition(worldOff);
     group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
-    const k = { group, movers, mats, geos, texs, B, ghost, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations };
+    const k = { group, movers, mats, geos, texs, B, ghost, ghosts, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations };
     k.glowMats = glowMats;
     resetKit(k, true);
     // ring params: how far along the feather's path each ring sits (the sample nearest its centre)
@@ -973,7 +1402,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
     return k;
   }
-  function resetLift(L) { L.p = 0; L.peak = 0; L.hover = 0; L.done = false; L.snap = -1; L.moved = false; for (const r of L.rings) r.mv.lit = false; poseLift(L, 0); }
+  function resetLift(L) { L.p = 0; L.peak = 0; L.hover = 0; L.done = false; L.snap = -1; L.moved = false; L.popT = -1; for (const r of L.rings) r.mv.lit = false; poseLift(L, 0); }
   function resetKit(k, lessonToo) {
     k.B.reset(k.movers);
     if (lessonToo) for (const L of k.lesson) resetLift(L);
@@ -996,7 +1425,18 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const f = Math.max(0, Math.min(1, p)) * (L.N - 1), i = Math.min(L.N - 2, f | 0), k = f - i, a = L.arr;
     return out.set(a[i * 3] + (a[i * 3 + 3] - a[i * 3]) * k, a[i * 3 + 1] + (a[i * 3 + 4] - a[i * 3 + 1]) * k, a[i * 3 + 2] + (a[i * 3 + 5] - a[i * 3 + 2]) * k);
   }
+  // a change target stays put and wobbles harder as p fills; at the pop the before shape shrinks away and the
+  // after shape springs up (only one of the two is ever drawn); a `free` after shape then belongs to the build
+  function poseChange(L, t) {
+    const a = L.arr, x = a[0], y = a[1], z = a[2], r0 = L.rot0, r1 = L.rot1;
+    let sb = 1, sa = 0;
+    if (L.done) { const u = L.popT < 0 ? 1 : Math.min(1, L.popT / POP); sb = Math.max(0, 1 - u / 0.45); const v = Math.max(0, (u - 0.45) / 0.55); sa = v <= 0 ? 0 : 1 + 2.7 * (v - 1) ** 3 + 1.7 * (v - 1) ** 2; }
+    const w = L.done ? 1 : L.p, on = w > 0.01 ? 1 : 0;
+    L.mv.pose(x, y + Math.abs(Math.sin(t * 9 + L.ph)) * 0.03 * w * on, z, r0[0], r0[1] + Math.sin(t * 7 + L.ph) * 0.2 * w * on, r0[2] + Math.sin(t * 16 + L.ph) * (0.03 + 0.12 * w) * on, sb * (1 + 0.1 * w * on));
+    if (L.to && !(L.spec.free && L.done && L.popT >= POP)) L.to.pose(x, y, z, r1[0], r1[1], r1[2], sa);
+  }
   function poseLift(L, t) {
+    if (L.change) { poseChange(L, t); return; }
     const e = L.p * L.p * (3 - 2 * L.p);
     samplePath(L, L.p, tmp2);
     const live = L.p > 0.01 && !L.done && !L.push && !L.light, bob = (L.spec.bob || live) ? Math.sin(t * 2.4 + L.ph) * (L.done ? 0.025 : 0.04) : 0;
@@ -1019,15 +1459,18 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const first = open();
     for (const L of S.lifts) {
       if (L.done || (L.inOrder && L !== first)) continue;
-      liftWorld(L, tmp).project(camera); if (tmp.z > 1) continue;
-      const d = Math.hypot((tmp.x * 0.5 + 0.5) * innerWidth - x, (-tmp.y * 0.5 + 0.5) * innerHeight - y);
+      liftWorld(L, tmp);
+      // a big thing (spec.r metres) gets a hit circle at least as big as it looks on screen
+      const rr = L.spec.r ? L.spec.r * 1.3 * innerHeight / (2 * Math.tan((camera.fov || 50) * Math.PI / 360) * Math.max(0.3, tmp.distanceTo(camera.position))) : 0;
+      tmp.project(camera); if (tmp.z > 1) continue;
+      const d = Math.hypot((tmp.x * 0.5 + 0.5) * innerWidth - x, (-tmp.y * 0.5 + 0.5) * innerHeight - y) - Math.max(0, rr - R);
       if (d < bd) { bd = d; best = L; }
     }
     return best;
   }
   function nudge(L, v) {                     // set a lift's progress from a gesture
     if (!L || L.done || L.snap >= 0) return;
-    if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); if (L.light) fun.sfx.sparkle(); else fun.sfx.whoosh(); }
+    if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); if (L.light || L.change) fun.sfx.sparkle(); else fun.sfx.whoosh(); }
     L.p = Math.max(0, Math.min(1, v)); L.hover = L.hov0; if (L.p > L.peak) L.peak = L.p;
     S.idle = 0;
   }
@@ -1037,6 +1480,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     for (const r of L.rings) if (!r.mv.lit) { r.mv.lit = true; r.mv.color(0xffe07a); }
     S.casts++; if (S.sel === L) S.sel = null;
     liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 20);
+    if (L.change) { L.popT = 0; fun.sfx.pop(); fun.sfx.poof(); }
     fun.sfx.sparkle(); fun.sfx.tune([1047, 1319, 1568], 0.09, 'sine');
     setPips();
     if (S.lifts.every(x => x.done)) setDone();
@@ -1079,7 +1523,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         if (S.sel && !S.sel.done && oi % 3 !== 0 && !ordered) target = S.sel;
         oi++;
         samplePath(target, target.p, tmp2);
-        const a = p.a + t * p.sp, r = p.r * (target === S.sel ? 1.25 : 1) * (target.mv.scale > 1.5 ? 1.6 : 1);
+        const cg = target.change ? target.p : 0;   // Vera Verto: the sparkles spiral in (tighter, faster) as the change fills
+        const a = p.a + t * p.sp * (1 + 2.2 * cg), r = p.r * (target === S.sel ? 1.25 : 1) * (target.mv.scale > 1.5 ? 1.6 : 1) * (target.change ? (target.spec.r || 0.3) / 0.3 * (1 - 0.55 * cg) : 1);
         pos[i * 3] = tmp2.x + Math.cos(a) * r; pos[i * 3 + 1] = tmp2.y + target.aimY * 0.6 + 0.1 + ((p.y + t * 0.35) % 1) * 0.45; pos[i * 3 + 2] = tmp2.z + Math.sin(a) * r;
       } else { pos[i * 3] = 0; pos[i * 3 + 1] = -60; pos[i * 3 + 2] = 0; }
     }
@@ -1133,6 +1578,15 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       try { ov.setPointerCapture(e.pointerId); } catch { /* ignore */ }
       return;
     }
+    if (S.C.verb === 'change') {
+      // Vera Verto: touch the glowing thing and stir / scribble round it (any direction: finger travel counts), or
+      // keep the finger on it, or tap it. A touch beside it still stirs the current one (forgiving) and twinkles it.
+      const hit = pick(e.clientX, e.clientY);
+      if (hit) { select(hit); S.hold = true; S.holdT = 0; } else { if (!S.sel || S.sel.done) select(open()); twinkle(); }
+      drag = { id: e.pointerId, change: true, x: e.clientX, y: e.clientY, travel: 0, t0: performance.now(), onTarget: !!hit };
+      try { ov.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      return;
+    }
     const hit = pick(e.clientX, e.clientY);
     if (hit) select(hit); else if (!S.sel || S.sel.done) select(open());
     const sd = dirOf(S.sel);
@@ -1145,12 +1599,23 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   const swiped = (e) => (S.sel && S.sel.push) ? Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0)
     : (e.clientX - drag.x0) * drag.ux + (e.clientY - drag.y0) * drag.uy;
   ov.addEventListener('pointermove', e => {
+    if (drag && drag.change && e.pointerId === drag.id) {
+      const d = Math.hypot(e.clientX - drag.x, e.clientY - drag.y); drag.x = e.clientX; drag.y = e.clientY; drag.travel += d;
+      const L = S.sel;
+      if (L && !L.done && drag.travel > 12) { nudge(L, L.p + d / (range() * CHANGE_STIR)); if (L.p >= SNAP) snapLift(L); }
+      return;
+    }
     if (!drag || drag.light || e.pointerId !== drag.id || !S.sel) return;
     const dy = swiped(e);
     if (dy > 10 || drag.moved) { drag.moved = true; nudge(S.sel, drag.p0 + Math.max(0, dy - 10) / range()); if (S.sel && S.sel.p >= SNAP) snapLift(S.sel); }
   });
   const endDrag = (e) => {
     if (!drag || (e && e.pointerId !== drag.id)) return;
+    if (drag.change) {
+      const L = S.sel;
+      if (drag.onTarget) { S.hold = false; if (L && !L.done && S.holdT < 0.25 && drag.travel < 20) nudge(L, L.p + CHANGE_TAP); }
+      drag = null; return;
+    }
     if (drag.light) {
       const L = S.sel;
       if (drag.onTarget) { S.hold = false; if (L && !L.done && S.holdT < 0.25) nudge(L, L.p + LIGHT_TAP); }
@@ -1175,7 +1640,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (e) e.stopPropagation();
     if (!S.hold) return;
     S.hold = false; spB.classList.remove('hold');
-    if (S.holdT < 0.25 && S.sel) nudge(S.sel, S.sel.p + (S.sel.light ? LIGHT_TAP : TAP));   // a tap: a third of the way up
+    if (S.holdT < 0.25 && S.sel) nudge(S.sel, S.sel.p + (S.sel.light ? LIGHT_TAP : S.sel.change ? CHANGE_TAP : TAP));   // a tap: a third of the way up
   };
   spB.addEventListener('pointerup', endHold); spB.addEventListener('pointercancel', endHold);
   xB.addEventListener('click', e => { e.stopPropagation(); quit(); });
@@ -1196,7 +1661,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     setPips(); setBtn(false);
     let t = 0.4;
     for (const b of Ls.intro) {
-      at(t, () => { line(b.line, b.t, b.pose); if (b.burst) { burst(b.burst[0], b.burst[1], b.burst[2], 18); fun.sfx.sparkle(); } });
+      at(t, () => { line(b.line, b.t, b.pose); if (b.burst) { burst(b.burst[0], b.burst[1], b.burst[2], 18); fun.sfx.sparkle(); } if (b.fx && K.B.effects[b.fx]) { S.fx = K.B.effects[b.fx]; S.fxT = 0; } });
       t += b.t;
     }
     at(t, beginCast);
@@ -1220,6 +1685,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (st.afterSfx) { if (fun.sfx[st.afterSfx]) fun.sfx[st.afterSfx](); if (st.afterConfetti) fun.confetti(st.afterConfetti, 18); }
       else if (st.after === 'chestOpen') { fun.sfx.tada(); fun.confetti(['⭐', '🪙', '✨', '💛'], 18); } else fun.sfx.hoot();
     }
+    if (st.afterLine) at(st.afterLineT ?? 1.8, () => line(st.afterLine, 2.6, 'talk'));
     at(fx ? (st.afterT || 2.8) : 1.6, () => { S.fx = null; if (S.step + 1 < S.C.course.stations.length) startStation(S.step + 1); else finish(); });
   }
   function startStation(i) {
@@ -1410,16 +1876,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.sub === 'cast') {
       S.idle += dt;
       if (S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; setPips(); } }   // finger still down: carry on with the next object
-      if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
+      if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : S.sel.change ? CHANGE_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
     }
     for (let s = -1; s < K.stations.length; s++) {
       const set = s < 0 ? K.lesson : K.stations[s];
       for (let j = 0; j < set.length; j++) {
         const L = set[j];
+        if (L.done && L.popT >= 0 && L.popT < POP) L.popT += dt;
         if (!L.done && L.snap >= 0) { L.snap += dt; L.p = Math.min(1, L.p + dt * 2.4); if (L.p >= 1 || L.snap > 0.4) { liftDone(L); if (!S.on) return; continue; } }
         else if (!L.done && L.p > 0 && !(drag && S.sel === L) && !(S.hold && S.sel === L)) {
           if (L.p >= SNAP) snapLift(L);
-          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3 && !L.light) drop(L); else L.peak = 0; L.moved = false; } } }
+          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3 && !L.light && !L.change) drop(L); else L.peak = 0; L.moved = false; } } }
         }
         // rings light as the feather passes them (and stay lit)
         for (const r of L.rings) if (!r.mv.lit && L.p >= r.u) { r.mv.lit = true; r.mv.color(0xffe07a); fun.sfx.tink(3); }
@@ -1434,7 +1901,19 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     for (const m of K.glowMats) m.emissiveIntensity = 0;
     const cur = S.sub === 'cast' ? (S.sel && !S.sel.done ? S.sel : open()) : null;
     if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done && L.mv.glows) L.mv.mat.emissiveIntensity = pulse;
-    if (cur) {
+    if (K.ghosts.length) {
+      // Vera Verto: the glowing silhouette of each open thing's after shape floats above it (no outline box)
+      let gi = 0;
+      if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) {
+        if (gi >= K.ghosts.length) break;
+        if (L.done || !L.to) continue;
+        const g = K.ghosts[gi++], a = L.arr, r1 = L.rot1; if (g.geometry !== L.to.geo) g.geometry = L.to.geo;
+        g.position.set(a[0], a[1] + (L.spec.hint ?? 0.8) + Math.sin(t * 2 + L.ph) * 0.04, a[2]); g.rotation.set(r1[0], r1[1] + Math.sin(t * 0.9 + L.ph) * 0.35, r1[2]);
+        g.scale.setScalar(L.to.scale * (L.spec.hs || 1) * (1 + 0.04 * Math.sin(t * 4)) * (1 - 0.35 * L.p)); g.visible = true;
+      }
+      for (; gi < K.ghosts.length; gi++) K.ghosts[gi].visible = false;
+      K.ghostMat.opacity = 0.42 + Math.sin(t * 4) * 0.16; K.ghost.visible = false;
+    } else if (cur) {
       const g = K.ghost; if (g.geometry !== cur.mv.geo) g.geometry = cur.mv.geo;
       const a = cur.arr, n = (cur.N - 1) * 3, r1 = cur.rot1;
       g.position.set(a[n], a[n + 1], a[n + 2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(cur.mv.scale * (cur.light ? 1.7 : 1.06));
@@ -1445,7 +1924,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
       if (!hand.classList.contains('on')) {
         const sd = dirOf(cur), pushy = !!cur.push;
-        hand.classList.toggle('push', pushy); hand.classList.toggle('tap', !!cur.light);
+        hand.classList.toggle('push', pushy); hand.classList.toggle('tap', !!cur.light); hand.classList.toggle('stir', !!cur.change);
         if (pushy) { hand.style.setProperty('--dx', sd.x.toFixed(2)); hand.style.setProperty('--dy', sd.y.toFixed(2)); }
         hand.classList.add('on');
       }
@@ -1512,10 +1991,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (!testOK()) return false;
       if (!S.on || !K) return false;
       S.q.length = 0; endOv.classList.remove('on');
-      for (const L of K.lesson) if (!L.done) { L.done = true; L.p = 1; }
+      for (const L of K.lesson) if (!L.done) { L.done = true; L.p = 1; L.popT = POP; }
+      for (const b of S.C.lesson.intro) if (b.fx && K.B.effects[b.fx]) K.B.effects[b.fx](K.movers, 99, true);
       const n = S.C.course.stations.length;
       for (let i = 0; i < Math.min(step, n); i++) { const fx = S.C.course.stations[i].after && K.B.effects[S.C.course.stations[i].after]; if (fx) fx(K.movers, 99, true); }
-      for (let i = 0; i < Math.min(step, n); i++) for (const L of K.stations[i]) { L.done = true; L.p = 1; for (const r of L.rings) { r.mv.lit = true; r.mv.color(0xffe07a); } }
+      for (let i = 0; i < Math.min(step, n); i++) for (const L of K.stations[i]) { L.done = true; L.p = 1; L.popT = POP; for (const r of L.rings) { r.mv.lit = true; r.mv.color(0xffe07a); } }
       if (S.phase !== 'course') { S.phase = 'course'; S.tCourse = 0; }
       S.doneStations = Math.min(step, n);
       if (step >= n) { finish(); return true; }
