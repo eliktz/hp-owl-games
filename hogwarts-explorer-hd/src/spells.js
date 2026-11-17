@@ -439,8 +439,8 @@ export const COURSES = {
     build: buildHerbology,
     confetti: ['🌱', '⭐', '🌻', '🌸', '💚'],
     lesson: {
-      stand: [0, 2.55], face: [0, 1.3], pip: '🌱',
-      cam: { pos: [2.3, 1.75, 4.3], look: [-0.3, 0.95, 0.6] },
+      stand: [-0.55, 2.5], face: [-0.2, 1.3], pip: '🌱',
+      cam: { pos: [2.5, 1.95, 4.8], look: [-0.25, 0.95, 0.7] },
       intro: [
         { pose: 'talk', line: 'שָׁלוֹם, יַקִּירִי! הַיּוֹם נְגַדֵּל צְמָחִים בְּקֶסֶם!', t: 3.4 },
         { pose: 'cast', line: 'הֶרְבִּיוִיקוּס!', t: 3.6, fx: 'demo' },
@@ -458,29 +458,29 @@ export const COURSES = {
       star3: 240,
       stations: [
         { id: 'bean', icon: '⭐', say: 'גַּדֵּל שְׁעוּעִית עַד הַכּוֹכָב!',
-          walk: [[-1.4, 3.9], [-2.9, 5.6]], face: [HB.bean[0], HB.bean[1]],
+          walk: [[-1.5, 3.6], [-2.5, 4.45]], face: [HB.bean[0], HB.bean[1]],
           cam: { pos: [-1.5, 2.0, 8.7], look: [-4.3, 1.45, 4.3] },
           lifts: [growLift(4, 'bean', [HB.bean[0], BED_SOIL, HB.bean[1]], { top: BEAN_H, r: 0.3 })],
           after: 'starSlide', afterT: 4.6, afterSfx: 'none' },
         { id: 'sun', icon: '🌻', say: 'גַּדֵּל שָׁלוֹשׁ חַמָּנִיּוֹת!',
-          walk: [[-2.6, 7.4], [-2.8, 9.5]], face: [-4.5, 8.3],
-          cam: { pos: [-1.0, 2.0, 12.5], look: [-4.3, 1.0, 8.2] },
+          walk: [[-2.3, 6.2], [-2.5, 9.6]], face: [-4.5, 8.3],
+          cam: { pos: [-3.7, 2.3, 13.4], look: [-4.2, 1.0, 8.4] },
           lifts: HB.sun.map(([x, z], j) => growLift(5 + j, 'sunf' + (j + 1), [x, BED_SOIL, z], { rot1: [0, 0.6, 0], top: 1.55 })),
           after: 'sunTurn', afterT: 3.4, afterSfx: 'none' },
         { id: 'vine', icon: '🌉', say: 'גַּדֵּל גֶּשֶׁר מֵעַל הַנַּחַל!',
-          walk: [[-2.3, 11.3], [-1.4, 11.7]], face: [HB.stream[0], HB.vine[1]],
-          cam: { pos: [-3.1, 2.0, 14.5], look: [0.5, 0.55, 10.6] },
+          walk: [[-2.4, 11.4], [-1.35, 11.9]], face: [HB.stream[0], HB.vine[1]],
+          cam: { pos: [-0.1, 2.2, 15.5], look: [0.25, 0.6, 10.7] },     // from the south, up the stream: the bridge will span the view
           lifts: [growLift(8, 'vine', [HB.vine[0], 0.08, HB.vine[1]], { rot1: [0, 0, Math.PI / 2], top: VINE_S, r: 0.26 })],
           after: 'vineLay', afterT: 4.4, afterSfx: 'none' },
         { id: 'veg', icon: '🥕', say: 'גַּדֵּל כָּל יָרָק לְפִי הַשֶּׁלֶט!',
-          walk: [[-0.9, 11.0], [2.0, 11.0], [3.7, 12.4], [6.6, 12.2]], face: [4.4, 10.4],
+          walk: [[-0.9, 11.0], [2.1, 11.0], [3.7, 12.4], [6.6, 12.2]], face: [4.4, 10.4],
           cam: { pos: [3.0, 2.0, 14.9], look: [4.7, 0.6, 10.5] },
           lifts: ['carrot', 'pumpkin', 'berry'].map((to, j) => growLift(9 + j, to, [HB.veg[j][0], BED_SOIL, HB.veg[j][1]], { rot1: [0, -0.3, 0], top: 0.5, free: true })),
           after: 'vegBounce', afterT: 2.8, afterSfx: 'none' },
         { id: 'flower', icon: '🌸', say: 'גַּדֵּל אֶת הַפֶּרַח הַגָּדוֹל!',
           walk: [[5.2, 8.0], [3.6, 4.0], [2.9, 1.4]], face: [HB.pots[4][0], HB.pots[4][1]],
-          cam: { pos: [3.0, 1.9, 5.4], look: [0.9, 1.25, 0.9] },
-          afterCam: { pos: [3.1, 1.7, 4.9], look: [1.0, 1.35, 0.8] },
+          cam: { pos: [3.3, 2.0, 5.9], look: [0.9, 1.4, 0.9] },
+          afterCam: { pos: [3.4, 1.9, 5.5], look: [1.0, 1.5, 0.8] },
           lifts: [growLift(12, 'giant', potSoil(4, HB.stem[0], HB.stem[1]), { rot1: [0, 0.33, 0], top: GIANT_H + 0.3, r: 0.35, aimY: 0.12 })],
           after: 'mandrake', afterT: 5.8, afterSfx: 'none', afterLine: 'אֵיזֶה גַּן נִפְלָא!', afterLineT: 3.6 },
       ],
@@ -1845,12 +1845,12 @@ function fernGeo() {
 const BEAN_LEAVES = [];                            // [x, y, z] above each bean leaf, top first (the star's slide)
 function beanGeo() {
   const strand = (r, ph, rad, n) => { const pts = []; for (let i = 0; i <= n; i++) { const y = i / n * BEAN_H; pts.push(new Vector3(Math.sin(y * 2.6 + ph) * r, y, Math.cos(y * 2.6 + ph) * r)); } return paint(new TubeGeometry(new CatmullRomCurve3(pts), 40, rad, 6), 0x2f7a24, 0x6ac050); };
-  const parts = [strand(0.07, 0, 0.05, 24), strand(0.06, Math.PI, 0.03, 24)];
+  const parts = [strand(0.08, 0, 0.075, 24), strand(0.07, Math.PI, 0.05, 24)];
   BEAN_LEAVES.length = 0;
   for (let k = 0; k < 8; k++) {
     const y = 0.32 + k * 0.29, a = k * 2.1, c = Math.cos(a), s = Math.sin(a);
-    parts.push(leafG(0.15, c * 0.2, y, s * 0.2, 0, -a, 0.25, 1.4, 0.2, 1.0, 0x3a9a2a, 0x8ad860));
-    BEAN_LEAVES.unshift([c * 0.26, y + 0.06, s * 0.26]);
+    parts.push(leafG(0.2, c * 0.24, y, s * 0.24, 0, -a, 0.25, 1.4, 0.22, 1.0, 0x3a9a2a, 0x8ad860));
+    BEAN_LEAVES.unshift([c * 0.3, y + 0.07, s * 0.3]);
   }
   parts.push(paint(place(new TorusGeometry(0.08, 0.022, 5, 12, Math.PI * 1.5), 0.05, BEAN_H + 0.04, 0), 0x5ab040, 0x8ad860));
   parts.push(leafG(0.1, 0, BEAN_H - 0.05, 0.05, 0.3, 0, 0, 1.2, 0.25, 0.9, 0x5ab040, 0x9ae870));
@@ -2016,8 +2016,8 @@ function buildHerbology(kit) {
       solid(paint(place(new ConeGeometry(0.06, 0.24, 8), x, fy - 0.03, fz, 0, 0, Math.PI - 0.5, 1, 1, 0.45), 0xe06a10, 0xff9a30));
       for (const k of [-1, 0, 1]) solid(leafG(0.03, x - 0.06 + k * 0.02, fy + 0.1, fz, 0, 0, 0.5 + k * 0.4, 0.6, 2.4, 0.4, 0x2a8a2a, 0x6ac050));
     } else if (j === 1) {
-      solid(ribs(place(new SphereGeometry(0.1, 12, 8), x, fy - 0.01, fz, 0, 0, 0, 1.3, 0.9, 0.4), 0xd85a08, 0xffa030, 6));
-      solid(paint(place(new CylinderGeometry(0.014, 0.018, 0.06, 5), x, fy + 0.1, fz), 0x5a6a20));
+      solid(ribs(place(new SphereGeometry(0.13, 12, 8), x, fy - 0.02, fz, 0, 0, 0, 1.3, 0.95, 0.4), 0xd85a08, 0xffa030, 6));
+      solid(paint(place(new CylinderGeometry(0.018, 0.024, 0.08, 5), x, fy + 0.13, fz), 0x5a6a20));
     } else {
       solid(paint(place(new ConeGeometry(0.08, 0.17, 10), x, fy - 0.02, fz, Math.PI, 0, 0, 1, 1, 0.45), 0xd0101e, 0xff4a4a));
       for (const k of [-1, 0, 1]) solid(leafG(0.03, x + k * 0.035, fy + 0.07, fz + 0.01, 0, 0, k * 0.6, 1.4, 0.5, 0.4, 0x2a8a2a, 0x6ac050));
