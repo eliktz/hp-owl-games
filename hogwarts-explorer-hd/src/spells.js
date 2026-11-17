@@ -24,6 +24,14 @@
 //                  keep the finger on it, or the 🪄 button; CHANGE_* numbers); its look is the course's own:
 //                  a ladle circles, the liquid blends from dull grey to the potion colour, two ingredients
 //                  plop in at 1/3 and 2/3, bubbles rise; at the snap it puffs and glows (no outline, no ghost).
+//                  A 'grow' target (Herbology) is a seedling that stays put: swipe UP from it (the lift drag: progress =
+//                  pixels swiped up) and its plant (`to`) rises out of it following the finger; a tap = a third, holding the
+//                  🪄 button grows it too. Let go early: it holds a moment, then sinks back slowly (no drop, no oops). At the
+//                  snap the leaves pop, a sparkle, then the grown plant sways. A glowing silhouette shows the full plant.
+//   outdoors       a course with `room: null` (Herbology) runs on the lawn by its teacher's outdoor station: the kit group
+//                  sits in the scene at the station (worldOff = the station on the terrain), and every y in its data (lift
+//                  paths, cameras) and its build (ctx.ground(x, z)) is height ABOVE THE TERRAIN at that x, z; the hero's
+//                  auto-walk follows the terrain. It ends if the player goes indoors or is moved far away (> 60 m).
 //   dim            a course with `dim: true` darkens the room through ONE reversible factor (dimApply)
 //                  toward S.dimGoal (set by the course's tick), restored exactly on any leave.
 //   the gesture    Wingardium Leviosa = "swish and flick": touch a glowing thing (or the big
@@ -38,7 +46,7 @@
 // instanced quad set with a 32 px canvas texture), built on start and disposed on leave or room exit.
 // No per-frame allocations in update(): temp vectors and pre-sampled paths only.
 import {
-  Group, Mesh, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, CircleGeometry, TorusGeometry, ConeGeometry, ShapeGeometry, Shape, PlaneGeometry, ExtrudeGeometry,
+  Group, Mesh, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, CircleGeometry, TorusGeometry, ConeGeometry, ShapeGeometry, Shape, PlaneGeometry, ExtrudeGeometry, TubeGeometry,
   MeshStandardMaterial, MeshBasicMaterial, BufferAttribute, CanvasTexture, SRGBColorSpace,
   Color, Vector3, Matrix4, Quaternion, Euler, CatmullRomCurve3, AdditiveBlending, NormalBlending, DoubleSide,
 } from 'three';
@@ -59,6 +67,8 @@ const PUSH_HOVER = 0.6, PUSH_FALL = 0.55;  // a let-go push wobbles a moment, th
 const CHANGE_HOLD = 1.6, CHANGE_TAP = 0.3;  // Vera Verto: a finger kept on the thing (or the 🪄 button) changes it in 1.6 s; a tap = this much
 const CHANGE_STIR = 2.4;                  // ...or stir: this many gesture ranges of finger travel (any direction) for a full change
 const CHANGE_HOVER = 0.8, CHANGE_FALL = 0.45;  // let go early: it wobbles a moment, then settles back (no penalty)
+const GROW_HOLD = 1.3;                    // Herbivicus: holding the 🪄 button grows a plant in 1.3 s
+const GROW_HOVER = 1.2, GROW_FALL = 0.3;  // let go early: the plant holds a moment, then sinks back slowly (no drop, no penalty)
 const POP = 0.5;                          // seconds of the pop: the before shape shrinks away, the after shape springs up
 const HINT_AFTER = 4;                     // seconds of no input before the ghost hand shows
 const WALK = 2.2;                         // auto-walk speed between stations (m/s)
@@ -108,6 +118,22 @@ const POTS = [
 const PO = { plant: [-7.15, 0, -6.4], ice: [-3.25, 0, 7.6], flagZ: 9.44, flagY: 1.8 };
 const POT_R = 0.3, POT_C = 0.36, LIQ_Y = 0.486, RIM_Y = 0.536;   // the unit pot: bowl radius, bowl centre, liquid, rim heights
 const brewLift = (i, o = {}) => { const P = POTS[i]; return { m: 'pot' + i, path: [[P[0], P[1], P[2]]], rot0: [0, 0, 0], rot1: [0, 0, 0], aimY: LIQ_Y * P[3], r: POT_R * P[3] * 1.15, ...o }; };
+
+// Course #6 places: OUTDOORS on the lawn south of the greenhouse (the first outdoor course). Metres local to Sprout's
+// lesson spot (her feet, STATIONS.herbology): x east, z south, away from the glass house (which spans x -3.5..3.5,
+// z -6.1..-1.1); every y here, in the lift paths and in the cameras is height ABOVE THE TERRAIN at that x, z (the lawn
+// falls ~1.5 cm per metre to the east, so beds and pots simply sit on it). Sprout stands at (0, 0) facing +z. The course
+// goes out across the lawn (beanstalk, sunflowers, the stream and its vine bridge, the vegetable beds) and back to her.
+const HB = {
+  pots: [[-1.0, 0.5, 1.1, 0], [-0.45, 1.3, 0.62, 0.55], [0, 1.3, 0.62, 0.55], [0.45, 1.3, 0.62, 0.55], [1.5, 1.05, 1.7, 0]],   // x, z, scale, base height: Sprout's own pot, the 3 lesson pots (on the bench), the finale pot
+  bench: [0, 1.3], bean: [-4.2, 4.5], post: [-4.85, 4.2, 2.6], sun: [[-5.3, 8.3], [-4.5, 8.3], [-3.7, 8.3]],
+  stream: [0.7, 1.0, 6.5, 15.5], vine: [-0.3, 11.0], veg: [[3.1, 10.4], [4.4, 10.4], [5.7, 10.4]],
+  stem: [1.461, 0.936], man: [1.552, 1.201],          // the finale pot: the giant flower's stem a little back, the mandrake in front (toward the camera)
+};
+const BED_SOIL = 0.17, POT_SOIL = 0.3, VINE_S = 1.95, BEAN_H = 2.6, GIANT_H = 2.0;
+const archY = (u) => 0.3 * Math.pow(Math.max(0, Math.sin(Math.PI * u)), 0.7) - 0.09 * u;   // the vine bridge's deck, u 0..1 along its span
+const potSoil = (i, x, z) => { const P = HB.pots[i]; return [x ?? P[0], P[3] + POT_SOIL * P[2], z ?? P[1]]; };
+const growLift = (seed, to, at, o = {}) => ({ m: 'seed' + seed, to, path: [at], rot0: [0, seed * 1.3, 0], rot1: [0, 0, 0], aimY: 0.1, r: 0.22, ...o });
 
 export const COURSES = {
   charms: {
@@ -398,6 +424,65 @@ export const COURSES = {
           cam: { pos: [-3.4, 2.2, -2.6], look: [-1.4, 1.0, -6.4] },
           afterCam: { pos: [-3.9, 1.7, -1.9], look: [-1.5, 2.0, -6.6] },
           lifts: [brewLift(3)], after: 'toadHop', afterT: 5.4, afterSfx: 'none', afterLine: 'לֹא רַע… לֹא רַע בִּכְלָל.', afterLineT: 1.9 },
+      ],
+    },
+  },
+  // -------------------------------------------------------------------------------------
+  // Course #6: Herbology, Professor Sprout, OUTDOORS by the greenhouse (verb 'grow': swipe up from a seedling and it
+  // grows). room null = the course runs on the lawn at her outdoor station (see HB for the places).
+  // -------------------------------------------------------------------------------------
+  herbology: {
+    spell: { he: 'הֶרְבִּיוִיקוּס', icon: '🌱', gesture: 'grow' },
+    verb: 'grow', who: '🧙‍♀️', pitch: 1.15, oneBubble: true,
+    title: 'תּוֹרַת הַצְּמָחִים', name: 'אֶתְגָּר: צְמָחִים',
+    teacher: 'sprout', room: null, station: 'herbology',
+    build: buildHerbology,
+    confetti: ['🌱', '⭐', '🌻', '🌸', '💚'],
+    lesson: {
+      stand: [0, 2.55], face: [0, 1.3], pip: '🌱',
+      cam: { pos: [2.3, 1.75, 4.3], look: [-0.3, 0.95, 0.6] },
+      intro: [
+        { pose: 'talk', line: 'שָׁלוֹם, יַקִּירִי! הַיּוֹם נְגַדֵּל צְמָחִים בְּקֶסֶם!', t: 3.4 },
+        { pose: 'cast', line: 'הֶרְבִּיוִיקוּס!', t: 3.6, fx: 'demo' },
+        { pose: 'talk', line: 'רָאִיתָ? הַנֶּבֶט גָּדַל לְחַמָּנִית!', t: 3.0 },
+        { pose: 'talk', line: 'עַכְשָׁו אַתָּה! גַּע בַּנֶּבֶט וּמְשֹׁךְ לְמַעְלָה!', t: 3.4 },
+      ],
+      // three seedlings in little pots on the bench: a tulip, a daisy, a little fern
+      lifts: ['tulip', 'daisy', 'fern'].map((to, j) => growLift(1 + j, to, potSoil(1 + j), { rot1: [0, 0.6, 0], top: 0.45, free: true })),
+      outro: 'עַכְשָׁו — לָאֶתְגָּר!',
+    },
+    praise: ['יָפֶה מְאֹד!', 'מְצֻיָּן!', 'כָּל הַכָּבוֹד!', 'נִפְלָא!'],
+    oops: 'נַסֵּה שׁוּב',
+    finale: 'אַתָּה גַּנָּן קוֹסֵם!',
+    course: {
+      star3: 240,
+      stations: [
+        { id: 'bean', icon: '⭐', say: 'גַּדֵּל שְׁעוּעִית עַד הַכּוֹכָב!',
+          walk: [[-1.4, 3.9], [-2.9, 5.6]], face: [HB.bean[0], HB.bean[1]],
+          cam: { pos: [-1.5, 2.0, 8.7], look: [-4.3, 1.45, 4.3] },
+          lifts: [growLift(4, 'bean', [HB.bean[0], BED_SOIL, HB.bean[1]], { top: BEAN_H, r: 0.3 })],
+          after: 'starSlide', afterT: 4.6, afterSfx: 'none' },
+        { id: 'sun', icon: '🌻', say: 'גַּדֵּל שָׁלוֹשׁ חַמָּנִיּוֹת!',
+          walk: [[-2.6, 7.4], [-2.8, 9.5]], face: [-4.5, 8.3],
+          cam: { pos: [-1.0, 2.0, 12.5], look: [-4.3, 1.0, 8.2] },
+          lifts: HB.sun.map(([x, z], j) => growLift(5 + j, 'sunf' + (j + 1), [x, BED_SOIL, z], { rot1: [0, 0.6, 0], top: 1.55 })),
+          after: 'sunTurn', afterT: 3.4, afterSfx: 'none' },
+        { id: 'vine', icon: '🌉', say: 'גַּדֵּל גֶּשֶׁר מֵעַל הַנַּחַל!',
+          walk: [[-2.3, 11.3], [-1.4, 11.7]], face: [HB.stream[0], HB.vine[1]],
+          cam: { pos: [-3.1, 2.0, 14.5], look: [0.5, 0.55, 10.6] },
+          lifts: [growLift(8, 'vine', [HB.vine[0], 0.08, HB.vine[1]], { rot1: [0, 0, Math.PI / 2], top: VINE_S, r: 0.26 })],
+          after: 'vineLay', afterT: 4.4, afterSfx: 'none' },
+        { id: 'veg', icon: '🥕', say: 'גַּדֵּל כָּל יָרָק לְפִי הַשֶּׁלֶט!',
+          walk: [[-0.9, 11.0], [2.0, 11.0], [3.7, 12.4], [6.6, 12.2]], face: [4.4, 10.4],
+          cam: { pos: [3.0, 2.0, 14.9], look: [4.7, 0.6, 10.5] },
+          lifts: ['carrot', 'pumpkin', 'berry'].map((to, j) => growLift(9 + j, to, [HB.veg[j][0], BED_SOIL, HB.veg[j][1]], { rot1: [0, -0.3, 0], top: 0.5, free: true })),
+          after: 'vegBounce', afterT: 2.8, afterSfx: 'none' },
+        { id: 'flower', icon: '🌸', say: 'גַּדֵּל אֶת הַפֶּרַח הַגָּדוֹל!',
+          walk: [[5.2, 8.0], [3.6, 4.0], [2.9, 1.4]], face: [HB.pots[4][0], HB.pots[4][1]],
+          cam: { pos: [3.0, 1.9, 5.4], look: [0.9, 1.25, 0.9] },
+          afterCam: { pos: [3.1, 1.7, 4.9], look: [1.0, 1.35, 0.8] },
+          lifts: [growLift(12, 'giant', potSoil(4, HB.stem[0], HB.stem[1]), { rot1: [0, 0.33, 0], top: GIANT_H + 0.3, r: 0.35, aimY: 0.12 })],
+          after: 'mandrake', afterT: 5.8, afterSfx: 'none', afterLine: 'אֵיזֶה גַּן נִפְלָא!', afterLineT: 3.6 },
       ],
     },
   },
@@ -1701,6 +1786,503 @@ function buildPotions(kit) {
   function hzOf() { return ctx.player.pos.z - ctx.worldOff.z; }
 }
 
+// ---- Herbology geometry (build time only; every plant stands on its own origin = the soil, faces +z) ----
+function radial(geo, hexIn, hexOut, r0, r1) {   // colour by distance from the origin in x/y (petals)
+  const n = geo.attributes.position.count, col = new Float32Array(n * 3), a = new Color(hexIn), b = new Color(hexOut), P = geo.attributes.position;
+  for (let i = 0; i < n; i++) { const k = Math.max(0, Math.min(1, (Math.hypot(P.getX(i), P.getY(i)) - r0) / (r1 - r0))); _c.copy(a).lerp(b, k); col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
+  geo.setAttribute('color', new BufferAttribute(col, 3)); return geo;
+}
+function ribs(geo, hexA, hexB, n) {               // pumpkin ribs: colour by the angle round y
+  const m = geo.attributes.position.count, col = new Float32Array(m * 3), a = new Color(hexA), b = new Color(hexB), P = geo.attributes.position;
+  for (let i = 0; i < m; i++) { const k = 0.5 + 0.5 * Math.cos(Math.atan2(P.getZ(i), P.getX(i)) * n); _c.copy(a).lerp(b, k); col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
+  geo.setAttribute('color', new BufferAttribute(col, 3)); return geo;
+}
+const leafG = (r, x, y, z, rx, ry, rz, sx, sy, sz, a = 0x3a9a2a, b = 0x7ac850) => paint(place(new SphereGeometry(r, 8, 6), x, y, z, rx, ry, rz, sx, sy, sz), a, b);
+function seedGeo() {
+  return place(merge([
+    paint(place(new CylinderGeometry(0.012, 0.018, 0.12, 5), 0, 0.06, 0), 0x3a9a2a, 0x6ac050),
+    leafG(0.05, -0.045, 0.125, 0, 0, 0, 0.55, 1, 0.32, 0.62, 0x5ac838, 0xa8f070),
+    leafG(0.05, 0.045, 0.125, 0, 0, 0, -0.55, 1, 0.32, 0.62, 0x5ac838, 0xa8f070),
+    paint(place(new SphereGeometry(0.022, 6, 5), 0, 0.14, 0), 0x8ae050),
+  ]), 0, 0, 0, 0, 0, 0, 1.45);
+}
+function sunGeo() {
+  const P = [];
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; P.push(paint(place(new SphereGeometry(0.075, 8, 6), Math.cos(a) * 0.19, 1.5 + Math.sin(a) * 0.19, 0.03, 0, 0, a, 1.25, 0.42, 0.25), 0xffb010, 0xffe050)); }
+  return merge([
+    paint(place(new CylinderGeometry(0.022, 0.034, 1.48, 6), 0, 0.74, 0), 0x2f7a24, 0x5ab040),
+    leafG(0.13, 0.13, 0.55, 0, 0, 0, -0.5, 1, 0.16, 0.6), leafG(0.13, -0.13, 0.9, 0, 0, 0, 0.5, 1, 0.16, 0.6),
+    paint(place(new CylinderGeometry(0.14, 0.12, 0.05, 16), 0, 1.5, -0.01, Math.PI / 2), 0x4a8a2a),
+    paint(place(new SphereGeometry(0.125, 14, 10), 0, 1.5, 0.03, 0, 0, 0, 1, 1, 0.38), 0x4a2810, 0x7a4a1a),
+    ...P,
+  ]);
+}
+function tulipGeo() {
+  const P = [];
+  for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; P.push(paint(place(new SphereGeometry(0.06, 8, 6), Math.cos(a) * 0.03, 0.42, Math.sin(a) * 0.03, Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25, 0.75, 1.5, 0.75), 0xd8202a, 0xff7070)); }
+  return place(merge([
+    paint(place(new CylinderGeometry(0.011, 0.015, 0.38, 5), 0, 0.19, 0), 0x3a8a2a, 0x5ab040),
+    leafG(0.05, 0.035, 0.13, 0, 0, 0, -0.35, 0.55, 2.4, 0.25), leafG(0.05, -0.035, 0.11, 0.01, 0, 0, 0.35, 0.55, 2.0, 0.25),
+    ...P,
+  ]), 0, 0, 0, 0, 0, 0, 1.2);
+}
+function daisyGeo() {
+  const P = [];
+  for (let i = 0; i < 11; i++) { const a = i / 11 * Math.PI * 2; P.push(paint(place(new SphereGeometry(0.04, 6, 5), Math.cos(a) * 0.07, 0.38 + Math.sin(a) * 0.07, 0.01, 0, 0, a, 1.35, 0.42, 0.25), 0xf4f4ff, 0xffffff)); }
+  return place(merge([
+    paint(place(new CylinderGeometry(0.01, 0.014, 0.36, 5), 0, 0.18, 0), 0x3a8a2a, 0x5ab040),
+    leafG(0.05, 0.04, 0.08, 0, 0, 0, -0.6, 1.2, 0.3, 0.5), leafG(0.05, -0.04, 0.15, 0, 0, 0, 0.6, 1.2, 0.3, 0.5),
+    paint(place(new SphereGeometry(0.045, 10, 8), 0, 0.38, 0.025, 0, 0, 0, 1, 1, 0.5), 0xffb810, 0xffe060),
+    ...P,
+  ]), 0, 0, 0, 0, 0, 0, 1.2);
+}
+function fernGeo() {
+  const F = [];
+  for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + 0.3; F.push(leafG(0.08, Math.cos(a) * 0.13, 0.1, Math.sin(a) * 0.13, 0, -a, 0.55 + (i % 2) * 0.3, 2.4, 0.22, 0.6, 0x2a7a2a, 0x6ac050)); }
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; F.push(leafG(0.07, Math.cos(a) * 0.06, 0.2, Math.sin(a) * 0.06, 0, -a, 1.15, 2.2, 0.22, 0.55, 0x3a8a2a, 0x8ad860)); }
+  return place(merge(F), 0, 0, 0, 0, 0, 0, 1.25);
+}
+const BEAN_LEAVES = [];                            // [x, y, z] above each bean leaf, top first (the star's slide)
+function beanGeo() {
+  const strand = (r, ph, rad, n) => { const pts = []; for (let i = 0; i <= n; i++) { const y = i / n * BEAN_H; pts.push(new Vector3(Math.sin(y * 2.6 + ph) * r, y, Math.cos(y * 2.6 + ph) * r)); } return paint(new TubeGeometry(new CatmullRomCurve3(pts), 40, rad, 6), 0x2f7a24, 0x6ac050); };
+  const parts = [strand(0.07, 0, 0.05, 24), strand(0.06, Math.PI, 0.03, 24)];
+  BEAN_LEAVES.length = 0;
+  for (let k = 0; k < 8; k++) {
+    const y = 0.32 + k * 0.29, a = k * 2.1, c = Math.cos(a), s = Math.sin(a);
+    parts.push(leafG(0.15, c * 0.2, y, s * 0.2, 0, -a, 0.25, 1.4, 0.2, 1.0, 0x3a9a2a, 0x8ad860));
+    BEAN_LEAVES.unshift([c * 0.26, y + 0.06, s * 0.26]);
+  }
+  parts.push(paint(place(new TorusGeometry(0.08, 0.022, 5, 12, Math.PI * 1.5), 0.05, BEAN_H + 0.04, 0), 0x5ab040, 0x8ad860));
+  parts.push(leafG(0.1, 0, BEAN_H - 0.05, 0.05, 0.3, 0, 0, 1.2, 0.25, 0.9, 0x5ab040, 0x9ae870));
+  return merge(parts);
+}
+function vineGeo() {                               // the bridge: lying along +x from its root (0) to VINE_S, a leafy deck ~0.5 m wide
+  const strand = (ph, rad) => { const pts = []; for (let i = 0; i <= 20; i++) { const u = i / 20; pts.push(new Vector3(u * VINE_S, archY(u), Math.sin(u * 9 + ph) * 0.07)); } return paint(new TubeGeometry(new CatmullRomCurve3(pts), 36, rad, 6), 0x2f6a1e, 0x4a9a2a); };
+  const parts = [strand(0, 0.045), strand(Math.PI, 0.035)];
+  for (let i = 0; i < 13; i++) {
+    const u = 0.05 + i * 0.072, x = u * VINE_S, y = archY(u) + 0.035;
+    for (const sd of [-1, 1]) parts.push(leafG(0.12, x, y, sd * 0.15, 0, sd * (0.3 + (i % 3) * 0.15), 0, 1.0, 0.18, 1.3, 0x3a9a2a, 0x8ad860));
+  }
+  for (let i = 0; i < 4; i++) { const u = 0.15 + i * 0.23; parts.push(paint(place(new SphereGeometry(0.04, 8, 6), u * VINE_S, archY(u) + 0.08, (i % 2 ? 1 : -1) * 0.22), i % 2 ? 0xffffff : 0xff8ac8)); }
+  return merge(parts);
+}
+function carrotGeo() {
+  const F = [];
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; F.push(leafG(0.05, Math.cos(a) * 0.03, 0.32, Math.sin(a) * 0.03, Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4, 0.55, 4.0, 0.35, 0x2a8a2a, 0x7ad850)); }
+  return merge([paint(place(new ConeGeometry(0.12, 0.5, 12), 0, -0.12, 0, Math.PI), 0xd86a10, 0xff9a30), ...F]);
+}
+function pumpkinGeo() {
+  return merge([
+    ribs(place(new SphereGeometry(0.22, 18, 10), 0, 0.17, 0, 0, 0, 0, 1.3, 0.85, 1.3), 0xd85a08, 0xffa030, 8),
+    paint(place(new CylinderGeometry(0.025, 0.035, 0.13, 6), 0, 0.39, 0, 0, 0, 0.2), 0x5a4a1a, 0x7a8a30),
+    leafG(0.16, 0.3, 0.06, -0.12, 0, 0.4, -0.15, 1.3, 0.2, 1.0), leafG(0.14, -0.28, 0.05, -0.15, 0, -0.5, 0.15, 1.3, 0.2, 1.0),
+    paint(place(new TorusGeometry(0.06, 0.012, 4, 12, Math.PI * 1.6), 0.08, 0.38, 0.05, 0, 0, 0.6), 0x5ab040),
+  ]);
+}
+function berryGeo() {
+  const P = [];
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + 0.4; P.push(leafG(0.12, Math.cos(a) * 0.13, 0.17, Math.sin(a) * 0.13, 0, -a, 0.35, 1.3, 0.25, 0.9)); }
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2 + 1.0, r = 0.2 + (i % 2) * 0.04, x = Math.cos(a) * r, z = Math.sin(a) * r, y = 0.1 + (i % 2) * 0.06;
+    P.push(paint(place(new ConeGeometry(0.06, 0.12, 10), x, y, z, Math.PI), 0xd0101e, 0xff4a4a));
+    P.push(paint(place(new SphereGeometry(0.035, 6, 4), x, y + 0.065, z, 0, 0, 0, 1, 0.35, 1), 0x3a9a2a));
+  }
+  for (const [x, z] of [[0.05, 0.12], [-0.1, -0.05]]) { P.push(paint(place(new SphereGeometry(0.035, 8, 6), x, 0.3, z, 0, 0, 0, 1, 0.4, 1), 0xffffff)); P.push(paint(place(new SphereGeometry(0.015, 6, 4), x, 0.315, z), 0xffd020)); }
+  return merge(P);
+}
+function giantGeo() {                              // the stem, leaves and green cup; the bloom is its own mover (it opens)
+  const parts = [paint(place(new CylinderGeometry(0.04, 0.075, GIANT_H, 8), 0, GIANT_H / 2, 0), 0x2f7a24, 0x6ac050)];
+  [[0.45, 1, 0.4], [0.9, -1, 2.0], [1.35, 1, 3.6]].forEach(([y, sd, ry]) => parts.push(leafG(0.2, sd * 0.28, y, 0, 0, ry, sd * -0.35, 1.6, 0.18, 0.8)));
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; parts.push(paint(place(new ConeGeometry(0.05, 0.16, 5), Math.cos(a) * 0.07, GIANT_H - 0.04, Math.sin(a) * 0.07, Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9), 0x3a9a2a, 0x6ac050)); }
+  return merge(parts);
+}
+function bloomGeo() {                              // faces +z, centre at the origin, ~1 m across
+  const parts = [];
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; parts.push(radial(place(new SphereGeometry(0.11, 10, 6), Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0, 0, 0, a, 2.1, 1.0, 0.3), 0xff4aa0, 0xffc0e0, 0.12, 0.52)); }
+  for (let i = 0; i < 8; i++) { const a = (i + 0.5) / 8 * Math.PI * 2; parts.push(radial(place(new SphereGeometry(0.08, 8, 6), Math.cos(a) * 0.18, Math.sin(a) * 0.18, 0.05, 0, 0, a, 1.8, 1.0, 0.3), 0xd02080, 0xff70b8, 0.08, 0.3)); }
+  parts.push(paint(place(new SphereGeometry(0.13, 14, 10), 0, 0, 0.09, 0, 0, 0, 1, 1, 0.5), 0xff9a10, 0xffe040));
+  return merge(parts);
+}
+function mandrakeGeo() {                           // a friendly baby mandrake: a round root with a face and a leafy tuft (faces +z)
+  const L = [];
+  for (let i = 0; i < 5; i++) { const k = i - 2; L.push(leafG(0.05, k * 0.03, 0.4, Math.abs(k) * -0.01, (i % 2 ? 0.2 : -0.15), 0, -k * 0.35, 0.75, 2.6, 0.3, 0x3aa02a, 0x8ae060)); }
+  return merge([
+    paint(place(new SphereGeometry(0.16, 16, 12), 0, 0.18, 0, 0, 0, 0, 1, 1.12, 0.95), 0xc08850, 0xecc898),
+    paint(place(new ConeGeometry(0.05, 0.14, 6), 0, 0.0, 0, Math.PI), 0xa87040),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.045, 8, 6), s * 0.075, 0.04, 0.04, 0, 0, 0, 0.8, 0.7, 1.2), 0xc08850)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.027, 8, 6), s * 0.056, 0.23, 0.138), 0x141018)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.009, 5, 4), s * 0.05 + 0.006, 0.24, 0.162), 0xffffff)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.03, 8, 5), s * 0.1, 0.18, 0.12, 0, 0, 0, 1, 0.7, 0.4), 0xff8a9a)),
+    paint(place(new TorusGeometry(0.045, 0.01, 4, 12, Math.PI), 0, 0.185, 0.148, 0, 0, Math.PI), 0x6a2a1a),
+    paint(place(new CylinderGeometry(0.02, 0.024, 0.12, 6), -0.17, 0.13, 0, 0, 0, -0.6), 0xc89060),
+    ...L,
+  ]);
+}
+function armGeo() {                                // the waving arm: pivot at the shoulder, along +y
+  return merge([paint(place(new CylinderGeometry(0.02, 0.024, 0.13, 6), 0, 0.065, 0), 0xc89060), paint(place(new SphereGeometry(0.032, 8, 6), 0, 0.14, 0), 0xecc898)]);
+}
+function beeGeo() {
+  return place(merge([
+    stripe(place(new SphereGeometry(0.05, 12, 8), 0, 0, 0, 0, 0, 0, 0.8, 0.8, 1.2), 0xffd020, 0x1a1410, 'z', 60),
+    paint(place(new SphereGeometry(0.03, 8, 6), 0, 0.005, 0.06), 0x1a1410),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.035, 8, 5), s * 0.035, 0.045, -0.005, 0, 0, s * -0.5, 1, 0.15, 0.6), 0xffffff, 0xe8f4ff)),
+    paint(place(new ConeGeometry(0.012, 0.03, 5), 0, 0, -0.068, -Math.PI / 2), 0x1a1410),
+  ]), 0, 0, 0, 0, 0, 0, 1.6);
+}
+function ladyGeo() {
+  const sp = [[0.03, 0.045, 0.02], [-0.03, 0.045, 0.02], [0.035, 0.035, -0.03], [-0.035, 0.035, -0.03], [0, 0.06, -0.01]];
+  return place(merge([
+    paint(place(new SphereGeometry(0.07, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0, 0, 0, 0, 0, 1, 0.9, 1.15), 0xd01818, 0xff4a3a),
+    ...sp.map(([x, y, z]) => paint(place(new SphereGeometry(0.016, 6, 4), x, y, z, 0, 0, 0, 1, 0.5, 1), 0x141018)),
+    paint(place(new SphereGeometry(0.035, 10, 6), 0, 0.015, 0.075), 0x141018),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.009, 5, 4), s * 0.016, 0.03, 0.1), 0xffffff)),
+  ]), 0, 0, 0, 0, 0, 0, 1.7);
+}
+function potGeo() {                                // a terracotta pot, soil top at POT_SOIL
+  return merge([
+    paint(place(new CylinderGeometry(0.2, 0.14, 0.28, 14), 0, 0.14, 0), 0xa04a24, 0xd0703a),
+    paint(place(new TorusGeometry(0.2, 0.032, 5, 16), 0, 0.29, 0, Math.PI / 2), 0xd8803e),
+    paint(place(new CylinderGeometry(0.185, 0.185, 0.02, 14), 0, POT_SOIL - 0.01, 0), 0x3e2a1a),
+  ]);
+}
+
+// The Herbology course props (see COURSES.herbology and HB): OUTDOORS, so every prop sits on ctx.ground(x, z). Pots,
+// bench, beds, the star post, the stream and the picture signs are the ONE merged static mesh; the seedlings are ONE
+// instanced set (the grow targets: they glow while they wait); each grown plant is a mover the runner scales up with the
+// progress (the four sunflowers, Sprout's and the three of station 2, are one instanced set); a bee set, a ladybird, the
+// star, the giant flower's bloom, the mandrake and its waving arm; at dusk / night one soft additive quad set lays a pool
+// of light at the station, a halo round the open seedling and fireflies. Once the lesson's three plants (and later the
+// three vegetables) are done they swap to ONE merged copy, so the course draws <= 12 meshes at any moment.
+// No per-frame allocations: the temporaries below are made once here.
+function buildHerbology(kit) {
+  const { solid, ctx } = kit;
+  const G = ctx.ground, NK = ctx.night ? ctx.night() : 0;
+  const WOOD = 0x7a5232, WOOD2 = 0xa0703e, DARK = 0x4a3020, SOIL = 0x3a2616, SOIL2 = 0x5e4028;
+  // ---- static ----
+  const pot = (x, z, s, y0) => solid(place(potGeo(), x, G(x, z) + y0, z, 0, 0, 0, s));
+  HB.pots.forEach(([x, z, s, y0]) => pot(x, z, s, y0));
+  const bed = (x, z, w, d) => {                    // a raised bed: a plank frame and dark soil (top = BED_SOIL above the ground at its centre)
+    const b = G(x, z) - 0.04;
+    solid(paint(place(new BoxGeometry(w - 0.06, 0.2, d - 0.06), x, b + 0.11, z), SOIL, SOIL2));
+    for (const sd of [-1, 1]) {
+      solid(paint(place(new BoxGeometry(w, 0.24, 0.06), x, b + 0.12, z + sd * (d / 2 - 0.03)), WOOD, WOOD2));
+      solid(paint(place(new BoxGeometry(0.06, 0.24, d - 0.12), x + sd * (w / 2 - 0.03), b + 0.12, z), WOOD, WOOD2));
+    }
+  };
+  // the potting bench in front of Sprout (top at 0.55), a watering can
+  { const [x, z] = HB.bench, y = G(x, z);
+    solid(paint(place(new BoxGeometry(1.7, 0.06, 0.5), x, y + 0.52, z), WOOD, WOOD2));
+    for (const sx of [-0.75, 0.75]) for (const sz of [-0.18, 0.18]) solid(paint(place(new BoxGeometry(0.06, 0.52, 0.06), x + sx, y + 0.26, z + sz), DARK));
+    const cx = 1.15, cz = 1.7, cy = G(cx, cz);
+    solid(paint(place(new CylinderGeometry(0.11, 0.12, 0.22, 12), cx, cy + 0.11, cz), 0x3a8a6a, 0x5ab08a));
+    solid(paint(place(new CylinderGeometry(0.015, 0.025, 0.28, 6), cx - 0.16, cy + 0.2, cz, 0, 0, 0.9), 0x3a8a6a));
+    solid(paint(place(new TorusGeometry(0.08, 0.015, 4, 12, Math.PI), cx + 0.02, cy + 0.22, cz, 0, Math.PI / 2, 0), 0x2a6a50)); }
+  // 1 the beanstalk bed and the tall garden post with its little platform (the star waits on top)
+  bed(HB.bean[0], HB.bean[1], 0.9, 0.7);
+  { const [x, z, h] = HB.post, y = G(x, z);
+    solid(paint(place(new CylinderGeometry(0.05, 0.065, h, 8), x, y + h / 2, z), DARK, WOOD2));
+    solid(paint(place(new BoxGeometry(0.34, 0.05, 0.34), x, y + h + 0.025, z), WOOD, WOOD2));
+    for (const ry of [0, Math.PI / 2]) solid(paint(place(new BoxGeometry(0.04, 0.04, 0.4), x, y + h - 0.22, z, 0, ry, 0), WOOD));
+    solid(paint(place(new CylinderGeometry(0.12, 0.14, 0.08, 10), x, y + 0.03, z), 0x8a8478, 0xa8a294)); }
+  // 2 the long sunflower bed
+  bed(-4.5, 8.3, 2.6, 0.7);
+  // 3 the little stream (a blue strip on the lawn between two muddy banks, a few stones) and the seedling's mound
+  { const [sx, w, z0, z1] = HB.stream;
+    const strip = (cx, ww, segX, lift, colAt) => {
+      const g = new PlaneGeometry(ww, z1 - z0, segX, 18).rotateX(-Math.PI / 2).translate(cx, 0, (z0 + z1) / 2), P = g.attributes.position, col = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { P.setY(i, G(P.getX(i), P.getZ(i)) + lift); colAt(P.getX(i), _c); col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
+      g.setAttribute('color', new BufferAttribute(col, 3)); g.computeVertexNormals(); return g;
+    };
+    const deep = new Color(0x2a6ad8), edge = new Color(0x8ad8ff);
+    solid(strip(sx, w, 4, 0.025, (x, c) => c.copy(deep).lerp(edge, Math.min(1, Math.abs(x - sx) / (w / 2)) ** 2)));
+    const mud = new Color(0x5e4028), grass = new Color(0x5a7a30);
+    for (const sd of [-1, 1]) solid(strip(sx + sd * (w / 2 + 0.15), 0.34, 1, 0.04, (x, c) => c.copy(mud).lerp(grass, Math.min(1, Math.abs(x - sx) - w / 2) / 0.34)));
+    for (let i = 0; i < 8; i++) { const sd = i % 2 ? 1 : -1, z = z0 + 0.6 + i * 1.08, x = sx + sd * (w / 2 + 0.2 + (i % 3) * 0.04);
+      if (Math.abs(z - HB.vine[1]) < 0.6) continue;
+      solid(paint(place(new SphereGeometry(0.09 + (i % 3) * 0.03, 8, 5), x, G(x, z) + 0.04, z, 0, i, 0, 1.3, 0.55, 1), 0x8a8478, 0xb0aa9a)); }
+    for (let i = 0; i < 6; i++) { const z = z0 + 1.0 + i * 1.35, x = sx + ((i % 3) - 1) * 0.2;
+      solid(paint(place(new SphereGeometry(0.1, 8, 4), x, G(x, z) + 0.032, z, 0, 0, 0, 1.4, 0.05, 0.2), 0xd8f4ff)); }
+    const [vx, vz] = HB.vine;
+    solid(paint(place(new SphereGeometry(0.32, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), vx, G(vx, vz) - 0.01, vz, 0, 0, 0, 1, 0.3, 1), SOIL, SOIL2)); }
+  // 4 three vegetable beds, each with a picture sign behind it (the pictures are little painted reliefs: carrot, pumpkin, strawberry)
+  HB.veg.forEach(([x, z], j) => {
+    bed(x, z, 0.9, 0.7);
+    const sz = z - 0.5, y = G(x, sz);
+    solid(paint(place(new BoxGeometry(0.06, 0.8, 0.06), x, y + 0.4, sz - 0.02), DARK));
+    solid(paint(place(new BoxGeometry(0.56, 0.46, 0.04), x, y + 0.9, sz), WOOD, WOOD2));
+    solid(paint(place(new BoxGeometry(0.48, 0.38, 0.02), x, y + 0.9, sz + 0.02), 0xf4e8c8));
+    const fz = sz + 0.04, fy = y + 0.9;
+    if (j === 0) {
+      solid(paint(place(new ConeGeometry(0.06, 0.24, 8), x, fy - 0.03, fz, 0, 0, Math.PI - 0.5, 1, 1, 0.45), 0xe06a10, 0xff9a30));
+      for (const k of [-1, 0, 1]) solid(leafG(0.03, x - 0.06 + k * 0.02, fy + 0.1, fz, 0, 0, 0.5 + k * 0.4, 0.6, 2.4, 0.4, 0x2a8a2a, 0x6ac050));
+    } else if (j === 1) {
+      solid(ribs(place(new SphereGeometry(0.1, 12, 8), x, fy - 0.01, fz, 0, 0, 0, 1.3, 0.9, 0.4), 0xd85a08, 0xffa030, 6));
+      solid(paint(place(new CylinderGeometry(0.014, 0.018, 0.06, 5), x, fy + 0.1, fz), 0x5a6a20));
+    } else {
+      solid(paint(place(new ConeGeometry(0.08, 0.17, 10), x, fy - 0.02, fz, Math.PI, 0, 0, 1, 1, 0.45), 0xd0101e, 0xff4a4a));
+      for (const k of [-1, 0, 1]) solid(leafG(0.03, x + k * 0.035, fy + 0.07, fz + 0.01, 0, 0, k * 0.6, 1.4, 0.5, 0.4, 0x2a8a2a, 0x6ac050));
+    }
+  });
+
+  // ---- movers ----
+  const NS = 13, SEEDS = [];                       // seed 0 = Sprout's demo, 1-3 the lesson, 4 bean, 5-7 sunflowers, 8 vine, 9-11 vegetables, 12 the finale
+  for (let i = 0; i < NS; i++) SEEDS.push('seed' + i);
+  kit.inst('seed', seedGeo(), NS, new Array(NS).fill(0xffffff), { glowHex: 0xfff0a0 });
+  kit.mesh('tulip', tulipGeo(), { glow: false }); kit.mesh('daisy', daisyGeo(), { glow: false }); kit.mesh('fern', fernGeo(), { glow: false });
+  const trioAt = (i) => potSoil(1 + i);
+  kit.mesh('trio', merge([tulipGeo(), daisyGeo(), fernGeo()].map((g, i) => { const P = trioAt(i); return place(g, P[0], P[1] + G(P[0], P[2]), P[2], 0, 0.6, 0); })), { glow: false });
+  kit.inst('sunf', sunGeo(), 4, [0xffffff, 0xffffff, 0xffffff, 0xffffff], { glow: false });
+  kit.mesh('bean', beanGeo(), { glow: false });
+  kit.mesh('vine', vineGeo(), { glow: false });
+  const VEG = ['carrot', 'pumpkin', 'berry'], vegG = [carrotGeo, pumpkinGeo, berryGeo];
+  VEG.forEach((n, j) => kit.mesh(n, vegG[j](), { glow: false }));
+  kit.mesh('vegAll', merge(vegG.map((f, j) => { const [x, z] = HB.veg[j]; return place(f(), x, G(x, z) + BED_SOIL, z, 0, -0.3, 0); })), { glow: false });
+  kit.mesh('giant', giantGeo(), { glow: false });
+  kit.mesh('bloom', bloomGeo(), { glow: false });
+  kit.mesh('mandrake', mandrakeGeo(), { glow: false }); kit.mesh('arm', armGeo(), { glow: false });
+  kit.inst('bee', beeGeo(), 3, [0xffffff, 0xffffff, 0xffffff], { glow: false });
+  kit.mesh('bug', ladyGeo(), { glow: false });
+  const star = kit.mesh('star', starGeo(0.17), { glow: false, glowHex: 0xffc030 }); star.mat.emissiveIntensity = 0.9;
+  // the soft light (night only): ONE additive instanced quad set with a soft canvas
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(0.6, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+  const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
+  const NQ = 10, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  glow.renderOrder = 3;
+
+  // ---- places and state ----
+  const D0 = potSoil(0), D0y = D0[1] + G(D0[0], D0[2]);           // Sprout's own pot (the demo)
+  const [PX, PZ, PH] = HB.post, STAR_Y = G(PX, PZ) + PH + 0.22;
+  const BX = HB.bean[0], BZ = HB.bean[1], BY = G(BX, BZ) + BED_SOIL;
+  const SLIDE = new Float32Array((BEAN_LEAVES.length + 1) * 3);    // the star's way down: the stalk's top, then each leaf
+  SLIDE[0] = BX + 0.05; SLIDE[1] = BY + BEAN_H + 0.18; SLIDE[2] = BZ;
+  BEAN_LEAVES.forEach((p, k) => { SLIDE[3 + k * 3] = BX + p[0]; SLIDE[4 + k * 3] = BY + p[1]; SLIDE[5 + k * 3] = BZ + p[2]; });
+  const NSL = BEAN_LEAVES.length + 1;
+  const [VX, VZ] = HB.vine, VY = G(VX, VZ) + 0.08;
+  const MP = HB.pots[4], MX = HB.man[0], MZ = HB.man[1], MY = G(MP[0], MP[1]) + POT_SOIL * MP[2], MYAW = Math.atan2(3.0 - MX, 5.4 - MZ), MS = 1.15;
+  const CEN = [[0, 1.4], [-3.9, 5.0], [-4.1, 8.9], [0.0, 11.3], [4.6, 11.2], [1.8, 1.6]].map(([x, z]) => [x, G(x, z), z]);
+  const m1 = new Matrix4(), v1 = new Vector3(), q1 = new Quaternion(), q0 = new Quaternion(), e1 = new Euler(), s1 = new Vector3(), c1 = new Color();
+  const syaw = new Float32Array(4);
+  let LI = null, lastStep = -9, stepT = 0, yaw0 = -1.2;
+  let demoT = 0, demoSfx = 0, starT = 0, starSfx = 0, sunT = 0, sunSfx = 0, layT = 0, laySfx = 0, vegT = 0, vegSfx = 0, manT = 0, manSfx = 0;
+  let trioMerged = false, vegMerged = false;
+  const ease = (k) => k * k * (3 - 2 * k);
+  const clamp01 = (k) => Math.max(0, Math.min(1, k));
+  const back = (k) => 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+  const bounce = (k) => { const n = 7.5625, d = 2.75; if (k < 1 / d) return n * k * k; if (k < 2 / d) { k -= 1.5 / d; return n * k * k + 0.75; } if (k < 2.5 / d) { k -= 2.25 / d; return n * k * k + 0.9375; } k -= 2.625 / d; return n * k * k + 0.984375; };
+  const turnTo = (cur, want, k) => { let d = want - cur; d = Math.atan2(Math.sin(d), Math.cos(d)); return cur + d * k; };
+  const shows = (mv) => mv.s > 0.001;
+  function vis(M, names, on) { let v = false; if (on) for (const n of names) if (M[n] && shows(M[n])) { v = true; break; } M[names[0]].mesh.visible = v; }
+  let gq = 0;
+  function quad(x, y, z, sx, sy, r, g, b, flat = 0) {   // flat: 0 faces the camera, 1 lies on the ground
+    if (gq >= NQ) return;
+    if (flat === 1) q1.setFromEuler(e1.set(-Math.PI / 2, 0, 0)); else q1.copy(ctx.camera.quaternion);
+    m1.compose(v1.set(x, y, z), q1, s1.set(sx, sy, 1)); glow.setMatrixAt(gq, m1); glow.setColorAt(gq, c1.setRGB(r, g, b)); gq++;
+  }
+  const hum = () => { for (let i = 0; i < 7; i++) fun.sfx.tone(205 + (i % 2) * 14, 0.3, 'sawtooth', 0.022, i * 0.24, 215 - (i % 2) * 10); };
+  function poseFree(M, n, L, t, j) {               // a done 'free' plant: full size, swaying, or hidden once merged
+    const a = L.arr;
+    M[n].poseS(a[0], a[1], a[2], 0, L.rot1[1], Math.sin(t * 1.6 + j) * 0.05, 1, 1, 1);
+  }
+  return {
+    reset(M) {
+      demoT = 0; demoSfx = 0; starT = 0; starSfx = 0; sunT = 0; sunSfx = 0; layT = 0; laySfx = 0; vegT = 0; vegSfx = 0; manT = 0; manSfx = 0;
+      trioMerged = false; vegMerged = false; yaw0 = -1.2; syaw.fill(0.6); lastStep = -9; stepT = 0;
+      M.seed0.pose(D0[0], D0y, D0[2], 0, 0.6, 0, 1); M.sunf0.pose(D0[0], D0y, D0[2], 0, 0, 0, 0);
+      for (const n of ['trio', 'vegAll', 'bloom', 'mandrake', 'arm']) M[n].pose(0, 0, 0, 0, 0, 0, 0);
+      for (let i = 0; i < 3; i++) M['bee' + i].pose(0, -50, 0, 0, 0, 0, 0);
+      M.bug.pose(VX - 0.4, G(VX - 0.4, VZ + 0.35) + 0.01, VZ + 0.35, 0, Math.PI / 2, 0, 1);
+      M.star.pose(PX, STAR_Y, PZ, 0, 0, 0, 1);
+      for (let i = 0; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); glow.setColorAt(i, c1.setRGB(0, 0, 0)); }
+    },
+    tick(M, t, st, K, dt = 0.016) {
+      if (!K) return;
+      if (!LI) { LI = {}; for (const L of [...K.lesson, ...K.stations.flat()]) LI[L.mv.name] = L; }
+      const les = st.phase === 'lesson', step = st.phase === 'course' ? st.step : st.phase === 'reward' ? 4 : -1;
+      if (step !== lastStep) { lastStep = step; stepT = 0; } else stepT += dt;
+      const P = ctx.player.pos, hx = P.x - ctx.worldOff.x, hz = P.z - ctx.worldOff.z, hy = P.y - ctx.worldOff.y;
+      gq = 0;
+      // ---- Sprout's demo: her seedling shoots up into a sunflower, which then turns to the child (and keeps following him) ----
+      if (demoT > 0.2) {
+        const g = clamp01((demoT - 0.2) / 1.4), pop = clamp01((demoT - 1.6) / 0.5), b = Math.sin(pop * Math.PI) * (1 - 0.4 * pop);
+        const sy = g < 1 ? 0.1 + 0.9 * ease(g) : 1 + 0.16 * b, sx = g < 1 ? sy * (0.6 + 0.4 * ease(g)) : 1 + 0.28 * b;
+        if (demoT < 2.2) yaw0 = -1.2; else yaw0 = turnTo(yaw0, Math.atan2(hx - D0[0], hz - D0[2]), Math.min(1, dt * 2.2));
+        M.seed0.pose(D0[0], D0y, D0[2], 0, 0.6, Math.sin(t * 14) * 0.12 * (1 - g), Math.max(0, 1 - g / 0.3) * 1.2);
+        M.sunf0.poseS(D0[0], D0y, D0[2], 0, yaw0, Math.sin(t * 1.6) * 0.04 + (g < 1 ? Math.sin(t * 8) * 0.06 * (1 - g) : 0), sx, sy, sx);
+      }
+      // ---- the lesson's three plants: free once popped; one merged copy once all three are done ----
+      let lesDone = true;
+      for (let j = 0; j < 3; j++) { const L = LI['seed' + (1 + j)]; if (!L || !L.done || L.popT < POP) { lesDone = false; continue; } if (!trioMerged) poseFree(M, ['tulip', 'daisy', 'fern'][j], L, t, j); }
+      if (lesDone && !trioMerged) { trioMerged = true; M.trio.pose(0, 0, 0, 0, 0, 0, 1); for (const n of ['tulip', 'daisy', 'fern']) M[n].pose(0, 0, 0, 0, 0, 0, 0); }
+      // ---- 1 the star waits on the post; after the beanstalk grows it hops onto the top and slides down leaf by leaf to the hero ----
+      if (starT <= 0) M.star.pose(PX, STAR_Y + Math.sin(t * 2) * 0.03, PZ, 0, t * 1.2, 0, 1);
+      else {
+        let x, y, z, s = 1;
+        if (starT < 0.6) { const u = ease(starT / 0.6); x = PX + (SLIDE[0] - PX) * u; z = PZ + (SLIDE[2] - PZ) * u; y = STAR_Y + (SLIDE[1] - STAR_Y) * u + Math.sin(u * Math.PI) * 0.3; }
+        else if (starT < 3.4) {
+          const f = (starT - 0.6) / 2.8 * (NSL - 1), k = Math.min(NSL - 2, f | 0), u = ease(f - k), i0 = k * 3, i1 = i0 + 3;
+          x = SLIDE[i0] + (SLIDE[i1] - SLIDE[i0]) * u; y = SLIDE[i0 + 1] + (SLIDE[i1 + 1] - SLIDE[i0 + 1]) * u + Math.sin(u * Math.PI) * 0.06; z = SLIDE[i0 + 2] + (SLIDE[i1 + 2] - SLIDE[i0 + 2]) * u;
+          if (starSfx < 10 + k && starT < 99) { starSfx = 10 + k; fun.sfx.tink(k % 4); }
+        } else {
+          const u = ease(clamp01((starT - 3.4) / 0.8)), n = (NSL - 1) * 3;
+          x = SLIDE[n] + (hx - SLIDE[n]) * u; z = SLIDE[n + 2] + (hz - SLIDE[n + 2]) * u; y = SLIDE[n + 1] + (hy + 1.15 - SLIDE[n + 1]) * u + Math.sin(u * Math.PI) * 0.4;
+          s = 1 - clamp01((starT - 4.25) / 0.2);
+        }
+        M.star.pose(x, y, z, 0, t * 3, 0, s);
+      }
+      // ---- 2 the sunflowers turn to the hero together (and keep following him); three bees circle their heads ----
+      for (let j = 1; j <= 3; j++) {
+        const L = LI['seed' + (4 + j)]; if (!L || !L.done || L.popT < POP) continue;
+        const a = L.arr;
+        if (sunT > 0) syaw[j] = turnTo(syaw[j], Math.atan2(hx - a[0], hz - a[2]), Math.min(1, dt * (sunT >= 99 ? 99 : 2.6)));
+        M['sunf' + j].poseS(a[0], a[1], a[2], 0, syaw[j], Math.sin(t * 1.6 + j) * 0.05, 1, 1, 1);
+        const bee = M['bee' + (j - 1)];
+        if (sunT > 0.2) {
+          const e = ease(clamp01((sunT - 0.2) / 0.9)), ang = t * 3.2 + j * 2.1, r = 0.34 + (1 - e) * 1.4, cx = a[0] + Math.sin(syaw[j]) * 0.05, cz = a[2] + Math.cos(syaw[j]) * 0.05;
+          bee.pose(cx + Math.cos(ang) * r, a[1] + 1.55 + Math.sin(t * 5 + j) * 0.08 + (1 - e) * 1.0, cz + Math.sin(ang) * r, 0, Math.atan2(-Math.sin(ang), Math.cos(ang)), Math.sin(t * 9 + j) * 0.2, e);
+        } else bee.pose(0, -50, 0, 0, 0, 0, 0);
+      }
+      // ---- 3 the vine lays itself across the stream; the ladybird walks over it; the hero walks across it too ----
+      { const L = LI.seed8;
+        if (L && L.done && L.popT >= POP && layT > 0) {
+          const u = clamp01(layT / 1.2), a = L.arr;
+          M.vine.poseS(a[0], a[1], a[2], 0, 0, Math.PI / 2 * (1 - bounce(u)), 1, 1, 1);
+        }
+        const bt = layT;
+        if (bt < 1.3) M.bug.pose(VX - 0.4, G(VX - 0.4, VZ + 0.35) + 0.01 + Math.abs(Math.sin(t * 3)) * 0.01, VZ + 0.35, 0, Math.PI / 2 + Math.sin(t * 1.3) * 0.3, 0, 1);
+        else if (bt < 1.7) { const u = ease((bt - 1.3) / 0.4); M.bug.pose(VX - 0.4 + 0.4 * u, VY - 0.07 + 0.08 * u, VZ + 0.35 * (1 - u), 0, Math.PI / 2 - 0.6 * (1 - u), 0, 1); }
+        else if (bt < 3.7) { const u = (bt - 1.7) / 2.0, du = 0.01, sl = (archY(Math.min(1, u + du)) - archY(Math.max(0, u - du))) / (2 * du * VINE_S);
+          M.bug.pose(VX + u * VINE_S, VY + archY(u) + 0.045, VZ + Math.sin(u * 20) * 0.02, 0, Math.PI / 2, Math.atan(sl), 1); }
+        else { const u = ease(clamp01((bt - 3.7) / 0.4)), ex = VX + VINE_S, ey = VY + archY(1) + 0.045, tx = ex + 0.35, tz = VZ + 0.4;
+          M.bug.pose(ex + (tx - ex) * u, ey + (G(tx, tz) + 0.01 - ey) * u, VZ + (tz - VZ) * u, 0, Math.PI / 2 - 0.8 * u, 0, 1); }
+        if (layT >= 1.0) {                         // walking over the bridge: the hero rides its deck
+          const u = (hx - VX) / VINE_S;
+          if (u > 0 && u < 1 && Math.abs(hz - VZ) < 0.5) { const yw = ctx.worldOff.y + VY + archY(u) + 0.05; if (yw > P.y) { P.y = yw; ctx.player.model.position.y = yw; } }
+        } }
+      // ---- 4 the vegetables: free once popped, a little bounce together, then one merged copy ----
+      for (let j = 0; j < 3; j++) {
+        const L = LI['seed' + (9 + j)]; if (!L || !L.done || L.popT < POP || vegMerged) continue;
+        const k = vegT - j * 0.22, hop = k > 0 && k < 2.0 ? Math.abs(Math.sin(k * 5.2)) * 0.13 * (1 - k / 2.0) : 0, sq = k > 0 && k < 2.0 ? Math.sin(k * 10.4) * 0.07 * (1 - k / 2.0) : 0;
+        if (vegT > 0) { const a = L.arr; M[VEG[j]].poseS(a[0], a[1] + hop, a[2], 0, L.rot1[1], 0, 1 + sq, 1 - sq, 1 + sq); }
+        else poseFree(M, VEG[j], L, t, j);
+      }
+      if (vegT >= 2.6 && !vegMerged) { vegMerged = true; M.vegAll.pose(0, 0, 0, 0, 0, 0, 1); for (const n of VEG) M[n].pose(0, 0, 0, 0, 0, 0, 0); }
+      // ---- 5 the giant flower: its bloom rides the top of the stem (a closed bud until it opens); the baby mandrake ----
+      { const gm = M.giant.mesh;
+        if (shows(M.giant)) {
+          const sy = gm.scale.y, rz = gm.rotation.z, ry = gm.rotation.y, lx = -Math.sin(rz) * GIANT_H * sy;
+          const open = manT > 0 ? back(clamp01(manT / 1.2)) : 0, bs = sy * (0.32 + 0.68 * open);
+          M.bloom.poseS(gm.position.x + Math.cos(ry) * lx, gm.position.y + Math.cos(rz) * GIANT_H * sy + 0.04, gm.position.z - Math.sin(ry) * lx, 0, ry, (1 - open) * 1.4 + t * 0.15 * open, bs, bs, sy * (0.9 - 0.1 * open));
+        } else M.bloom.pose(0, 0, 0, 0, 0, 0, 0);
+        if (manT > 1.2) {
+          let y = MY - 0.04, sq = 0;
+          if (manT < 1.5) y = MY - 0.3 + (manT - 1.2) / 0.3 * 0.12 + Math.sin(t * 40) * 0.01;
+          else if (manT < 2.0) { const u = (manT - 1.5) / 0.5; y = MY - 0.18 + u * (0.14) + Math.sin(u * Math.PI) * 0.55; }
+          else { const k = manT - 2.0; sq = k < 0.3 ? Math.sin(k / 0.3 * Math.PI) * 0.15 : 0; y = MY - 0.04 + Math.abs(Math.sin(t * 4)) * 0.03; }
+          const rock = manT >= 2.0 ? Math.sin(t * 3) * 0.1 : 0, s = MS;
+          M.mandrake.poseS(MX, y, MZ, 0, MYAW, rock, s * (1 + sq), s * (1 - sq), s * (1 + sq));
+          if (manT >= 2.0) {
+            const c = Math.cos(MYAW), sn = Math.sin(MYAW), ox = 0.15 * s, oy = 0.2 * s;
+            M.arm.pose(MX + c * ox, y + oy * (1 - sq), MZ - sn * ox, 0, MYAW, -(0.75 + 0.42 * Math.sin(t * 10)), s);
+          } else M.arm.pose(0, 0, 0, 0, 0, 0, 0);
+        } else { M.mandrake.pose(0, 0, 0, 0, 0, 0, 0); M.arm.pose(0, 0, 0, 0, 0, 0, 0); } }
+      // ---- night: a soft pool of light at the station, a halo round the open seedling, fireflies ----
+      if (NK > 0) {
+        const C = CEN[les ? 0 : Math.min(5, step + 1)];
+        quad(C[0], C[1] + 0.08, C[2], 6, 6, 0.3 * NK, 0.27 * NK, 0.15 * NK, 1);
+        if (st.sub === 'cast' && st.lifts) for (const L of st.lifts) { if (L.done) continue; const a = L.arr, pu = 0.8 + 0.2 * Math.sin(t * 5);
+          quad(a[0], a[1] + 0.15, a[2], 0.9, 0.9, 0.5 * NK * pu, 0.8 * NK * pu, 0.25 * NK * pu); }
+        for (let i = 0; i < 6; i++) {
+          const a = t * 0.35 * (1 + i * 0.13) + i * 0.9, r = 1.4 + (i % 3) * 0.5, fl = 0.6 + 0.4 * Math.sin(t * 7 + i * 2.3);
+          quad(C[0] + Math.cos(a) * r, C[1] + 0.6 + 0.9 * (0.5 + 0.5 * Math.sin(t * 0.9 + i * 1.7)), C[2] + Math.sin(a * 1.3) * r * 0.7, 0.14, 0.14, 1.3 * fl * NK, 1.6 * fl * NK, 0.5 * fl * NK);
+        }
+      }
+      for (let i = gq; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); }
+      glow.instanceMatrix.needsUpdate = true; if (glow.instanceColor) glow.instanceColor.needsUpdate = true; glow.visible = gq > 0;
+      // ---- what is drawn: a thing only while it shows and its station (or the one just left, for a moment) is near ----
+      const left = (s) => step === s || (step === s + 1 && stepT < 2.5);
+      vis(M, SEEDS, true);
+      vis(M, ['tulip'], !trioMerged); vis(M, ['daisy'], !trioMerged); vis(M, ['fern'], !trioMerged); vis(M, ['trio'], trioMerged);
+      vis(M, ['sunf0', 'sunf1', 'sunf2', 'sunf3'], true);
+      vis(M, ['bean'], step <= 2 || left(2));
+      vis(M, ['star'], step <= 1);
+      vis(M, ['bee0', 'bee1', 'bee2'], sunT > 0.2 && left(1));
+      vis(M, ['vine'], step === 2 || step === 3 || left(3));
+      M.bug.mesh.visible = step === 2 || step === 3 || left(3);
+      vis(M, ['carrot'], !vegMerged); vis(M, ['pumpkin'], !vegMerged); vis(M, ['berry'], !vegMerged);
+      vis(M, ['vegAll'], vegMerged && left(3));
+      vis(M, ['giant'], true); vis(M, ['bloom'], true); vis(M, ['mandrake'], true); vis(M, ['arm'], true);
+    },
+    effects: {
+      // Sprout's demo: her seedling shoots up into a sunflower, which turns to face the child (3.6 s, the next line talks over its end)
+      demo(M, t, quiet) {
+        demoT = quiet ? 99 : t;
+        if (!quiet) {
+          if (demoSfx < 1 && t > 0.2) { demoSfx = 1; fun.sfx.sparkle(); fun.sfx.tone(260, 1.4, 'sine', 0.1, 0, 780); }
+          if (demoSfx < 2 && t > 1.6) { demoSfx = 2; fun.sfx.pop(); kit.burst(D0[0], D0y + 1.5, D0[2], 18); }
+          if (demoSfx < 3 && t > 2.4) { demoSfx = 3; fun.sfx.chime(); }
+        }
+        return t < 3.6;
+      },
+      // the star hops onto the beanstalk's top and slides down its leaves to the hero (4.6 s)
+      starSlide(M, t, quiet) {
+        starT = quiet ? 99 : t;
+        if (!quiet) {
+          if (starSfx < 1 && t > 0.05) { starSfx = 1; fun.sfx.boing(); }
+          if (starSfx < 30 && t > 4.2) { starSfx = 30; kit.burst(hx(), 1.15, hz(), 14); fun.sfx.tune([784, 988, 1319], 0.1, 'sine'); }
+        }
+        return t < 4.6;
+      },
+      // the three sunflowers turn to the hero together, three bees come to circle them, a soft hum (3.4 s)
+      sunTurn(M, t, quiet) {
+        sunT = quiet ? 99 : t;
+        if (!quiet) {
+          if (sunSfx < 1) { sunSfx = 1; fun.sfx.tune([523, 659, 784], 0.12, 'triangle'); }
+          if (sunSfx < 2 && t > 0.4) { sunSfx = 2; hum(); }
+          if (sunSfx < 3 && t > 2.2) { sunSfx = 3; hum(); }
+        }
+        return t < 3.4;
+      },
+      // the vine lays itself across the stream (a bouncy fall), the ladybird walks over it (4.4 s)
+      vineLay(M, t, quiet) {
+        layT = quiet ? 99 : t;
+        if (!quiet) {
+          if (laySfx < 1) { laySfx = 1; fun.sfx.whoosh(); }
+          if (laySfx < 2 && t > 0.45) { laySfx = 2; fun.sfx.boing(); kit.burst(VX + VINE_S * 0.5, VY + 0.3, VZ, 14); }
+          if (laySfx < 3 && t > 1.3) { laySfx = 3; fun.sfx.squeak(); }
+          if (laySfx < 4 && t > 3.75) { laySfx = 4; fun.sfx.tune([659, 784, 988], 0.1, 'triangle'); kit.burst(VX + VINE_S, VY + 0.2, VZ, 8); }
+        }
+        return t < 4.4;
+      },
+      // the carrot, the pumpkin and the strawberry plant do a little bounce together (2.8 s)
+      vegBounce(M, t, quiet) {
+        vegT = quiet ? 99 : t;
+        if (!quiet) {
+          if (vegSfx < 1) { vegSfx = 1; fun.sfx.tune([523, 659, 784, 1047], 0.11, 'triangle'); }
+          for (let j = 0; j < 3; j++) if (vegSfx < 2 + j && t > 0.05 + j * 0.22) { vegSfx = 2 + j; fun.sfx.boing(); kit.burst(HB.veg[j][0], 0.6, HB.veg[j][1], 6); }
+        }
+        return t < 2.8;
+      },
+      // the giant bloom opens; a happy baby mandrake pops out of the pot, waves and giggles (5.8 s)
+      mandrake(M, t, quiet) {
+        manT = quiet ? 99 : t;
+        if (!quiet) {
+          if (manSfx < 1 && t > 0.05) { manSfx = 1; fun.sfx.sparkle(); fun.sfx.tone(392, 1.0, 'sine', 0.1, 0, 784); }
+          if (manSfx < 2 && t > 1.0) { manSfx = 2; fun.sfx.chime(); kit.burst(HB.stem[0], 2.6, HB.stem[1], 18); }
+          if (manSfx < 3 && t > 1.5) { manSfx = 3; fun.sfx.pop(); fun.sfx.boing(); kit.burst(MX, MY + 0.3, MZ, 14); }
+          if (manSfx < 4 && t > 2.1) { manSfx = 4; fun.sfx.giggle(true); }
+          if (manSfx < 5 && t > 3.9) { manSfx = 5; fun.sfx.giggle(true); fun.sfx.heart(); }
+        }
+        return t < 5.8;
+      },
+    },
+  };
+  function hx() { return ctx.player.pos.x - ctx.worldOff.x; }
+  function hz() { return ctx.player.pos.z - ctx.worldOff.z; }
+}
+
 // ---------------------------------------------------------------------------------------
 // the runner
 // ---------------------------------------------------------------------------------------
@@ -1784,7 +2366,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // ---- state ----
   const S = { on: false, key: null, C: null, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0,
     speed: 1, q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null,
-    raise: 0, raiseK: 0, dim: 0, dimGoal: 0 };
+    raise: 0, raiseK: 0, dim: 0, dimGoal: 0, profY: 0 };
   let K = null;                            // the built kit for the running course: { group, movers, lesson, stations, ... }
   let drag = null;
   const tmp = new Vector3(), tmp2 = new Vector3(), camPos = new Vector3(), camLook = new Vector3(), camPosGoal = new Vector3(), camLookGoal = new Vector3();
@@ -1818,20 +2400,28 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function hop() { hopT = 0.6; }            // the chibi fallback's little flourish
 
   // ---- kit: build the course props into the room ----
+  // the night factor of the outdoor light (an outdoor course gives its own props a little more light: see buildKit)
+  const nightK = () => (!env || !env.time) ? 0 : env.time === 'night' ? 1 : env.time === 'dusk' ? 0.5 : 0;
   function buildKit(C, room) {
     const group = new Group(); group.name = 'spell-' + S.key;
     const solids = [], movers = {}, mats = [], geos = [], glowMats = [], texs = [];
+    // outdoors (room null): the group stands on the terrain at the teacher's station; ground(x, z) = the terrain height
+    // there, above the station's (0 in a room: the floor is y 0)
+    const outdoor = !room;
+    if (outdoor) { const st = lessons.stations[C.station]; group.position.set(st.x, player.heightAt(st.x, st.z), st.z); worldOff.copy(group.position); }
+    const hAt = player.heightAt, ground = outdoor ? (x, z) => hAt.call(player, x + worldOff.x, z + worldOff.z) - worldOff.y : () => 0;
     const kit = {
       solid: (g) => solids.push(g),
       tex: (t) => { texs.push(t); return t; },
       burst: (x, y, z, n) => burst(x, y, z, n),
-      ctx: { player, camera, worldOff, prof: () => prof() },
+      ctx: { player, camera, worldOff, prof: () => prof(), ground, night: nightK },
       mesh(name, geo, o = {}) {
         const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: DoubleSide, emissive: new Color(o.glowHex || 0xffd27a), emissiveIntensity: 0 });
         const m = new Mesh(geo, mat); m.name = 'spell-' + name; m.frustumCulled = false; m.raycast = () => {}; group.add(m);
         mats.push(mat); geos.push(geo); if (o.glow !== false) glowMats.push(mat);
         movers[name] = { name, mesh: m, geo, mat, scale: 1, s: 1, glows: o.glow !== false,
           pose(x, y, z, rx, ry, rz, s = 1) { m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.setScalar(s); this.s = s; },
+          poseS(x, y, z, rx, ry, rz, sx, sy, sz) { m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.set(sx, sy, sz); this.s = sy; },
           color(hex) { mat.color.setHex(hex); } };
         return movers[name];
       },
@@ -1846,6 +2436,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
           im.setColorAt(i, _c.setHex(colors[i]));
           movers[name + i] = { name: name + i, mesh: im, geo, mat, scale: s0, s: 1, glows: o.glow !== false, lit: false,
             pose(x, y, z, rx, ry, rz, s = 1) { _m4.compose(_v.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.setScalar(s * s0)); im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; this.s = s; },
+            poseS(x, y, z, rx, ry, rz, sx, sy, sz) { _m4.compose(_v.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.set(sx * s0, sy * s0, sz * s0)); im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; this.s = sy; },
             color(hex) { im.setColorAt(i, _c.setHex(hex)); im.instanceColor.needsUpdate = true; } };
         }
         return im;
@@ -1875,27 +2466,36 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const parts = []; for (let i = 0; i < NP; i++) parts.push({ mode: 0, a: Math.random() * 6.3, r: 0.25 + Math.random() * 0.2, sp: 1.5 + Math.random() * 2, y: Math.random(), vx: 0, vy: 0, vz: 0, x: 0, yy: 0, z: 0, life: 0 });
     // pre-sample every lift path (arc-length spaced), so update() only reads arrays
     // 'brew' (Potions) IS a change for every input / hold / tap / settle-back rule (CHANGE_*); only its look differs (poseBrew)
-    const push = C.verb === 'push', light = C.verb === 'light', brew = C.verb === 'brew', change = C.verb === 'change' || brew;
+    const push = C.verb === 'push', light = C.verb === 'light', brew = C.verb === 'brew', change = C.verb === 'change' || brew, grow = C.verb === 'grow';
     const mkLift = (L, st) => {
       const mv = movers[L.m]; if (!mv) return null;
-      const N = (light || change) ? 2 : 48, arr = new Float32Array(N * 3);
-      if (light || change) { for (let i = 0; i < N; i++) { arr[i * 3] = L.path[0][0]; arr[i * 3 + 1] = L.path[0][1]; arr[i * 3 + 2] = L.path[0][2]; } }   // a light target stays put: p = how lit
+      const N = (light || change || grow) ? 2 : 48, arr = new Float32Array(N * 3);
+      if (light || change || grow) { const y = L.path[0][1] + ground(L.path[0][0], L.path[0][2]); for (let i = 0; i < N; i++) { arr[i * 3] = L.path[0][0]; arr[i * 3 + 1] = y; arr[i * 3 + 2] = L.path[0][2]; } }   // a light target stays put: p = how lit
       else {
-        const pts = L.path.map(p => new Vector3(p[0], p[1], p[2]));
+        const pts = L.path.map(p => new Vector3(p[0], p[1] + ground(p[0], p[2]), p[2]));
         const curve = new CatmullRomCurve3(pts, false, 'centripetal'), sp = curve.getSpacedPoints(N - 1);
         sp.forEach((v, i) => { arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z; });
       }
       const rings = (L.rings || []).map(n => { const r = movers[n]; return r ? { mv: r, u: 0, ringIdx: n } : null; }).filter(Boolean);
       return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings,
-        push, light, change, brew, to: change ? (movers[L.to] || null) : null, popT: -1,
-        hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : change ? CHANGE_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : change ? CHANGE_FALL : FALL, inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
+        push, light, change, brew, grow, to: (change || grow) ? (movers[L.to] || null) : null, popT: -1,
+        hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : change ? CHANGE_HOVER : grow ? GROW_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : change ? CHANGE_FALL : grow ? GROW_FALL : FALL,
+        inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
     const stations = C.course.stations.map(st => st.lifts.map(l => mkLift(l, st)).filter(Boolean));
-    room.group.add(group);
-    group.updateMatrixWorld(true); group.getWorldPosition(worldOff);
-    group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
-    const k = { group, movers, mats, geos, texs, B, ghost, ghosts, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations };
+    if (outdoor) {
+      scene.add(group); group.updateMatrixWorld(true);
+      // the outdoor light changes with the day cycle: at dusk / night the course's own lit props catch more of it
+      // (their base colour, never the world's lights; the time button is hidden while a course runs)
+      const nk = nightK();
+      if (nk > 0) for (const m of mats) if (m.isMeshStandardMaterial) m.color.multiplyScalar(1 + 1.6 * nk);
+    } else {
+      room.group.add(group);
+      group.updateMatrixWorld(true); group.getWorldPosition(worldOff);
+      group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
+    }
+    const k = { group, movers, mats, geos, texs, B, ghost, ghosts, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations, ground, outdoor };
     k.glowMats = glowMats;
     resetKit(k, true);
     // ring params: how far along the feather's path each ring sits (the sample nearest its centre)
@@ -1949,7 +2549,23 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const u = L.done && L.popT >= 0 ? Math.min(1, L.popT / POP) : 1, puff = Math.sin(u * Math.PI) * 0.16;
     L.mv.pose(a[0], a[1] + Math.abs(Math.sin(t * 13 + L.ph)) * 0.012 * w * on, a[2], r0[0] + Math.sin(t * 11 + L.ph) * 0.025 * w * on, r0[1], r0[2] + Math.sin(t * 9 + L.ph) * 0.025 * w * on, 1 + puff);
   }
+  // a grow target (Herbology) stays put: the seedling (mv) wiggles as the finger pulls it and gives way (gone by a third)
+  // to its plant (`to`), which rises from a sprig to full height with the progress (a little narrower while it stretches
+  // up). At the snap the leaves pop (a squash and stretch), then the grown plant sways; a `free` plant then belongs to
+  // the build.
+  function poseGrow(L, t) {
+    const a = L.arr, x = a[0], y = a[1], z = a[2], r0 = L.rot0, r1 = L.rot1;
+    const w = L.done ? 1 : L.p, e = w * w * (3 - 2 * w), live = !L.done && w > 0.01 ? 1 : 0;
+    L.mv.pose(x, y, z, r0[0], r0[1] + Math.sin(t * 5 + L.ph) * 0.3 * w * live, r0[2] + Math.sin(t * 13 + L.ph) * 0.14 * w * live, L.done ? 0 : Math.max(0, 1 - w / 0.3) * (1 + 0.3 * w));
+    if (!L.to || (L.spec.free && L.done && L.popT >= POP)) return;
+    let sx = 0, sy = 0;
+    if (L.done) { const u = L.popT < 0 ? 1 : Math.min(1, L.popT / POP), b = Math.sin(u * Math.PI) * (1 - 0.4 * u); sy = 1 + 0.16 * b; sx = 1 + 0.28 * b; }
+    else if (w > 0.01) { sy = 0.1 + 0.9 * e; sx = sy * (0.6 + 0.4 * e); }
+    const sway = L.done ? Math.sin(t * 1.6 + L.ph) * 0.05 : Math.sin(t * 7 + L.ph) * 0.06 * live * (1 - e);
+    L.to.poseS(x, y, z, r1[0], r1[1], r1[2] + sway, sx, sy, sx);
+  }
   function poseLift(L, t) {
+    if (L.grow) { poseGrow(L, t); return; }
     if (L.brew) { poseBrew(L, t); return; }
     if (L.change) { poseChange(L, t); return; }
     const e = L.p * L.p * (3 - 2 * L.p);
@@ -1985,7 +2601,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   }
   function nudge(L, v) {                     // set a lift's progress from a gesture
     if (!L || L.done || L.snap >= 0) return;
-    if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); if (L.light || L.change) fun.sfx.sparkle(); else fun.sfx.whoosh(); }
+    if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); if (L.light || L.change || L.grow) fun.sfx.sparkle(); else fun.sfx.whoosh(); if (L.grow) fun.sfx.tone(330, 0.6, 'sine', 0.07, 0, 660); }
     L.p = Math.max(0, Math.min(1, v)); L.hover = L.hov0; if (L.p > L.peak) L.peak = L.p;
     S.idle = 0;
   }
@@ -1996,6 +2612,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.casts++; if (S.sel === L) S.sel = null;
     liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 20);
     if (L.change) { L.popT = 0; fun.sfx.pop(); fun.sfx.poof(); }
+    if (L.grow) { L.popT = 0; fun.sfx.pop(); burst(tmp.x - worldOff.x, tmp.y - worldOff.y + (L.spec.top || 0.4) * 0.85, tmp.z - worldOff.z, 16); }
     fun.sfx.sparkle(); fun.sfx.tune([1047, 1319, 1568], 0.09, 'sine');
     setPips();
     if (S.lifts.every(x => x.done)) setDone();
@@ -2039,8 +2656,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         oi++;
         samplePath(target, target.p, tmp2);
         const cg = target.change ? target.p : 0;   // Vera Verto: the sparkles spiral in (tighter, faster) as the change fills
+        const gh = target.grow ? (target.spec.top || 0.4) * target.p * 0.85 : 0;   // Herbivicus: they climb with the growing plant
         const a = p.a + t * p.sp * (1 + 2.2 * cg), r = p.r * (target === S.sel ? 1.25 : 1) * (target.mv.scale > 1.5 ? 1.6 : 1) * (target.change ? (target.spec.r || 0.3) / 0.3 * (1 - 0.55 * cg) : 1);
-        pos[i * 3] = tmp2.x + Math.cos(a) * r; pos[i * 3 + 1] = tmp2.y + target.aimY * 0.6 + 0.1 + ((p.y + t * 0.35) % 1) * 0.45; pos[i * 3 + 2] = tmp2.z + Math.sin(a) * r;
+        pos[i * 3] = tmp2.x + Math.cos(a) * r; pos[i * 3 + 1] = tmp2.y + target.aimY * 0.6 + 0.1 + gh + ((p.y + t * 0.35) % 1) * 0.45; pos[i * 3 + 2] = tmp2.z + Math.sin(a) * r;
       } else { pos[i * 3] = 0; pos[i * 3 + 1] = -60; pos[i * 3 + 2] = 0; }
     }
     const q = camera.quaternion;
@@ -2139,7 +2757,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const L = S.sel, dy = e ? swiped(e) : 0, quick = performance.now() - drag.t0 < (L && L.push ? 450 : 350);   // a push flick gets a little longer (a sweep, not a snap of the wrist)
     if (L && !L.done) {
       if (drag.moved && quick && dy > 50) snapLift(L);                     // a quick flick up: the swish-and-flick
-      else if (!drag.moved && drag.onTarget) nudge(L, L.p + TAP * 0.6);   // a tap on the thing: a little hop up
+      else if (!drag.moved && drag.onTarget) nudge(L, L.p + (L.grow ? TAP : TAP * 0.6));   // a tap on the thing: a little hop up (a seedling: a third)
     }
     drag = null;
   };
@@ -2162,11 +2780,14 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
 
   // ---- flow ----
   function placeHero(x, z, yaw) {
-    player.pos.set(x + worldOff.x, worldOff.y, z + worldOff.z); player.smoothY = player.pos.y; player._lastPos.copy(player.pos);
+    player.pos.set(x + worldOff.x, worldOff.y + (K ? K.ground(x, z) : 0), z + worldOff.z); player.smoothY = player.pos.y; player._lastPos.copy(player.pos);
     player.yaw = yaw; S.wantYaw = yaw;
   }
   const yawTo = (x0, z0, x1, z1) => Math.atan2(x1 - x0, z1 - z0);
-  function camTo(c) { camPosGoal.set(c.pos[0], c.pos[1], c.pos[2]).add(worldOff); camLookGoal.set(c.look[0], c.look[1], c.look[2]).add(worldOff); }
+  function camTo(c) {                       // (outdoors the heights are above the terrain under each point)
+    const g = K ? K.ground : () => 0;
+    camPosGoal.set(c.pos[0], c.pos[1] + g(c.pos[0], c.pos[2]), c.pos[2]).add(worldOff); camLookGoal.set(c.look[0], c.look[1] + g(c.look[0], c.look[2]), c.look[2]).add(worldOff);
+  }
 
   function startLesson() {
     const Ls = S.C.lesson;
@@ -2301,17 +2922,18 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function start(key = 'charms') {
     const C = COURSES[key];
     if (!C || S.on || isModal() || isTakeover()) return false;
-    if (interiors.active !== C.room || !interiors.room) return false;
+    if (C.room ? (interiors.active !== C.room || !interiors.room) : !!interiors.active) return false;   // a room course in its room; an outdoor one outside
     S.key = key; S.C = C;
     Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null,
       raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0 });
     S.q.length = 0; pipKey = '';
-    try { K = buildKit(C, interiors.room); } catch (e) { console.warn('[spells] course props failed -', e && e.message || e); K = null; S.on = false; return false; }
+    try { K = buildKit(C, C.room ? interiors.room : null); } catch (e) { console.warn('[spells] course props failed -', e && e.message || e); K = null; S.on = false; return false; }
     setTakeover(takeover);
     document.body.classList.add('inSpell'); promptB.classList.remove('on');
     // things that follow you or roam the room hold still / hide while the course owns the frame
     S.hid = []; for (const n of ['pip', 'trevor', 'peeves']) { const o = scene.getObjectByName(n); if (o && o.visible) { o.visible = false; S.hid.push(o); } }
     player._applyFade && player._applyFade(1);
+    const f0 = prof(); S.profY = f0 ? f0.position.y : 0;   // the chibi teacher hops from here (outdoors: the terrain)
     camPos.copy(camera.position); camera.getWorldDirection(tmp); camLook.copy(camera.position).addScaledVector(tmp, 6);
     fun.sfx.sparkle();
     if (C.dim) dimCapture();
@@ -2328,12 +2950,13 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     endOv.classList.remove('on'); sayEl.classList.remove('on');
     document.body.classList.remove('inSpell');
     try { pose(null); } catch { /* lessons gone */ }
-    const f = prof(); if (f && f.userData.rig) f.position.y = 0;
+    const f = prof(); if (f && f.userData.rig) f.position.y = S.profY || 0;
     disposeKit(inTeardown);
     setTakeover(null);
-    if (restore && interiors.active === C.room) {
+    if (restore && (interiors.active || null) === C.room) {
       const st = lessons.stations && lessons.stations[C.station];
-      if (st) { player.yaw = Math.PI; player.teleport(st.x + worldOff.x, st.z + 3.1 + worldOff.z); player.pos.y = worldOff.y; player.smoothY = worldOff.y; }
+      if (st && C.room) { player.yaw = Math.PI; player.teleport(st.x + worldOff.x, st.z + 3.1 + worldOff.z); player.pos.y = worldOff.y; player.smoothY = worldOff.y; }
+      else if (st) { player.yaw = Math.PI; player.teleport(st.x, st.z + 3.2); if (player.cam && player.cam.reset) player.cam.reset(player.yaw); }   // outdoors: where the 🔔 drops you (lessons.go)
     }
   }
   function quit() {
@@ -2348,7 +2971,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function hideHand() { hand.classList.remove('on'); }
   function update(dt) {
     if (!S.on) return;
-    if (!K || interiors.active !== S.C.room || !K.group.parent) { leave(false); return; }
+    if (!K || (interiors.active || null) !== S.C.room || !K.group.parent) { leave(false); return; }
+    if (K.outdoor && Math.hypot(player.pos.x - worldOff.x, player.pos.z - worldOff.z) > 60) { leave(false); return; }   // moved far away (a teleport)
     dt *= S.speed;                         // 1 in play; tests on a slow software renderer may raise it
     S.clock += dt; const t = S.clock;
     if (S.phase === 'course' && S.sub !== 'reward') S.tCourse += dt;
@@ -2369,6 +2993,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
     let dy = S.wantYaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); player.yaw += dy * Math.min(1, dt * (moving ? 10 : 5));
     player._moving = moving;
+    if (K.outdoor) { player.pos.y = player.heightAt(player.pos.x, player.pos.z); player.smoothY = player.pos.y; }   // outdoors the walk follows the terrain
     player.animate(dt, { moving, running: false }, moving ? WALK : 0);
     player.model.position.copy(player.pos); player.model.rotation.y = player.yaw;
     player._lastPos.copy(player.pos);
@@ -2378,7 +3003,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (f) {
       const ud = f.userData;
       if (!ud.casting) { f.getWorldPosition(tmp); let fy = Math.atan2(player.pos.x - tmp.x, player.pos.z - tmp.z) - f.rotation.y; fy = Math.atan2(Math.sin(fy), Math.cos(fy)); f.rotation.y += fy * Math.min(1, dt * 3); }
-      if (ud.rig) { animateChibi(ud.rig, dt, { moving: false }); if (hopT > 0) { hopT -= dt; f.position.y = Math.sin((1 - hopT / 0.6) * Math.PI) * 0.35; } else f.position.y = 0; }
+      if (ud.rig) { animateChibi(ud.rig, dt, { moving: false }); if (hopT > 0) { hopT -= dt; f.position.y = S.profY + Math.sin((1 - hopT / 0.6) * Math.PI) * 0.35; } else f.position.y = S.profY; }
       // Lumos: the chibi teacher raises her wand arm high while she casts (eased up and down)
       if (S.raise > 0) S.raise -= dt;
       S.raiseK += ((S.raise > 0 ? 1 : 0) - S.raiseK) * Math.min(1, dt * 6);
@@ -2391,7 +3016,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.sub === 'cast') {
       S.idle += dt;
       if (S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; setPips(); } }   // finger still down: carry on with the next object
-      if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : S.sel.change ? CHANGE_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
+      if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : S.sel.change ? CHANGE_HOLD : S.sel.grow ? GROW_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
     }
     for (let s = -1; s < K.stations.length; s++) {
       const set = s < 0 ? K.lesson : K.stations[s];
@@ -2401,7 +3026,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         if (!L.done && L.snap >= 0) { L.snap += dt; L.p = Math.min(1, L.p + dt * 2.4); if (L.p >= 1 || L.snap > 0.4) { liftDone(L); if (!S.on) return; continue; } }
         else if (!L.done && L.p > 0 && !(drag && S.sel === L) && !(S.hold && S.sel === L)) {
           if (L.p >= SNAP) snapLift(L);
-          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3 && !L.light && !L.change) drop(L); else L.peak = 0; L.moved = false; } } }
+          else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3 && !L.light && !L.change && !L.grow) drop(L); else L.peak = 0; L.moved = false; } } }
         }
         // rings light as the feather passes them (and stay lit)
         for (const r of L.rings) if (!r.mv.lit && L.p >= r.u) { r.mv.lit = true; r.mv.color(0xffe07a); fun.sfx.tink(3); }
@@ -2428,6 +3053,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       }
       for (; gi < K.ghosts.length; gi++) K.ghosts[gi].visible = false;
       K.ghostMat.opacity = 0.42 + Math.sin(t * 4) * 0.16; K.ghost.visible = false;
+    } else if (cur && cur.grow) {          // Herbivicus: the full-grown plant glows faintly where the seedling stands (fading as it grows)
+      const g = K.ghost, src = cur.to || cur.mv; if (g.geometry !== src.geo) g.geometry = src.geo;
+      const a = cur.arr, r1 = cur.rot1;
+      g.position.set(a[0], a[1], a[2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(src.scale * 1.03);
+      K.ghostMat.opacity = (0.24 + Math.sin(t * 4) * 0.09) * (1 - 0.6 * cur.p); g.visible = true;
     } else if (cur && !cur.brew) {         // (a cauldron needs no outline: its colour shows the progress)
       const g = K.ghost; if (g.geometry !== cur.mv.geo) g.geometry = cur.mv.geo;
       const a = cur.arr, n = (cur.N - 1) * 3, r1 = cur.rot1;
@@ -2457,9 +3087,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   let promptOn = false;
   function idle() {
     let k = null;
-    if (!S.on && !isModal() && !isTakeover() && interiors.active) {
-      const near = lessons.near && lessons.near();
-      if (near && fun.promptId() === 'lesson:' + near) for (const key in COURSES) if (COURSES[key].station === near && COURSES[key].room === interiors.active) { k = key; break; }
+    if (!S.on && !isModal() && !isTakeover()) {   // (outdoors too: a course with room null by its outdoor station)
+      const near = lessons.near && lessons.near(), here = interiors.active || null;
+      if (near && fun.promptId() === 'lesson:' + near) for (const key in COURSES) if (COURSES[key].station === near && COURSES[key].room === here) { k = key; break; }
     }
     if (!!k !== promptOn || (k && promptB.dataset.k !== k)) { promptOn = !!k; promptB.classList.toggle('on', promptOn); if (k) promptB.dataset.k = k; }
   }
