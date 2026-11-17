@@ -2104,6 +2104,7 @@ function buildHerbology(kit) {
       if (step !== lastStep) { lastStep = step; stepT = 0; } else stepT += dt;
       const P = ctx.player.pos, hx = P.x - ctx.worldOff.x, hz = P.z - ctx.worldOff.z, hy = P.y - ctx.worldOff.y;
       gq = 0;
+      if (!les && demoT <= 0.2) demoT = 99;        // a replay (🔁) starts at station 1: her sunflower has long grown
       // ---- Sprout's demo: her seedling shoots up into a sunflower, which then turns to the child (and keeps following him) ----
       if (demoT > 0.2) {
         const g = clamp01((demoT - 0.2) / 1.4), pop = clamp01((demoT - 1.6) / 0.5), b = Math.sin(pop * Math.PI) * (1 - 0.4 * pop);
