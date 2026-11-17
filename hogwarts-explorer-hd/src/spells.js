@@ -20,6 +20,10 @@
 //                  "after" shape (a second mover, or the same mesh with its geometry swapped). Let go
 //                  early: it wobbles back down, never a drop. A glowing silhouette of the after shape
 //                  floats above every open target (up to 3 ghosts) so the child knows what it becomes.
+//                  A 'brew' target (Potions) is a cauldron and uses the change gesture code unchanged (stir,
+//                  keep the finger on it, or the 🪄 button; CHANGE_* numbers); its look is the course's own:
+//                  a ladle circles, the liquid blends from dull grey to the potion colour, two ingredients
+//                  plop in at 1/3 and 2/3, bubbles rise; at the snap it puffs and glows (no outline, no ghost).
 //   dim            a course with `dim: true` darkens the room through ONE reversible factor (dimApply)
 //                  toward S.dimGoal (set by the course's tick), restored exactly on any leave.
 //   the gesture    Wingardium Leviosa = "swish and flick": touch a glowing thing (or the big
@@ -34,7 +38,7 @@
 // instanced quad set with a 32 px canvas texture), built on start and disposed on leave or room exit.
 // No per-frame allocations in update(): temp vectors and pre-sampled paths only.
 import {
-  Group, Mesh, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, TorusGeometry, ConeGeometry, ShapeGeometry, Shape, PlaneGeometry, ExtrudeGeometry,
+  Group, Mesh, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, CircleGeometry, TorusGeometry, ConeGeometry, ShapeGeometry, Shape, PlaneGeometry, ExtrudeGeometry,
   MeshStandardMaterial, MeshBasicMaterial, BufferAttribute, CanvasTexture, SRGBColorSpace,
   Color, Vector3, Matrix4, Quaternion, Euler, CatmullRomCurve3, AdditiveBlending, NormalBlending, DoubleSide,
 } from 'three';
@@ -88,6 +92,22 @@ const bulbLift = (i) => ({ m: 'bulb' + i, path: [ASTRO.bulbs[i].slice(0, 3)] });
 // south wall, the cat statue's plinth beside McGonagall (her desk at (0, -6.2)).
 const TF = { pile: [-2.62, 0, 1.2], shelfX: -3.72, star: [-3.68, 1.98, 1.2], pumpkins: [[3.5, 0.55], [3.78, 1.3], [3.5, 2.05]],
   puddle: [0, 0, 3.6], peds: [-1.4, -2.6, -3.8], pedZ: 6.0, plinth: [-1.5, 0.5, -5.0], catSit: [-1.08, 0, -5.78] };
+// Course #5 places (the Potions dungeon, 18 x 20 m room-local, Snape at (-2.6, -7.2) facing +z, his board behind him,
+// the room's own domed cauldrons at (+-5, 3), (0, 3), (+-5, -2), (0, -2) and the big one at (0, -7), ingredient
+// shelves along both side walls at z -5.2..-0.8, the doorway gap in the south wall at x -1.8..1.8). Every cauldron of
+// the course is one instance of ONE pot mesh (index = POTS row): [x, y, z, scale, potion colour].
+const PO_BIG = [-1.45, 0, -6.35];                      // Snape's own cauldron: his demo in the lesson, the finale
+const POTS = [
+  [-3.35, 0.42, -5.25, 0.7, 0xe8303a], [-2.7, 0.42, -5.25, 0.7, 0x3a72f0], [-2.05, 0.42, -5.25, 0.7, 0xf8d030],   // 0-2 the lesson bench: red, blue, yellow
+  [PO_BIG[0], 0, PO_BIG[2], 1.7, 0x000000],                                                   // 3 the big one (rainbow at the finale)
+  [-6.3, 0, -6.4, 1.0, 0x3ee05a],                                                             // 4 growing potion (green)
+  [-8.05, 0, 7.0, 0.8, 0xffc830], [-7.55, 0, 8.15, 0.8, 0xffc830], [-6.55, 0, 8.85, 0.8, 0xffc830],   // 5-7 light potions -> lamps
+  [-4.15, 0, 7.6, 1.0, 0xff7a1a],                                                             // 8 melting potion (warm orange)
+  [3.3, 0, 9.0, 0.9, 0xe8303a], [4.5, 0, 9.0, 0.9, 0x3a72f0], [5.7, 0, 9.0, 0.9, 0xa040e8],   // 9-11 the colour match
+];
+const PO = { plant: [-7.15, 0, -6.4], ice: [-3.25, 0, 7.6], flagZ: 9.44, flagY: 1.8 };
+const POT_R = 0.3, POT_C = 0.36, LIQ_Y = 0.486, RIM_Y = 0.536;   // the unit pot: bowl radius, bowl centre, liquid, rim heights
+const brewLift = (i, o = {}) => { const P = POTS[i]; return { m: 'pot' + i, path: [[P[0], P[1], P[2]]], rot0: [0, 0, 0], rot1: [0, 0, 0], aimY: LIQ_Y * P[3], r: POT_R * P[3] * 1.15, ...o }; };
 
 export const COURSES = {
   charms: {
@@ -322,6 +342,62 @@ export const COURSES = {
           afterCam: { pos: [-0.3, 1.8, -1.9], look: [-0.7, 0.75, -5.6] },
           lifts: [{ m: 'statue', to: 'tabby', path: [[TF.plinth[0], TF.plinth[1], TF.plinth[2]]], rot0: [0, 0.6, 0], rot1: [0, 0.6, 0], aimY: 0.45, hint: 1.25, hs: 0.6, r: 0.5, free: true }],
           after: 'catWake', afterT: 5.4, afterSfx: 'none', afterLine: 'אֵיזֶה חָתוּל נֶחְמָד!', afterLineT: 3.6 },
+      ],
+    },
+  },
+  // -------------------------------------------------------------------------------------
+  // Course #5: Potions, Professor Snape, the dungeon (verb 'brew': stir a cauldron with the finger). The lesson
+  // bench is in front of Snape, his own big cauldron at his side; the course goes round the cellar: the wilted
+  // plant (north-west), the dark corner (south-west), the ice block (south), the pennants on the south wall
+  // (south-east), and back to Snape's big cauldron for the finale.
+  // -------------------------------------------------------------------------------------
+  potions: {
+    spell: { he: 'שִׁקּוּיִים', icon: '⚗️', gesture: 'brew' },
+    verb: 'brew', who: '🧙‍♂️', pitch: 0.85, oneBubble: true,
+    title: 'שִׁקּוּיִים', name: 'אֶתְגָּר: שִׁקּוּיִים',
+    teacher: 'snape', room: 'dungeon', station: 'potions',
+    build: buildPotions,
+    confetti: ['⚗️', '⭐', '✨', '🐸', '💚'],
+    lesson: {
+      stand: [-2.7, -4.1], face: [-2.7, -5.3], pip: '🧪',
+      cam: { pos: [-0.95, 1.95, -3.0], look: [-2.6, 0.95, -5.9] },
+      intro: [
+        { pose: 'talk', line: 'שָׁלוֹם. הַיּוֹם נִרְקַח שִׁקּוּיִים!', t: 3.0 },
+        { pose: 'cast', line: 'בּוֹחֲשִׁים… בְּסַבְלָנוּת!', t: 3.6, fx: 'demo' },
+        { pose: 'talk', line: 'רָאִיתָ? הַשִּׁקּוּי הָפַךְ לְיָרֹק!', t: 3.0 },
+        { pose: 'talk', line: 'עַכְשָׁו אַתָּה! גַּע בַּקְּדֵרָה וּבְחֹשׁ בָּאֶצְבַּע!', t: 3.4 },
+      ],
+      // three little cauldrons on the bench brew red, blue and yellow
+      lifts: [0, 1, 2].map(i => brewLift(i)),
+      outro: 'עַכְשָׁו — לָאֶתְגָּר!',
+    },
+    praise: ['יָפֶה מְאֹד!', 'מְצֻיָּן!', 'כָּל הַכָּבוֹד!', 'נִפְלָא!'],
+    oops: 'נַסֵּה שׁוּב',
+    finale: 'אַתָּה רוֹקֵחַ שִׁקּוּיִים אֲמִתִּי!',
+    course: {
+      star3: 240,
+      stations: [
+        { id: 'grow', icon: '🌱', say: 'בְּחֹשׁ שִׁקּוּי לַפֶּרַח הַנָּבוּל!',
+          walk: [[-4.2, -4.6], [-5.3, -5.9]], face: [-6.6, -6.4],
+          cam: { pos: [-6.0, 2.3, -3.2], look: [-6.7, 0.95, -6.6] },
+          lifts: [brewLift(4)], after: 'growPour', afterT: 5.0, afterSfx: 'none' },
+        { id: 'lamps', icon: '🏮', say: 'בְּחֹשׁ שִׁקּוּי אוֹר לַפִּנָּה הַחֲשׁוּכָה!',
+          walk: [[-6.3, -4.6], [-6.6, -1.0], [-6.6, 3.6], [-6.2, 5.2]], face: [-7.5, 8.0],
+          cam: { pos: [-3.6, 2.3, 4.9], look: [-7.4, 0.8, 8.0] },
+          lifts: [5, 6, 7].map((i, j) => brewLift(i, { to: 'jar' + j, rot1: [0, 0.6, 0] })), after: 'lampChord', afterT: 2.0, afterSfx: 'none' },
+        { id: 'ice', icon: '🧊', say: 'בְּחֹשׁ שִׁקּוּי שֶׁמַּמִּיס אֶת הַקֶּרַח!',
+          walk: [[-4.6, 5.6], [-3.0, 5.8]], face: [-3.6, 7.6],
+          cam: { pos: [-1.4, 2.3, 4.6], look: [-3.5, 0.7, 7.7] },
+          lifts: [brewLift(8)], after: 'meltPour', afterT: 4.6, afterSfx: 'none' },
+        { id: 'colors', icon: '🎨', say: 'בְּחֹשׁ כָּל קְדֵרָה לַצֶּבַע שֶׁמֵּעָלֶיהָ!',
+          walk: [[-1.0, 5.4], [2.0, 5.6], [5.9, 6.6]], face: [4.5, 8.8],
+          cam: { pos: [4.6, 2.3, 4.4], look: [4.3, 1.1, 9.0] },
+          lifts: [9, 10, 11].map(i => brewLift(i)), after: 'flagWave', afterT: 2.6, afterSfx: 'none' },
+        { id: 'toad', icon: '🐸', say: 'בְּחֹשׁ אֶת הַקְּדֵרָה הַגְּדוֹלָה!',
+          walk: [[2.6, 5.0], [2.5, 0.5], [1.6, -3.4], [-0.5, -5.2]], face: [PO_BIG[0], PO_BIG[2]],
+          cam: { pos: [-3.4, 2.2, -2.6], look: [-1.4, 1.0, -6.4] },
+          afterCam: { pos: [-3.9, 1.7, -1.9], look: [-1.5, 2.0, -6.6] },
+          lifts: [brewLift(3)], after: 'toadHop', afterT: 5.4, afterSfx: 'none', afterLine: 'לֹא רַע… לֹא רַע בִּכְלָל.', afterLineT: 1.9 },
       ],
     },
   },
@@ -1197,6 +1273,434 @@ function buildTransfiguration(kit) {
   };
 }
 
+// The Potions course props (see COURSES.potions). All cauldrons are ONE instanced pot mesh (POTS rows); their liquids
+// ONE instanced unlit disc set (colour = progress: dull grey -> the potion colour, brighter = glowing); one ladle set,
+// one ingredient set, one bubble pool, one soft additive glow-quad set. The station things (the plant, the lamps, the
+// ice and key, the pennants, the toad, Snape's star cloud) are single movers drawn only while their station is on.
+// No per-frame allocations: the temporaries below are made once here.
+function buildPotions(kit) {
+  const IRON = 0x2a2830, IRON2 = 0x55505e, BRASS = 0xc89a3a, WOOD = 0x6a4424, DARK = 0x3a2614;
+  const { solid, ctx } = kit;
+  const NP = POTS.length;
+  // ---- the pot: an open round iron bowl on three stubby legs, a brass rim (it reads in the dark) and ring handles ----
+  const potGeo = merge([
+    paint(place(new SphereGeometry(POT_R, 18, 10, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.7), 0, POT_C, 0), IRON, IRON2),
+    paint(place(new TorusGeometry(0.245, 0.034, 6, 20), 0, RIM_Y, 0, Math.PI / 2), BRASS, 0xe8c060),
+    paint(place(new TorusGeometry(0.302, 0.012, 4, 20), 0, POT_C + 0.02, 0, Math.PI / 2), BRASS),
+    ...[0, 1, 2].map(i => paint(place(new CylinderGeometry(0.03, 0.04, 0.09, 6), Math.cos(i * 2.09) * 0.18, 0.045, Math.sin(i * 2.09) * 0.18), IRON)),
+    ...[-1, 1].map(s => paint(place(new TorusGeometry(0.045, 0.012, 4, 10), s * 0.29, 0.44, 0, 0, 0, 0), IRON2)),
+  ]);
+  const pots = kit.inst('pot', potGeo, NP, new Array(NP).fill(0xffffff), { glow: false, scales: POTS.map(P => P[3]) });
+  // liquids (unlit: instance colour = brightness, above 1 blooms)
+  const liq = kit.inst('liquid', new CircleGeometry(0.262, 20).rotateX(-Math.PI / 2), NP, new Array(NP).fill(0x6f6f66), { basic: true, glow: false });
+  // the ladle: a wooden handle and a brass bowl (instance 0 = the cauldron being stirred, 1 = Snape's)
+  const ladle = kit.inst('ladle', merge([
+    paint(place(new CylinderGeometry(0.012, 0.016, 0.52, 6), 0, 0.27, 0), WOOD, 0x9a6a3a),
+    paint(place(new SphereGeometry(0.05, 8, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), 0, 0.02, 0), 0xb08a40, 0xe0c070),
+  ]), 2, [0xffffff, 0xffffff], { glow: false });
+  // ingredients: little magic crystals (a pink one at 1/3, a blue one at 2/3)
+  const bits = kit.inst('bit', merge([paint(place(new ConeGeometry(0.045, 0.07, 5), 0, 0.035, 0), 0xffffff, 0xffffff), paint(place(new ConeGeometry(0.045, 0.05, 5), 0, -0.025, 0, Math.PI), 0xd8d8d8)]),
+    4, [0xff6ad0, 0x6ad8ff, 0xff6ad0, 0x6ad8ff], { glow: false, emissive: 0xffffff, emissiveIntensity: 0.25 });
+  const NB = 64, bub = kit.inst('bubble', new SphereGeometry(1, 8, 6), NB, new Array(NB).fill(0xffffff), { basic: true, glow: false });
+  // the soft light (lamps, halos over finished potions, puffs): ONE additive instanced quad set with a soft canvas
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(0.6, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+  const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
+  const NQ = 12, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  glow.renderOrder = 3;
+
+  // ---- lesson: a low stone bench with the three little cauldrons; Snape's star-shaped puff ----
+  solid(paint(place(new BoxGeometry(2.0, 0.08, 0.6), -2.7, 0.38, -5.25), 0x4a2e18, 0x6a4424));
+  for (const sx of [-0.85, 0.85]) solid(paint(place(new BoxGeometry(0.12, 0.36, 0.5), -2.7 + sx, 0.18, -5.25), DARK));
+  const starS = new Shape();
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, rr = i % 2 ? 0.17 : 0.38; const x = Math.sin(a) * rr, y = Math.cos(a) * rr; if (i) starS.lineTo(x, y); else starS.moveTo(x, y); }
+  const cloud = kit.mesh('cloud', paint(new ExtrudeGeometry(starS, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.07, bevelSize: 0.06, bevelSegments: 2 }).translate(0, 0, -0.06), 0x9af0a8, 0xe8ffe8), { glow: false });
+  cloud.mat.emissive.setHex(0x5ae070); cloud.mat.emissiveIntensity = 0.6;
+
+  // ---- 1 a terracotta pot with a wilted plant (the flower, short, brown and leaning); the star waits in its head ----
+  solid(paint(place(new CylinderGeometry(0.2, 0.15, 0.3, 14), PO.plant[0], 0.15, PO.plant[2]), 0x9a4a28, 0xc8703a));
+  solid(paint(place(new TorusGeometry(0.2, 0.025, 5, 16), PO.plant[0], 0.3, PO.plant[2], Math.PI / 2), 0xc8703a));
+  solid(paint(place(new CylinderGeometry(0.19, 0.19, 0.02, 14), PO.plant[0], 0.29, PO.plant[2]), 0x3a2614));
+  const PETAL = 0xff6aa8;
+  const flower = kit.mesh('flower', merge([
+    paint(place(new CylinderGeometry(0.02, 0.028, 1.5, 6), 0, 0.75, 0), 0x2f7a24, 0x5ab040),
+    ...[[0.38, 1], [0.72, -1], [1.05, 1]].map(([y, s]) => paint(place(new SphereGeometry(0.12, 8, 6), s * 0.11, y, 0, 0, 0, s * 0.45, 1, 0.16, 0.45), 0x3a9a2a, 0x6ac050)),
+    paint(place(new SphereGeometry(0.075, 10, 8), 0, 1.56, 0.03, 0, 0, 0, 1, 1, 0.6), 0xffd040, 0xffe890),
+    ...[0, 1, 2, 3, 4, 5, 6].map(i => { const a = i / 7 * Math.PI * 2; return paint(place(new SphereGeometry(0.09, 8, 6), Math.cos(a) * 0.13, 1.56 + Math.sin(a) * 0.13, 0, 0, 0, a, 1, 0.42, 0.3), PETAL, 0xffb0d0); }),
+  ]), { glow: false });
+  const star = kit.mesh('star', starGeo(0.15), { glow: false, glowHex: 0xffc030 }); star.mat.emissiveIntensity = 0.9;
+  // the pour: one stream shared by stations 1 and 3 (origin at its top; length = scale y)
+  const stream = kit.mesh('stream', paint(new CylinderGeometry(0.045, 0.07, 1, 8, 1, true).translate(0, -0.5, 0), 0xffffff, 0xffffff), { glow: false });
+  stream.mat.emissiveIntensity = 0.8;
+
+  // ---- 2 the dark corner (a deep drape and rug): three cauldrons -> three glowing jars ----
+  solid(paint(place(new BoxGeometry(0.05, 2.8, 3.6), -8.47, 1.4, 7.75), 0x14121e, 0x262034));
+  solid(paint(place(new BoxGeometry(3.0, 2.8, 0.05), -7.0, 1.4, 9.47), 0x14121e, 0x262034));
+  solid(paint(place(new BoxGeometry(2.6, 0.012, 2.6), -7.3, 0.006, 7.95), 0x1e1a28, 0x2a2436, 'x'));
+  const jarGeo = merge([
+    paint(place(new CylinderGeometry(0.13, 0.14, 0.04, 12), 0, 0.02, 0), BRASS),
+    paint(place(new CylinderGeometry(0.12, 0.12, 0.26, 12), 0, 0.17, 0), 0xffe070, 0xfff4b8),
+    paint(place(new TorusGeometry(0.1, 0.018, 5, 12), 0, 0.31, 0, Math.PI / 2), BRASS),
+    paint(place(new CylinderGeometry(0.065, 0.08, 0.08, 10), 0, 0.35, 0), 0x8a5a30),
+  ]);
+  const jars = kit.inst('jar', place(jarGeo, 0, 0, 0, 0, 0, 0, 1.2), 3, [0xffffff, 0xffffff, 0xffffff], { glow: false, emissive: 0xffb030, emissiveIntensity: 0.6 });
+  const LAMP = [5, 6, 7].map(i => POTS[i]);
+
+  // ---- 3 a block of ice with a little golden key frozen inside ----
+  const key = kit.mesh('key', place(merge([
+    paint(place(new TorusGeometry(0.05, 0.016, 6, 14), -0.09, 0, 0), 0xffd040, 0xffb020),
+    paint(place(new BoxGeometry(0.17, 0.026, 0.026), 0.03, 0, 0), 0xffd040),
+    paint(place(new BoxGeometry(0.026, 0.055, 0.022), 0.1, -0.03, 0), 0xffc030),
+    paint(place(new BoxGeometry(0.026, 0.04, 0.022), 0.06, -0.025, 0), 0xffc030),
+  ]), 0, 0, 0, 0, 0, 0, 1.4), { glow: false, glowHex: 0xffb020 });
+  key.mat.emissiveIntensity = 0.55;
+  const ice = kit.mesh('ice', merge([
+    paint(place(new BoxGeometry(0.62, 0.5, 0.52), 0, 0.25, 0, 0, 0.12, 0), 0x9ad4f4, 0xe0f6ff),
+    paint(place(new BoxGeometry(0.3, 0.14, 0.28), -0.08, 0.56, 0.02, 0.1, 0.5, 0.08), 0xc8ecff, 0xf0fbff),
+  ]), { glow: false, glowHex: 0x7ac8ff });
+  ice.mat.transparent = true; ice.mat.opacity = 0.6; ice.mat.depthWrite = false; ice.mat.emissiveIntensity = 0.3; ice.mat.roughness = 0.15;
+  ice.mesh.renderOrder = 2;
+
+  // ---- 4 three pennants (red, blue, purple) hanging from a brass rod on the south wall over the three cauldrons ----
+  solid(paint(place(new CylinderGeometry(0.025, 0.025, 3.4, 8), 4.5, PO.flagY + 0.03, PO.flagZ - 0.06, 0, 0, Math.PI / 2), BRASS, 0xe8c060));
+  for (const x of [2.85, 6.15]) solid(paint(place(new BoxGeometry(0.06, 0.06, 0.12), x, PO.flagY + 0.03, PO.flagZ - 0.02), DARK));
+  const flS = new Shape(); flS.moveTo(-0.26, 0); flS.lineTo(0.26, 0); flS.lineTo(0, -0.72); flS.lineTo(-0.26, 0);
+  const flagGeo = merge([new ExtrudeGeometry(flS, { depth: 0.02, bevelEnabled: false }).translate(0, 0, -0.01), place(new SphereGeometry(0.035, 8, 6), 0, -0.72, 0)]);
+  const FLAG = [9, 10, 11].map(i => POTS[i][4]);
+  kit.inst('flag', flagGeo, 3, FLAG, { glow: false, basic: true });   // unlit: the colours read in the dark
+
+  // ---- 5 the toad who hops out of the finale cauldron ----
+  const toad = kit.mesh('toad', place(merge([
+    paint(place(new SphereGeometry(0.12, 14, 10), 0, 0.09, 0, 0, 0, 0, 1.15, 0.75, 1.0), 0x3a8a30, 0x7ac050),
+    paint(place(new SphereGeometry(0.1, 12, 8), 0, 0.07, 0.035, 0, 0, 0, 1, 0.6, 1), 0xe8d878),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.042, 10, 8), s * 0.062, 0.165, 0.055), 0x4a9a3a)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.032, 10, 8), s * 0.064, 0.172, 0.078), 0xffffff)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.017, 6, 5), s * 0.066, 0.176, 0.104), 0x141018)),
+    paint(place(new TorusGeometry(0.055, 0.007, 4, 12, Math.PI), 0, 0.125, 0.105, 0, 0, Math.PI), 0x2a4a1a),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.018, 6, 5), s * 0.085, 0.12, 0.095), 0xf0a0a0)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.04, 8, 6), s * 0.075, 0.02, 0.09, 0, 0, 0, 0.7, 0.4, 1.1), 0x3a8a30)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.07, 8, 6), s * 0.12, 0.04, -0.05, 0, 0, 0, 0.6, 0.5, 1.25), 0x3a8a30, 0x5aa040)),
+  ]), 0, 0, 0, 0, 0, 0, 1.35), { glow: false });
+
+  // ---- state ----
+  const BIG = POTS[3], GREY = new Color(0x6f6f66), GREEN = new Color(0x3ee05a), BROWN = new Color(0x9a8a50), WHITE = new Color(0xffffff);
+  const TGT = POTS.map(P => new Color(P[4]));
+  const m1 = new Matrix4(), m2 = new Matrix4(), v1 = new Vector3(), v2 = new Vector3(), q1 = new Quaternion(), q0 = new Quaternion(), e1 = new Euler(), s1 = new Vector3(), c1 = new Color(), c2 = new Color(), c3 = new Color();
+  const LI = new Array(NP).fill(null);                   // the lift of each pot (filled on the first tick)
+  const potSt = [-1, -1, -1, 4, 0, 1, 1, 1, 2, 3, 3, 3]; // the station each pot belongs to (-1: the lesson bench)
+  const mask = new Uint8Array(NP), spawnAcc = new Float32Array(NP), splash = new Float32Array(NP), prevP = new Float32Array(NP);
+  const B = []; for (let i = 0; i < NB; i++) B.push({ on: false, x: 0, y: 0, z: 0, vy: 0, life: 0, t0: 0, sz: 0, ph: 0, wob: 0, r: 0, g: 0, b: 0 });
+  const BITS = []; for (let i = 0; i < 4; i++) BITS.push({ on: false, pot: 0, t: 0, kind: 0 });
+  let demoT = 0, demoSfx = 0, growT = 0, growSfx = 0, chordT = 0, chord = 0, meltT = 0, meltSfx = 0, waveT = 0, waveSfx = 0, toadT = 0, toadSfx = 0, rainAcc = 0;
+  let ladleA = 0, ladleV = 0, ladleK = 0;
+  const ease = (k) => k * k * (3 - 2 * k);
+  const clamp01 = (k) => Math.max(0, Math.min(1, k));
+  const back = (k) => 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;   // ease-out with a little overshoot
+  const shows = (mv) => mv.s > 0.001;
+  function vis(M, names, on) { let v = false; if (on) for (const n of names) if (M[n] && shows(M[n])) { v = true; break; } M[names[0]].mesh.visible = v; }
+  // the pour (stations 1 and 3): the cauldron hops up beside the target, tips toward it (dir -1: target to -x, +1: +x),
+  // a stream of potion falls on it, the cauldron settles back. Returns the stream state for the frame.
+  function pourPose(M, i, T, dir, t) {
+    const P = POTS[i], up = ease(clamp01(t / 0.6)) * (1 - ease(clamp01((t - 1.7) / 0.6)));
+    const tilt = up * 1.0, lipX = T[0] - dir * 0.04;
+    const ox = P[0] + (lipX - dir * 0.58 - P[0]) * up, oy = P[1] + 1.2 * up;
+    M['pot' + i].pose(ox, oy + Math.sin(t * 9) * 0.01 * up, P[2], 0, 0, -dir * tilt, 1);
+    return up > 0.97 && t > 0.55 && t < 1.75 ? 1 : 0;
+  }
+  function pokeStream(M, x, yTop, z, yBot, col) {
+    M.stream.pose(x, yTop, z, 0, 0, 0, 1); M.stream.mesh.scale.set(1, Math.max(0.01, yTop - yBot), 1);
+    M.stream.mat.color.copy(col); M.stream.mat.emissive.copy(col);
+  }
+  let gq = 0;                                            // the next free glow quad this frame
+  function quad(x, y, z, sx, sy, r, g, b, flat = 0) {    // flat: 0 faces the camera, 1 lies on the floor, 2 on the west wall
+    if (gq >= NQ) return;
+    if (flat === 1) q1.setFromEuler(e1.set(-Math.PI / 2, 0, 0)); else if (flat === 2) q1.setFromEuler(e1.set(0, Math.PI / 2, 0)); else q1.copy(ctx.camera.quaternion);
+    m1.compose(v1.set(x, y, z), q1, s1.set(sx, sy, 1)); glow.setMatrixAt(gq, m1); glow.setColorAt(gq, c1.setRGB(r, g, b)); gq++;
+  }
+  function addBubble(x, y, z, sz, vy, life, col, wob = 0) {
+    for (const b of B) if (!b.on) { b.on = true; b.x = x; b.y = y; b.z = z; b.sz = sz; b.vy = vy; b.life = life; b.t0 = life; b.ph = Math.random() * 6.3; b.wob = wob; b.r = col.r; b.g = col.g; b.b = col.b; return; }
+  }
+  // the liquid colour of pot i now (into out); k = how bright
+  function liquidColor(i, L, t, st, out) {
+    if (i === 3) {
+      const fin = L && (L.p > 0.001 || L.done);
+      if (!fin && st.phase === 'lesson' || (!fin && st.step < 4 && demoT > 0)) { const k = ease(clamp01((demoT - 0.4) / 1.8)); return out.copy(GREY).lerp(GREEN, k).multiplyScalar(0.85 + 0.6 * k); }
+      c3.setHSL((t * 0.12) % 1, 0.85, 0.55);
+      const k = L ? (L.done ? 1 : ease(L.p)) : 0; return out.copy(GREY).lerp(c3, k);
+    }
+    const k = L ? (L.done ? 1 : ease(L.p)) : 0; return out.copy(GREY).lerp(TGT[i], k);
+  }
+  return {
+    reset(M) {
+      demoT = 0; demoSfx = 0; growT = 0; growSfx = 0; chordT = 0; chord = 0; meltT = 0; meltSfx = 0; waveT = 0; waveSfx = 0; toadT = 0; toadSfx = 0; rainAcc = 0; ladleA = 0; ladleV = 0; ladleK = 0;
+      mask.fill(0); spawnAcc.fill(0); splash.fill(0); prevP.fill(0);
+      for (const b of B) b.on = false; for (const b of BITS) b.on = false;
+      M.cloud.pose(BIG[0], 1.2, BIG[2], 0, 0, 0, 0); M.star.pose(PO.plant[0], 1.84, PO.plant[2], 0, 0, 0, 0); M.stream.pose(0, 0, 0, 0, 0, 0, 0);
+      M.toad.pose(BIG[0], 0.8, BIG[2], 0, 0, 0, 0); M.key.pose(PO.ice[0], 0.26, PO.ice[2], 0.3, 0.5, 0.2, 1);
+      M.ice.pose(PO.ice[0], 0, PO.ice[2], 0, 0, 0, 1); M.ice.mesh.scale.set(1, 1, 1);
+      for (let i = 0; i < NQ; i++) { glow.setColorAt(i, c1.setRGB(0, 0, 0)); }
+      for (let i = 0; i < 2; i++) M['ladle' + i].pose(0, -50, 0, 0, 0, 0, 0);
+      for (let i = 0; i < 4; i++) M['bit' + i].pose(0, -50, 0, 0, 0, 0, 0);
+      for (let i = 0; i < NB; i++) M['bubble' + i].pose(0, -50, 0, 0, 0, 0, 0);
+      for (let i = 0; i < 3; i++) M['flag' + i].pose(POTS[9 + i][0], PO.flagY, PO.flagZ, 0, 0, 0, 1);
+    },
+    tick(M, t, st, K, dt = 0.016) {
+      if (!K) return;
+      if (!LI[0]) for (const L of [...K.lesson, ...K.stations.flat()]) LI[Number(L.mv.name.slice(3))] = L;
+      const ph = st.phase, les = ph === 'lesson', step = ph === 'course' ? st.step : ph === 'reward' ? 4 : -1;
+      const casting = st.sub === 'cast';
+      const hx = ctx.player.pos.x - ctx.worldOff.x, hz = ctx.player.pos.z - ctx.worldOff.z;
+      gq = 0;
+      // ---- Snape's demo: his ladle circles, the brew turns green, a puff and a star-shaped cloud rises ----
+      if (les && demoT > 0) {
+        const a = demoT * 5.5, u = clamp01((demoT - 2.2) / 2.6), done = demoT > 2.2;
+        if (!done) M.ladle1.pose(BIG[0] + Math.cos(a) * 0.12 * BIG[3], LIQ_Y * BIG[3] - 0.02, BIG[2] - Math.sin(a) * 0.12 * BIG[3], 0, a, -0.5, BIG[3] * 0.85);
+        else M.ladle1.pose(0, -50, 0, 0, 0, 0, 0);
+        if (demoT > 0.3 && demoT < 3.4 && Math.random() < dt * (3 + demoT * 5)) { const b = Math.random() * 6.3, rr = Math.random() * 0.28;
+          addBubble(BIG[0] + Math.cos(b) * rr, LIQ_Y * BIG[3], BIG[2] + Math.sin(b) * rr, 0.035 + Math.random() * 0.03, 0.3 + Math.random() * 0.3, 0.7 + Math.random() * 0.5, liquidColor(3, null, t, st, c2).lerp(WHITE, 0.3)); }
+        if (done) {
+          const s = demoT < 4.6 ? back(clamp01(u / 0.25)) : Math.max(0, 1 - (demoT - 4.6) / 0.6);
+          M.cloud.pose(BIG[0], 1.15 + u * 1.1, BIG[2], 0, 0.15 + Math.sin(demoT * 1.5) * 0.25, Math.sin(demoT * 1.1) * 0.1, s * 1.3);
+          if (s > 0.01) quad(BIG[0], 1.15 + u * 1.1, BIG[2], 1.8 * s, 1.8 * s, 0.25 * s, 0.6 * s, 0.3 * s);
+          const pf = clamp01((demoT - 2.2) / 0.6);
+          if (pf < 1) quad(BIG[0], 1.0 + pf * 0.4, BIG[2], 0.6 + pf * 1.6, 0.6 + pf * 1.6, 0.6 * (1 - pf), 1.5 * (1 - pf), 0.7 * (1 - pf));
+        } else M.cloud.pose(BIG[0], 1.2, BIG[2], 0, 0, 0, 0);
+      } else { M.ladle1.pose(0, -50, 0, 0, 0, 0, 0); if (!les) M.cloud.pose(BIG[0], 1.2, BIG[2], 0, 0, 0, 0); }
+      // ---- the pours (they override the cauldron's pose the runner set this frame) ----
+      let streamOn = 0;
+      if (growT > 0 && growT < 2.4) {
+        const on = pourPose(M, 4, PO.plant, -1, growT);
+        if (on) { streamOn = 1; pokeStream(M, PO.plant[0] + 0.04, 1.25, PO.plant[2], 0.3, TGT[4]); }
+      }
+      if (meltT > 0 && meltT < 2.4) {
+        const on = pourPose(M, 8, PO.ice, 1, meltT);
+        if (on) { streamOn = 1; pokeStream(M, PO.ice[0] - 0.04, 1.25, PO.ice[2], 0.5 * Math.max(0.1, 1 - clamp01((meltT - 0.9) / 1.6)), TGT[8]); }
+      }
+      if (!streamOn) M.stream.pose(0, 0, 0, 0, 0, 0, 0);
+      // ---- liquids, ingredients, bubbles, halos ----
+      const sel = casting ? (st.sel && !st.sel.done ? st.sel : null) : null;
+      for (let i = 0; i < NP; i++) {
+        const L = LI[i], sIdx = potSt[i], here = sIdx < 0 ? les : (i === 3 ? (les || step >= 3) : Math.abs(step - sIdx) <= 1);
+        pots.getMatrixAt(i, m1);
+        // drained after a pour; the lamps' liquid goes with the pot (its scale)
+        let level = 1;
+        if (i === 4 && growT > 0.6) level = Math.max(0, 1 - (growT - 0.6) / 1.0);
+        if (i === 8 && meltT > 0.6) level = Math.max(0, 1 - (meltT - 0.6) / 1.1);
+        if (splash[i] > 0) splash[i] = Math.max(0, splash[i] - dt);
+        const sp = 1 + Math.sin(splash[i] * 30) * splash[i] * 0.5;
+        m2.compose(v1.set(0, LIQ_Y - (1 - level) * 0.12, 0), q0, s1.set(level > 0.02 ? sp : 0, 1, level > 0.02 ? sp : 0)); m1.multiply(m2);
+        liq.setMatrixAt(i, m1);
+        liquidColor(i, L, t, st, c2);
+        const open = L && !L.done && casting && st.lifts && st.lifts.indexOf(L) >= 0;
+        const glowK = L && L.done ? 1.35 : open ? 0.85 + 0.22 * Math.sin(t * 5 + i) : 0.8;
+        liq.setColorAt(i, c1.copy(c2).multiplyScalar(glowK));
+        if (!L || !here) continue;
+        const s0 = POTS[i][3], P = L.arr;
+        // ingredients at 1/3 and 2/3 (once per try; a pot that settles back to 0 can have them again)
+        if (!L.done) {
+          if (L.p <= 0.001) mask[i] = 0;
+          for (let k = 0; k < 2; k++) if (L.p >= (k ? 0.64 : 0.31) && !(mask[i] & (1 << k))) {
+            mask[i] |= 1 << k;
+            for (let j = 0; j < 4; j++) if (!BITS[j].on) { BITS[j].on = true; BITS[j].pot = i; BITS[j].t = 0; BITS[j].kind = k; M['bit' + j].color(k ? 0x6ad8ff : 0xff6ad0); break; }
+          }
+        }
+        // bubbles: more as it fills; a finished potion keeps a gentle simmer
+        const rate = L.done ? (i === 3 ? 0 : 1.6) : (L.p > 0.03 ? 2 + 10 * L.p : 0);
+        if (rate > 0 && level > 0.1 && M['pot' + i].s > 0.3) {
+          spawnAcc[i] += dt * rate;
+          while (spawnAcc[i] >= 1) { spawnAcc[i] -= 1; const a = Math.random() * 6.3, rr = Math.random() * 0.17 * s0;
+            addBubble(P[0] + Math.cos(a) * rr, P[1] + LIQ_Y * s0, P[2] + Math.sin(a) * rr, (0.022 + Math.random() * 0.025) * s0 * (L.done ? 0.8 : 1), 0.25 + Math.random() * 0.25, 0.6 + Math.random() * 0.5, c1.copy(c2).lerp(WHITE, 0.3)); }
+        }
+        // a halo over the finished potion; at the snap first a bright coloured puff
+        if (L.done && level > 0.1 && M['pot' + i].s > 0.3) {
+          const pf = L.popT >= 0 && L.popT < POP ? L.popT / POP : 1, y = P[1] + LIQ_Y * s0 + 0.2 * s0;
+          if (pf < 1) quad(P[0], y + pf * 0.3, P[2], (0.5 + pf * 1.4) * s0, (0.5 + pf * 1.4) * s0, c2.r * 2.2 * (1.2 - pf), c2.g * 2.2 * (1.2 - pf), c2.b * 2.2 * (1.2 - pf));
+          else if (i !== 4 && i !== 8) quad(P[0], y, P[2], 0.9 * s0, 0.7 * s0, c2.r * 0.45, c2.g * 0.45, c2.b * 0.45);
+        }
+      }
+      liq.instanceMatrix.needsUpdate = true; liq.instanceColor.needsUpdate = true;
+      // the ladle in the cauldron being stirred: it circles while the potion rises, rests leaning when it does not
+      let cur = sel;
+      if (!cur && casting && st.lifts) for (const L of st.lifts) if (!L.done) { cur = L; break; }
+      if (cur && cur.brew) {
+        const i = Number(cur.mv.name.slice(3)), s0 = POTS[i][3], P = cur.arr;
+        const rising = cur.p > prevP[i] + 1e-5; prevP[i] = cur.p;
+        ladleV += ((rising ? 7 : 0) - ladleV) * Math.min(1, dt * 6); ladleA += ladleV * dt;
+        ladleK = Math.min(1, ladleK + dt * 4);
+        M.ladle0.pose(P[0] + Math.cos(ladleA) * 0.1 * s0, P[1] + (LIQ_Y - 0.02) * s0, P[2] - Math.sin(ladleA) * 0.1 * s0, 0, ladleA, -0.5, Math.max(0.8, s0) * ladleK);
+      } else { ladleK = 0; M.ladle0.pose(0, -50, 0, 0, 0, 0, 0); }
+      // falling ingredients: a plop, a splash and a tink
+      let bitsOn = false;
+      for (let j = 0; j < 4; j++) {
+        const b = BITS[j]; if (!b.on) continue;
+        const P = POTS[b.pot], L = LI[b.pot], s0 = P[3], y0 = P[1] + LIQ_Y * s0;
+        b.t += dt; const u = clamp01(b.t / 0.45), y = y0 + 0.8 * (1 - u * u);
+        if (u >= 1 || !L) { b.on = false; M['bit' + j].pose(0, -50, 0, 0, 0, 0, 0); splash[b.pot] = 0.35; kit.burst(P[0], y0 + 0.05, P[2], 6);
+          fun.sfx.tone(820, 0.13, 'sine', 0.13, 0, 240); fun.sfx.noise(0.12, 0.05, 0.02, 1400, 1.2); fun.sfx.tink(b.kind + 1); continue; }
+        bitsOn = true; M['bit' + j].pose(P[0] + 0.03, y, P[2], t * 5, t * 7, 0.3, 1.3);
+      }
+      // the bubble pool
+      let bubOn = false;
+      for (let i = 0; i < NB; i++) {
+        const b = B[i], mv = M['bubble' + i];
+        if (!b.on) { if (mv.s !== 0) mv.pose(0, -50, 0, 0, 0, 0, 0); continue; }
+        b.life -= dt; if (b.life <= 0) { b.on = false; mv.pose(0, -50, 0, 0, 0, 0, 0); continue; }
+        b.y += b.vy * dt; const k = b.life / b.t0, grow = Math.min(1, (1 - k) * 6), pop = k < 0.12 ? k / 0.12 : 1;
+        mv.pose(b.x + Math.sin(t * 2.2 + b.ph) * b.wob, b.y, b.z + Math.cos(t * 1.9 + b.ph) * b.wob, 0, 0, 0, b.sz * grow * pop);
+        bub.setColorAt(i, c1.setRGB(b.r * 1.15, b.g * 1.15, b.b * 1.15)); bubOn = true;
+      }
+      bub.instanceColor.needsUpdate = true;
+      // ---- 1 the plant: wilted (short, brown, leaning) until the pour, then it grows into a tall flower; the star ----
+      {
+        const g = clamp01((growT - 1.5) / 1.5), k = g > 0 ? back(g) : 0, yaw = 1.0;
+        const sc = 0.42 + (1 - 0.42) * k, lean = 0.75 * (1 - Math.min(1, k)) + Math.sin(t * 1.3) * 0.03;
+        M.flower.pose(PO.plant[0], 0.29, PO.plant[2], 0, yaw, lean, sc);
+        M.flower.mat.color.copy(BROWN).lerp(WHITE, clamp01(g * 1.4));
+        if (growT < 3.0) M.star.pose(PO.plant[0], 1.84, PO.plant[2], 0, 0, 0, 0);
+        else {
+          const v = clamp01((growT - 3.0) / 0.4), w = clamp01((growT - 3.6) / 1.2), e = ease(w);
+          const sx = PO.plant[0] + 0.05, sy = 0.29 + 1.56 + 0.2, sz = PO.plant[2] + 0.12;
+          const gone = growT > 4.6 ? clamp01((growT - 4.6) / 0.2) : 0;
+          M.star.pose(sx + (hx - sx) * e, sy + (1.15 - sy) * e + Math.sin(w * Math.PI) * 0.35, sz + (hz - sz) * e, 0, 1.0 + t * 2.5, 0, back(v) * (1 - gone));
+        }
+      }
+      // ---- 2 the lamps: each brewed jar glows; the chord flares them together; the corner fills with warm light ----
+      if (step >= 1 && step <= 2) {
+        const flare = chordT > 0 && chordT < 1.8 ? Math.sin(chordT / 1.8 * Math.PI) * 0.8 : 0;
+        let lit = 0;
+        for (let j = 0; j < 3; j++) {
+          const L = LI[5 + j]; if (!(L && L.done && L.popT >= POP)) continue;
+          lit++; const P = LAMP[j], fl = 0.93 + 0.05 * Math.sin(t * 7.3 + j) + flare;
+          quad(P[0], 0.45, P[2], 0.9 + 0.2 * flare, 0.9 + 0.2 * flare, 2.0 * fl, 1.45 * fl, 0.7 * fl);
+          quad(P[0], 0.02, P[2], 1.7, 1.7, 0.7 * fl, 0.5 * fl, 0.24 * fl, 1);
+        }
+        if (lit) { const w = lit / 3 + flare * 0.3; quad(-8.44, 1.1, 7.8, 3.4, 2.6, 0.4 * w, 0.28 * w, 0.14 * w, 2); }
+        jars.material.emissiveIntensity = 0.45 + 0.35 * (lit / 3) + flare * 0.5;
+      }
+      // ---- 3 the ice melts away under the orange potion; the key hops out to the hero ----
+      {
+        const m = clamp01((meltT - 0.9) / 1.8), em = ease(m);
+        M.ice.pose(PO.ice[0], 0, PO.ice[2], 0, 0, 0, m >= 1 ? 0 : 1); if (m < 1) M.ice.mesh.scale.set(1 - 0.45 * em, 1 - 0.97 * em, 1 - 0.45 * em);
+        if (meltT > 0.9 && m < 1 && (step === 2)) {
+          if (Math.random() < dt * 14) addBubble(PO.ice[0] + (Math.random() - 0.5) * 0.4, 0.5 * (1 - em) + 0.05, PO.ice[2] + (Math.random() - 0.5) * 0.4, 0.05, 0.5, 1.0, c1.setRGB(0.9, 0.95, 1.0), 0.04);
+        }
+        if (meltT > 0.9 && step >= 2 && step <= 3) { const pw = Math.min(1, m * 1.5); quad(PO.ice[0], 0.015, PO.ice[2], 0.6 + 0.9 * pw, 0.5 + 0.7 * pw, 0.12 * pw, 0.3 * pw, 0.45 * pw, 1); }
+        const kt = meltT - 2.6;
+        if (kt <= 0) M.key.pose(PO.ice[0], 0.26 * (1 - em) + 0.03 * em, PO.ice[2], em * Math.PI / 2 + (1 - em) * 0.3, 0.5, 0.2 * (1 - em), 1);
+        else {
+          const u = clamp01(kt / 0.8), w = clamp01((kt - 0.9) / 0.9), e = ease(w), mx = PO.ice[0] + (hx - PO.ice[0]) * 0.45, mz = PO.ice[2] + (hz - PO.ice[2]) * 0.45;
+          const ax = PO.ice[0] + (mx - PO.ice[0]) * ease(u), az = PO.ice[2] + (mz - PO.ice[2]) * ease(u), ay = 0.03 + (1.1 - 0.03) * ease(u) + Math.sin(u * Math.PI) * 0.5;
+          const gone = kt > 1.7 ? clamp01((kt - 1.7) / 0.2) : 0;
+          M.key.pose(ax + (hx - ax) * e, ay + (1.15 - ay) * e, az + (hz - az) * e, 0, t * 4, 0.3, (1 + 0.2 * Math.sin(u * Math.PI)) * (1 - gone));
+        }
+      }
+      // ---- 4 the pennants sway; when all three potions are done they wave and three coloured puffs rise ----
+      for (let j = 0; j < 3; j++) {
+        const w = waveT > 0 && waveT < 2.6 ? Math.sin(waveT / 2.6 * Math.PI) : 0;
+        M['flag' + j].pose(POTS[9 + j][0], PO.flagY, PO.flagZ, Math.sin(t * 1.3 + j) * 0.05 - w * (0.3 + 0.15 * Math.sin(t * 9 + j * 2)), 0, Math.sin(t * 1.1 + j * 1.7) * 0.04 + w * Math.sin(t * 7 + j) * 0.18, 1);
+        if (waveT > 0 && waveT < 2.6) {
+          const u = clamp01(waveT / 2.4), P = POTS[9 + j], C = TGT[9 + j], f = Math.sin(u * Math.PI);
+          quad(P[0], 0.6 + u * 1.6, P[2] - 0.1, 0.5 + u * 0.9, 0.5 + u * 0.9, C.r * 1.6 * f, C.g * 1.6 * f, C.b * 1.6 * f);
+        }
+      }
+      // ---- 5 the toad hops out of the big cauldron and sits on its rim; rainbow bubbles float up through the dungeon ----
+      {
+        const dx = -3.4 - BIG[0], dz = -2.6 - BIG[2], dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl;   // toward the station camera
+        const rimX = BIG[0] + ux * 0.4, rimZ = BIG[2] + uz * 0.4, rimY = RIM_Y * BIG[3] + 0.03, yaw = Math.atan2(ux, uz);
+        if (toadT <= 0) M.toad.pose(BIG[0], LIQ_Y * BIG[3], BIG[2], 0, yaw, 0, 0);
+        else {
+          const u = clamp01(toadT / 0.45), v = clamp01((toadT - 0.45) / 0.6);
+          let x = BIG[0], y = LIQ_Y * BIG[3] - 0.1 + u * 0.75, z = BIG[2], sq = 1;
+          if (v > 0) { x = BIG[0] + (rimX - BIG[0]) * v; z = BIG[2] + (rimZ - BIG[2]) * v; y = (LIQ_Y * BIG[3] + 0.65) * (1 - v) + rimY * v + Math.sin(v * Math.PI) * 0.15; }
+          if (toadT > 1.05) { x = rimX; z = rimZ; y = rimY; const k = toadT - 1.05; sq = 1 - 0.15 * Math.max(0, Math.sin(Math.min(1, k / 0.25) * Math.PI)); }
+          M.toad.pose(x, y, z, 0, yaw + (toadT > 1.05 ? Math.sin(t * 0.7) * 0.15 : 0), 0, 1);
+          M.toad.mesh.scale.set(1, sq * (1 + Math.max(0, Math.sin(t * 6)) * 0.03 * (toadT > 1.4 ? 1 : 0)), 1);
+        }
+        if (toadT > 0.3 && toadT < 5.0 || st.phase === 'reward') {
+          rainAcc += dt * 13;
+          while (rainAcc >= 1) { rainAcc -= 1; const a = Math.random() * 6.3, rr = Math.random() * 0.35;
+            addBubble(BIG[0] + Math.cos(a) * rr, LIQ_Y * BIG[3] + 0.1, BIG[2] + Math.sin(a) * rr, 0.07 + Math.random() * 0.09, 0.6 + Math.random() * 0.5, 3.2 + Math.random() * 1.6, c1.setHSL(Math.random(), 0.95, 0.55), 0.25); }
+        }
+      }
+      // what is drawn: the lesson things in the lesson; each station's things while it (or a neighbour) is on
+      for (let i = gq; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); }
+      glow.instanceMatrix.needsUpdate = true; glow.instanceColor.needsUpdate = true; glow.visible = gq > 0;
+      pots.visible = true; liq.visible = true;
+      M.ladle0.mesh.visible = M.ladle0.s > 0.001 || M.ladle1.s > 0.001;
+      bits.visible = bitsOn; bub.visible = bubOn;
+      vis(M, ['cloud'], les);
+      vis(M, ['flower'], les || step === 0 || step === 1 || step === 4);   // (it is in the finale's view too)
+      vis(M, ['star'], step === 0);
+      vis(M, ['stream'], step === 0 || step === 2);
+      vis(M, ['jar0', 'jar1', 'jar2'], step >= 1 && step <= 2);
+      vis(M, ['ice'], step >= 2 && step <= 3); vis(M, ['key'], step >= 2 && step <= 3);
+      vis(M, ['flag0', 'flag1', 'flag2'], step >= 2);
+      vis(M, ['toad'], step >= 4);
+    },
+    effects: {
+      // Snape's demo: he stirs his cauldron, it turns green and puffs a star-shaped cloud (5.2 s, the next line talks over it)
+      demo(M, t, quiet) {
+        demoT = t;
+        if (!quiet && t > 0.3 && demoSfx < 1) { demoSfx = 1; fun.sfx.tone(300, 0.5, 'sine', 0.06, 0, 420); }
+        if (!quiet && t > 2.2 && demoSfx < 2) { demoSfx = 2; fun.sfx.poof(); fun.sfx.sparkle(); kit.burst(BIG[0], 1.1, BIG[2], 20); }
+        if (quiet) demoT = 99;
+        return t < 5.2;
+      },
+      // the green potion hops up and pours onto the wilted plant, which grows into a tall flower; its star comes to the hero (5 s)
+      growPour(M, t, quiet) {
+        growT = t;
+        if (!quiet) {
+          if (growSfx < 1 && t > 0.1) { growSfx = 1; fun.sfx.whoosh(); }
+          if (growSfx < 2 && t > 0.6) { growSfx = 2; fun.sfx.noise(1.0, 0.06, 0, 900, 0.8); }
+          if (growSfx < 3 && t > 1.6) { growSfx = 3; fun.sfx.tone(300, 1.3, 'sine', 0.12, 0, 900); }
+          if (growSfx < 4 && t > 3.0) { growSfx = 4; fun.sfx.chime(); kit.burst(PO.plant[0], 1.9, PO.plant[2], 14); }
+          if (growSfx < 5 && t > 4.7) { growSfx = 5; kit.burst(hxOf(), 1.15, hzOf(), 14); fun.sfx.tune([784, 988, 1319], 0.1, 'sine'); }
+        } else growT = 99;
+        return t < 5.0;
+      },
+      // the three lamps sing a little chord and flare together (2 s)
+      lampChord(M, t, quiet) {
+        chordT = t;
+        if (!quiet && !chord) { chord = 1; fun.sfx.tune([784, 988, 1175, 1568], 0.12, 'sine'); for (const P of LAMP) kit.burst(P[0], 0.5, P[2], 8); }
+        if (t >= 2.0) chord = 0;
+        return t < 2.0;
+      },
+      // the orange potion pours over the ice block, the ice melts away and the key hops out to the hero (4.6 s)
+      meltPour(M, t, quiet) {
+        meltT = t;
+        if (!quiet) {
+          if (meltSfx < 1 && t > 0.1) { meltSfx = 1; fun.sfx.whoosh(); }
+          if (meltSfx < 2 && t > 0.6) { meltSfx = 2; fun.sfx.noise(1.6, 0.07, 0, 2600, 0.7); }
+          if (meltSfx < 3 && t > 2.6) { meltSfx = 3; fun.sfx.boing(); kit.burst(PO.ice[0], 0.3, PO.ice[2], 12); }
+          if (meltSfx < 4 && t > 4.3) { meltSfx = 4; fun.sfx.chime(); kit.burst(hxOf(), 1.15, hzOf(), 14); }
+        } else meltT = 99;
+        return t < 4.6;
+      },
+      // the pennants wave and three coloured puffs rise (2.6 s)
+      flagWave(M, t, quiet) {
+        if (!quiet && waveSfx < 1) { waveSfx = 1; fun.sfx.tune([659, 784, 988, 1319], 0.11, 'triangle'); for (let j = 0; j < 3; j++) kit.burst(POTS[9 + j][0], 0.8, POTS[9 + j][2], 8); }
+        waveT = quiet ? 99 : t; if (t >= 2.6) waveSfx = 0;
+        return t < 2.6;
+      },
+      // the toad hops out onto the rim, rainbow bubbles float up through the dungeon (5.4 s)
+      toadHop(M, t, quiet) {
+        toadT = quiet ? 99 : t;
+        if (!quiet) {
+          if (toadSfx < 1 && t > 0.05) { toadSfx = 1; fun.sfx.tone(500, 0.18, 'sine', 0.14, 0, 1200); }
+          if (toadSfx < 2 && t > 1.05) { toadSfx = 2; fun.sfx.boing(); kit.burst(BIG[0], 1.0, BIG[2], 10); }
+          if (toadSfx < 3 && t > 1.5) { toadSfx = 3; fun.sfx.ribbit(); }
+          if (toadSfx < 4 && t > 3.6) { toadSfx = 4; fun.sfx.ribbit(0.8); fun.sfx.tune([523, 659, 784, 1047], 0.12, 'triangle'); }
+        }
+        return t < 5.4;
+      },
+    },
+  };
+  function hxOf() { return ctx.player.pos.x - ctx.worldOff.x; }
+  function hzOf() { return ctx.player.pos.z - ctx.worldOff.z; }
+}
+
 // ---------------------------------------------------------------------------------------
 // the runner
 // ---------------------------------------------------------------------------------------
@@ -1370,7 +1874,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     mats.push(pMat); geos.push(pGeo);
     const parts = []; for (let i = 0; i < NP; i++) parts.push({ mode: 0, a: Math.random() * 6.3, r: 0.25 + Math.random() * 0.2, sp: 1.5 + Math.random() * 2, y: Math.random(), vx: 0, vy: 0, vz: 0, x: 0, yy: 0, z: 0, life: 0 });
     // pre-sample every lift path (arc-length spaced), so update() only reads arrays
-    const push = C.verb === 'push', light = C.verb === 'light', change = C.verb === 'change';
+    // 'brew' (Potions) IS a change for every input / hold / tap / settle-back rule (CHANGE_*); only its look differs (poseBrew)
+    const push = C.verb === 'push', light = C.verb === 'light', brew = C.verb === 'brew', change = C.verb === 'change' || brew;
     const mkLift = (L, st) => {
       const mv = movers[L.m]; if (!mv) return null;
       const N = (light || change) ? 2 : 48, arr = new Float32Array(N * 3);
@@ -1382,7 +1887,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       }
       const rings = (L.rings || []).map(n => { const r = movers[n]; return r ? { mv: r, u: 0, ringIdx: n } : null; }).filter(Boolean);
       return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings,
-        push, light, change, to: change ? (movers[L.to] || null) : null, popT: -1,
+        push, light, change, brew, to: change ? (movers[L.to] || null) : null, popT: -1,
         hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : change ? CHANGE_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : change ? CHANGE_FALL : FALL, inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
@@ -1435,7 +1940,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     L.mv.pose(x, y + Math.abs(Math.sin(t * 9 + L.ph)) * 0.03 * w * on, z, r0[0], r0[1] + Math.sin(t * 7 + L.ph) * 0.2 * w * on, r0[2] + Math.sin(t * 16 + L.ph) * (0.03 + 0.12 * w) * on, sb * (1 + 0.1 * w * on));
     if (L.to && !(L.spec.free && L.done && L.popT >= POP)) L.to.pose(x, y, z, r1[0], r1[1], r1[2], sa);
   }
+  // a brew target (a cauldron) stays put and only trembles a little as it fills (the ladle, the colour and the
+  // bubbles are the course's own look, see buildPotions); at the snap it puffs (a squash and stretch), or, with
+  // a `to` shape, pops into it exactly like a change
+  function poseBrew(L, t) {
+    if (L.to) { poseChange(L, t); return; }
+    const a = L.arr, r0 = L.rot0, w = L.done ? 0 : L.p, on = w > 0.01 ? 1 : 0;
+    const u = L.done && L.popT >= 0 ? Math.min(1, L.popT / POP) : 1, puff = Math.sin(u * Math.PI) * 0.16;
+    L.mv.pose(a[0], a[1] + Math.abs(Math.sin(t * 13 + L.ph)) * 0.012 * w * on, a[2], r0[0] + Math.sin(t * 11 + L.ph) * 0.025 * w * on, r0[1], r0[2] + Math.sin(t * 9 + L.ph) * 0.025 * w * on, 1 + puff);
+  }
   function poseLift(L, t) {
+    if (L.brew) { poseBrew(L, t); return; }
     if (L.change) { poseChange(L, t); return; }
     const e = L.p * L.p * (3 - 2 * L.p);
     samplePath(L, L.p, tmp2);
@@ -1578,7 +2093,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       try { ov.setPointerCapture(e.pointerId); } catch { /* ignore */ }
       return;
     }
-    if (S.C.verb === 'change') {
+    if (S.C.verb === 'change' || S.C.verb === 'brew') {   // brew: the same stir / hold / tap on a cauldron
       // Vera Verto: touch the glowing thing and stir / scribble round it (any direction: finger travel counts), or
       // keep the finger on it, or tap it. A touch beside it still stirs the current one (forgiving) and twinkles it.
       const hit = pick(e.clientX, e.clientY);
@@ -1913,7 +2428,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       }
       for (; gi < K.ghosts.length; gi++) K.ghosts[gi].visible = false;
       K.ghostMat.opacity = 0.42 + Math.sin(t * 4) * 0.16; K.ghost.visible = false;
-    } else if (cur) {
+    } else if (cur && !cur.brew) {         // (a cauldron needs no outline: its colour shows the progress)
       const g = K.ghost; if (g.geometry !== cur.mv.geo) g.geometry = cur.mv.geo;
       const a = cur.arr, n = (cur.N - 1) * 3, r1 = cur.rot1;
       g.position.set(a[n], a[n + 1], a[n + 2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(cur.mv.scale * (cur.light ? 1.7 : 1.06));
