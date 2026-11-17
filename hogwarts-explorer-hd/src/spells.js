@@ -1020,11 +1020,11 @@ function buildTransfiguration(kit) {
     paint(place(new SphereGeometry(0.04, 8, 6), 0, 0.08, -0.14), 0xffffff),
     ...[-1, 1].map(s => paint(place(new SphereGeometry(0.035, 8, 6), s * 0.05, 0.02, 0.07, 0, 0, 0, 0.8, 0.5, 1.4), 0xf4f0ea)),
   ]), 0, 0, 0, 0, 0, 0, 1.3), { glow: false });
-  kit.mesh('feather', place(featherGeo(), 0, 0.02, 0, 0, 0.5, 0.08, 0.9), { glowHex: 0xffd27a });
+  kit.mesh('feather', place(featherGeo(), 0, 0.1, 0, 0, 0.5, 0.4, 1.35), { glowHex: 0xffd27a });
   kit.mesh('quill', place(merge([
     paint(place(new CylinderGeometry(0.07, 0.08, 0.1, 12), 0, 0.05, 0), 0x1a2a4a, 0x2a3a6a),
     paint(place(new CylinderGeometry(0.035, 0.05, 0.03, 10), 0, 0.11, 0), 0x2a3a6a),
-    place(featherGeo(), 0.03, 0.33, 0, 0, 0, Math.PI / 2 - 0.25, 0.95),
+    place(featherGeo(), 0.03, 0.33, 0, 0, Math.PI / 2, Math.PI / 2 - 0.25, 0.95),   // the vane faces +z (the child)
   ]), 0, 0, 0, 0, 0, 0, 1.2), { glow: false });
   kit.mesh('button', merge([paint(place(new CylinderGeometry(0.14, 0.14, 0.04, 20), 0, 0.02, 0, Math.PI / 2 * 0), 0xd8382c, 0xf05a4a),
     paint(place(new TorusGeometry(0.12, 0.014, 5, 20), 0, 0.042, 0, Math.PI / 2), 0xa82a20),
