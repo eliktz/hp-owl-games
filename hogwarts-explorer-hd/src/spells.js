@@ -28,6 +28,10 @@
 //                  pixels swiped up) and its plant (`to`) rises out of it following the finger; a tap = a third, holding the
 //                  🪄 button grows it too. Let go early: it holds a moment, then sinks back slowly (no drop, no oops). At the
 //                  snap the leaves pop, a sparkle, then the grown plant sways. A glowing silhouette shows the full plant.
+//                  A 'pet' target (Creatures) is a creature: it uses the change gesture code unchanged (stroke it with the
+//                  finger in any direction, keep the finger on it, or the 🪄 button; CHANGE_* numbers, PET_* settle-back). While
+//                  its progress rises it leans into the finger and wiggles (posePet); its eyes, hearts and happy animation are
+//                  the course's own (buildCreatures). No outline, no ghost. With a `to` shape (an egg) it hatches like a change.
 //   outdoors       a course with `room: null` (Herbology) runs on the lawn by its teacher's outdoor station: the kit group
 //                  sits in the scene at the station (worldOff = the station on the terrain), and every y in its data (lift
 //                  paths, cameras) and its build (ctx.ground(x, z)) is height ABOVE THE TERRAIN at that x, z; the hero's
@@ -69,6 +73,7 @@ const CHANGE_STIR = 2.4;                  // ...or stir: this many gesture range
 const CHANGE_HOVER = 0.8, CHANGE_FALL = 0.45;  // let go early: it wobbles a moment, then settles back (no penalty)
 const GROW_HOLD = 1.3;                    // Herbivicus: holding the 🪄 button grows a plant in 1.3 s
 const GROW_HOVER = 1.2, GROW_FALL = 0.3;  // let go early: the plant holds a moment, then sinks back slowly (no drop, no penalty)
+const PET_HOVER = 1.0, PET_FALL = 0.25;   // Gentle care: let go early and the creature stays happy a moment, then settles back slowly
 const POP = 0.5;                          // seconds of the pop: the before shape shrinks away, the after shape springs up
 const HINT_AFTER = 4;                     // seconds of no input before the ghost hand shows
 const WALK = 2.2;                         // auto-walk speed between stations (m/s)
@@ -134,6 +139,23 @@ const BED_SOIL = 0.17, POT_SOIL = 0.3, VINE_S = 1.95, BEAN_H = 2.6, GIANT_H = 2.
 const archY = (u) => 0.3 * Math.pow(Math.max(0, Math.sin(Math.PI * u)), 0.7) - 0.09 * u;   // the vine bridge's deck, u 0..1 along its span
 const potSoil = (i, x, z) => { const P = HB.pots[i]; return [x ?? P[0], P[3] + POT_SOIL * P[2], z ?? P[1]]; };
 const growLift = (seed, to, at, o = {}) => ({ m: 'seed' + seed, to, path: [at], rot0: [0, seed * 1.3, 0], rot1: [0, 0, 0], aimY: 0.1, r: 0.22, ...o });
+
+// Course #7 places: OUTDOORS round Hagrid's paddock (the pen of STATIONS.creatures: a fence ring r 3.2 at the origin, its own
+// three critters are held out of the way while the course runs). Metres local to the pen centre: x east, z south, every y
+// above the terrain (flat here: +-0.4 m over the whole course). Hagrid stands outside the fence at (-3, 2.4). The course goes
+// west (the owl's post, the burrows), south (the stream bed, the egg nests) and back to Hagrid; nothing east of x 2 (where
+// the hut stands when its model is present).
+const CR = {
+  hag: [-3, 2.4], bale: [-1.75, 4.95, 0.5], dog: [-4.35, 3.55, 0.75],
+  puffs: [[-2.19, 5.19], [-1.75, 4.95], [-1.31, 4.71]],
+  post: [-7.2, 3.6, 1.45], moles: [[-10.4, 6.6], [-9.4, 6.0], [-8.4, 6.6]],
+  stream: [-12.6, 0.9, 5.5, 14.2], foal: [-11.6, 10.0],
+  nests: [[-6.6, 12.0], [-5.6, 12.2], [-4.6, 12.0]], drag: [-2.1, 3.6], curl: [-2.55, 3.1],
+  cams: { les: [0.5, 7.7], owl: [-6.2, 6.6], mole: [-10.0, 9.7], foal: [-12.2, 13.6], egg: [-5.2, 15.6], drag: [0.2, 6.6] },
+};
+const BALE_TOP = 0.42, MOUND_TOP = 0.136, NEST_Y = 0.09, MOLE_PEEK = -0.07;
+const camYaw = (x, z, c) => Math.atan2(c[0] - x, c[1] - z);
+const petLift = (m, x, y, z, yaw, o = {}) => ({ m, path: [[x, y, z]], rot0: [0, yaw, 0], rot1: [0, yaw, 0], aimY: 0.2, r: 0.26, ...o });
 
 export const COURSES = {
   charms: {
@@ -483,6 +505,65 @@ export const COURSES = {
           afterCam: { pos: [3.4, 1.9, 5.5], look: [1.0, 1.5, 0.8] },
           lifts: [growLift(12, 'giant', potSoil(4, HB.stem[0], HB.stem[1]), { rot1: [0, 0.33, 0], top: GIANT_H + 0.3, r: 0.35, aimY: 0.12 })],
           after: 'mandrake', afterT: 5.8, afterSfx: 'none', afterLine: 'אֵיזֶה גַּן נִפְלָא!', afterLineT: 3.6 },
+      ],
+    },
+  },
+  // -------------------------------------------------------------------------------------
+  // Course #7: Care of Magical Creatures, Hagrid, OUTDOORS by the paddock (verb 'pet': stroke a shy, sleepy or grumpy
+  // creature with the finger until it is happy). No incantation: the 'spell' is gentle care. See CR for the places.
+  // -------------------------------------------------------------------------------------
+  creatures: {
+    spell: { he: 'לְלַטֵּף בַּעֲדִינוּת', icon: '💛', gesture: 'pet' }, icon: '🐉',
+    verb: 'pet', who: '🧔', pitch: 0.72, oneBubble: true, bubbleY: 3.72, back: 4.6,
+    title: 'טִפּוּל בִּיצוּרֵי פֶּלֶא', name: 'אֶתְגָּר: יְצוּרִים',
+    teacher: 'hagrid', room: null, station: 'creatures',
+    build: buildCreatures,
+    confetti: ['💛', '⭐', '🐾', '✨', '🐉'],
+    lesson: {
+      stand: [-0.25, 5.35], face: [-1.75, 4.95], pip: '🐾',
+      cam: { pos: [0.5, 1.8, 7.7], look: [-1.9, 1.45, 3.3] },
+      intro: [
+        { pose: 'talk', line: 'שָׁלוֹם, חָבֵר! בּוֹא נַכִּיר אֶת הַיְּצוּרִים שֶׁלִּי!', t: 3.4 },
+        { pose: 'talk', line: 'לְאַט… וּבַעֲדִינוּת!', t: 3.8, fx: 'demo' },
+        { pose: 'cast', line: 'רָאִיתָ? הוּא מְכַשְׁכֵּשׁ בַּזָּנָב!', t: 3.0 },
+        { pose: 'talk', line: 'עַכְשָׁו אַתָּה! גַּע בַּיְּצוּר וְלַטֵּף בָּאֶצְבַּע!', t: 3.4 },
+      ],
+      // three fluffy puffballs (pink, cream, lilac) on a hay bale in front of Hagrid
+      lifts: CR.puffs.map(([x, z], i) => petLift('puff' + i, x, BALE_TOP, z, camYaw(x, z, CR.cams.les), { aimY: 0.2, r: 0.22 })),
+      outro: 'עַכְשָׁו — לָאֶתְגָּר!',
+    },
+    praise: ['יָפֶה מְאֹד!', 'מְצֻיָּן!', 'כָּל הַכָּבוֹד!', 'נִפְלָא!'],
+    oops: 'נַסֵּה שׁוּב',
+    finale: 'אַתָּה חָבֵר שֶׁל כָּל הַיְּצוּרִים!',
+    course: {
+      star3: 240,
+      stations: [
+        { id: 'owl', icon: '🦉', say: 'לַטֵּף אֶת הַיַּנְשׁוּף הַיָּשֵׁן!',
+          walk: [[-1.0, 6.3], [-3.2, 6.2], [-5.7, 4.3]], face: [CR.post[0], CR.post[1]],
+          cam: { pos: [-6.2, 1.9, 6.6], look: [-6.8, 1.4, 3.4] },
+          lifts: [petLift('owl', CR.post[0], CR.post[2] + 0.02, CR.post[1], camYaw(CR.post[0], CR.post[1], CR.cams.owl), { aimY: 0.25, r: 0.3 })],
+          after: 'owlFly', afterT: 5.0, afterSfx: 'none' },
+        { id: 'moles', icon: '🪙', say: 'לַטֵּף אֶת שָׁלוֹשׁ הַחֲפַרְפָּרוֹת!',
+          walk: [[-6.6, 6.0], [-7.4, 7.7]], face: [CR.moles[1][0], CR.moles[1][1]],
+          cam: { pos: [-10.0, 1.85, 9.7], look: [-9.25, 0.4, 6.3] },
+          lifts: CR.moles.map(([x, z], i) => petLift('mole' + i, x, MOLE_PEEK, z, camYaw(x, z, CR.cams.mole), { aimY: 0.3, r: 0.24 })),
+          after: 'coinSpin', afterT: 3.4, afterSfx: 'none' },
+        { id: 'foal', icon: '🌉', say: 'לַטֵּף אֶת הַסְּיָח הַמְּכֻנָּף!',
+          walk: [[-8.6, 9.2], [-10.4, 11.0]], face: [CR.foal[0], CR.foal[1]],
+          cam: { pos: [-12.2, 1.75, 13.6], look: [-12.0, 0.55, 9.8] },
+          lifts: [petLift('foal', CR.foal[0], 0, CR.foal[1], camYaw(CR.foal[0], CR.foal[1], CR.cams.foal), { aimY: 0.75, r: 0.45 })],
+          after: 'foalBow', afterT: 5.4, afterSfx: 'none' },
+        { id: 'eggs', icon: '🥚', say: 'לַטֵּף כָּל בֵּיצָה עַד שֶׁתִּבָּקַע!',
+          walk: [[-9.4, 13.4], [-6.0, 13.8], [-3.7, 12.9]], face: [-5.6, 12.1],
+          cam: { pos: [-5.2, 2.0, 15.6], look: [-5.4, 0.75, 11.8] },
+          lifts: ['bdragon', 'owlet', 'turtle'].map((to, i) => { const [x, z] = CR.nests[i]; return petLift('egg' + i, x, NEST_Y, z, camYaw(x, z, CR.cams.egg), { to, aimY: 0.2, r: 0.22, free: true }); }),
+          after: 'babyBounce', afterT: 2.8, afterSfx: 'none' },
+        { id: 'dragon', icon: '🐉', say: 'לַטֵּף אֶת הַדְּרָקוֹן הַקָּטָן!',
+          walk: [[-1.6, 10.6], [0.2, 7.2], [0.2, 5.4], [-0.6, 4.2]], face: [CR.drag[0], CR.drag[1]],
+          cam: { pos: [0.2, 1.55, 6.6], look: [-2.5, 1.75, 2.6] },
+          afterCam: { pos: [0.6, 1.7, 7.0], look: [-2.6, 1.75, 2.6] },
+          lifts: [petLift('drag', CR.drag[0], 0, CR.drag[1], camYaw(CR.drag[0], CR.drag[1], CR.cams.drag), { aimY: 0.35, r: 0.3 })],
+          after: 'dragonCurl', afterT: 6.0, afterSfx: 'none', afterLine: 'אֵיזֶה יֹפִי! הוּא אוֹהֵב אוֹתְךָ!', afterLineT: 2.6 },
       ],
     },
   },
@@ -2284,6 +2365,590 @@ function buildHerbology(kit) {
   function hz() { return ctx.player.pos.z - ctx.worldOff.z; }
 }
 
+// ---- Course #7 geometry: chunky, round, friendly animals (front = +z, origin at the feet unless noted). The eyes of the
+// creatures that wake up are NOT in these meshes: they are one shared instanced set (eyeGeo) that opens by scaling in y.
+function speckle(geo, hexA, hexB, k = 0.2) {     // speckled shell: a few vertices take the dot colour
+  const P = geo.attributes.position, n = P.count, col = new Float32Array(n * 3), a = new Color(hexA), b = new Color(hexB);
+  for (let i = 0; i < n; i++) { const h = Math.abs(Math.sin(P.getX(i) * 127.1 + P.getY(i) * 311.7 + P.getZ(i) * 74.7) * 43758.5) % 1; _c.copy(h < k ? b : a); col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
+  geo.setAttribute('color', new BufferAttribute(col, 3)); return geo;
+}
+const ball = (r, x, y, z, hex, hex2 = null, sx = 1, sy = sx, sz = sx, ws = 12, hs = 9) => paint(place(new SphereGeometry(r, ws, hs), x, y, z, 0, 0, 0, sx, sy, sz), hex, hex2);
+function eyeGeo() {                                // a big shiny black eye (r 0.05) with two glints, facing +z
+  return merge([
+    paint(place(new SphereGeometry(0.05, 12, 9), 0, 0, 0, 0, 0, 0, 1, 1.1, 0.55), 0x16101c),
+    paint(place(new SphereGeometry(0.016, 6, 5), 0.015, 0.022, 0.026), 0xffffff),
+    paint(place(new SphereGeometry(0.008, 5, 4), -0.016, -0.016, 0.027), 0xffffff),
+  ]);
+}
+function heartGeo(s = 0.07) {
+  const h = new Shape();
+  h.moveTo(0, -0.9 * s); h.bezierCurveTo(-0.5 * s, -0.4 * s, -1.0 * s, -0.1 * s, -1.0 * s, 0.35 * s); h.bezierCurveTo(-1.0 * s, 0.85 * s, -0.3 * s, 1.0 * s, 0, 0.55 * s);
+  h.bezierCurveTo(0.3 * s, 1.0 * s, 1.0 * s, 0.85 * s, 1.0 * s, 0.35 * s); h.bezierCurveTo(1.0 * s, -0.1 * s, 0.5 * s, -0.4 * s, 0, -0.9 * s);
+  return paint(new ShapeGeometry(h, 8), 0xff3a7a, 0xff9ac0);
+}
+function heartRingGeo() {                          // the baby dragon's heart-shaped smoke ring (~0.4 m across, faces +z)
+  const pts = []; for (let i = 0; i < 40; i++) { const a = i / 40 * Math.PI * 2, s = Math.sin(a); pts.push(new Vector3(16 * s * s * s * 0.012, (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) * 0.012, 0)); }
+  return paint(new TubeGeometry(new CatmullRomCurve3(pts, true), 60, 0.035, 6, true), 0xe8e4f0, 0xffffff);
+}
+function puffGeo() {                               // white-ish; the instance colour makes it pink / cream / lilac
+  const P = [ball(0.2, 0, 0.2, 0, 0xd8d0d8, 0xffffff)];
+  for (let i = 0; i < 18; i++) {
+    const y = 1 - (i + 0.5) / 18 * 2, rr = Math.sqrt(1 - y * y), a = i * 2.4, x = Math.cos(a) * rr, z = Math.sin(a) * rr;
+    if (z > 0.45 && y > -0.5) continue;            // keep the face clear
+    P.push(ball(0.075, x * 0.19, 0.2 + y * 0.19, z * 0.19, 0xe0d8e0, 0xffffff, 1, 1, 1, 8, 6));
+  }
+  for (const s of [-1, 1]) {
+    P.push(paint(place(new ConeGeometry(0.04, 0.09, 7), s * 0.09, 0.39, -0.01, 0, 0, -s * 0.35), 0xe8e0e8, 0xffffff));
+    P.push(ball(0.045, s * 0.08, 0.025, 0.11, 0xd8d0d8, null, 1, 0.6, 1.3, 8, 6));
+    P.push(ball(0.032, s * 0.115, 0.19, 0.165, 0xff8aa8, null, 1, 0.7, 0.4, 8, 6));
+  }
+  P.push(paint(place(new TorusGeometry(0.028, 0.008, 4, 10, Math.PI), 0, 0.19, 0.192, 0, 0, Math.PI), 0x4a2030));
+  return merge(P);
+}
+function dogGeo() {                                // a big friendly hound lying down (Fang-ish, softer), head toward +z
+  const B = 0x4e3628, B2 = 0x6e4e38, L = 0xb48e6c;
+  return merge([
+    paint(place(new SphereGeometry(0.36, 16, 12), 0, 0.29, -0.05, 0, 0, 0, 1.05, 0.78, 1.6), L, B2),
+    ball(0.26, 0, 0.52, 0.6, B, B2), ball(0.14, 0, 0.44, 0.8, L, 0xd0a888, 1, 0.8, 1.25),
+    ball(0.05, 0, 0.49, 0.96, 0x18121a), paint(place(new TorusGeometry(0.035, 0.01, 4, 10, Math.PI), 0, 0.4, 0.93, 0, 0, Math.PI), 0x3a2018),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.13, 10, 8), s * 0.22, 0.44, 0.58, 0, 0, s * 0.45, 0.42, 1.15, 0.8), 0x3a2820)),
+    ...[-1, 1].map(s => ball(0.09, s * 0.16, 0.07, 0.72, L, null, 1, 0.7, 1.45)),
+    ...[-1, 1].map(s => ball(0.11, s * 0.3, 0.09, -0.4, B2, null, 1, 0.75, 1.3)),
+    paint(place(new TorusGeometry(0.2, 0.035, 5, 16), 0, 0.42, 0.42, Math.PI / 2 - 0.4, 0, 0), 0xd83a3a),
+    ball(0.04, 0, 0.27, 0.52, 0xffd040),
+  ]);
+}
+function tailGeo() { return merge([paint(place(new CylinderGeometry(0.03, 0.055, 0.42, 7), 0, 0.21, 0), 0x6e4e38, 0x4e3628), ball(0.04, 0, 0.42, 0, 0x6e4e38)]); }
+function owl2Geo() {                               // a round sleepy owl (no wings: they are their own pair)
+  return merge([
+    ball(0.21, 0, 0.23, 0, 0x8a6a50, 0x6a4e3a, 1, 1.1, 0.95), ball(0.15, 0, 0.18, 0.08, 0xf0e2c8, 0xd8c4a4),
+    paint(place(new SphereGeometry(0.15, 12, 9), 0, 0.3, 0.09, 0, 0, 0, 1.05, 0.75, 0.45), 0xf4ead8),
+    paint(place(new ConeGeometry(0.03, 0.07, 6), 0, 0.25, 0.2, Math.PI / 2), 0xff9a20),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.045, 0.11, 5), s * 0.12, 0.45, 0, 0, 0, -s * 0.35), 0x6a4e3a)),
+    ...[-1, 1].map(s => ball(0.035, s * 0.07, 0.015, 0.1, 0xffa030, null, 1.2, 0.5, 1.1, 8, 6)),
+  ]);
+}
+function owlWingGeo() { return paint(place(new SphereGeometry(0.12, 10, 8), 0.02, -0.1, -0.01, 0, 0, 0, 0.32, 1.0, 0.75), 0x7a5a42, 0x5a3e2c); }   // pivot at the shoulder
+function moleGeo() {                               // a round shy burrower with a big shiny pink nose
+  return merge([
+    ball(0.17, 0, 0.18, 0, 0x8a7a72, 0x5e5050, 1, 1.12, 0.95), ball(0.12, 0, 0.14, 0.07, 0xc8b8a8, 0xa89888),
+    ball(0.075, 0, 0.21, 0.14, 0xd8b0a0, null, 1.1, 0.85, 1.0), ball(0.048, 0, 0.215, 0.215, 0xff5a8a), ball(0.014, 0.014, 0.235, 0.255, 0xffffff, null, 1, 1, 1, 6, 4),
+    ...[-1, 1].map(s => ball(0.045, s * 0.1, 0.08, 0.14, 0xffb0b8, null, 1.15, 0.7, 1, 8, 6)),
+    ...[-1, 1].map(s => ball(0.03, s * 0.12, 0.31, 0.0, 0x6e5e58, null, 1, 1, 0.6, 8, 6)),
+  ]);
+}
+function coinGeo() { return merge([paint(place(new CylinderGeometry(0.085, 0.085, 0.022, 18), 0, 0.011, 0), 0xd89a10, 0xffe060), paint(place(new TorusGeometry(0.07, 0.008, 4, 18), 0, 0.023, 0, Math.PI / 2), 0xfff0a0), paint(place(starGeo(0.035), 0, 0.024, 0, -Math.PI / 2), 0xfff4b0)]); }
+function foalGeo() {                               // a proud little winged horse-bird foal: feathered white front, cream body, hooves
+  const P = [
+    ball(0.3, 0, 0.6, -0.08, 0xb8946a, 0xd8b890, 0.82, 0.78, 1.3), ball(0.22, 0, 0.66, 0.24, 0xf4f0ea, 0xffffff, 1, 1.05, 0.9),
+    paint(place(new CylinderGeometry(0.1, 0.13, 0.32, 10), 0, 0.84, 0.32, 0.45), 0xf4f0ea, 0xffffff),
+    ball(0.17, 0, 1.02, 0.42, 0xf4f0ea, 0xffffff), ball(0.07, 0, 0.97, 0.58, 0xffc850, 0xffe080, 1, 0.75, 1.1),
+    ...[0, 1, 2].map(k => paint(place(new ConeGeometry(0.035, 0.12, 6), (k - 1) * 0.05, 1.18, 0.38 - k * 0.04, -0.3, 0, (k - 1) * -0.3), 0xffffff, 0xe0d8ff)),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.04, 0.1, 6), s * 0.11, 1.15, 0.36, 0, 0, -s * 0.5), 0xf4f0ea)),
+    ...[-1, 1].map(s => ball(0.03, s * 0.115, 0.98, 0.535, 0xffa0b0, null, 1, 0.7, 0.4, 8, 6)),
+    ball(0.09, 0, 0.62, -0.5, 0x8a6a48, 0xb8946a, 0.8, 1.2, 1.1),
+  ];
+  for (const [x, z] of [[-0.14, 0.22], [0.14, 0.22], [-0.15, -0.34], [0.15, -0.34]]) {
+    P.push(paint(place(new CylinderGeometry(0.045, 0.05, 0.42, 8), x, 0.25, z), 0xc8a478, 0xb8946a));
+    P.push(paint(place(new CylinderGeometry(0.06, 0.06, 0.06, 8), x, 0.03, z), 0x6a5a4c));
+  }
+  for (let k = 0; k < 6; k++) P.push(paint(place(new SphereGeometry(0.07, 8, 5), (k % 3 - 1) * 0.09, 0.78 - Math.floor(k / 3) * 0.1, 0.42, 0.5, 0, 0, 1, 0.5, 0.35), 0xffffff, 0xe8e4f4));
+  return merge(P);
+}
+function foalWingGeo() {                           // spans +x from the shoulder (1.25 m), flat in y: folded or a bridge
+  const P = [];
+  for (let k = 0; k < 7; k++) { const u = k / 6, x = 0.1 + u * 1.05, w = 0.2 - u * 0.06; P.push(paint(place(new SphereGeometry(w, 10, 6), x, 0, -u * 0.04, 0, 0.25 * u, 0, 1.1, 0.16, 1.0), 0xfaf6f0, 0xffffff)); }
+  for (let k = 0; k < 5; k++) { const x = 0.25 + k * 0.22; P.push(paint(place(new SphereGeometry(0.08, 8, 5), x, 0.02, -0.17 + k * 0.01, 0, 0, 0, 1.3, 0.2, 1.6), 0x8a9ad8, 0xb8c4f4)); }
+  return merge(P);
+}
+function duckGeo() {
+  return merge([
+    ball(0.075, 0, 0.075, -0.01, 0xffd030, 0xfff070, 1, 0.9, 1.2), ball(0.055, 0, 0.16, 0.05, 0xffd838, 0xfff070),
+    paint(place(new ConeGeometry(0.022, 0.05, 6), 0, 0.15, 0.115, Math.PI / 2, 0, 0, 1.4, 1, 0.6), 0xff8a10),
+    ...[-1, 1].map(s => ball(0.012, s * 0.026, 0.175, 0.095, 0x141018, null, 1, 1, 1, 6, 5)),
+    ...[-1, 1].map(s => ball(0.04, s * 0.06, 0.085, -0.02, 0xf0c020, null, 0.4, 0.8, 1.1, 8, 6)),
+  ]);
+}
+function eggGeo() { return speckle(place(new SphereGeometry(0.14, 18, 14), 0, 0.17, 0, 0, 0, 0, 1, 1.3, 1), 0xffffff, 0x6a5a4a, 0.22); }
+function shellGeo() { return speckle(place(new SphereGeometry(0.142, 14, 6, 0, Math.PI * 2, Math.PI * 0.52, Math.PI * 0.48), 0, 0.17, 0, 0, 0, 0, 1, 1.3, 1), 0xffffff, 0x6a5a4a, 0.22); }   // the bottom half; the top is the same, flipped
+function eyesOn(parts, x, y, z, r = 0.03, gap) { for (const s of [-1, 1]) { parts.push(ball(r, s * gap + x, y, z, 0x16101c, null, 1, 1.1, 0.6, 8, 6)); parts.push(ball(r * 0.32, s * gap + x + r * 0.3, y + r * 0.4, z + r * 0.45, 0xffffff, null, 1, 1, 1, 5, 4)); } }
+function bdragonGeo() {                            // a hatchling dragon (the egg's baby): round, green, tiny wings
+  const P = [ball(0.12, 0, 0.12, 0, 0x4ab04a, 0x7ad070), ball(0.085, 0, 0.1, 0.06, 0xf4e080, null, 1, 1, 0.6), ball(0.1, 0, 0.27, 0.03, 0x5ac05a, 0x8ae080),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.06, 8, 6), s * 0.12, 0.17, -0.06, 0, s * 0.4, -s * 0.5, 0.25, 1, 0.8), 0xa070e0, 0xd0b0ff)),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.02, 0.05, 6), s * 0.045, 0.37, 0.0), 0xfff0c0)),
+    ...[-1, 1].map(s => ball(0.022, s * 0.065, 0.25, 0.1, 0xff9ab0, null, 1, 0.7, 0.4, 6, 5)),
+    paint(place(new TorusGeometry(0.02, 0.006, 4, 8, Math.PI), 0, 0.235, 0.115, 0, 0, Math.PI), 0x204a20)];
+  eyesOn(P, 0, 0.29, 0.1, 0.024, 0.042); return merge(P);
+}
+function owletGeo() {
+  const P = [ball(0.12, 0, 0.13, 0, 0xc8c0b8, 0xe8e2dc), ball(0.085, 0, 0.12, 0.06, 0xf4f0ea, null, 1, 1, 0.6),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.025, 0.06, 5), s * 0.06, 0.25, 0, 0, 0, -s * 0.35), 0xb0a89e)),
+    paint(place(new ConeGeometry(0.018, 0.04, 6), 0, 0.14, 0.12, Math.PI / 2), 0xff9a20)];
+  eyesOn(P, 0, 0.17, 0.095, 0.03, 0.045); return merge(P);
+}
+function turtleGeo() {
+  const P = [ribs(place(new SphereGeometry(0.14, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.04, 0, 0, 0, 0, 1, 0.75, 1.1), 0x3a8a3a, 0x6ac060, 6),
+    paint(place(new CylinderGeometry(0.14, 0.13, 0.04, 14), 0, 0.03, 0, 0, 0, 0, 1, 1, 1.1), 0xd8c070), ball(0.065, 0, 0.1, 0.17, 0x8ad070, 0xa8e090),
+    ...[[-1, 1], [1, 1], [-1, -1], [1, -1]].map(([sx, sz]) => ball(0.04, sx * 0.11, 0.03, sz * 0.1, 0x8ad070, null, 1, 0.6, 1.2, 8, 6)),
+    paint(place(new TorusGeometry(0.018, 0.005, 4, 8, Math.PI), 0, 0.085, 0.228, 0, 0, Math.PI), 0x204a20)];
+  eyesOn(P, 0, 0.12, 0.215, 0.019, 0.03); return merge(P);
+}
+function dragonGeo(happy) {                        // the finale's baby dragon: grumpy (brows down, a pout) or happy (brows up, a smile)
+  const G1 = 0x3aa040, G2 = 0x6ad060, P = [
+    ball(0.21, 0, 0.22, 0, G1, G2, 1, 1.05, 0.95), ball(0.15, 0, 0.2, 0.09, 0xf0d870, 0xfff0a0, 1, 1.05, 0.6),
+    ball(0.17, 0, 0.5, 0.04, G1, G2), ball(0.1, 0, 0.43, 0.17, 0x7ad870, 0x9ae890, 1.15, 0.8, 0.9),
+    ...[-1, 1].map(s => ball(0.014, s * 0.035, 0.45, 0.255, 0x1a3a1a, null, 1, 1, 1, 6, 4)),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.032, 0.09, 7), s * 0.085, 0.66, -0.01, 0, 0, -s * 0.25), 0xfff0c8, 0xffffff)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.1, 9, 7), s * 0.19, 0.36, -0.12, 0, s * 0.5, -s * 0.6, 0.22, 1, 0.75), 0x9a60d8, 0xd0a8ff)),
+    ...[-1, 1].map(s => ball(0.06, s * 0.11, 0.04, 0.08, G1, null, 1, 0.6, 1.25, 8, 6)),
+    paint(place(new ConeGeometry(0.07, 0.34, 8), 0, 0.1, -0.3, -Math.PI / 2 - 0.25), G1, G2),
+    paint(place(new ConeGeometry(0.05, 0.07, 4), 0, 0.03, -0.48, -Math.PI / 2 - 0.25, 0, 0, 1.4, 1, 0.5), 0x9a60d8),
+  ];
+  for (const s of [-1, 1]) P.push(paint(place(new BoxGeometry(0.07, 0.016, 0.02), s * 0.068, happy ? 0.61 : 0.585, 0.19, 0, 0, happy ? s * 0.25 : -s * 0.45), 0x1e3a1e));
+  if (happy) { P.push(paint(place(new TorusGeometry(0.04, 0.01, 4, 10, Math.PI), 0, 0.42, 0.262, 0, 0, Math.PI), 0x1e3a1e)); for (const s of [-1, 1]) P.push(ball(0.032, s * 0.12, 0.45, 0.17, 0xff8aa0, null, 1, 0.7, 0.45, 8, 6)); }
+  else P.push(paint(place(new TorusGeometry(0.03, 0.009, 4, 10, Math.PI), 0, 0.37, 0.25), 0x1e3a1e));
+  return merge(P);
+}
+
+// The Creatures course props (see COURSES.creatures and CR): OUTDOORS round the paddock, so every prop sits on ctx.ground.
+// Static (ONE merged mesh): the hay bale, the dog's blanket, the owl's post, three burrow mounds, the stream bed, three nests
+// with picture signs. Movers: the three puffballs (one instanced set), the dog and its tail, the owl and its wing pair, the
+// star, the three burrowers and their coins (two instanced sets), the foal and its wing pair, the duckling, the three eggs,
+// their shells (one set of six) and the three babies, the finale dragon (grumpy and happy meshes, one shown) and its heart
+// ring. Shared by every creature: ONE instanced eye set (eyes open by scaling in y), ONE instanced heart set (hearts float up
+// while a creature is stroked, a puff of bigger ones when it is happy), ONE additive soft-quad set (an egg's warmth by day; a
+// pool of light, halos and fireflies at dusk / night). vis() keeps <= 12 course meshes drawn at any station.
+// No per-frame allocations: every temporary is made here once.
+function buildCreatures(kit) {
+  const { solid, ctx } = kit;
+  const G = ctx.ground, NK = ctx.night ? ctx.night() : 0;
+  const WOOD = 0x7a5232, WOOD2 = 0xa0703e, DARK = 0x4a3020, STRAW = 0xa88438, STRAW2 = 0xc8a04c, SOIL = 0x5a3c24, SOIL2 = 0x7a5634;
+  // ---- static ----
+  { const [x, z, ry] = CR.bale, y = G(x, z);                     // the hay bale (the puffballs sit on it)
+    solid(paint(place(new BoxGeometry(1.5, BALE_TOP, 0.56), x, y + BALE_TOP / 2 - 0.01, z, 0, ry, 0), STRAW, STRAW2));
+    for (const k of [-0.4, 0.4]) solid(paint(place(new BoxGeometry(0.05, BALE_TOP + 0.02, 0.58), x + Math.cos(ry) * k, y + BALE_TOP / 2, z - Math.sin(ry) * k, 0, ry, 0), 0x9a6a2a));
+    for (let i = 0; i < 7; i++) { const k = -0.6 + i * 0.2; solid(paint(place(new ConeGeometry(0.03, 0.12, 4), x + Math.cos(ry) * k, y + BALE_TOP + 0.02, z - Math.sin(ry) * k + (i % 2 ? 0.2 : -0.2), 0.5, i, 0.4), STRAW2)); } }
+  { const [x, z] = CR.dog;                                         // the dog's red blanket
+    solid(paint(place(new CylinderGeometry(0.62, 0.62, 0.03, 18), x, G(x, z) + 0.012, z, 0, CR.dog[2], 0, 0.85, 1, 1.25), 0x7a3a5a, 0x9a4a6a)); }
+  { const [x, z, h] = CR.post, y = G(x, z);                       // the owl's post, a little perch on top
+    solid(paint(place(new CylinderGeometry(0.075, 0.095, h, 8), x, y + h / 2, z), DARK, WOOD2));
+    solid(paint(place(new CylinderGeometry(0.17, 0.17, 0.05, 12), x, y + h - 0.01, z), WOOD, WOOD2));
+    solid(paint(place(new CylinderGeometry(0.15, 0.17, 0.08, 10), x, y + 0.03, z), 0x8a8478, 0xa8a294)); }
+  for (const [x, z] of CR.moles) { const y = G(x, z);              // burrow mounds: a dirt dome with a dark hole on top
+    solid(paint(place(new SphereGeometry(0.38, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2), x, y - 0.005, z, 0, 0, 0, 1, 0.35, 1), SOIL, SOIL2));
+    solid(paint(place(new CircleGeometry(0.17, 14), x, y + MOUND_TOP, z, -Math.PI / 2), 0x1a120a));
+    for (let i = 0; i < 4; i++) { const a = i * 1.7 + x; solid(paint(place(new SphereGeometry(0.06, 6, 4), x + Math.cos(a) * 0.45, G(x + Math.cos(a) * 0.45, z + Math.sin(a) * 0.45) + 0.01, z + Math.sin(a) * 0.45, 0, 0, 0, 1, 0.5, 1), SOIL2)); } }
+  { const [sx, w, z0, z1] = CR.stream;                            // the stream bed (as Herbology's): water, muddy banks, stones, reeds
+    const strip = (cx, ww, segX, lift, colAt) => {
+      const g = new PlaneGeometry(ww, z1 - z0, segX, 16).rotateX(-Math.PI / 2).translate(cx, 0, (z0 + z1) / 2), P = g.attributes.position, col = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { P.setY(i, G(P.getX(i), P.getZ(i)) + lift); colAt(P.getX(i), _c); col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
+      g.setAttribute('color', new BufferAttribute(col, 3)); g.computeVertexNormals(); return g;
+    };
+    const deep = new Color(0x2a6ad8), edge = new Color(0x8ad8ff), mud = new Color(0x5e4028), grass = new Color(0x5a7a30);
+    solid(strip(sx, w, 4, 0.025, (x, c) => c.copy(deep).lerp(edge, Math.min(1, Math.abs(x - sx) / (w / 2)) ** 2)));
+    for (const sd of [-1, 1]) solid(strip(sx + sd * (w / 2 + 0.15), 0.34, 1, 0.04, (x, c) => c.copy(mud).lerp(grass, Math.min(1, Math.abs(x - sx) - w / 2) / 0.34)));
+    for (let i = 0; i < 8; i++) { const sd = i % 2 ? 1 : -1, z = z0 + 0.5 + i * 1.1, x = sx + sd * (w / 2 + 0.2 + (i % 3) * 0.04);
+      if (Math.abs(z - CR.foal[1]) < 0.7) continue;
+      solid(paint(place(new SphereGeometry(0.09 + (i % 3) * 0.03, 8, 5), x, G(x, z) + 0.04, z, 0, i, 0, 1.3, 0.55, 1), 0x8a8478, 0xb0aa9a)); }
+    for (let i = 0; i < 6; i++) { const z = z0 + 0.9 + i * 1.4, x = sx + ((i % 3) - 1) * 0.2;
+      solid(paint(place(new SphereGeometry(0.1, 8, 4), x, G(x, z) + 0.032, z, 0, 0, 0, 1.4, 0.05, 0.2), 0xd8f4ff)); }
+    for (const [x, z] of [[sx - w / 2 - 0.45, CR.foal[1] + 0.6], [sx - w / 2 - 0.35, CR.foal[1] - 0.8], [sx + w / 2 + 0.3, CR.foal[1] - 1.2]])
+      for (let k = 0; k < 4; k++) solid(paint(place(new CylinderGeometry(0.012, 0.018, 0.5 + k * 0.08, 4), x + (k - 1.5) * 0.06, G(x, z) + 0.25 + k * 0.04, z + (k % 2) * 0.05, (k - 1.5) * 0.12, 0, (k - 1.5) * 0.1), 0x3a7a2a, 0x8ac050)); }
+  CR.nests.forEach(([x, z], j) => {                               // nests of straw, each with its picture sign behind
+    const y = G(x, z);
+    solid(paint(place(new TorusGeometry(0.19, 0.075, 6, 16), x, y + 0.06, z, Math.PI / 2, 0, 0, 1, 1, 0.9), 0xa07a3a, STRAW));
+    solid(paint(place(new CylinderGeometry(0.17, 0.12, 0.05, 12), x, y + 0.04, z), 0x7a5a2a));
+    for (let i = 0; i < 6; i++) { const a = i * 1.05 + j; solid(paint(place(new CylinderGeometry(0.008, 0.008, 0.2, 3), x + Math.cos(a) * 0.2, y + 0.1, z + Math.sin(a) * 0.2, 1.2, a, 0), STRAW2)); }
+    const sz = z - 0.55, sy = G(x, sz);
+    solid(paint(place(new BoxGeometry(0.06, 0.8, 0.06), x, sy + 0.4, sz - 0.02), DARK));
+    solid(paint(place(new BoxGeometry(0.56, 0.46, 0.04), x, sy + 0.9, sz), WOOD, WOOD2));
+    solid(paint(place(new BoxGeometry(0.48, 0.38, 0.02), x, sy + 0.9, sz + 0.02), 0xf4e8c8));
+    const fz = sz + 0.04, fy = sy + 0.88;
+    if (j === 0) {                                                 // a baby dragon
+      solid(paint(place(new SphereGeometry(0.1, 12, 8), x, fy, fz, 0, 0, 0, 1, 1, 0.35), 0x4ab04a, 0x7ad070));
+      solid(paint(place(new SphereGeometry(0.075, 10, 8), x, fy + 0.12, fz + 0.005, 0, 0, 0, 1, 1, 0.35), 0x5ac05a));
+      for (const s of [-1, 1]) solid(paint(place(new SphereGeometry(0.06, 8, 6), x + s * 0.12, fy + 0.05, fz - 0.005, 0, 0, -s * 0.6, 1, 0.45, 0.25), 0xa070e0));
+      for (const s of [-1, 1]) solid(paint(place(new SphereGeometry(0.016, 6, 4), x + s * 0.03, fy + 0.13, fz + 0.03), 0x141018));
+    } else if (j === 1) {                                          // an owl chick
+      solid(paint(place(new SphereGeometry(0.12, 12, 8), x, fy, fz, 0, 0, 0, 1, 1, 0.35), 0xc8c0b8, 0xe8e2dc));
+      for (const s of [-1, 1]) { solid(paint(place(new SphereGeometry(0.03, 8, 6), x + s * 0.045, fy + 0.04, fz + 0.04), 0x141018)); solid(paint(place(new ConeGeometry(0.02, 0.05, 5), x + s * 0.06, fy + 0.13, fz, 0, 0, -s * 0.35), 0xb0a89e)); }
+      solid(paint(place(new ConeGeometry(0.015, 0.035, 5), x, fy + 0.0, fz + 0.05, Math.PI), 0xff9a20));
+    } else {                                                       // a turtle
+      solid(ribs(place(new SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), x, fy - 0.04, fz, Math.PI / 2, 0, 0, 1.2, 0.35, 0.85), 0x3a8a3a, 0x6ac060, 6));
+      solid(paint(place(new SphereGeometry(0.05, 8, 6), x + 0.17, fy - 0.03, fz + 0.01, 0, 0, 0, 1, 0.9, 0.4), 0x8ad070));
+      for (const s of [-1, 1]) solid(paint(place(new SphereGeometry(0.03, 6, 5), x + s * 0.1, fy - 0.08, fz, 0, 0, 0, 1, 0.7, 0.35), 0x8ad070));
+      solid(paint(place(new SphereGeometry(0.012, 5, 4), x + 0.18, fy - 0.015, fz + 0.03), 0x141018));
+    }
+  });
+
+  // ---- movers ----
+  const pet = { glowHex: 0x7a3a5a };   // the runner's 'touch me' pulse, soft (white fur / feathers / shells must not wash out)
+  kit.inst('puff', puffGeo(), 3, [0xffb4d4, 0xfff0c4, 0xd0b8ff], pet);
+  const dog = kit.mesh('dog', dogGeo(), { glow: false }); dog.mesh.rotation.order = 'YXZ';
+  kit.mesh('tail', tailGeo(), { glow: false });
+  kit.mesh('owl', owl2Geo(), pet);
+  const owlWings = kit.inst('owlWing', owlWingGeo(), 2, [0xffffff, 0xffffff], { glow: false });
+  const star = kit.mesh('star', starGeo(0.13), { glow: false, glowHex: 0xffc030 }); star.mat.emissiveIntensity = 0.9;
+  kit.inst('mole', moleGeo(), 3, [0xffffff, 0xffffff, 0xffffff], pet);
+  kit.inst('coin', coinGeo(), 3, [0xffffff, 0xffffff, 0xffffff], { glow: false, emissive: 0xffc030, emissiveIntensity: 0.25 });
+  kit.mesh('foal', foalGeo(), pet);
+  const fWings = kit.inst('fWing', foalWingGeo(), 2, [0xffffff, 0xffffff], { glow: false });
+  kit.mesh('duck', duckGeo(), { glow: false });
+  const EGG_C = [0xd8f4c8, 0xfff0d0, 0xc8e4ff], WARM = new Color(0xffb070);
+  const eggs = kit.inst('egg', eggGeo(), 3, EGG_C, pet);
+  const shells = kit.inst('shell', shellGeo(), 6, [...EGG_C, ...EGG_C], { glow: false });
+  kit.mesh('bdragon', bdragonGeo(), { glow: false }); kit.mesh('owlet', owletGeo(), { glow: false }); kit.mesh('turtle', turtleGeo(), { glow: false });
+  kit.mesh('drag', dragonGeo(false), pet); kit.mesh('dragHappy', dragonGeo(true), { glow: false });
+  kit.mesh('ring', heartRingGeo(), { glow: false, glowHex: 0xffffff }).mat.emissiveIntensity = 0.35;
+  const NE = 20, eyes = kit.inst('eye', eyeGeo(), NE, new Array(NE).fill(0xffffff), { glow: false });
+  const NH = 18, hearts = kit.inst('heart', heartGeo(), NH, new Array(NH).fill(0xffffff), { glow: false, emissive: 0xff4a8a, emissiveIntensity: 0.55 });
+  hearts.renderOrder = 4;
+  // the soft light: ONE additive instanced quad set with a soft canvas (an egg's warmth; at night a pool, halos, fireflies)
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(0.6, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+  const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
+  const NQ = 10, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  glow.renderOrder = 3;
+
+  // ---- places and state ----
+  const m1 = new Matrix4(), m2 = new Matrix4(), m3 = new Matrix4(), v1 = new Vector3(), v2 = new Vector3(), q1 = new Quaternion(), q0 = new Quaternion(), e1 = new Euler(), s1 = new Vector3(), c1 = new Color(), sv = new Vector3();
+  const PU = CR.puffs.map(([x, z]) => [x, G(x, z) + BALE_TOP, z]);
+  const [DX, DZ, DYAW] = CR.dog, DY = G(DX, DZ) + 0.03;
+  const [OX, OZ, OH] = CR.post, OY = G(OX, OZ) + OH + 0.02, OYAW = camYaw(OX, OZ, CR.cams.owl);
+  const MO = CR.moles.map(([x, z]) => { const y = G(x, z), yaw = camYaw(x, z, CR.cams.mole), cx = x + Math.sin(yaw) * 0.55, cz = z + Math.cos(yaw) * 0.55; return { x, z, y, yaw, cx, cz, cy: G(cx, cz) }; });
+  const [FX, FZ] = CR.foal, FY = G(FX, FZ), FYAW = camYaw(FX, FZ, CR.cams.foal);
+  const DUCK0 = [CR.stream[0] - 0.95, CR.foal[1] + 0.25], DUCK1 = [FX + 0.55, FZ + 0.85];
+  const NS = CR.nests.map(([x, z]) => [x, G(x, z) + NEST_Y, z, camYaw(x, z, CR.cams.egg)]);
+  const [RX, RZ] = CR.drag, RY = G(RX, RZ), RYAW = camYaw(RX, RZ, CR.cams.drag), [CX, CZ] = CR.curl, CY = G(CX, CZ);
+  const CEN = [[-2.0, 4.6], [-6.6, 4.1], [-9.2, 7.0], [-11.8, 10.6], [-5.3, 12.6], [-1.8, 3.8]].map(([x, z]) => [x, G(x, z), z]);
+  const EYE = [];                                  // shared eye slots: { mv (a mover), x, y, z (in its parent's frame), s, open }
+  const eyesFor = (mv, x, y, z, gap, s) => { const k = EYE.length; for (const sd of [-1, 1]) EYE.push({ mv, x: x + sd * gap, y, z, s, open: 0 }); return k; };
+  let LI = null, lastStep = -9, stepT = 0, eyesBuilt = false;
+  let dogT = -1, dogSfx = 0, owlT = 0, owlSfx = 0, coinT = 0, coinSfx = 0, foalT = 0, foalSfx = 0, babyT = 0, babySfx = 0, dragT = 0, dragSfx = 0;
+  const pdone = new Float32Array(3), mdone = new Float32Array(3), hatchT = new Float32Array(3);
+  const lastP = new Map();
+  const ease = (k) => k * k * (3 - 2 * k);
+  const clamp01 = (k) => Math.max(0, Math.min(1, k));
+  const shows = (mv) => mv.s > 0.001;
+  function vis(M, names, on) { let v = false; if (on) for (const n of names) if (M[n] && shows(M[n])) { v = true; break; } M[names[0]].mesh.visible = v; }
+  // hearts: a tiny particle set (camera-facing), no allocation
+  const HP = []; for (let i = 0; i < NH; i++) HP.push({ life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s: 1, ph: i * 1.3 });
+  let hi = 0, nh = 0;
+  function heart(x, y, z, big = false) {
+    const p = HP[hi]; hi = (hi + 1) % NH;
+    p.life = big ? 1.5 : 1.25; p.x = x + (Math.random() - 0.5) * 0.15; p.y = y; p.z = z + (Math.random() - 0.5) * 0.15;
+    const a = Math.random() * 6.3, sp = big ? 0.55 : 0.12; p.vx = Math.cos(a) * sp; p.vz = Math.sin(a) * sp; p.vy = big ? 0.75 + Math.random() * 0.4 : 0.45 + Math.random() * 0.2; p.s = big ? 1.7 : 1;
+  }
+  function hearts1(x, y, z, n, big) { for (let i = 0; i < n; i++) heart(x, y, z, big); }
+  let gq = 0;
+  function quad(x, y, z, sx, sy, r, g, b, flat = 0) {
+    if (gq >= NQ) return;
+    if (flat === 1) q1.setFromEuler(e1.set(-Math.PI / 2, 0, 0)); else q1.copy(ctx.camera.quaternion);
+    m1.compose(v1.set(x, y, z), q1, s1.set(sx, sy, 1)); glow.setMatrixAt(gq, m1); glow.setColorAt(gq, c1.setRGB(r, g, b)); gq++;
+  }
+  // a child's pose in its parent's frame: parent matrix (a mesh, or an instance) x local T R S
+  function parentM(mv, out) { const mh = mv.mesh; if (mh.isInstancedMesh) mh.getMatrixAt(+mv.name.replace(/\D/g, ''), out); else { mh.updateMatrix(); out.copy(mh.matrix); } return out; }
+  function attach(im, i, par, lx, ly, lz, rx, ry, rz, sx, sy, sz) {
+    parentM(par, m2); m3.compose(v2.set(lx, ly, lz), q1.setFromEuler(e1.set(rx, ry, rz)), sv.set(sx, sy, sz));
+    m2.multiply(m3); if (im.isInstancedMesh) { im.setMatrixAt(i, m2); im.instanceMatrix.needsUpdate = true; } else { m2.decompose(im.position, im.quaternion, im.scale); }
+  }
+  const wpt = (sp) => v2.set(sp, 0.04, 0).applyMatrix4(m1);   // a point on the foal's bridge wing (m1 = its matrix)
+  const eY = new Euler(0, 0, 0, 'YXZ'), eX = new Euler();
+  const yxz = (rx, ry, rz) => { eY.set(rx, ry, rz); q1.setFromEuler(eY); return eX.setFromQuaternion(q1, 'XYZ'); };   // stand up, then turn about the vertical
+  const hide = (im, i) => { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); im.setMatrixAt(i, m1); im.instanceMatrix.needsUpdate = true; };
+  const purr = () => { for (let i = 0; i < 8; i++) fun.sfx.tone(72 + (i % 2) * 8, 0.12, 'triangle', 0.05, i * 0.11, 64); };
+  const woof = () => { fun.sfx.tone(300, 0.13, 'triangle', 0.16, 0, 210); fun.sfx.tone(280, 0.15, 'triangle', 0.14, 0.2, 190); };
+  const peep = () => fun.sfx.tone(1700, 0.08, 'sine', 0.08, 0, 2300);
+  const hx = () => ctx.player.pos.x - ctx.worldOff.x, hz = () => ctx.player.pos.z - ctx.worldOff.z, hy = () => ctx.player.pos.y - ctx.worldOff.y;
+  function owlWing(M, j, up, flap) {               // j 0 = the wing over the star (its left, local +x), 1 = the right
+    const sd = j ? -1 : 1, a = up + flap;
+    attach(owlWings, j, M.owl, sd * 0.19, 0.33, -0.01, 0, 0, sd * a, 1, 1, 1);
+  }
+  function foalWing(M, j, k) {                     // k 0 folded along the body, 1 stretched out sideways as a bridge
+    const sd = j ? -1 : 1, e = ease(k);
+    attach(fWings, j, M.foal, sd * 0.24, 0.76, 0.06, 0, sd * (1 - e) * 1.5, -sd * (-0.35 * (1 - e) + 0.42 * e), sd * (0.42 + 0.58 * e), 1, 0.75 + 0.25 * e);
+  }
+  return {
+    reset(M) {
+      dogT = -1; dogSfx = 0; owlT = 0; owlSfx = 0; coinT = 0; coinSfx = 0; foalT = 0; foalSfx = 0; babyT = 0; babySfx = 0; dragT = 0; dragSfx = 0;
+      mdone.fill(0); hatchT.fill(0); lastStep = -9; stepT = 0; lastP.clear();
+      for (const p of HP) p.life = 0;
+      M.star.pose(0, -50, 0, 0, 0, 0, 1);
+      for (let i = 0; i < 3; i++) M['coin' + i].pose(0, -50, 0, 0, 0, 0, 0);
+      for (let i = 0; i < 6; i++) M['shell' + i].pose(0, -50, 0, 0, 0, 0, 0);
+      for (const n of ['bdragon', 'owlet', 'turtle', 'ring', 'dragHappy']) M[n].pose(0, 0, 0, 0, 0, 0, 0);
+      M.duck.pose(DUCK0[0], G(DUCK0[0], DUCK0[1]), DUCK0[1], 0, Math.PI / 2, 0, 1);
+      M.dog.pose(DX, DY, DZ, 0, DYAW, 0, 1);
+      for (let i = 0; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); glow.setColorAt(i, c1.setRGB(0, 0, 0)); }
+      if (!eyesBuilt) {
+        eyesBuilt = true;
+        eyesFor(M.dog, 0, 0.58, 0.845, 0.1, 1.15);                                     // 0-1
+        for (let i = 0; i < 3; i++) eyesFor(M['puff' + i], 0, 0.25, 0.18, 0.068, 0.95); // 2-7
+        eyesFor(M.owl, 0, 0.31, 0.19, 0.068, 1.05);                                   // 8-9
+        for (let i = 0; i < 3; i++) eyesFor(M['mole' + i], 0, 0.285, 0.13, 0.06, 0.75); // 10-15
+        eyesFor(M.foal, 0, 1.06, 0.575, 0.075, 0.9);                                    // 16-17
+        eyesFor(M.drag, 0, 0.53, 0.2, 0.066, 0.95); EYE[18].alt = EYE[19].alt = M.dragHappy;   // 18-19 (also while the happy mesh is the one drawn)
+      }
+    },
+    tick(M, t, st, K, dt = 0.016) {
+      if (!K) return;
+      if (!LI) { LI = {}; for (const L of [...K.lesson, ...K.stations.flat()]) LI[L.mv.name] = L; }
+      const les = st.phase === 'lesson', step = st.phase === 'course' ? st.step : st.phase === 'reward' ? 4 : -1;
+      if (step !== lastStep) { lastStep = step; stepT = 0; } else stepT += dt;
+      gq = 0;
+      if (!les && dogT < 0) dogT = 99;             // a replay (🔁) starts at station 1: the dog has long woken up
+      if (dogT >= 0 && dogT < 99) dogT += dt;
+      // ---- hearts while a creature is stroked (its progress rises), a big puff when it is happy ----
+      if (st.sub === 'cast' && st.lifts) for (const L of st.lifts) {
+        const lp = lastP.get(L) ?? 0;
+        if (!L.done && L.p > lp + 0.002) { L._hAcc = (L._hAcc || 0) + dt; if (L._hAcc > 0.2) { L._hAcc = 0; const a = L.arr; heart(a[0], a[1] + L.aimY + 0.15, a[2]); } }
+        lastP.set(L, L.p);
+      }
+      for (let s = -1; s < K.stations.length; s++) { const set = s < 0 ? K.lesson : K.stations[s]; for (const L of set) { if (L.done && !L._big) { L._big = true; const a = L.arr; hearts1(a[0], a[1] + L.aimY + 0.2, a[2], 7, true); } else if (!L.done) L._big = false; } }
+      // ---- the dog: asleep; Hagrid's demo (the ghost hand strokes him, he wakes, wags, rolls onto his back); then awake ----
+      { let open = 0.1, roll = 0, wag = 0.12, lift = 0;
+        const d = dogT;
+        if (d >= 0) {
+          open = d >= 99 ? 1 : 0.1 + 0.9 * clamp01((d - 0.6) / 1.4);
+          if (d < 2.6) { kit.hand(DX + 0.1 + Math.sin(d * 5) * 0.25, DY + 0.75, DZ - 0.1 + Math.cos(d * 5) * 0.08); if ((d % 0.3) < dt && d > 0.3) heart(DX + 0.2, DY + 0.75, DZ + 0.1); }
+          else kit.hand(null);
+          wag = d >= 99 ? 0.35 : d > 2.0 ? 1 : 0.12 + 0.4 * clamp01(d / 2);
+          if (d > 3.0 && d < 99) { const r = d < 3.6 ? ease((d - 3.0) / 0.6) : d < 5.2 ? 1 : 1 - ease(clamp01((d - 5.2) / 0.6)); roll = 2.5 * r; if (d > 3.6 && d < 5.2 && (d % 0.45) < dt) heart(DX, DY + 0.8, DZ); }
+          lift = d < 3 ? 0.12 * open : 0;
+          if (d > 0.5 && dogSfx < 1) { dogSfx = 1; fun.sfx.heart(); }
+          if (d > 2.9 && dogSfx < 2 && d < 99) { dogSfx = 2; woof(); }
+          if (d > 3.7 && dogSfx < 3 && d < 99) { dogSfx = 3; fun.sfx.giggle(); }
+        }
+        const br = 1 + Math.sin(t * (open > 0.5 ? 2.4 : 1.4)) * 0.025, sr = Math.sin(roll), cr = Math.cos(roll), cs = Math.cos(DYAW), sn = Math.sin(DYAW);
+        const ox = 0.3 * sr, oy = 0.3 * (1 - cr);   // roll about the body's long axis (z) through its middle (0.3 up)
+        M.dog.poseS(DX + ox * cs, DY + oy, DZ - ox * sn, -lift, DYAW, roll, 1, br, 1);
+        attach(M.tail.mesh, 0, M.dog, 0, 0.32, -0.6, -1.1 + 0.25 * open, 0, Math.sin(t * (6 + 8 * wag)) * 0.7 * wag, 1, 1, 1);
+        M.tail.s = 1;
+        EYE[0].open = EYE[1].open = open > 0.9 && (t % 4.1) < 0.12 ? 0.15 : open; }
+      // ---- the lesson's puffballs: sleepy, wake with the stroking; happy = a bouncy purr, then a gentle hop now and then ----
+      for (let i = 0; i < 3; i++) {
+        const L = LI['puff' + i]; if (!L) continue;
+        if (L.done) {
+          if (pdone[i] === 0) purr();
+          pdone[i] += dt; const k = pdone[i], a = PU[i];
+          const hop = k < 2.2 ? Math.abs(Math.sin(k * 6.5)) * 0.16 * (1 - k / 2.2) : Math.max(0, Math.sin((t + i) * 2.4)) ** 6 * 0.08, sq = k < 2.2 ? Math.sin(k * 13) * 0.08 * (1 - k / 2.2) : 0;
+          M['puff' + i].poseS(a[0], a[1] + hop, a[2], 0, L.rot0[1] + Math.sin(t * 1.3 + i) * 0.2, Math.sin(t * 2 + i) * 0.06, 1 + sq, 1 - sq, 1 + sq);
+        }
+        const o = L.done ? ((t + i * 1.3) % 3.7 < 0.12 ? 0.15 : 1) : 0.12 + 0.88 * L.p;
+        EYE[2 + i * 2].open = EYE[3 + i * 2].open = o;
+      }
+      // ---- 1 the owl: asleep on its post, the star tucked under its wing; stroked, it wakes and lifts the wing; happy, it hoots,
+      //        flies the star down to the hero and comes back to its perch ----
+      { const L = LI.owl, p = L ? (L.done ? 1 : L.p) : 0;
+        let up = 0.05 + 0.5 * p, flap = 0, sX = 0.18, sY = 0.15, sZ = 0.07, starOn = true, sfree = false;
+        if (owlT > 0) {
+          const o = owlT, P0x = OX, P0y = OY, P0z = OZ, Tx = hx() + 0.35, Ty = hy() + 2.1, Tz = hz() - 0.2;
+          let x = P0x, y = P0y, z = P0z;
+          if (o < 0.5) flap = Math.sin(o * 30) * 0.4;
+          else if (o < 2.1) { const u = ease((o - 0.5) / 1.6); x = P0x + (Tx - P0x) * u; z = P0z + (Tz - P0z) * u; y = P0y + (Ty - P0y) * u + Math.sin(u * Math.PI) * 0.7; flap = Math.sin(o * 26) * 0.9; up = 1.0; }
+          else if (o < 2.7) { x = Tx; y = Ty + Math.sin(o * 4) * 0.05; z = Tz; flap = Math.sin(o * 26) * 0.9; up = 1.0; }
+          else if (o < 4.3) { const u = ease((o - 2.7) / 1.6); x = Tx + (P0x - Tx) * u; z = Tz + (P0z - Tz) * u; y = Ty + (P0y - Ty) * u + Math.sin(u * Math.PI) * 0.6; flap = Math.sin(o * 26) * 0.9; up = 1.0; }
+          else { const u = clamp01((o - 4.3) / 0.5); up = 1 - 0.95 * u; flap = Math.sin(o * 20) * 0.3 * (1 - u); }
+          const yaw = o > 0.5 && o < 4.3 ? Math.atan2((o < 2.7 ? Tx - P0x : P0x - Tx), (o < 2.7 ? Tz - P0z : P0z - Tz)) : OYAW + (o > 4.3 ? Math.sin(t * 1.5) * 0.15 : 0);
+          M.owl.pose(x, y, z, 0, yaw, 0, 1);
+          if (o > 0.5) {                           // the star rides below the owl, then drops into the hero's hands
+            sfree = true;
+            if (o < 2.2) M.star.pose(x, y - 0.12, z, 0, t * 3, 0, 1);
+            else if (o < 2.9) { const u = ease((o - 2.2) / 0.7), ex = hx(), ey = hy() + 1.15, ez = hz(); M.star.pose(Tx + (ex - Tx) * u, Ty - 0.12 + (ey - Ty + 0.12) * u, Tz + (ez - Tz) * u, 0, t * 4, 0, 1 - clamp01((o - 2.75) / 0.15)); }
+            else M.star.pose(0, -50, 0, 0, 0, 0, 0);
+          }
+        } else if (L && L.done) M.owl.pose(OX, OY, OZ, 0, OYAW, 0, 1);
+        owlWing(M, 0, up, flap); owlWing(M, 1, owlT > 0.5 && owlT < 4.6 ? up : 0.05 + 0.1 * p, flap);
+        if (!sfree && starOn) { attach(M.star.mesh, 0, M.owl, sX, sY + 0.06 * p, sZ, 0, t * 0.6, 0.3, 1, 1, 1); M.star.s = 1; }
+        const o = L && L.done ? 1 : 0.1 + 0.9 * p;
+        EYE[8].open = EYE[9].open = o; }
+      // ---- 2 the burrowers: peek from their holes, rise as they are stroked; happy, each pops out, hops forward and lays a
+      //        gold coin on the grass; all three out: the coins rise and spin together, then fly to the hero ----
+      for (let i = 0; i < 3; i++) {
+        const L = LI['mole' + i]; if (!L) continue;
+        const m = MO[i], mv = M['mole' + i];
+        if (!L.done) { const a = L.arr, rise = 0.1 * L.p; const lp = mv.mesh; mv.mesh.getMatrixAt(i, m1); m1.decompose(v1, q1, s1); v1.y = a[1] + rise + Math.sin(t * 3 + i) * 0.012; m1.compose(v1, q1, s1); lp.setMatrixAt(i, m1); lp.instanceMatrix.needsUpdate = true; }
+        else {
+          mdone[i] += dt; const k = mdone[i];
+          let x = m.x, z = m.z, y = m.y + MOLE_PEEK + 0.1;
+          if (k < 0.45) { const u = ease(k / 0.45); y = m.y + MOLE_PEEK + 0.1 + (MOUND_TOP + 0.02 - MOLE_PEEK - 0.1) * u + Math.sin(u * Math.PI) * 0.25; }
+          else if (k < 0.95) { const u = ease((k - 0.45) / 0.5); x = m.x + Math.sin(m.yaw) * 0.3 * u; z = m.z + Math.cos(m.yaw) * 0.3 * u; y = m.y + MOUND_TOP + 0.02 + (G(x, z) - m.y - MOUND_TOP) * u + Math.sin(u * Math.PI) * 0.18; }
+          else { x = m.x + Math.sin(m.yaw) * 0.3; z = m.z + Math.cos(m.yaw) * 0.3; y = G(x, z) + (coinT > 0 && coinT < 2.8 ? Math.abs(Math.sin(coinT * 7 + i)) * 0.1 : Math.max(0, Math.sin(t * 2.6 + i)) ** 6 * 0.06); }
+          mv.pose(x, y, z, 0, m.yaw + (k > 0.95 ? Math.sin(t * 1.7 + i) * 0.2 : 0), 0, 1);
+          // the coin: from its paws onto the grass, then (all three out) the spin together and the flight to the hero
+          const c = M['coin' + i];
+          if (k < 0.85) c.pose(0, -50, 0, 0, 0, 0, 0);
+          else if (coinT <= 0) { const u = clamp01((k - 0.85) / 0.35); c.pose(m.cx, m.cy + 0.18 * (1 - u) + 0.005, m.cz, 0, i, 0, ease(u)); }
+          else if (coinT < 2.0) { const u = ease(clamp01(coinT / 0.5)), E = yxz(Math.PI / 2 * u, coinT * 12 * u, 0); c.pose(m.cx, m.cy + 0.005 + 0.5 * u, m.cz, E.x, E.y, E.z, 1 + 0.3 * u); }
+          else { const u = ease(clamp01((coinT - 2.0) / 0.8)), ex = hx(), ey = hy() + 1.1, ez = hz(); const E = yxz(Math.PI / 2, coinT * 12, 0); c.pose(m.cx + (ex - m.cx) * u, m.cy + 0.505 + (ey - m.cy - 0.505) * u + Math.sin(u * Math.PI) * 0.4, m.cz + (ez - m.cz) * u, E.x, E.y, E.z, 1.3 * (1 - clamp01((coinT - 2.6) / 0.2))); }
+        }
+        const o = L.done ? 1 : (0.45 + 0.15 * Math.sin(t * 2 + i)) + 0.55 * L.p;
+        EYE[10 + i * 2].open = EYE[11 + i * 2].open = (t + i) % 2.9 < 0.1 ? 0.15 : Math.min(1, o);
+      }
+      // ---- 3 the foal: proud by the stream bed; happy, it bows and stretches out a wing across the stream; a duckling walks over ----
+      { const L = LI.foal, p = L ? (L.done ? 1 : L.p) : 0;
+        let wk = 0;
+        if (foalT > 0) {
+          const f = foalT, bow = f < 0.8 ? ease(f / 0.8) : f < 4.4 ? 1 : 1 - ease(clamp01((f - 4.4) / 0.6));
+          wk = f < 0.4 ? 0 : f < 1.4 ? (f - 0.4) : f < 4.4 ? 1 : 1 - clamp01((f - 4.4) / 0.6);
+          M.foal.pose(FX, FY - 0.22 * bow, FZ, 0.28 * bow - (f > 5.0 ? 0.08 * Math.sin((f - 5.0) * 8) : 0), FYAW, 0, 1);
+          // the duckling: waits on the far bank, steps onto the wing tip, waddles over it and hops down by the foal, then by the hero
+          const d = f - 1.5;
+          if (d > 0 && d < 99) {
+            fWings.getMatrixAt(1, m1);                                        // points on the bridge wing: its own frame (span 0.3..1.15)
+            let x, y, z, yaw = Math.PI / 2;
+            if (d < 0.5) { const u = d / 0.5; wpt(1.15); x = DUCK0[0] + (v2.x - DUCK0[0]) * u; z = DUCK0[1] + (v2.z - DUCK0[1]) * u; y = G(DUCK0[0], DUCK0[1]) + (v2.y - G(DUCK0[0], DUCK0[1])) * u + Math.sin(u * Math.PI) * 0.12; }
+            else if (d < 2.2) { wpt(1.15 - 0.85 * ((d - 0.5) / 1.7)); x = v2.x; y = v2.y; z = v2.z; }
+            else if (d < 2.7) { const u = ease((d - 2.2) / 0.5); wpt(0.3); yaw = Math.atan2(DUCK1[0] - v2.x, DUCK1[1] - v2.z); x = v2.x + (DUCK1[0] - v2.x) * u; z = v2.z + (DUCK1[1] - v2.z) * u; y = v2.y + (G(DUCK1[0], DUCK1[1]) - v2.y) * u + Math.sin(u * Math.PI) * 0.15; }
+            else { x = DUCK1[0]; z = DUCK1[1]; y = G(x, z); yaw = Math.atan2(hx() - x, hz() - z); }
+            M.duck.pose(x, y + Math.abs(Math.sin(t * 12)) * 0.015, z, 0, yaw + Math.sin(t * 12) * 0.12, 0, 1.6);
+            if (d < 2.7 && (d % 0.55) < dt) peep();
+          }
+        } else if (L && L.done) M.foal.pose(FX, FY, FZ, 0, FYAW, 0, 1);
+        if (foalT <= 1.5) M.duck.pose(DUCK0[0], G(DUCK0[0], DUCK0[1]) + Math.abs(Math.sin(t * 2)) * 0.01, DUCK0[1], 0, Math.PI / 2 + Math.sin(t * 0.9) * 0.4, 0, 1.6);
+        foalWing(M, 0, 0); foalWing(M, 1, wk);
+        EYE[16].open = EYE[17].open = (t % 3.3) < 0.1 ? 0.15 : L && L.done ? 1 : 0.6 + 0.4 * p; }
+      // ---- 4 the eggs: warm up (colour, a soft glow), wobble and hatch into the animal on the sign; the shells break open ----
+      for (let j = 0; j < 3; j++) {
+        const L = LI['egg' + j]; if (!L) continue;
+        const N = NS[j];
+        if (!L.done) { c1.setHex(EGG_C[j]).lerp(WARM, L.p * 0.85); eggs.setColorAt(j, c1); eggs.instanceColor.needsUpdate = true;
+          if (L.p > 0.02) quad(N[0], N[1] + 0.22, N[2], 0.5 + 0.5 * L.p, 0.5 + 0.5 * L.p, 0.6 * L.p, 0.35 * L.p, 0.12 * L.p); continue; }
+        hatchT[j] += dt; const k = hatchT[j];
+        M['shell' + j].pose(N[0], N[1] - 0.06, N[2], 0, N[3], 0, 1);
+        { const u = clamp01(k / 0.6), x = N[0] + Math.sin(N[3] + 1.6) * 0.32 * u, z = N[2] + Math.cos(N[3] + 1.6) * 0.32 * u, y = N[1] + 0.08 + Math.sin(u * Math.PI) * 0.35 + (G(x, z) + 0.12 - N[1] - 0.08) * u;
+          M['shell' + (3 + j)].pose(x, y, z, Math.PI + 0.6 * u, N[3], 0.5 * u, 1); }
+        if (L.popT >= POP) {                       // the baby is the course's now: it sits in its half shell and sways (a bounce together)
+          const b = M[L.spec.to], kb = babyT - j * 0.22, hop = kb > 0 && kb < 2.0 ? Math.abs(Math.sin(kb * 5.2)) * 0.13 * (1 - kb / 2.0) : 0, sq = kb > 0 && kb < 2.0 ? Math.sin(kb * 10.4) * 0.07 * (1 - kb / 2.0) : 0;
+          b.poseS(N[0], N[1] + hop, N[2], 0, N[3] + Math.sin(t * 1.4 + j) * 0.25, Math.sin(t * 2 + j) * 0.05, 1 + sq, 1 - sq, 1 + sq);
+        }
+      }
+      // ---- 5 the baby dragon: grumpy until stroked (a smile at half way); happy, it puffs a heart-shaped smoke ring, hops to
+      //        Hagrid's feet and curls up there ----
+      { const L = LI.drag, p = L ? (L.done ? 1 : L.p) : 0, happy = p > 0.55;
+        let open = 0.55 + 0.45 * p;
+        if (dragT > 0) {
+          const d = dragT;
+          let x = RX, z = RZ, y = RY, yaw = RYAW, sx = 1, sy = 1;
+          if (d > 2.4 && d < 3.5) { const u = (d - 2.4) / 1.1, e = ease(u); x = RX + (CX - RX) * e; z = RZ + (CZ - RZ) * e; y = G(x, z) + Math.abs(Math.sin(u * Math.PI * 3)) * 0.22; yaw = Math.atan2(CX - RX, CZ - RZ); if ((d % 0.367) < dt) fun.sfx.tone(420, 0.1, 'sine', 0.1, 0, 640); }
+          else if (d >= 3.5) { const u = ease(clamp01((d - 3.5) / 0.6)); x = CX; z = CZ; y = CY; yaw = Math.atan2(CX - RX, CZ - RZ) + (RYAW + 0.9 - Math.atan2(CX - RX, CZ - RZ)) * u; sx = 1 + 0.15 * u; sy = 1 - 0.28 * u + Math.sin(t * 2) * 0.02 * u; open = 1 - 0.88 * u; if (u >= 1 && (d % 1.3) < dt) heart(CX, CY + 0.45, CZ); }
+          else open = 1;
+          M.drag.poseS(x, y, z, 0, yaw, d >= 3.5 ? 0.12 * clamp01((d - 3.5) / 0.6) : 0, sx, sy, sx);
+          // the smoke ring: out of the snout, up and wider, then gone
+          if (d > 0.3 && d < 2.6) { const u = (d - 0.3) / 2.3, s = 0.35 + 1.1 * ease(clamp01(u * 1.4)); M.ring.pose(RX + Math.sin(RYAW) * 0.25, RY + 0.5 + 1.5 * ease(u), RZ + Math.cos(RYAW) * 0.25, 0, RYAW + Math.sin(d * 2) * 0.2, Math.sin(d * 3) * 0.08, s * (1 - clamp01((u - 0.85) / 0.15))); }
+          else M.ring.pose(0, 0, 0, 0, 0, 0, 0);
+        } else M.ring.pose(0, 0, 0, 0, 0, 0, 0);
+        const dm = M.drag.mesh, hm = M.dragHappy.mesh;
+        hm.position.copy(dm.position); hm.quaternion.copy(dm.quaternion); hm.scale.copy(dm.scale); M.dragHappy.s = happy ? M.drag.s : 0;
+        EYE[18].open = EYE[19].open = open; }
+      // ---- hearts, eyes ----
+      { const q = ctx.camera.quaternion;
+        nh = 0;
+        for (let i = 0; i < NH; i++) {
+          const h = HP[i];
+          if (h.life <= 0) { hide(hearts, i); continue; }
+          nh++;
+          h.life -= dt; h.x += h.vx * dt; h.y += h.vy * dt; h.z += h.vz * dt; h.vx *= 0.97; h.vz *= 0.97;
+          const s = h.s * Math.min(1, h.life * 2.2) * Math.min(1, (1.6 - h.life) * 6) * (1 + 0.08 * Math.sin(t * 9 + h.ph));
+          q1.copy(q); m1.compose(v1.set(h.x + Math.sin(t * 3 + h.ph) * 0.04, h.y, h.z), q1, s1.set(s, s, s)); hearts.setMatrixAt(i, m1);
+        }
+        hearts.instanceMatrix.needsUpdate = true;
+        for (let i = 0; i < NE; i++) {
+          const E = EYE[i];
+          if (!E || !(E.mv.mesh.visible || (E.alt && E.alt.mesh.visible)) || E.mv.s < 0.05) { hide(eyes, i); continue; }
+          attach(eyes, i, E.mv, E.x, E.y, E.z, 0, 0, 0, E.s, E.s * Math.max(0.12, Math.min(1, E.open)), E.s);
+        } }
+      // ---- night: a soft pool of light at the station, a halo round the open creature, fireflies ----
+      if (NK > 0) {
+        const C = CEN[les ? 0 : Math.min(5, step + 1)];
+        quad(C[0], C[1] + 0.08, C[2], 6, 6, 0.3 * NK, 0.27 * NK, 0.15 * NK, 1);
+        if (st.sub === 'cast' && st.lifts) for (const L of st.lifts) { if (L.done || L.spec.to) continue; const a = L.arr, pu = 0.8 + 0.2 * Math.sin(t * 5);
+          quad(a[0], a[1] + L.aimY, a[2], 0.9, 0.9, 0.6 * NK * pu, 0.4 * NK * pu, 0.5 * NK * pu); }
+        for (let i = 0; i < 6; i++) {
+          const a = t * 0.35 * (1 + i * 0.13) + i * 0.9, r = 1.4 + (i % 3) * 0.5, fl = 0.6 + 0.4 * Math.sin(t * 7 + i * 2.3);
+          quad(C[0] + Math.cos(a) * r, C[1] + 0.6 + 0.9 * (0.5 + 0.5 * Math.sin(t * 0.9 + i * 1.7)), C[2] + Math.sin(a * 1.3) * r * 0.7, 0.14, 0.14, 1.3 * fl * NK, 1.6 * fl * NK, 0.5 * fl * NK);
+        }
+      }
+      for (let i = gq; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); }
+      glow.instanceMatrix.needsUpdate = true; if (glow.instanceColor) glow.instanceColor.needsUpdate = true; glow.visible = gq > 0;
+      // ---- what is drawn: a thing only while it shows and its station (or the one just left, for a moment) is near ----
+      const left = (s) => step === s || (step === s + 1 && stepT < 2.5);
+      const atHag = les || step >= 4 || (step === 0 && stepT < 2.5);
+      vis(M, ['puff0', 'puff1', 'puff2'], atHag); vis(M, ['dog'], atHag); vis(M, ['tail'], atHag);
+      vis(M, ['owl'], step <= 1); vis(M, ['owlWing0', 'owlWing1'], step <= 1); vis(M, ['star'], step <= 0);
+      vis(M, ['mole0', 'mole1', 'mole2'], step >= 0 && step <= 2); vis(M, ['coin0', 'coin1', 'coin2'], step >= 0 && step <= 2);
+      vis(M, ['foal'], step === 2 || left(2)); vis(M, ['fWing0', 'fWing1'], step === 2 || left(2)); vis(M, ['duck'], step === 2 || left(2));
+      const eg = step === 3 || left(3);
+      vis(M, ['egg0', 'egg1', 'egg2'], eg); vis(M, ['shell0', 'shell1', 'shell2', 'shell3', 'shell4', 'shell5'], eg);
+      vis(M, ['bdragon'], eg); vis(M, ['owlet'], eg); vis(M, ['turtle'], eg);
+      M.drag.mesh.visible = step >= 4 && !(M.dragHappy.s > 0.001); M.dragHappy.mesh.visible = step >= 4 && M.dragHappy.s > 0.001;
+      vis(M, ['ring'], step >= 4);
+      eyes.visible = true; hearts.visible = nh > 0;
+    },
+    effects: {
+      // Hagrid's demo: the ghost hand strokes the sleeping dog; he wakes, wags his tail and rolls onto his back (the dog's own
+      // clock runs on after the effect: the next line talks over the roll)
+      demo(M, t, quiet) {
+        if (quiet) { dogT = 99; kit.hand(null); return false; }
+        if (dogT < 0) dogT = 0;
+        return t < 3.8;
+      },
+      // the owl hoots, flies the star down to the hero and comes back to its post (5 s)
+      owlFly(M, t, quiet) {
+        owlT = quiet ? 99 : t;
+        if (!quiet) {
+          if (owlSfx < 1) { owlSfx = 1; fun.sfx.hoot(); }
+          if (owlSfx < 2 && t > 0.6) { owlSfx = 2; fun.sfx.whoosh(); }
+          if (owlSfx < 3 && t > 2.85) { owlSfx = 3; kit.burst(hx(), 1.15, hz(), 14); fun.sfx.tune([784, 988, 1319], 0.1, 'sine'); }
+          if (owlSfx < 4 && t > 4.4) { owlSfx = 4; fun.sfx.hoot(); }
+        }
+        return t < 5.0;
+      },
+      // the three coins rise and spin together with a chime, then fly to the hero (3.4 s)
+      coinSpin(M, t, quiet) {
+        coinT = quiet ? 99 : t;
+        if (!quiet) {
+          if (coinSfx < 1) { coinSfx = 1; fun.sfx.chime(); fun.sfx.tune([659, 784, 988, 1319], 0.1, 'triangle'); }
+          if (coinSfx < 2 && t > 1.0) { coinSfx = 2; fun.sfx.chime(); }
+          if (coinSfx < 3 && t > 2.75) { coinSfx = 3; kit.burst(hx(), 1.1, hz(), 14); fun.sfx.tune([1047, 1319, 1568], 0.08, 'sine'); }
+        }
+        return t < 3.4;
+      },
+      // the foal bows and stretches out a wing over the stream; a duckling walks across and peeps (5.4 s)
+      foalBow(M, t, quiet) {
+        foalT = quiet ? 99 : t;
+        if (!quiet) {
+          if (foalSfx < 1) { foalSfx = 1; fun.sfx.tune([523, 659, 784], 0.12, 'triangle'); }
+          if (foalSfx < 2 && t > 0.6) { foalSfx = 2; fun.sfx.whoosh(); }
+          if (foalSfx < 3 && t > 4.3) { foalSfx = 3; fun.sfx.tweet(); fun.sfx.tune([659, 784, 988], 0.1, 'triangle'); }
+        }
+        return t < 5.4;
+      },
+      // the three babies do a little bounce together (2.8 s)
+      babyBounce(M, t, quiet) {
+        babyT = quiet ? 99 : t;
+        if (!quiet) {
+          if (babySfx < 1) { babySfx = 1; fun.sfx.tune([523, 659, 784, 1047], 0.11, 'triangle'); }
+          for (let j = 0; j < 3; j++) if (babySfx < 2 + j && t > 0.05 + j * 0.22) { babySfx = 2 + j; fun.sfx.boing(); kit.burst(CR.nests[j][0], 0.5, CR.nests[j][1], 6); }
+        }
+        return t < 2.8;
+      },
+      // the baby dragon puffs a heart-shaped smoke ring, hops to Hagrid's feet and curls up (6 s)
+      dragonCurl(M, t, quiet) {
+        dragT = quiet ? 99 : t;
+        if (!quiet) {
+          if (dragSfx < 1 && t > 0.3) { dragSfx = 1; fun.sfx.noise(0.5, 0.08, 0, 600, 0.7); fun.sfx.heart(); }
+          if (dragSfx < 2 && t > 3.6) { dragSfx = 2; purr(); }
+          if (dragSfx < 3 && t > 4.4) { dragSfx = 3; fun.sfx.tune([523, 659, 784, 1047], 0.14, 'sine'); }
+        }
+        return t < 6.0;
+      },
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------------------
 // the runner
 // ---------------------------------------------------------------------------------------
@@ -2371,7 +3036,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   let K = null;                            // the built kit for the running course: { group, movers, lesson, stations, ... }
   let drag = null;
   const tmp = new Vector3(), tmp2 = new Vector3(), camPos = new Vector3(), camLook = new Vector3(), camPosGoal = new Vector3(), camLookGoal = new Vector3();
-  const worldOff = new Vector3();
+  const worldOff = new Vector3(), handAt = new Vector3();
 
   function at(sec, fn) { S.q.push({ t: S.clock + sec, fn }); }
   function runQueue() {
@@ -2393,7 +3058,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!(S.C.oneBubble && f && S.phase === 'lesson')) { sayEl.textContent = (S.C.who || '🧙‍♂️') + ' ' + text; sayEl.classList.add('on'); S.sayT = sec; }
     speak(text);
     if (f && S.phase === 'lesson') { f.getWorldPosition(tmp);   // in the course the top speech bar is enough (a 3D bubble covered the rings on a phone)
-      tmp.y += f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9; fun.say(tmp, text, sec, 'spell'); }
+      tmp.y += S.C.bubbleY ?? (f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9); fun.say(tmp, text, sec, 'spell'); }   // bubbleY: a giant (Hagrid) talks from above his own head
     if (profPose === 'cast') { if (!(lessons.signature && lessons.signature(S.C.station))) hop(); if (S.C.verb === 'light') S.raise = sec; }
     else if (profPose) { pose(profPose); at(Math.max(1, sec - 0.6), () => pose(null)); }
   }
@@ -2415,6 +3080,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       solid: (g) => solids.push(g),
       tex: (t) => { texs.push(t); return t; },
       burst: (x, y, z, n) => burst(x, y, z, n),
+      hand: (x, y, z) => { if (x == null) S.handOn = false; else { S.handOn = true; handAt.set(x, y, z); } },   // the ghost hand strokes here (a teacher's demo), null = off
       ctx: { player, camera, worldOff, prof: () => prof(), ground, night: nightK },
       mesh(name, geo, o = {}) {
         const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: DoubleSide, emissive: new Color(o.glowHex || 0xffd27a), emissiveIntensity: 0 });
@@ -2467,7 +3133,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const parts = []; for (let i = 0; i < NP; i++) parts.push({ mode: 0, a: Math.random() * 6.3, r: 0.25 + Math.random() * 0.2, sp: 1.5 + Math.random() * 2, y: Math.random(), vx: 0, vy: 0, vz: 0, x: 0, yy: 0, z: 0, life: 0 });
     // pre-sample every lift path (arc-length spaced), so update() only reads arrays
     // 'brew' (Potions) IS a change for every input / hold / tap / settle-back rule (CHANGE_*); only its look differs (poseBrew)
-    const push = C.verb === 'push', light = C.verb === 'light', brew = C.verb === 'brew', change = C.verb === 'change' || brew, grow = C.verb === 'grow';
+    const push = C.verb === 'push', light = C.verb === 'light', brew = C.verb === 'brew', pet = C.verb === 'pet', change = C.verb === 'change' || brew || pet, grow = C.verb === 'grow';
     const mkLift = (L, st) => {
       const mv = movers[L.m]; if (!mv) return null;
       const N = (light || change || grow) ? 2 : 48, arr = new Float32Array(N * 3);
@@ -2479,8 +3145,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       }
       const rings = (L.rings || []).map(n => { const r = movers[n]; return r ? { mv: r, u: 0, ringIdx: n } : null; }).filter(Boolean);
       return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings,
-        push, light, change, brew, grow, to: (change || grow) ? (movers[L.to] || null) : null, popT: -1,
-        hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : change ? CHANGE_HOVER : grow ? GROW_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : change ? CHANGE_FALL : grow ? GROW_FALL : FALL,
+        push, light, change, brew, pet, grow, to: (change || grow) ? (movers[L.to] || null) : null, popT: -1,
+        hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : pet ? PET_HOVER : change ? CHANGE_HOVER : grow ? GROW_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : pet ? PET_FALL : change ? CHANGE_FALL : grow ? GROW_FALL : FALL,
         inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
@@ -2565,7 +3231,21 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const sway = L.done ? Math.sin(t * 1.6 + L.ph) * 0.05 : Math.sin(t * 7 + L.ph) * 0.06 * live * (1 - e);
     L.to.poseS(x, y, z, r1[0], r1[1], r1[2] + sway, sx, sy, sx);
   }
+  // a pet target (Creatures) stays put: as the progress rises it leans into the finger (a forward pitch toward its front),
+  // sways and squashes softly, and wiggles faster while a finger is on it. Done: it sits still here and the course poses
+  // its happy animation. With a `to` shape (an egg) it wobbles, then hatches exactly like a change.
+  const _pe = new Euler(0, 0, 0, 'YXZ'), _pe2 = new Euler(), _pq = new Quaternion();
+  function posePet(L, t) {
+    if (L.to && L.done) { poseChange(L, t); return; }
+    const a = L.arr, r0 = L.rot0, w = L.done ? 0 : L.p, on = w > 0.01 ? 1 : 0;
+    const touch = !L.done && S.sel === L && (S.hold || (drag && drag.change)) ? 1 : 0;
+    const lean = (0.16 + 0.06 * Math.sin(t * 3 + L.ph)) * w * on, wig = Math.sin(t * 15 + L.ph) * (0.04 + 0.08 * touch) * Math.max(w, touch * 0.3) * (on || touch), sq = Math.sin(t * 7 + L.ph) * 0.05 * w * on;
+    _pe.set(r0[0] + lean, r0[1] + Math.sin(t * 2.2 + L.ph) * 0.12 * w * on, r0[2] + wig, 'YXZ'); _pq.setFromEuler(_pe); _pe2.setFromQuaternion(_pq, 'XYZ');
+    L.mv.poseS(a[0], a[1] + Math.abs(Math.sin(t * 6 + L.ph)) * 0.025 * w * on, a[2], _pe2.x, _pe2.y, _pe2.z, 1 - sq * 0.5, 1 + sq, 1 - sq * 0.5);
+    if (L.to) L.to.pose(a[0], a[1], a[2], 0, 0, 0, 0);
+  }
   function poseLift(L, t) {
+    if (L.pet) { posePet(L, t); return; }
     if (L.grow) { poseGrow(L, t); return; }
     if (L.brew) { poseBrew(L, t); return; }
     if (L.change) { poseChange(L, t); return; }
@@ -2612,7 +3292,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     for (const r of L.rings) if (!r.mv.lit) { r.mv.lit = true; r.mv.color(0xffe07a); }
     S.casts++; if (S.sel === L) S.sel = null;
     liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 20);
-    if (L.change) { L.popT = 0; fun.sfx.pop(); fun.sfx.poof(); }
+    if (L.pet) { L.popT = 0; fun.sfx.heart(); fun.sfx.giggle(true); }   // a happy creature (its heart puff is the course's own)
+    else if (L.change) { L.popT = 0; fun.sfx.pop(); fun.sfx.poof(); }
     if (L.grow) { L.popT = 0; fun.sfx.pop(); burst(tmp.x - worldOff.x, tmp.y - worldOff.y + (L.spec.top || 0.4) * 0.85, tmp.z - worldOff.z, 16); }
     fun.sfx.sparkle(); fun.sfx.tune([1047, 1319, 1568], 0.09, 'sine');
     setPips();
@@ -2712,7 +3393,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       try { ov.setPointerCapture(e.pointerId); } catch { /* ignore */ }
       return;
     }
-    if (S.C.verb === 'change' || S.C.verb === 'brew') {   // brew: the same stir / hold / tap on a cauldron
+    if (S.C.verb === 'change' || S.C.verb === 'brew' || S.C.verb === 'pet') {   // brew / pet: the same stir / hold / tap on a cauldron / a creature
       // Vera Verto: touch the glowing thing and stir / scribble round it (any direction: finger travel counts), or
       // keep the finger on it, or tap it. A touch beside it still stirs the current one (forgiving) and twinkles it.
       const hit = pick(e.clientX, e.clientY);
@@ -2803,7 +3484,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
     at(t, beginCast);
   }
-  function beginCast() { S.sub = 'cast'; S.idle = 0; S.sel = null; select(open()); setBtn(true); setPips(); }
+  function beginCast() { S.handOn = false; S.sub = 'cast'; S.idle = 0; S.sel = null; select(open()); setBtn(true); setPips(); }
   function setDone() {
     S.sub = 'after'; setBtn(false); hideHand(); S.sel = null;
     if (S.phase === 'lesson') {
@@ -2828,7 +3509,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function startStation(i) {
     const st = S.C.course.stations[i];
     if (S.phase !== 'course') { S.phase = 'course'; S.tCourse = 0; }
-    S.step = i; S.sub = 'walk'; S.lifts = K.stations[i]; S.sel = null; S.fx = null;
+    S.step = i; S.sub = 'walk'; S.lifts = K.stations[i]; S.sel = null; S.fx = null; S.handOn = false;
     S.walk = { pts: st.walk, i: 0 };
     camTo(st.cam); setPips(); setBtn(false); hideHand();
   }
@@ -2859,7 +3540,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function showReward() {
     if (!S.on) return;
     const r = S.result, crest = CREST[fun.store.house] || CREST.gryf;
-    endOv.innerHTML = '<div class="p"><div class="tr">' + S.C.spell.icon + '</div><div class="ti">' + (r.stars >= 3 ? 'כָּל הַכָּבוֹד!' : 'יָפֶה מְאֹד!') + '</div>'
+    endOv.innerHTML = '<div class="p"><div class="tr">' + (S.C.icon || S.C.spell.icon) + '</div><div class="ti">' + (r.stars >= 3 ? 'כָּל הַכָּבוֹד!' : 'יָפֶה מְאֹד!') + '</div>'
       + '<div class="st">' + '⭐'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + '</div><div class="sc">' + crest + ' <span dir="ltr">+' + r.pts + '</span></div>'
       + '<div class="row"><button class="again">🔁 שׁוּב</button><button class="done">✅ סִיּוּם</button></div></div>';
     endOv.querySelector('.again').addEventListener('click', e => { e.stopPropagation(); again(); });
@@ -2926,7 +3607,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (C.room ? (interiors.active !== C.room || !interiors.room) : !!interiors.active) return false;   // a room course in its room; an outdoor one outside
     S.key = key; S.C = C;
     Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null,
-      raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0 });
+      raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0, handOn: false });
     S.q.length = 0; pipKey = '';
     try { K = buildKit(C, C.room ? interiors.room : null); } catch (e) { console.warn('[spells] course props failed -', e && e.message || e); K = null; S.on = false; return false; }
     setTakeover(takeover);
@@ -2934,6 +3615,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     // things that follow you or roam the room hold still / hide while the course owns the frame
     S.hid = []; for (const n of ['pip', 'trevor', 'peeves']) { const o = scene.getObjectByName(n); if (o && o.visible) { o.visible = false; S.hid.push(o); } }
     player._applyFade && player._applyFade(1);
+    if (!C.room && lessons.hold) lessons.hold(C.station, true);   // the station's own little critters (the paddock) step out of the course
     const f0 = prof(); S.profY = f0 ? f0.position.y : 0;   // the chibi teacher hops from here (outdoors: the terrain)
     camPos.copy(camera.position); camera.getWorldDirection(tmp); camLook.copy(camera.position).addScaledVector(tmp, 6);
     fun.sfx.sparkle();
@@ -2944,7 +3626,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function leave(restore, inTeardown = false) {
     if (!S.on) return;
     const C = S.C;
-    S.on = false; S.q.length = 0; drag = null; S.hold = false; S.walk = null; S.fx = null;
+    S.on = false; S.q.length = 0; drag = null; S.hold = false; S.walk = null; S.fx = null; S.handOn = false;
+    if (!C.room && lessons.hold) lessons.hold(C.station, false);
     hush(); hideHand(); setBtn(false);
     try { dimRestore(); } catch (e) { console.warn('[spells] dim restore -', e && e.message || e); DIM = null; }
     if (S.hid) { for (const o of S.hid) o.visible = true; S.hid = null; }   // Peeves' visibility is only set on spawn: put back what start() hid
@@ -2957,7 +3640,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (restore && (interiors.active || null) === C.room) {
       const st = lessons.stations && lessons.stations[C.station];
       if (st && C.room) { player.yaw = Math.PI; player.teleport(st.x + worldOff.x, st.z + 3.1 + worldOff.z); player.pos.y = worldOff.y; player.smoothY = worldOff.y; }
-      else if (st) { player.yaw = Math.PI; player.teleport(st.x, st.z + 3.2); if (player.cam && player.cam.reset) player.cam.reset(player.yaw); }   // outdoors: where the 🔔 drops you (lessons.go)
+      else if (st) { player.yaw = Math.PI; player.teleport(st.x, st.z + (C.back || 3.2)); if (player.cam && player.cam.reset) player.cam.reset(player.yaw); }   // outdoors: where the 🔔 drops you (lessons.go)
     }
   }
   function quit() {
@@ -3059,13 +3742,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       const a = cur.arr, r1 = cur.rot1;
       g.position.set(a[0], a[1], a[2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(src.scale * 1.03);
       K.ghostMat.opacity = (0.24 + Math.sin(t * 4) * 0.09) * (1 - 0.6 * cur.p); g.visible = true;
-    } else if (cur && !cur.brew) {         // (a cauldron needs no outline: its colour shows the progress)
+    } else if (cur && !cur.brew && !cur.pet) {   // (a cauldron needs no outline: its colour shows the progress; a creature neither)
       const g = K.ghost; if (g.geometry !== cur.mv.geo) g.geometry = cur.mv.geo;
       const a = cur.arr, n = (cur.N - 1) * 3, r1 = cur.rot1;
       g.position.set(a[n], a[n + 1], a[n + 2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(cur.mv.scale * (cur.light ? 1.7 : 1.06));
       K.ghostMat.opacity = 0.42 + Math.sin(t * 4) * 0.16; g.visible = true;
     } else K.ghost.visible = false;
-    if (cur && S.idle > HINT_AFTER && cur.p < 0.05) {
+    if (S.handOn) {                       // a teacher's demo: the ghost hand strokes where the course says (kit.hand)
+      tmp.copy(handAt).add(worldOff).project(camera);
+      hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
+      if (!hand.classList.contains('on')) { hand.classList.remove('push', 'tap'); hand.classList.add('stir', 'on'); }
+    } else if (cur && S.idle > HINT_AFTER && cur.p < 0.05) {
       liftWorld(cur, tmp).project(camera);
       hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
       if (!hand.classList.contains('on')) {
@@ -3099,7 +3786,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function pickerCard(key) {
     const C = COURSES[key];
     return {
-      key, icon: C.spell.icon, name: C.name, best: () => best(key),
+      key, icon: C.icon || C.spell.icon, name: C.name, best: () => best(key),
       fn: async () => {
         if (S.on) return;
         await lessons.go(C.station);

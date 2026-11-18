@@ -351,7 +351,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
       const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z);
       if (s.chibi) { animateChibi(s.chibi.userData.rig, dt, { moving: false }); animateFigure(s, dt, d < (s.r || 4.4)); }
       // far-away lesson spots cost nothing: the little figures stream in at 55 m, the buildings at 95 m
-      if (s.world) { if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; }
+      if (s.world) { if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55 && !s.held; }
       if (s.critters) for (const c of s.critters) { const k = Math.max(0, Math.sin(t * (d < 14 ? 5 : 2.2) + c.ph)); c.cr.position.y = k * (d < 14 ? 0.5 : 0.18); }
       if (s.chibi) faceTurn(s, dt);
       if (d < bd) { bd = d; best = s; }
@@ -376,12 +376,14 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   // talking if their lesson is the one open
   function anim(dt) { for (const s of interiors.active ? live : outdoor) if (s.chibi) animateFigure(s, dt, s.key === openKey); }
   // visibility only (used while a mini-game owns the frame)
-  function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55; } syncColliders(); }
+  function cull() { for (const s of outdoor) { const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z); if (s.chibi) s.chibi.visible = d < (s.figR || 55); if (s.root) s.root.visible = d < 95; if (s.critters) for (const c of s.critters) c.cr.visible = d < 55 && !s.held; } syncColliders(); }
   // a spell course (spells.js) borrows the station's professor: hold a clip, play the signature
   const stationOf = (key) => live.find(l => l.key === key) || outdoor.find(l => l.key === key) || null;
   const figure = (key) => { const s = stationOf(key); return s ? s.chibi : null; };
   const pose = (key, name) => { const s = stationOf(key); if (s) s.pose = name || null; };
+  // a spell course on the lawn holds the station's own little critters out of its way (hidden until it ends)
+  const hold = (key, on) => { const s = stationOf(key); if (s && s.critters) { s.held = !!on; for (const c of s.critters) c.cr.visible = !on; } };
   const signature = (key) => { const s = stationOf(key); if (s && s.chibi && s.chibi.userData.acts && s.chibi.userData.acts.cast) { fadeTo(s.chibi, 'cast'); return true; } return false; };
   return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }),
-    addPickerCard: (c) => cards.push(c), figure, pose, signature };
+    addPickerCard: (c) => cards.push(c), figure, pose, signature, hold };
 }

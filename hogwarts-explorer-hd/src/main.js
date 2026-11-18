@@ -13,7 +13,7 @@ import { Player } from './player.js';
 import { Input } from './input.js';
 import { loadTexture } from './assets.js';
 import { loadScenery } from './scenery.js';
-import { createCharacters } from './characters.js';
+import { createCharacters, hagridAtPaddock } from './characters.js';
 import { createQuests } from './quests.js';
 import { createMap } from './map.js';
 import { createInteriors } from './interiors.js';
@@ -221,7 +221,8 @@ async function boot() {
   function cullFriends() {
     pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(pm, camera.coordinateSystem);
-    for (const c of characters.characters || []) { sph.center.set(c.group.position.x, c.group.position.y + 1.2, c.group.position.z); c.group.visible = Math.hypot(c.group.position.x - player.pos.x, c.group.position.z - player.pos.z) < 85 && frustum.intersectsSphere(sph); }
+    for (const c of characters.characters || []) { sph.center.set(c.group.position.x, c.group.position.y + 1.2, c.group.position.z); c.group.visible = Math.hypot(c.group.position.x - player.pos.x, c.group.position.z - player.pos.z) < 85 && frustum.intersectsSphere(sph)
+      && !(c.name === 'hagrid' && hagridAtPaddock(player.pos)); }   // by the paddock the hut Hagrid stays away (also while a course owns the frame: characters.update is skipped then)
   }
   let worldShown = true;
   function setWorldVisible(on) {
