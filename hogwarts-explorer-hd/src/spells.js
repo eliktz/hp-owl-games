@@ -177,7 +177,7 @@ const CH3 = {
   planks: [[-12.95, -12.842], [-12.402, -12.294], [-11.854, -11.746], [-11.306, -11.198], [-10.758, -10.65]],
   holes: [-12.622, -12.074, -11.526, -10.978],
 };
-const chBook = (m, z0, [y, g], o = {}) => ({ m, path: [[-11.9, 0.05, z0], [-12.3, y * 0.5 + 0.3, (z0 + g) / 2], [-13.0, y + 0.345, g], [-13.17, y + 0.155, g]], rot0: [Math.PI / 2, 0.3, 0], rot1: [0, 0, 0], ...o });
+const chBook = (m, z0, [y, g], o = {}) => ({ m, path: [[-12.5, 0.05, z0], [-12.75, y * 0.5 + 0.3, (z0 + g) / 2], [-13.0, y + 0.345, g], [-13.17, y + 0.155, g]], rot0: [Math.PI / 2, 0.3, 0], rot1: [0, 0, 0], ...o });
 const CAT_SAY = 'שְׁשְׁשׁ... הֶחָתוּל יָשֵׁן!', CAUL_SAY = 'הַקַּלַּחַת כְּבֵדָה מִדַּי!';
 const chCat = (i, x, z, cam) => ({ m: 'dcat' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.3, aimY: 0.2, breathe: true, shakeMode: 'no', say: CAT_SAY });
 const chCaul = (i, x, z) => ({ m: 'dcaul' + i, at: [x, 0, z], ry: 0, r: 0.3, aimY: 0.3, shakeMode: 'rattle', say: CAUL_SAY });
@@ -245,19 +245,20 @@ export const COURSES = {
           bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', order: [1, 2, 0], decoys: [chCaul(1, -10.7, 4.95), chCat(1, -10.55, 6.0, CH_CAM.bridge)] },
           arch: { decoys: [chCat(2, -8.6, 7.95, CH_CAM.arch)] },
           chest: { decoys: [chCaul(2, -6.05, 5.0)] },
-          rings: { decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(3, -6.6, -0.2)] },
+          rings: { decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(3, -6.0, -0.9)] },
         } },
       3: { twist: 'עַכְשָׁו בְּזָהִירוּת: עֲצֹר בְּדִיּוּק בַּטַּבַּעַת!', star3: 420,
         stations: {
-          shelf: { say: 'הַחְזֵר אֶת הַסְּפָרִים בַּסֵּדֶר!', hold: 0.42,
-            lifts: [chBook('book', 1.8, CH3.gaps[0], { ringR: 0.3 }), chBook('xbook0', 0.9, CH3.gaps[1], { ringR: 0.3 }), chBook('xbook1', 1.35, CH3.gaps[2], { ringR: 0.3 }), chBook('xbook2', 2.25, CH3.gaps[3], { ringR: 0.3 })],
-            order: [2, 0, 3, 1], decoys: [chCaul(0, -12.75, 0.35)] },
-          bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', hold: 0.45,
+          shelf: { say: 'הַחְזֵר אֶת הַסְּפָרִים בַּסֵּדֶר!', hold: 0.42, ringR: 0.3,
+            cam: { pos: [-9.9, 2.1, -0.1], look: [-12.6, 1.0, 1.3] },     // closer: four books on the floor need room on a phone
+            lifts: [chBook('book', 0.8, CH3.gaps[0]), chBook('xbook0', 1.7, CH3.gaps[1]), chBook('xbook1', 0.35, CH3.gaps[2]), chBook('xbook2', 1.25, CH3.gaps[3])],
+            order: [2, 0, 3, 1], decoys: [chCaul(0, -13.0, 0.25)] },
+          bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', hold: 0.45, cam: { pos: [-9.9, 2.55, 7.35], look: [-11.8, 0.8, 4.6] },
             lifts: CH3.holes.map((x, i) => ({ m: 'block' + i, path: [[x, 0.2, 5.5], [x, 1.5, 5.0], [x, 0.79, 4.3]], rot0: [0, 0.35 - i * 0.25, 0], rot1: [0, 0, 0], ringR: 0.42 })),
             order: [3, 1, 0, 2], decoys: [chCat(0, -10.3, 6.05, CH_CAM.bridge), chCaul(1, -10.55, 4.95)] },
           arch: { hold: 0.45, ringR: 0.55, decoys: [chCat(1, -8.6, 7.95, CH_CAM.arch), chCaul(2, -7.0, 7.9)] },
           chest: { hold: 0.45, ringR: 0.36, decoys: [chCaul(3, -6.05, 5.0), chCat(2, -4.05, 4.75, CH_CAM.chest)] },
-          rings: { hold: 0.45, ringR: 0.55, decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(4, -6.6, -0.2)] },
+          rings: { hold: 0.555, ringR: 0.64, decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(4, -6.0, -0.9)] },   // the ring hold frames the middle ring
         } },
     },
   },
@@ -4036,7 +4037,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       : S.sub === 'cast' ? (S.sel && !S.sel.done ? S.sel : open()) : null;
     if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done && L.mv.glows) L.mv.mat.emissiveIntensity = pulse;
     if (S.level > 1) {                    // the decoys glow like the real things (the glow must not give the answer away); the order preview flashes
-      if (S.sub === 'cast') for (const D of S.decoys) if (D.mv.glows) D.mv.mat.emissiveIntensity = pulse;
+      if (S.sub === 'cast') for (const D of S.decoys) if (D.mv.glows) D.mv.mat.emissiveIntensity = pulse * 0.6;   // (the same pulse; dark iron reads cream at full strength)
       if (S.lifts) for (const L of S.lifts) if (L.flash > 0 && L.mv.glows && !L.mv.mesh.isInstancedMesh) L.mv.mat.emissiveIntensity = 1.1;
       tickRing(t);
     }
