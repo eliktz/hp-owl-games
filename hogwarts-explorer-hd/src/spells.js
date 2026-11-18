@@ -2439,13 +2439,13 @@ function moleGeo() {                               // a round shy burrower with 
   ]);
 }
 function coinGeo() { return merge([paint(place(new CylinderGeometry(0.085, 0.085, 0.022, 18), 0, 0.011, 0), 0xd89a10, 0xffe060), paint(place(new TorusGeometry(0.07, 0.008, 4, 18), 0, 0.023, 0, Math.PI / 2), 0xfff0a0), paint(place(starGeo(0.035), 0, 0.024, 0, -Math.PI / 2), 0xfff4b0)]); }
-function foalGeo() {                               // a proud little winged horse-bird foal: feathered white front, cream body, hooves
+function foalGeo() {                               // a proud little winged horse-bird foal: feathered white front, cream body, hooves (whites kept <= 0.84 so the sun does not bloom them)
   const P = [
-    ball(0.3, 0, 0.6, -0.08, 0xb8946a, 0xd8b890, 0.82, 0.78, 1.3), ball(0.22, 0, 0.66, 0.24, 0xf4f0ea, 0xffffff, 1, 1.05, 0.9),
-    paint(place(new CylinderGeometry(0.1, 0.13, 0.32, 10), 0, 0.84, 0.32, 0.45), 0xf4f0ea, 0xffffff),
-    ball(0.17, 0, 1.02, 0.42, 0xf4f0ea, 0xffffff), ball(0.07, 0, 0.97, 0.58, 0xffc850, 0xffe080, 1, 0.75, 1.1),
-    ...[0, 1, 2].map(k => paint(place(new ConeGeometry(0.035, 0.12, 6), (k - 1) * 0.05, 1.18, 0.38 - k * 0.04, -0.3, 0, (k - 1) * -0.3), 0xffffff, 0xe0d8ff)),
-    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.04, 0.1, 6), s * 0.11, 1.15, 0.36, 0, 0, -s * 0.5), 0xf4f0ea)),
+    ball(0.3, 0, 0.6, -0.08, 0xb8946a, 0xd8b890, 0.82, 0.78, 1.3), ball(0.22, 0, 0.66, 0.24, 0xcfc8bc, 0xd8d4cc, 1, 1.05, 0.9),
+    paint(place(new CylinderGeometry(0.1, 0.13, 0.32, 10), 0, 0.84, 0.32, 0.45), 0xcfc8bc, 0xd8d4cc),
+    ball(0.17, 0, 1.02, 0.42, 0xcfc8bc, 0xd8d4cc), ball(0.07, 0, 0.97, 0.58, 0xffc850, 0xffe080, 1, 0.75, 1.1),
+    ...[0, 1, 2].map(k => paint(place(new ConeGeometry(0.035, 0.12, 6), (k - 1) * 0.05, 1.18, 0.38 - k * 0.04, -0.3, 0, (k - 1) * -0.3), 0xd8d4cc, 0xc4bce0)),
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.04, 0.1, 6), s * 0.11, 1.15, 0.36, 0, 0, -s * 0.5), 0xcfc8bc)),
     ...[-1, 1].map(s => ball(0.03, s * 0.115, 0.98, 0.535, 0xffa0b0, null, 1, 0.7, 0.4, 8, 6)),
     ball(0.09, 0, 0.62, -0.5, 0x8a6a48, 0xb8946a, 0.8, 1.2, 1.1),
   ];
@@ -2453,12 +2453,12 @@ function foalGeo() {                               // a proud little winged hors
     P.push(paint(place(new CylinderGeometry(0.045, 0.05, 0.42, 8), x, 0.25, z), 0xc8a478, 0xb8946a));
     P.push(paint(place(new CylinderGeometry(0.06, 0.06, 0.06, 8), x, 0.03, z), 0x6a5a4c));
   }
-  for (let k = 0; k < 6; k++) P.push(paint(place(new SphereGeometry(0.07, 8, 5), (k % 3 - 1) * 0.09, 0.78 - Math.floor(k / 3) * 0.1, 0.42, 0.5, 0, 0, 1, 0.5, 0.35), 0xffffff, 0xe8e4f4));
+  for (let k = 0; k < 6; k++) P.push(paint(place(new SphereGeometry(0.07, 8, 5), (k % 3 - 1) * 0.09, 0.78 - Math.floor(k / 3) * 0.1, 0.42, 0.5, 0, 0, 1, 0.5, 0.35), 0xd8d4cc, 0xc8c4d4));
   return merge(P);
 }
 function foalWingGeo() {                           // spans +x from the shoulder (1.25 m), flat in y: folded or a bridge
   const P = [];
-  for (let k = 0; k < 7; k++) { const u = k / 6, x = 0.1 + u * 1.05, w = 0.2 - u * 0.06; P.push(paint(place(new SphereGeometry(w, 10, 6), x, 0, -u * 0.04, 0, 0.25 * u, 0, 1.1, 0.16, 1.0), 0xfaf6f0, 0xffffff)); }
+  for (let k = 0; k < 7; k++) { const u = k / 6, x = 0.1 + u * 1.05, w = 0.2 - u * 0.06; P.push(paint(place(new SphereGeometry(w, 10, 6), x, 0, -u * 0.04, 0, 0.25 * u, 0, 1.1, 0.16, 1.0), 0xd0cabf, 0xd8d4cc)); }
   for (let k = 0; k < 5; k++) { const x = 0.25 + k * 0.22; P.push(paint(place(new SphereGeometry(0.08, 8, 5), x, 0.02, -0.17 + k * 0.01, 0, 0, 0, 1.3, 0.2, 1.6), 0x8a9ad8, 0xb8c4f4)); }
   return merge(P);
 }
