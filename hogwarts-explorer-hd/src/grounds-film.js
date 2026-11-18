@@ -1,4 +1,5 @@
-// Grounds film look, pass 1 (art-direction-film.md): Hagrid's hut with its pumpkin patch. Everything is built in code from the
+// Grounds film look, pass 1 (art-direction-film.md): Hagrid's hut with its pumpkin patch, and the
+// Victorian glasshouse behind Sprout's Herbology station. Everything is built in code from the
 // committed film stone maps (castle_wall_slates), the wood map and small canvases (<= 512 px);
 // no downloaded models. Each building merges into one mesh per material (<= 8 draw calls):
 //   hut   stone (walls, chimney, step, path) | roof shingles | wood | iron | glow (windows, lantern)
@@ -597,4 +598,221 @@ function buildPumpkins(PATCH, hAt, GD, WD, S, toWorld, colliders) {
     if (colliders) { const [wx, wz] = toWorld(sx, sz); colliders.push({ type: 'circle', x: wx, z: wz, r: 0.2 * S, hut: true }); }
   }
   return im;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The Victorian glasshouse (Herbology). Local frame: origin at the floor centre, the double door
+// in the front gable toward +z (Sprout's side). Low stone plinth, dark-green painted iron frame
+// with thin glazing bars, pitched glass roof with ridge cresting and finials, faintly milky aged
+// glass (blotchy, grimy low down), potting benches with terracotta pots and leafy plants inside,
+// hanging baskets, one big leafy plant and two lanterns that glow at dusk/night.
+// Draw calls: stone | frame | glass | wood | pots (instanced) | plants (instanced) | glow = 7.
+export const GLASSHOUSE = { W: 6.6, D: 7.0, EH: 3.1, RH: 5.5, PL: 0.6 };
+
+let _glassTex = null;
+function glassMap() {
+  if (_glassTex) return _glassTex;
+  const [c, g] = canvas(256), r = rng(41);
+  const img = g.createImageData(256, 256), d = img.data;
+  // soft value noise (two octaves) for milky blotches
+  const N = (s) => { const a = []; for (let i = 0; i < s * s; i++) a.push(r()); return (x, y) => { x *= s; y *= s; const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, q = (i, j) => a[((j % s + s) % s) * s + ((i % s + s) % s)];
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); return (q(x0, y0) * (1 - sx) + q(x0 + 1, y0) * sx) * (1 - sy) + (q(x0, y0 + 1) * (1 - sx) + q(x0 + 1, y0 + 1) * sx) * sy; }; };
+  const n1 = N(5), n2 = N(13);
+  for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) {
+    const u = x / 256, v = 1 - y / 256;              // v = 0 at the bottom of a wall / the eave of a roof slope
+    const m = n1(u, v) * 0.65 + n2(u, v) * 0.35;
+    const grime = Math.max(0, 1 - v / 0.16) ** 1.5;  // dirt splashed up the lowest panes
+    const streak = Math.max(0, Math.sin(u * 6.283 * 9 + n2(u, 0.3) * 4)) ** 12 * 0.35 * (1 - v);   // dried run-off
+    let a = 0.2 + m * 0.2 + grime * 0.36 + streak * 0.2;
+    let R = 214 - m * 18 - grime * 90, G = 222 - m * 14 - grime * 82, B = 212 - m * 20 - grime * 110;
+    const i = (y * 256 + x) * 4; d[i] = R; d[i + 1] = G; d[i + 2] = B; d[i + 3] = Math.min(255, a * 255);
+  }
+  g.putImageData(img, 0, 0);
+  const t = ctex(c); t.wrapT = ClampToEdgeWrapping;
+  return (_glassTex = t);
+}
+let _sprig = null;
+function sprigMap() {
+  if (_sprig) return _sprig;
+  const [c, g] = canvas(256), r = rng(64);
+  g.strokeStyle = '#3d5a22'; g.lineWidth = 4; g.beginPath(); g.moveTo(128, 256); g.quadraticCurveTo(122, 140, 132, 18); g.stroke();
+  for (let i = 0; i < 15; i++) {
+    const t = 0.1 + i / 15 * 0.85, y = 256 - t * 236, x = 128 + Math.sin(t * 3) * 4, side = i % 2 ? 1 : -1;
+    const L = 70 * (1 - t * 0.55) + r() * 16, ang = side * (0.7 + r() * 0.35) - side * t * 0.3;
+    g.save(); g.translate(x, y); g.rotate(ang - Math.PI / 2 * 0); g.rotate(side * 0.0);
+    const hue = r(); g.fillStyle = hue < 0.3 ? '#4f7a2e' : hue < 0.7 ? '#3e6a26' : '#5f8a36';
+    g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(side * L * 0.5, -L * 0.42, side * L, -L * 0.25); g.quadraticCurveTo(side * L * 0.5, -L * 0.02, 0, 0); g.fill();
+    g.strokeStyle = 'rgba(170,200,120,0.5)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, 0); g.lineTo(side * L * 0.9, -L * 0.24); g.stroke();
+    g.restore();
+  }
+  return (_sprig = ctex(c, { repeat: false }));
+}
+function plantClumpGeo() {
+  const gs = [];
+  for (let k = 0; k < 5; k++) {
+    const p = new PlaneGeometry(0.42, 0.5); p.translate(0, 0.25, 0); p.rotateX(-0.25 - (k % 2) * 0.2); p.rotateY(k / 5 * Math.PI * 2 + 0.3); gs.push(p);
+  }
+  return merge(gs);
+}
+function potGeo() {
+  // (no base: pots stand on benches or soil; ~56 tris each)
+  const pr = [[0.088, 0], [0.115, 0.16], [0.13, 0.165], [0.13, 0.2], [0.106, 0.2], [0.1, 0.17], [0, 0.17]].map(([x, y]) => new Vector2(x, y));
+  return new LatheGeometry(pr, 8);
+}
+
+export function buildGlasshouse({ heightAt, colliders, x, z, rotY = 0 }) {
+  const { W, D, EH, RH, PL } = GLASSHOUSE, hw = W / 2, hd = D / 2, pitch = Math.atan2(RH - EH, hw), slope = Math.hypot(hw, RH - EH);
+  const y0 = heightAt(x, z), root = new Group(); root.name = 'greenhouse'; root.position.set(x, y0, z); root.rotation.y = rotY;
+  const ST = [], FR = [], GLS = [], WD = [], GW = [];
+  const stone = stoneMaterial(new Color(1.3, 1.2, 1.04), 'gh-stone');
+  const frame = new MeshStandardMaterial({ color: 0x2c4430, roughness: 0.48, metalness: 0.25 }); frame.name = 'gh-frame';
+  const wood = woodMaterial(0xf0e6da, 'gh-wood'), WT = 1.6 * wood.userData.rep;
+  const B = (list, w, h, d, px, py, pz, ry = 0, rx = 0, rz = 0) => { const g = new BoxGeometry(w, h, d); xf(g, px, py, pz, ry, rx, rz); list.push(g); return g; };
+  const DW = 0.78;                                   // half width of the door opening
+  // ---- plinth (stone), with the door gap; coping; floor ----
+  const PT = 0.32, pb = -0.45, ph = PL - pb;
+  for (const s of [-1, 1]) { const g = new BoxGeometry(PT, ph, D + PT); xf(g, s * hw, pb + ph / 2, 0); ST.push(projUV(g, STONE_TILE)); }
+  { const g = new BoxGeometry(W - PT, ph, PT); xf(g, 0, pb + ph / 2, -hd); ST.push(projUV(g, STONE_TILE)); }
+  for (const s of [-1, 1]) { const len = hw - DW - 0.08; const g = new BoxGeometry(len, ph, PT); xf(g, s * (DW + 0.08 + len / 2), pb + ph / 2, hd); ST.push(projUV(g, STONE_TILE)); }
+  const CW = PT + 0.1, CY = PL + 0.04;
+  for (const s of [-1, 1]) { const g = new BoxGeometry(CW, 0.08, D + CW); xf(g, s * hw, CY, 0); ST.push(projUV(g, STONE_TILE)); }
+  { const g = new BoxGeometry(W - CW, 0.08, CW); xf(g, 0, CY, -hd); ST.push(projUV(g, STONE_TILE)); }
+  for (const s of [-1, 1]) { const len = hw - DW - 0.08; const g = new BoxGeometry(len, 0.08, CW); xf(g, s * (DW + 0.08 + len / 2), CY, hd); ST.push(projUV(g, STONE_TILE)); }
+  { const g = new PlaneGeometry(W - 0.1, D - 0.1); g.rotateX(-Math.PI / 2); g.translate(0, 0.07, 0); ST.push(projUV(g, STONE_TILE * 0.5)); }
+  { const g = new BoxGeometry(2 * DW + 0.3, 0.16, 0.8); xf(g, 0, 0.0, hd + 0.3); ST.push(projUV(g, STONE_TILE)); }      // the door step
+  const GY = CY + 0.04;                              // glass + frame start on the coping
+  // ---- frame: sills, posts, bars, transom, eave beams, gutters ----
+  const zs = []; for (let i = 0; i <= 6; i++) zs.push(-hd + i * D / 6);
+  for (const s of [-1, 1]) {
+    B(FR, 0.1, 0.07, D + 0.1, s * hw, GY + 0.035, 0);                                 // sill plate
+    for (const zz of zs) B(FR, 0.09, EH - GY, 0.09, s * hw, (GY + EH) / 2, zz);       // posts
+    for (let i = 0; i < 6; i++) B(FR, 0.03, EH - GY, 0.035, s * hw, (GY + EH) / 2, (zs[i] + zs[i + 1]) / 2);   // glazing bars
+    B(FR, 0.07, 0.06, D, s * hw, 2.05, 0);                                             // transom
+    B(FR, 0.12, 0.15, D + 0.16, s * hw, EH, 0);                                        // eave beam
+    const gut = new CylinderGeometry(0.075, 0.075, D + 0.3, 8, 1, true, 0, Math.PI); gut.rotateX(Math.PI / 2); gut.rotateZ(Math.PI); xf(gut, s * (hw + 0.13), EH - 0.02, 0); FR.push(gut);
+    B(FR, 0.06, EH - 0.1, 0.06, s * (hw + 0.13), (EH - 0.1) / 2, hd + 0.05);          // downpipe
+  }
+  // gable verticals (front and back) up to the roof line; the front pair frame the door
+  const roofY = (xx) => EH + (hw - Math.abs(xx)) * Math.tan(pitch);
+  for (const fz of [-hd, hd]) {
+    const front = fz > 0;
+    B(FR, W + 0.1, 0.07, 0.1, 0, GY + 0.035, fz);
+    if (!front) B(FR, 0.07, 0.06, 0.07, 0, 2.05, fz);
+    for (const xx of [-2.47, -1.63, 1.63, 2.47, ...(front ? [-DW, DW] : [-0.8, 0, 0.8])]) {
+      const top = roofY(xx), bot = front && Math.abs(xx) === DW ? 0.05 : GY;
+      B(FR, Math.abs(xx) === DW ? 0.11 : 0.05, top - bot, 0.07, xx, (top + bot) / 2, fz);
+    }
+    for (const xx of [-2.05, 2.05, -1.2, 1.2]) { const top = roofY(xx); B(FR, 0.03, top - GY, 0.035, xx, (top + GY) / 2, fz); }
+    for (const s of [-1, 1]) B(FR, hw - (front ? DW : 0), 0.06, 0.07, s * (hw + (front ? DW : 0)) / 2, 2.05, fz);   // transom
+    // barge boards along the gable rake
+    for (const s of [-1, 1]) B(FR, slope + 0.12, 0.13, 0.09, s * hw / 2, (EH + RH) / 2 + 0.05, fz + (front ? 0.04 : -0.04), 0, 0, -s * pitch);
+    if (front) {
+      const DH = 2.45;
+      B(FR, 2 * DW + 0.1, 0.12, 0.1, 0, DH, fz);                                      // door head
+      { const top = roofY(0); B(FR, 0.05, top - DH, 0.07, 0, (top + DH) / 2, fz); }
+      // the two leaves: solid lower panel, glazed upper with bars, a meeting stile, knobs
+      for (const s of [-1, 1]) {
+        const cx = s * DW / 2, lw = DW - 0.04;
+        B(FR, lw, 0.8, 0.05, cx, 0.5, fz + 0.01);                                       // lower panel (painted the frame green)
+        B(FR, lw, 0.07, 0.07, cx, 0.92, fz); B(FR, lw, 0.06, 0.07, cx, DH - 0.06, fz); B(FR, lw, 0.05, 0.06, cx, 1.68, fz);
+        B(FR, 0.06, DH - 0.1, 0.07, s * 0.035, DH / 2, fz); B(FR, 0.03, DH - 1.0, 0.04, cx, (DH + 0.95) / 2, fz);
+        const kn = new SphereGeometry(0.035, 6, 4); xf(kn, s * 0.12, 1.0, fz + 0.07); FR.push(kn);
+      }
+    }
+  }
+  // ---- roof: rafters, glazing bars, purlins, ridge beam, cresting, finials ----
+  for (const s of [-1, 1]) {
+    const mx = s * hw / 2, my = (EH + RH) / 2;
+    for (const zz of zs) B(FR, slope, 0.11, 0.08, mx, my + 0.02, zz, 0, 0, -s * pitch);
+    for (let i = 0; i < 6; i++) B(FR, slope, 0.035, 0.03, mx, my + 0.01, (zs[i] + zs[i + 1]) / 2, 0, 0, -s * pitch);
+    B(FR, 0.07, 0.06, D, mx, my + 0.03, 0, 0, 0, -s * pitch);                          // purlin
+  }
+  B(FR, 0.14, 0.18, D + 0.24, 0, RH + 0.04, 0);                                        // ridge beam
+  B(FR, 0.04, 0.04, D + 0.1, 0, RH + 0.36, 0);                                         // cresting top rail
+  for (let zz = -hd; zz <= hd + 1e-6; zz += 0.25) {
+    B(FR, 0.025, 0.24, 0.025, 0, RH + 0.24, zz);
+    const dmd = new BoxGeometry(0.02, 0.1, 0.1); xf(dmd, 0, RH + 0.24, zz + 0.125, 0, Math.PI / 4); FR.push(dmd);   // little diamonds
+  }
+  for (const fz of [-hd - 0.08, hd + 0.08]) {
+    B(FR, 0.07, 0.5, 0.07, 0, RH + 0.3, fz);
+    const ball = new SphereGeometry(0.08, 8, 6); xf(ball, 0, RH + 0.6, fz); FR.push(ball);
+    const spike = new ConeGeometry(0.045, 0.32, 6); xf(spike, 0, RH + 0.83, fz); FR.push(spike);
+  }
+  // ---- glass: walls, gables, roof (uv: metres across / 2.4, 0..1 up each pane run) ----
+  const Gs = new Soup(), gu = 1 / 2.4;
+  const wallQ = (a, b, c, d, n, ua, ub) => Gs.quad(a, b, c, d, n, n, n, n, [ua, 0], [ub, 0], [ub, 1], [ua, 1]);
+  for (const s of [-1, 1]) wallQ([s * hw, GY, s * hd], [s * hw, GY, -s * hd], [s * hw, EH, -s * hd], [s * hw, EH, s * hd], [s, 0, 0], 0, D * gu);
+  for (const fz of [-hd, hd]) {
+    const n = [0, 0, Math.sign(fz)], f = fz > 0;
+    if (f) {
+      for (const s of [-1, 1]) wallQ([s * hw, GY, fz], [s * DW, GY, fz], [s * DW, EH, fz], [s * hw, EH, fz], n, 0, (hw - DW) * gu);
+      wallQ([-DW, 0.9, fz], [DW, 0.9, fz], [DW, EH, fz], [-DW, EH, fz], n, 0, 2 * DW * gu);
+    } else wallQ([hw, GY, fz], [-hw, GY, fz], [-hw, EH, fz], [hw, EH, fz], n, 0, W * gu);
+    // gable triangle (degenerate quad)
+    Gs.quad([-hw, EH, fz], [hw, EH, fz], [0, RH, fz], [0, RH, fz], n, n, n, n, [0, 0.3], [W * gu, 0.3], [W * gu * 0.5, 1], [W * gu * 0.5, 1]);
+  }
+  for (const s of [-1, 1]) { const n = [s * Math.sin(pitch), Math.cos(pitch), 0]; wallQ([s * hw, EH, s * hd], [s * hw, EH, -s * hd], [0, RH, -s * hd], [0, RH, s * hd], n, 0, D * gu); }
+  GLS.push(Gs.geo());
+  // ---- inside: benches (wood), pots (instanced), plants (instanced), baskets, lamps ----
+  const BH = 0.85, BD = 0.78, BL = D - 1.4, bz0 = -0.35;
+  const pots = [], plants = [], r = rng(29);
+  for (const s of [-1, 1]) {
+    const bx = s * (hw - 0.16 - BD / 2);
+    for (let k = 0; k < 4; k++) B(WD, BD / 4 - 0.02, 0.04, BL, bx - BD / 2 + BD / 8 + k * BD / 4, BH, bz0);   // slatted top
+    B(WD, BD, 0.03, BL, bx, 0.28, bz0);                                                // lower shelf
+    B(WD, 0.06, 0.12, BL, bx - s * BD / 2, BH - 0.07, bz0);                            // apron
+    for (let i = 0; i <= 4; i++) for (const e of [-1, 1]) B(WD, 0.06, BH, 0.06, bx + e * (BD / 2 - 0.05), BH / 2, bz0 - BL / 2 + 0.1 + i * (BL - 0.2) / 4);
+    for (let i = 0; i < 9; i++) for (let j = 0; j < 2; j++) {
+      const px = bx + (j ? -0.17 : 0.17), pz = bz0 - BL / 2 + 0.3 + i * (BL - 0.6) / 8 + (r() - 0.5) * 0.06, sc = 0.9 + r() * 0.35;
+      pots.push([px, BH + 0.02, pz, sc]); if (r() < 0.88) plants.push([px, BH + 0.02 + 0.16 * sc, pz, sc * (0.55 + r() * 0.5), r() * 6.3, 0]);
+    }
+    for (let i = 0; i < 4; i++) { const px = bx + (r() - 0.5) * 0.4, pz = bz0 - BL / 2 + 0.5 + i * (BL - 1.0) / 3; pots.push([px, 0.31, pz, 0.8 + r() * 0.3]); }   // spare pots on the shelf
+  }
+  // tiered staging across the back
+  for (let t = 0; t < 3; t++) {
+    const ty = 0.45 + t * 0.32, tz = -hd + 0.45 + t * 0.32 * 0 + (2 - t) * 0.3 - 0.25;
+    B(WD, 2.6, 0.04, 0.3, 0, ty, tz);
+    for (const e of [-1.25, 0, 1.25]) B(WD, 0.05, ty, 0.05, e, ty / 2, tz);
+    for (let i = 0; i < 7; i++) { const px = -1.1 + i * 0.37, sc = 0.8 + r() * 0.3; pots.push([px, ty + 0.02, tz, sc]); plants.push([px, ty + 0.02 + 0.16 * sc, tz, sc * (0.5 + r() * 0.45), r() * 6.3, 0]); }
+  }
+  // one big leafy plant in a large pot by the door, a couple of floor pots
+  pots.push([1.25, 0.08, 1.9, 3.2]); for (let k = 0; k < 4; k++) plants.push([1.25, 0.6, 1.9, 2.6 + k * 0.35, k * 1.6, 0]);
+  pots.push([-1.3, 0.08, 2.2, 2.2]); plants.push([-1.3, 0.45, 2.2, 1.6, 0.4, 0]);
+  // hanging baskets from the roof
+  for (const [bx, bz] of [[-0.9, 0.8], [0.9, -1.4]]) {
+    const by = 3.25;
+    const bas = new SphereGeometry(0.24, 10, 5, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2); xf(bas, bx, by, bz); FR.push(bas);
+    B(FR, 0.012, roofY(bx) - by, 0.012, bx, (by + roofY(bx)) / 2, bz);
+    plants.push([bx, by - 0.02, bz, 1.0, r() * 6, 0]); plants.push([bx, by + 0.02, bz, 1.1, r() * 6, Math.PI]);   // up + trailing down
+  }
+  // two lanterns hanging from the ridge (glow at dusk/night)
+  const lamp = glowMat({ color: 0x2a1c0c, emissive: 0xffb860 }, 2.4);
+  for (const lz of [-1.6, 1.4]) {
+    const ly = 3.7;
+    B(FR, 0.015, RH - ly - 0.15, 0.015, 0, (RH + ly) / 2, lz);
+    const cap = new ConeGeometry(0.14, 0.12, 6); xf(cap, 0, ly + 0.02, lz); FR.push(cap);
+    B(FR, 0.16, 0.025, 0.16, 0, ly - 0.32, lz);
+    const gb = new CylinderGeometry(0.08, 0.08, 0.26, 6); xf(gb, 0, ly - 0.18, lz); GW.push(gb);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) B(FR, 0.015, 0.32, 0.015, sx * 0.075, ly - 0.17, lz + sz * 0.075);
+  }
+  // ---- assemble ----
+  const add = (list, mat, name, shadow = false) => { if (!list.length) return null; const m = new Mesh(merge(list), mat); m.name = name; m.castShadow = shadow; m.receiveShadow = true; root.add(m); return m; };
+  for (const g of WD) projUV(g, WT);
+  add(ST, stone, 'gh-stone', true);
+  add(FR, frame, 'gh-frame', true);
+  add(WD, wood, 'gh-wood');
+  add(GW, lamp, 'gh-lamps');
+  const potIM = new InstancedMesh(potGeo(), new MeshStandardMaterial({ color: 0xffffff, roughness: 0.88 }), pots.length);
+  const d = new Object3D(), c = new Color();
+  pots.forEach(([px, py, pz, s], i) => { d.position.set(px, py, pz); d.rotation.set(0, r() * 6, 0); d.scale.setScalar(s); d.updateMatrix(); potIM.setMatrixAt(i, d.matrix); potIM.setColorAt(i, c.setRGB(0.4 + r() * 0.08, 0.12 + r() * 0.04, 0.05 + r() * 0.02)); });
+  potIM.name = 'gh-pots'; potIM.receiveShadow = true; root.add(potIM);
+  const plantIM = new InstancedMesh(plantClumpGeo(), new MeshStandardMaterial({ map: sprigMap(), alphaTest: 0.5, side: DoubleSide, roughness: 0.8 }), plants.length);
+  plants.forEach(([px, py, pz, s, ry, flip], i) => { d.position.set(px, py, pz); d.rotation.set(flip, ry, 0); d.scale.setScalar(s); d.updateMatrix(); plantIM.setMatrixAt(i, d.matrix); const k = 0.75 + r() * 0.35; plantIM.setColorAt(i, c.setRGB(k * (0.85 + r() * 0.2), k, k * (0.7 + r() * 0.2))); });
+  plantIM.name = 'gh-plants'; root.add(plantIM);
+  // the glass last: transparent, double-sided, no depth write; a faint warm lamp glow at night
+  const glass = glowMat({ map: glassMap(), color: 0xffffff, transparent: true, depthWrite: false, side: DoubleSide, roughness: 0.1, metalness: 0.0, emissive: 0xffa448 }, 0.2);
+  glass.name = 'gh-glass';
+  const gm = add(GLS, glass, 'gh-glass'); gm.renderOrder = 1;
+  if (colliders) colliders.push({ type: 'box', x, z, hw: hw + 0.18, hd: hd + 0.18, angle: -rotY, greenhouse: true });
+  return root;
 }

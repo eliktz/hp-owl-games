@@ -13,6 +13,7 @@ import { loadAnimated } from './models.js';
 import { buildHagrid, HAGRID_SWAP } from './characters.js';
 import { FLOOR_Y } from './rooms.js';
 import { PLACES } from './config.js';
+import { buildGlasshouse } from './grounds-film.js';
 import * as fun from './fun.js';
 
 // who teaches what, and where they stand (room-local x,z indoors; world x,z outdoors)
@@ -170,20 +171,11 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
 
   // ---- outdoors: the greenhouse (Herbology) and the creature paddock (Hagrid's lesson) ----
   (function buildOutdoor() {
-    const gy = heightAt(GH.x, GH.z - 7), house = new Group(); house.position.set(GH.x, gy, GH.z - 7); house.name = 'greenhouse';
-    const glass = M(0xbfe8df, { roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.32, side: DoubleSide });
-    mk(house, new BoxGeometry(7, 3.6, 5), glass, 0, 1.8, 0);
-    const roof = mk(house, new ConeGeometry(5.2, 2.2, 4), glass, 0, 4.7, 0); roof.rotation.y = Math.PI / 4;
-    const frame = M(0x4a6a3e);
-    // the four corner posts are one instanced mesh (the greenhouse is in view from the gates)
-    const postsIM = new InstancedMesh(new BoxGeometry(0.2, 3.6, 0.2), frame, 4), pd = new Object3D();
-    [[-3.5, -2.5], [-3.5, 2.5], [3.5, -2.5], [3.5, 2.5]].forEach(([sx, sz], i) => { pd.position.set(sx, 1.8, sz); pd.updateMatrix(); postsIM.setMatrixAt(i, pd.matrix); });
-    house.add(postsIM);
-    mk(house, new BoxGeometry(7.2, 0.2, 5.2), frame, 0, 3.6, 0);
-    const plants = new InstancedMesh(new SphereGeometry(0.4, 10, 8), M(0xffffff, { roughness: 0.6 }), 8), d = new Object3D(), c = new Color();
-    [0x8cff9e, 0xff9ad5, 0xffe08a, 0x9fd0ff].forEach((col, i) => { for (let k = 0; k < 2; k++) { d.position.set(-2.4 + i * 1.6, 0.7 + k * 0.9, k ? -1 : 1); d.scale.setScalar(k ? 0.8 : 1.1); d.updateMatrix(); plants.setMatrixAt(i * 2 + k, d.matrix); plants.setColorAt(i * 2 + k, c.setHex(col)); } });
-    house.add(plants);
-    const sign = new Mesh(new PlaneGeometry(1.5, 1.5), new MeshBasicMaterial({ map: emojiTex('🌿'), transparent: true, side: DoubleSide })); sign.position.set(0, 6.4, 0); house.add(sign);
+    // The Victorian glasshouse (grounds-film.js): same front plane (z = GH.z - 4.5) and width as the old glass
+    // box, deeper toward the back, the double door facing Sprout. Solid (a box collider).
+    const house = buildGlasshouse({ heightAt, colliders, x: GH.x, z: GH.z - 8 });
+    const d = new Object3D();
+    const sign = new Mesh(new PlaneGeometry(1.5, 1.5), new MeshBasicMaterial({ map: emojiTex('🌿'), transparent: true, side: DoubleSide })); sign.position.set(0, 7.1, 1.5); house.add(sign);
     scene.add(house); registerOutdoor(house);
     const hs = STATIONS.herbology, sprout = professor('herbology', scene, hs.x, heightAt(hs.x, hs.z), hs.z, 0);
     if (sprout) { registerOutdoor(sprout); outdoor.push({ key: 'herbology', x: hs.x, z: hs.z, y: heightAt(hs.x, hs.z), chibi: sprout, world: true, bob: sign, root: house }); }
