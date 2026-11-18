@@ -15,6 +15,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as fun from './fun.js';
+import { buildCorner, CORNER, B } from './freecast-corner.js';
 
 const KEY = 'hpFreecast1';
 export const SPELLS = [
@@ -248,6 +249,23 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   // per-spell behaviour: return true when a real target took the spell
   const SP = {};   // key -> { cast() } (filled below)
 
+  // ================= the practice corner =================
+  let C = null;
+  try { C = buildCorner({ scene, heightAt, colliders: player.colliders }); C.setFlameMaterialMap(glowTex); }
+  catch (e) { console.warn('[freecast] corner skipped -', e && e.message || e); C = null; }
+  let cornerOn = true;
+  const cornerW = new Vector3();
+  // world position of a bone (the group never rotates: local + group position)
+  const boneW = (i, out) => out.copy(C.bones[i].position).add(C.group.position);
+  SP._corner = {
+    noFallback: true,
+    tick(dt, inside) {
+      if (!C) return;
+      const near = !inside && cornerOn && Math.hypot(pos.x - CORNER.x, pos.z - CORNER.z) < 70;
+      if (C.group.visible !== near) C.group.visible = near;
+    },
+  };
+
   // ================= casting =================
   function castSelected() {
     if (isModal() || isTakeover() || cool > 0) return false;
@@ -305,6 +323,8 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
       return o;
     },
     _speed(k) { speed = k || 1; },
+    corner: () => (C ? { x: CORNER.x, z: CORNER.z, y: C.Y0, visible: C.group.visible } : null),
+    showCorner(on) { cornerOn = !!on; },
     _cool() { cool = 0; },
   };
   api._internal = { scene, emit, burst, stream, tip, tipBurst, TARGETS, SP, st, persist, glowTex, log };
