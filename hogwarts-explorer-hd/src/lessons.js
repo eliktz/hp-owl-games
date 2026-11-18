@@ -293,14 +293,14 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
     // card; two or more = ONE '🪄 אֶתְגָּרִים' card that swaps the grid for a small chooser with their stars
     const courseCard = (c) => {
       const n = c.best ? c.best() : 0, card = document.createElement('button'); card.type = 'button'; card.className = 'spCard'; card.dataset.sp = c.key;
-      card.innerHTML = '<div class="ic">' + c.icon + '</div><div class="nm">' + c.name + '</div><div class="st">' + '⭐'.repeat(n) + '☆'.repeat(3 - n) + '</div><div class="go">➤ אֶתְגָּר</div>';
+      card.innerHTML = '<div class="ic">' + c.icon + '</div><div class="nm">' + c.name + '</div>' + (c.pips ? c.pips() : '') + '<div class="st">' + '⭐'.repeat(n) + '☆'.repeat(3 - n) + '</div><div class="go">➤ אֶתְגָּר</div>';
       card.addEventListener('click', e => { e.stopPropagation(); closePicker(); setTimeout(c.fn, 60); });
       return card;
     };
     if (cards.length === 1) grid.appendChild(courseCard(cards[0]));
     else if (cards.length > 1) {
-      const got = cards.reduce((a, c) => a + (c.best ? c.best() : 0), 0), card = document.createElement('button'); card.type = 'button'; card.className = 'spCard'; card.dataset.sp = 'all';
-      card.innerHTML = '<div class="ic">🏆</div><div class="nm">אֶתְגָּרִים</div><div class="st">⭐ <span dir="ltr">' + got + '/' + cards.length * 3 + '</span></div><div class="go">➤ בְּחַר</div>';
+      const got = cards.reduce((a, c) => a + (c.got ? c.got() : c.best ? c.best() : 0), 0), max = cards.reduce((a, c) => a + (c.max || 3), 0), card = document.createElement('button'); card.type = 'button'; card.className = 'spCard'; card.dataset.sp = 'all';
+      card.innerHTML = '<div class="ic">🏆</div><div class="nm">אֶתְגָּרִים</div><div class="st">⭐ <span dir="ltr">' + got + '/' + max + '</span></div><div class="go">➤ בְּחַר</div>';
       card.addEventListener('click', e => {
         e.stopPropagation(); fun.sfx.flip();
         const ch = document.createElement('div'); ch.className = 'pickGrid spChooser';

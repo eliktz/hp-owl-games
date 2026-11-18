@@ -78,6 +78,19 @@ const POP = 0.5;                          // seconds of the pop: the before shap
 const HINT_AFTER = 4;                     // seconds of no input before the ghost hand shows
 const WALK = 2.2;                         // auto-walk speed between stations (m/s)
 const CREST = { gryf: '🦁', slyt: '🐍', rave: '🦅', huff: '🦡' };
+// Difficulty levels (brief 2026-11-18). Level 1 is every course exactly as it was; levels 2 and 3 exist for a course
+// once it has `levels: { 2: {...}, 3: {...} }` data (see COURSES.charms.levels for the shape). Every level-2/3 mechanic
+// below is guarded on S.level > 1, never on the course.
+const LEVELS = [null,
+  { n: 1, he: 'שׁוּלְיָה', icon: '🪄', pts: 30 },
+  { n: 2, he: 'תַּלְמִיד', icon: '📖', pts: 40 },
+  { n: 3, he: 'קוֹסֵם', icon: '🧙‍♂️', pts: 50 }];
+const RING_HOLD = 0.8;                     // level 3: seconds to hold a lifted thing inside its glowing ring
+const RING_HALF = 0.125;                   // ...the ring window: +- this much of the path (a quarter of it)
+const RING_OVER = 0.12;                    // ...pushed this far past the window: it slips and drifts back down
+const MISS_GAP = 0.7;                      // seconds: a second wrong touch inside this counts once (a fumbling finger)
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const starsOf = (v) => { v = Math.floor(Number(v)); return v >= 3 ? 3 : v >= 1 ? v : 0; };
 
 // ---------------------------------------------------------------------------------------
 // Course #1: Charms, Professor Flitwick, Wingardium Leviosa. Room-local metres (floor y 0)
@@ -157,6 +170,19 @@ const BALE_TOP = 0.42, MOUND_TOP = 0.136, NEST_Y = 0.09, MOLE_PEEK = -0.07;
 const camYaw = (x, z, c) => Math.atan2(c[0] - x, c[1] - z);
 const petLift = (m, x, y, z, yaw, o = {}) => ({ m, path: [[x, y, z]], rot0: [0, yaw, 0], rot1: [0, yaw, 0], aimY: 0.2, r: 0.26, ...o });
 
+// Charms levels 2-3 (brief 2026-11-18). Level 3's shelf takes four books (four gaps), its bridge four blocks (four holes).
+const CH3 = {
+  gaps: [[1.405, 1.6], [1.405, 1.12], [0.745, 1.3], [0.745, 1.95]],         // shelf row, z: red, blue, green, gold
+  bookHex: [0x2a5ad0, 0x2a9a3a, 0xe0a820],                                     // the xbook instances: blue, green, gold
+  planks: [[-12.95, -12.842], [-12.402, -12.294], [-11.854, -11.746], [-11.306, -11.198], [-10.758, -10.65]],
+  holes: [-12.622, -12.074, -11.526, -10.978],
+};
+const chBook = (m, z0, [y, g], o = {}) => ({ m, path: [[-11.9, 0.05, z0], [-12.3, y * 0.5 + 0.3, (z0 + g) / 2], [-13.0, y + 0.345, g], [-13.17, y + 0.155, g]], rot0: [Math.PI / 2, 0.3, 0], rot1: [0, 0, 0], ...o });
+const CAT_SAY = 'שְׁשְׁשׁ... הֶחָתוּל יָשֵׁן!', CAUL_SAY = 'הַקַּלַּחַת כְּבֵדָה מִדַּי!';
+const chCat = (i, x, z, cam) => ({ m: 'dcat' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.3, aimY: 0.2, breathe: true, shakeMode: 'no', say: CAT_SAY });
+const chCaul = (i, x, z) => ({ m: 'dcaul' + i, at: [x, 0, z], ry: 0, r: 0.3, aimY: 0.3, shakeMode: 'rattle', say: CAUL_SAY });
+const CH_CAM = { shelf: [-8.4, -0.3], bridge: [-9.1, 8.5], arch: [-11.6, 8.7], chest: [-7.0, 8.6], rings: [-6.0, 5.6] };
+
 export const COURSES = {
   charms: {
     spell: { he: 'וִינְגַרְדְיוּם לֶבִיּוֹסָה', icon: '🪶', gesture: 'up' },
@@ -206,6 +232,33 @@ export const COURSES = {
           lifts: [{ m: 'feather3', flutter: true, rings: ['ring0', 'ring1', 'ring2'],
             path: [[-8.5, 0.87, 0.7], [-8.7, 1.3, 0.2], [-8.9, 1.8, -0.5], [-9.0, 2.5, -1.7], [-9.0, 3.1, -3.0], [-9.0, 3.3, -3.9]], rot0: [0, Math.PI / 2, 0], rot1: [0.1, Math.PI / 2, 0.35] }] },
       ],
+    },
+    // Difficulty levels. The data shape every course uses (level 1 = the course above, untouched):
+    //   levels: { 2|3: { twist: the teacher's opening line, star3: seconds for 3 stars (with <= 2 mistakes),
+    //     stations: { <station id>: { say?, lifts? (replaces the station's lifts), order?: [lift indices, shown first],
+    //       decoys?: [{ m: mover, at: [x, y, z], ry, r, aimY, say, shakeMode: 'no'|'rattle', breathe }], hold?: ring centre 0..1 (level 3) } } } }
+    // The decoy / extra movers come from the course's build(kit) when kit.level > 1.
+    levels: {
+      2: { twist: 'עַכְשָׁו בַּסֵּדֶר הַנָּכוֹן! שִׂים לֵב מָה מַבְהִיק!', star3: 300,
+        stations: {
+          shelf: { decoys: [chCat(0, -12.05, 0.75, CH_CAM.shelf), chCaul(0, -12.0, 2.5)] },
+          bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', order: [1, 2, 0], decoys: [chCaul(1, -13.05, 6.15), chCat(1, -10.55, 6.0, CH_CAM.bridge)] },
+          arch: { decoys: [chCat(2, -8.75, 5.25, CH_CAM.arch)] },
+          chest: { decoys: [chCaul(2, -6.05, 5.0)] },
+          rings: { decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(3, -7.75, 0.15)] },
+        } },
+      3: { twist: 'עַכְשָׁו בְּזָהִירוּת: עֲצֹר בְּדִיּוּק בַּטַּבַּעַת!', star3: 420,
+        stations: {
+          shelf: { say: 'הַחְזֵר אֶת הַסְּפָרִים בַּסֵּדֶר!', hold: 0.42,
+            lifts: [chBook('book', 1.8, CH3.gaps[0], { ringR: 0.3 }), chBook('xbook0', 0.9, CH3.gaps[1], { ringR: 0.3 }), chBook('xbook1', 1.35, CH3.gaps[2], { ringR: 0.3 }), chBook('xbook2', 2.25, CH3.gaps[3], { ringR: 0.3 })],
+            order: [2, 0, 3, 1], decoys: [chCaul(0, -11.95, 2.8)] },
+          bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', hold: 0.45,
+            lifts: CH3.holes.map((x, i) => ({ m: 'block' + i, path: [[x, 0.2, 5.5], [x, 1.5, 5.0], [x, 0.79, 4.3]], rot0: [0, 0.35 - i * 0.25, 0], rot1: [0, 0, 0], ringR: 0.42 })),
+            order: [3, 1, 0, 2], decoys: [chCat(0, -10.3, 6.05, CH_CAM.bridge), chCaul(1, -13.25, 6.15)] },
+          arch: { hold: 0.45, ringR: 0.55, decoys: [chCat(1, -8.75, 5.25, CH_CAM.arch), chCaul(2, -8.6, 8.15)] },
+          chest: { hold: 0.45, ringR: 0.36, decoys: [chCaul(3, -6.05, 5.0), chCat(2, -4.05, 4.75, CH_CAM.chest)] },
+          rings: { hold: 0.45, ringR: 0.55, decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(4, -7.75, 0.15)] },
+        } },
     },
   },
   // -------------------------------------------------------------------------------------
@@ -602,6 +655,32 @@ function owlGeo() {
   ]);
 }
 
+// Charms levels 2-3 decoys: a heavy iron cauldron (too heavy to lift: it rattles) and a ginger cat asleep on its
+// cushion (it must stay: it shakes its head). Origin on the floor, the cat's face toward +z.
+function cauldronGeo() {
+  const IRON = 0x34303a, IRON2 = 0x5a5562;
+  return merge([
+    paint(place(new SphereGeometry(0.27, 16, 12), 0, 0.27, 0, 0, 0, 0, 1, 0.85, 1), IRON, IRON2),
+    paint(place(new TorusGeometry(0.2, 0.035, 6, 18), 0, 0.47, 0, Math.PI / 2), IRON2),
+    paint(place(new CircleGeometry(0.19, 16), 0, 0.455, 0, -Math.PI / 2), 0x2a6a3a, 0x2a6a3a),   // a dull green brew inside
+    ...[0, 1, 2].map(i => paint(place(new CylinderGeometry(0.03, 0.025, 0.1, 6), Math.cos(i * 2.1) * 0.17, 0.05, Math.sin(i * 2.1) * 0.17), IRON)),
+    ...[-1, 1].map(sx => paint(place(new TorusGeometry(0.05, 0.012, 5, 10), sx * 0.27, 0.36, 0, 0, Math.PI / 2, 0), IRON2)),
+  ]);
+}
+function sleepCatGeo() {
+  const A = 0xd8893a, B = 0xeaa458, CREAM = 0xf4e2bc;
+  return merge([
+    paint(place(new SphereGeometry(0.3, 14, 6), 0, 0.06, 0, 0, 0, 0, 1, 0.22, 0.82), 0x8a2a3a, 0xb04050),     // the cushion
+    ...[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([a, b]) => paint(place(new SphereGeometry(0.035, 6, 5), a * 0.26, 0.06, b * 0.2), 0xffcf4a)),
+    paint(place(new SphereGeometry(0.17, 14, 10), 0, 0.19, -0.02, 0, 0, 0, 1.15, 0.62, 1.0), A, B),           // the curled body
+    paint(place(new SphereGeometry(0.1, 12, 9), 0.05, 0.2, 0.14, 0, 0, 0, 1.1, 0.9, 1), A, B),               // the head, resting
+    paint(place(new SphereGeometry(0.045, 8, 6), 0.06, 0.18, 0.225, 0, 0, 0, 1.3, 0.8, 1), CREAM),
+    ...[-1, 1].map(sx => paint(place(new ConeGeometry(0.035, 0.07, 4), 0.05 + sx * 0.055, 0.29, 0.13, 0, Math.PI / 4, -sx * 0.3), A)),
+    ...[-1, 1].map(sx => paint(place(new BoxGeometry(0.035, 0.007, 0.01), 0.05 + sx * 0.035, 0.215, 0.235, 0, 0, sx * 0.15), 0x2a1a10)),   // eyes shut
+    paint(place(new TorusGeometry(0.15, 0.03, 6, 12, Math.PI * 1.2), 0, 0.12, 0, -Math.PI / 2, 0, 0.6), A, B),   // the tail round the front
+  ]);
+}
+
 // The Charms course props. kit.solid(geo) adds to the ONE merged static mesh; kit.mesh / kit.inst
 // make movers (a lift target, an owl, a lid, rings) that the runner and the effects can pose.
 function buildCharms(kit) {
@@ -617,19 +696,23 @@ function buildCharms(kit) {
   for (const dz of [-0.75, 0.75]) solid(paint(place(new BoxGeometry(0.38, 2.25, 0.06), SX, 1.125, SZ + dz), WOOD));
   for (const y of [0.04, 0.72, 1.38, 2.22]) solid(paint(place(new BoxGeometry(0.38, 0.05, 1.5), SX, y, SZ), WOOD));
   let k = 0;
-  for (const [y, gap] of [[0.745, false], [1.405, true]]) {
+  const L3 = kit.level === 3;              // level 3: four gaps for four books (CH3.gaps), else the one gap for the red book
+  for (const [y, gaps] of L3 ? [[0.745, CH3.gaps.filter(g => g[0] === 0.745).map(g => g[1])], [1.405, CH3.gaps.filter(g => g[0] === 1.405).map(g => g[1])]] : [[0.745, []], [1.405, [SZ]]]) {
     for (let z = SZ - 0.68; z < SZ + 0.66;) {
       const t = 0.07 + ((k * 37) % 5) * 0.012, h = 0.26 + ((k * 53) % 4) * 0.03;
-      if (gap && z + t > SZ - 0.13 && z < SZ + 0.13) { z = SZ + 0.13; continue; }
+      const g = gaps.find(c => z + t > c - 0.13 && z < c + 0.13);
+      if (g != null) { z = g + 0.13; continue; }
       solid(paint(place(new BoxGeometry(0.24, h, t), SX + 0.03, y + h / 2, z + t / 2), BOOKS[k % BOOKS.length])); z += t + 0.006; k++;
     }
   }
   kit.mesh('book', merge([paint(new BoxGeometry(0.26, 0.34, 0.14), 0xb3262a), paint(place(new BoxGeometry(0.24, 0.32, 0.144), 0.016), 0xf0e4c0), paint(place(new BoxGeometry(0.02, 0.35, 0.15), -0.12), 0xd8a940)]), { glowHex: 0xff6a5a });
+  if (L3) kit.inst('xbook', merge([paint(new BoxGeometry(0.26, 0.34, 0.14), 0xffffff), paint(place(new BoxGeometry(0.24, 0.32, 0.144), 0.016), 0xf4f0e8), paint(place(new BoxGeometry(0.02, 0.35, 0.15), -0.12), 0xfff0b0)]),
+    3, CH3.bookHex, { glowHex: 0xffd27a });
   // 2 a toy bridge with three holes; the owl waits on the west tower
   for (const x of [-13.2, -10.4]) solid(paint(place(new BoxGeometry(0.5, 1.0, 0.62), x, 0.5, 4.3), STONE, STONE2));
   for (const dz of [-0.27, 0.27]) solid(paint(place(new BoxGeometry(2.3, 0.05, 0.05), -11.8, 0.975, 4.3 + dz), DARK));
-  for (const [x0, x1] of [[-12.95, -12.61], [-12.19, -12.01], [-11.59, -11.41], [-10.99, -10.65]]) solid(paint(place(new BoxGeometry(x1 - x0, 0.1, 0.5), (x0 + x1) / 2, 0.95, 4.3), 0x8a6a40));
-  kit.inst('block', paint(new BoxGeometry(0.4, 0.4, 0.5), 0xffffff, 0xd8d0c0), 3, [0xe8473a, 0x3a7ae8, 0xf2c230], { glowHex: 0xffd27a });
+  for (const [x0, x1] of L3 ? CH3.planks : [[-12.95, -12.61], [-12.19, -12.01], [-11.59, -11.41], [-10.99, -10.65]]) solid(paint(place(new BoxGeometry(x1 - x0, 0.1, 0.5), (x0 + x1) / 2, 0.95, 4.3), 0x8a6a40));
+  kit.inst('block', paint(new BoxGeometry(0.4, 0.4, 0.5), 0xffffff, 0xd8d0c0), L3 ? 4 : 3, L3 ? [0xe8473a, 0x3a7ae8, 0xf2c230, 0x3ab84a] : [0xe8473a, 0x3a7ae8, 0xf2c230], { glowHex: 0xffd27a });
   kit.mesh('owl', owlGeo(), { glow: false });
   // 3 a little stone arch; a fat purple cushion floats in the doorway
   for (const z of [6.0, 7.4]) solid(paint(place(new BoxGeometry(0.32, 2.0, 0.32), -8.0, 1.0, z), STONE, STONE2));
@@ -650,10 +733,17 @@ function buildCharms(kit) {
   kit.inst('feather', featherGeo(), 4, [0xffffff, 0xffffff, 0xffffff, 0xffffff], { glowHex: 0xffd27a, scales: [1.6, 1.6, 1.6, 2.4] });
   kit.inst('ring', new TorusGeometry(0.46, 0.05, 8, 28), 3, [0x8a6a30, 0x8a6a30, 0x8a6a30], { glow: false, emissive: 0xffb030, emissiveIntensity: 0.35 });
   const ringAt = [[-8.9, 1.8, -0.5, 0.15], [-9.0, 2.5, -1.7, -0.1], [-9.0, 3.1, -3.0, 0.12]];
+  // levels 2-3: the decoys (posed by the runner from the level's data; spare ones stay hidden)
+  const NDEC = 5;
+  if (kit.level > 1) {
+    kit.inst('dcaul', cauldronGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xffd27a });
+    kit.inst('dcat', sleepCatGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xffd27a });
+  }
 
   const owlA = [-13.2, 1.0, 4.3], owlB = [-10.4, 1.0, 4.3];
   return {
     reset(M) {
+      if (M.dcat0) for (let i = 0; i < NDEC; i++) { M['dcat' + i].pose(0, -50, 0, 0, 0, 0, 0); M['dcaul' + i].pose(0, -50, 0, 0, 0, 0, 0); }
       M.owl.pose(owlA[0], owlA[1], owlA[2], 0, Math.PI / 2, 0);
       M.lid.pose(-6.3, 0.46, 3.64, 0, 0, 0);
       ringAt.forEach(([x, y, z, ry], i) => { M['ring' + i].pose(x, y, z, 0, ry, 0); M['ring' + i].color(0x8a6a30); });
@@ -2955,10 +3045,19 @@ function buildCreatures(kit) {
 // the runner
 // ---------------------------------------------------------------------------------------
 export function createSpells({ scene, camera, player, interiors, lessons, setTakeover, isModal, isTakeover, env = null, renderer = null }) {
+  // hpSpells1: { <course>: { stars, plays, lv: { 2: { stars, plays }, 3: { stars, plays } } } }. stars / plays are
+  // level 1 (as they always were: old saves need no migration); lv holds levels 2 and 3. Anything else is ignored.
   let save = {};
   try { save = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { save = {}; }
+  if (!isObj(save)) save = {};
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* private mode */ } };
-  const best = (key) => (save[key] && save[key].stars) || 0;
+  const lvRec = (key, lv) => { const r = save[key]; if (!isObj(r)) return null; if (lv === 1) return r; return isObj(r.lv) && isObj(r.lv[lv]) ? r.lv[lv] : null; };
+  const lvStars = (key, lv) => { const r = lvRec(key, lv); return r ? starsOf(r.stars) : 0; };
+  const best = (key) => lvStars(key, 1);
+  const hasLevel = (key, lv) => lv === 1 || !!(COURSES[key] && isObj(COURSES[key].levels) && isObj(COURSES[key].levels[lv]));
+  // level 1 is won by finishing it (2-3 stars; 1 star is only the leave-early consolation); levels 2-3 give stars only on a finish
+  const won = (key, lv) => lv === 1 ? lvStars(key, 1) >= 2 : lvStars(key, lv) >= 1;
+  const unlocked = (key, lv) => lv === 1 || (hasLevel(key, lv) && won(key, lv - 1));
 
   // ---- DOM ----
   const css = document.createElement('style');
@@ -3012,6 +3111,35 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     #spEnd .p{padding:8px 20px 10px} #spEnd .tr{font-size:56px} #spEnd .ti{font-size:30px} #spEnd .sc{font-size:26px;margin:2px 0} #spEnd .st{font-size:34px}
     #spEnd .row{margin-top:8px} #spEnd button{min-height:60px;min-width:130px;font-size:26px}
   }`;
+  // levels: the chooser pips (lessons.js puts c.pips() on each course card), the level choice, the level 2-3 reward extras
+  css.textContent += `
+  .spCard .spLvp{display:flex;gap:5px;justify-content:center;align-items:center;height:18px;direction:rtl}
+  .spLvp i{font-style:normal;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;box-sizing:border-box;
+    border:2px solid rgba(255,255,255,.55);color:transparent}
+  .spLvp i.won{background:radial-gradient(circle at 40% 35%,#fff2a8,#f0a818);border-color:#fff3b0;color:#7a3b00;box-shadow:0 0 6px #ffd76a}
+  .spLvp i.lk{border:none;font-size:12px;color:#fff;opacity:.75;filter:grayscale(.3)} .spLvp i.soon{opacity:.35}
+  #spLv{position:fixed;inset:0;z-index:47;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(40,24,90,.75),rgba(5,3,25,.9));font-family:'Rubik',sans-serif;direction:rtl;touch-action:manipulation}
+  #spLv.on{display:flex}
+  #spLv .p{background:rgba(32,20,70,.97);border:5px solid #c9a6ff;border-radius:28px;padding:16px 20px 18px;text-align:center;color:#fff;width:min(94vw,780px);box-sizing:border-box;box-shadow:0 0 30px rgba(190,140,255,.5)}
+  #spLv .t{font-size:32px;font-weight:bold;color:#ffd76a;margin-bottom:12px;text-shadow:0 2px 0 #3a1a00}
+  #spLv .row{display:flex;gap:14px;justify-content:center}
+  #spLv .lv{flex:1 1 0;min-width:0;min-height:230px;border-radius:24px;border:4px solid #fff;background:linear-gradient(#ffe48a,#ffb020);color:#5a2b00;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;padding:10px 6px;box-sizing:border-box}
+  #spLv .lv:active{transform:scale(.95)} #spLv .lv .i{font-size:74px;line-height:1} #spLv .lv .n{font-size:32px;font-weight:bold} #spLv .lv .s{font-size:28px;letter-spacing:2px;min-height:32px}
+  #spLv .lv.l2{background:linear-gradient(#d4e6ff,#5a8ef0);color:#0a2456} #spLv .lv.l3{background:linear-gradient(#ead8ff,#8a52e6);color:#26084e}
+  #spLv .lv.lock{background:linear-gradient(#5e5876,#3a3452);color:#d8d0f0;border-color:#9a94b4;cursor:default} #spLv .lv.lock .i{opacity:.9}
+  #spLv .lv .k{font-size:18px;font-weight:bold;line-height:1.15}
+  #spLv .lv.no{animation:spNo .45s} @keyframes spNo{20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+  #spLv .back{margin-top:14px;min-width:180px;min-height:66px;border-radius:40px;border:4px solid #fff;background:linear-gradient(#b5a0ff,#7a52d6);color:#fff;font:bold 27px 'Rubik',sans-serif;cursor:pointer;touch-action:manipulation}
+  #spEnd .lvn{font-size:28px;font-weight:bold;color:#e2ccff;margin:2px 0}
+  #spEnd .p.x3{border-color:#e2ccff;box-shadow:0 0 40px rgba(200,150,255,.9),0 0 0 6px rgba(255,215,106,.5)} #spEnd .p.x3 .ti{font-size:52px;color:#fff0a0}
+  @media (max-height:520px){
+    .spCard .spLvp{height:13px;gap:4px} .spLvp i{width:13px;height:13px;font-size:9px;border-width:1.5px}
+    #spLv .p{padding:7px 14px 9px;border-width:4px} #spLv .t{font-size:21px;margin-bottom:6px} #spLv .row{gap:10px}
+    #spLv .lv{min-height:0;padding:6px 4px;gap:2px;border-radius:18px;border-width:3px} #spLv .lv .i{font-size:46px} #spLv .lv .n{font-size:23px} #spLv .lv .s{font-size:20px;min-height:22px} #spLv .lv .k{font-size:14px}
+    #spLv .back{margin-top:7px;min-height:50px;min-width:150px;font-size:21px;border-width:3px}
+    #spEnd .lvn{font-size:20px;margin:0} #spEnd .p.x3 .ti{font-size:34px}
+  }`;
   document.head.appendChild(css);
   const el = (tag, id, cls, html) => { const e = document.createElement(tag); e.id = id; if (cls) e.className = cls; if (html) e.innerHTML = html; document.body.appendChild(e); return e; };
   const promptB = el('button', 'spPrompt', '', '🪄<span class="l">אֶתְגָּר</span>'); promptB.setAttribute('aria-label', 'אֶתְגָּר');
@@ -3034,7 +3162,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // ---- state ----
   const S = { on: false, key: null, C: null, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0,
     speed: 1, q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null,
-    raise: 0, raiseK: 0, dim: 0, dimGoal: 0, profY: 0 };
+    raise: 0, raiseK: 0, dim: 0, dimGoal: 0, profY: 0,
+    // levels: S.stations = the course's stations (level 1: the very same array) merged with the level's per-station data
+    level: 1, LV: null, stations: null, order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1 };
   let K = null;                            // the built kit for the running course: { group, movers, lesson, stations, ... }
   let drag = null;
   const tmp = new Vector3(), tmp2 = new Vector3(), camPos = new Vector3(), camLook = new Vector3(), camPosGoal = new Vector3(), camLookGoal = new Vector3();
@@ -3057,9 +3187,10 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function line(text, sec = 3.2, profPose = 'talk') {
     const f = prof();
     // oneBubble courses: in the lesson only the bubble over the teacher (no copy in the top bar)
-    if (!(S.C.oneBubble && f && S.phase === 'lesson')) { sayEl.textContent = (S.C.who || '🧙‍♂️') + ' ' + text; sayEl.classList.add('on'); S.sayT = sec; }
+    const talk = S.phase === 'lesson' || S.phase === 'twist';   // (twist: a level 2/3 opening line, said like the lesson)
+    if (!(S.C.oneBubble && f && talk)) { sayEl.textContent = (S.C.who || '🧙‍♂️') + ' ' + text; sayEl.classList.add('on'); S.sayT = sec; }
     speak(text);
-    if (f && S.phase === 'lesson') { f.getWorldPosition(tmp);   // in the course the top speech bar is enough (a 3D bubble covered the rings on a phone)
+    if (f && talk) { f.getWorldPosition(tmp);   // in the course the top speech bar is enough (a 3D bubble covered the rings on a phone)
       tmp.y += (innerHeight < 500 && S.C.bubbleYPhone != null ? S.C.bubbleYPhone : S.C.bubbleY) ?? (f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9); fun.say(tmp, text, sec, 'spell'); }   // bubbleY: a giant (Hagrid) talks from above his own head; on a short phone screen that is under the pips, so there it sits at his chest (bubbleYPhone)
     if (profPose === 'cast') { if (!(lessons.signature && lessons.signature(S.C.station))) hop(); if (S.C.verb === 'light') S.raise = sec; }
     else if (profPose) { pose(profPose); at(Math.max(1, sec - 0.6), () => pose(null)); }
@@ -3084,6 +3215,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       burst: (x, y, z, n) => burst(x, y, z, n),
       hand: (x, y, z) => { if (x == null) S.handOn = false; else { S.handOn = true; handAt.set(x, y, z); } },   // the ghost hand strokes here (a teacher's demo), null = off
       ctx: { player, camera, worldOff, prof: () => prof(), ground, night: nightK },
+      level: S.level,                       // 1, 2 or 3: a build adds its level-2/3 props (decoys, extra targets) only above 1
       mesh(name, geo, o = {}) {
         const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: DoubleSide, emissive: new Color(o.glowHex || 0xffd27a), emissiveIntensity: 0 });
         const m = new Mesh(geo, mat); m.name = 'spell-' + name; m.frustumCulled = false; m.raycast = () => {}; group.add(m);
@@ -3149,10 +3281,14 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       return { spec: L, mv, N, arr, rot0: L.rot0 || [0, 0, 0], rot1: L.rot1 || [0, 0, 0], p: 0, peak: 0, hover: 0, done: false, snap: -1, ph: Math.random() * 6, moved: false, rings,
         push, light, change, brew, pet, grow, to: (change || grow) ? (movers[L.to] || null) : null, popT: -1,
         hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : pet ? PET_HOVER : change ? CHANGE_HOVER : grow ? GROW_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : pet ? PET_FALL : change ? CHANGE_FALL : grow ? GROW_FALL : FALL,
-        inOrder: !!(st && st.inOrder), aimY: L.aimY || 0 };
+        inOrder: !!(st && st.inOrder), aimY: L.aimY || 0,
+        // level 3 only: a glowing ring part-way up the path (hold = its centre, 0..1 of the path) to hold the thing in
+        ring: (S.level === 3 && !light && !change && !grow && (L.hold ?? (st && st.hold)) != null)
+          ? { uc: L.hold ?? st.hold, u0: (L.hold ?? st.hold) - RING_HALF, u1: (L.hold ?? st.hold) + RING_HALF, R: L.ringR || st.ringR || 0.4, fill: 0, ok: false, inside: false } : null,
+        flash: 0, shake: 0, slip: false };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
-    const stations = C.course.stations.map(st => st.lifts.map(l => mkLift(l, st)).filter(Boolean));
+    const stations = S.stations.map(st => st.lifts.map(l => mkLift(l, st)).filter(Boolean));
     if (outdoor) {
       scene.add(group); group.updateMatrixWorld(true);
       // the outdoor light changes with the day cycle: at dusk / night the course's own lit props catch more of it
@@ -3164,7 +3300,19 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       group.updateMatrixWorld(true); group.getWorldPosition(worldOff);
       group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
     }
-    const k = { group, movers, mats, geos, texs, B, ghost, ghosts, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations, ground, outdoor };
+    // levels 2-3: the stations' decoys (movers the build made: things that must NOT be cast on), the shown orders, the ring beads
+    let decoys = null, orders = null, beads = null;
+    if (S.level > 1) {
+      decoys = S.stations.map(st => (st.decoys || []).map(d => movers[d.m] ? { decoy: true, spec: d, mv: movers[d.m], shake: 0, ph: Math.random() * 6 } : null).filter(Boolean));
+      orders = S.stations.map((st, i) => st.order ? st.order.map(j => stations[i][j]).filter(Boolean) : null);
+      if (S.level === 3) {                 // the ring to hold a lifted thing in: 16 beads that fill as it is held (one draw call)
+        const bm = new MeshBasicMaterial({ color: 0xffffff, fog: false }), bg = new SphereGeometry(0.045, 8, 6);
+        beads = new InstancedMesh(bg, bm, 16); beads.name = 'spell-ringhold'; beads.frustumCulled = false; beads.raycast = () => {}; beads.renderOrder = 5;
+        for (let i = 0; i < 16; i++) { _m4.makeScale(0, 0, 0); beads.setMatrixAt(i, _m4); beads.setColorAt(i, _c.setHex(0xffffff)); }
+        group.add(beads); mats.push(bm); geos.push(bg);
+      }
+    }
+    const k = { group, movers, mats, geos, texs, B, ghost, ghosts, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations, ground, outdoor, decoys, orders, beads };
     k.glowMats = glowMats;
     resetKit(k, true);
     // ring params: how far along the feather's path each ring sits (the sample nearest its centre)
@@ -3176,11 +3324,22 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
     return k;
   }
-  function resetLift(L) { L.p = 0; L.peak = 0; L.hover = 0; L.done = false; L.snap = -1; L.moved = false; L.popT = -1; for (const r of L.rings) r.mv.lit = false; poseLift(L, 0); }
+  function resetLift(L) { L.p = 0; L.peak = 0; L.hover = 0; L.done = false; L.snap = -1; L.moved = false; L.popT = -1; for (const r of L.rings) r.mv.lit = false;
+    L.flash = 0; L.shake = 0; L.slip = false; if (L.ring) { L.ring.fill = 0; L.ring.ok = false; L.ring.inside = false; }
+    poseLift(L, 0); }
   function resetKit(k, lessonToo) {
     k.B.reset(k.movers);
     if (lessonToo) for (const L of k.lesson) resetLift(L);
     for (const set of k.stations) for (const L of set) resetLift(L);
+    if (k.decoys) for (const set of k.decoys) for (const D of set) { D.shake = 0; poseDecoy(D, 0); }
+  }
+  // a decoy sits where its level puts it (at, ry); a 'cat' breathes in its sleep; cast on it and it shakes its head
+  // ('no') or rattles where it stands ('rattle': too heavy)
+  function poseDecoy(D, t) {
+    const a = D.spec.at, ry = D.spec.ry || 0, k = D.shake > 0 ? Math.min(1, D.shake / 0.4) : 0;
+    const br = D.spec.breathe ? Math.sin(t * 1.7 + D.ph) * 0.025 : 0;
+    if (D.spec.shakeMode === 'rattle') D.mv.poseS(a[0] + Math.sin(t * 47) * 0.03 * k, a[1] + Math.abs(Math.sin(t * 31)) * 0.03 * k, a[2], 0, ry, Math.sin(t * 39) * 0.06 * k, 1, 1 + br, 1);
+    else D.mv.poseS(a[0], a[1], a[2], 0, ry + Math.sin(t * 22) * 0.38 * k, 0, 1, 1 + br, 1);
   }
   function disposeKit(inTeardown = false) {
     if (!K) return;
@@ -3256,6 +3415,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const live = L.p > 0.01 && !L.done && !L.push && !L.light, bob = (L.spec.bob || live) ? Math.sin(t * 2.4 + L.ph) * (L.done ? 0.025 : 0.04) : 0;
     const fl = L.spec.flutter ? Math.sin(t * 4 + L.ph) * 0.3 * Math.min(1, L.p * 3) : 0;
     const r0 = L.rot0, r1 = L.rot1;
+    if (L.flash > 0 || L.shake > 0) {     // levels 2-3 only: shown in the order preview (a pop) / cast on out of turn (a shake)
+      const pop = L.flash > 0 ? 1 + 0.35 * Math.sin(Math.min(1, L.flash / 0.75) * Math.PI) : 1, sh = L.shake > 0 ? Math.sin(t * 30) * 0.22 * Math.min(1, L.shake / 0.4) : 0;
+      L.mv.pose(tmp2.x, tmp2.y + bob + (pop - 1) * 0.25, tmp2.z, r0[0] + (r1[0] - r0[0]) * e, r0[1] + (r1[1] - r0[1]) * e + sh, r0[2] + (r1[2] - r0[2]) * e + fl + sh * 0.5, pop);
+      return;
+    }
     L.mv.pose(tmp2.x, tmp2.y + bob, tmp2.z, r0[0] + (r1[0] - r0[0]) * e, r0[1] + (r1[1] - r0[1]) * e + (L.done && L.spec.flutter ? Math.sin(t * 0.8 + L.ph) * 0.3 : 0), r0[2] + (r1[2] - r0[2]) * e + fl);
   }
   const open = () => { if (!S.lifts) return null; for (const L of S.lifts) if (!L.done) return L; return null; };
@@ -3280,10 +3444,71 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       const d = Math.hypot((tmp.x * 0.5 + 0.5) * innerWidth - x, (-tmp.y * 0.5 + 0.5) * innerHeight - y) - Math.max(0, rr - R);
       if (d < bd) { bd = d; best = L; }
     }
+    if (S.level > 1) for (const D of S.decoys) {   // levels 2-3: the station's decoys can be touched too (and fizzle)
+      const a = D.spec.at; tmp.set(a[0], a[1] + (D.spec.aimY || 0), a[2]).add(worldOff);
+      const rr = D.spec.r ? D.spec.r * 1.3 * innerHeight / (2 * Math.tan((camera.fov || 50) * Math.PI / 360) * Math.max(0.3, tmp.distanceTo(camera.position))) : 0;
+      tmp.project(camera); if (tmp.z > 1) continue;
+      const d = Math.hypot((tmp.x * 0.5 + 0.5) * innerWidth - x, (-tmp.y * 0.5 + 0.5) * innerHeight - y) - Math.max(0, rr - R);
+      if (d < bd) { bd = d; best = D; }
+    }
     return best;
+  }
+  // ---- levels 2-3: decoys, the shown order, delayed hints, the ring hold ----
+  const HINTS = { decoy: 'לֹא אֶת זֶה! הַקְשֵׁב מָה לְהָרִים!', order: 'לֹא בַּסֵּדֶר! מָה הִבְהִיק קֹדֶם?', again: 'הִנֵּה שׁוּב הַסֵּדֶר!', go: 'עַכְשָׁו אַתָּה!',
+    slip: 'כִּמְעַט! עֲצֹר בְּתוֹךְ הַטַּבַּעַת!', slipMiss: 'לְאַט לְאַט... עֲצֹר בַּטַּבַּעַת!' };
+  const hint = (k) => (S.LV && S.LV.hints && S.LV.hints[k]) || (S.C.hints && S.C.hints[k]) || HINTS[k];
+  const hintNeed = () => S.level === 2 ? 1 : 2;           // mistakes at a station before the hints come back
+  const hintOK = () => S.level === 1 || S.miss >= hintNeed();
+  const nextL = () => { if (S.order) { for (const L of S.order) if (!L.done) return L; return null; } return open(); };
+  // a touch on a decoy, or on the wrong thing of a shown order: a fizzle, the teacher's hint, a counted mistake.
+  // Returns the lift when the touch is fine.
+  function gate(hit) {
+    if (!hit || S.level === 1) return hit;
+    if (hit.decoy) { mistake(hit.spec.say || hint('decoy'), hit); return null; }
+    if (S.order && hit !== nextL()) { mistake(hint('order'), hit); return null; }
+    return hit;
+  }
+  function mistake(text, obj) {
+    if (obj) { obj.shake = 0.8; const a = obj.decoy ? obj.spec.at : null; if (a) burst(a[0], a[1] + (obj.spec.aimY || 0) + 0.2, a[2], 5); }
+    fun.sfx.poof();
+    if (S.clock - S.missT < MISS_GAP) return;             // one fumbling finger = one mistake
+    S.missT = S.clock; S.mistakes++; S.miss++;
+    line(text, 2.2, 'talk');
+    if (S.miss === hintNeed() && S.order && S.order.some(L => !L.done)) at(1.8, () => { if (S.sub === 'cast') showOrder(true); });
+  }
+  // the order: each thing still to do lights up in turn (a pop, sparkles, a rising tink); no input meanwhile
+  function showOrder(again) {
+    const seq = S.order ? S.order.filter(L => !L.done) : []; if (!seq.length) return;
+    S.sub = 'show'; S.sel = null; drag = null; hideHand();
+    for (const L of seq) if (L.p > 0) { L.p = 0; L.peak = 0; L.hover = 0; L.moved = false; L.slip = false; if (L.ring) L.ring.fill = 0; }
+    if (again) line(hint('again'), 1.8, 'talk');
+    const t0 = again ? 1.3 : 0.5, gap = 0.95;
+    seq.forEach((L, i) => at(t0 + i * gap, () => { S.showI = i; L.flash = 0.75; liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 14); fun.sfx.tone(880 * Math.pow(1.26, i), 0.28, 'sine', 0.13); }));
+    at(t0 + seq.length * gap + 0.3, () => { S.showI = -1; if (!again) line(hint('go'), 1.6, 'talk'); S.sub = 'cast'; S.idle = 0; });
+  }
+  // level 3: a lifted thing slipped (pushed past its ring, or let go before it was held there): free twice per station
+  function slipEvent() {
+    S.slips++;
+    if (S.slips > 2) mistake(hint('slipMiss'), null); else { line(hint('slip'), 1.8, null); fun.sfx.soft(); }
+  }
+  // level 3, per frame for a ring lift: fill while the finger holds it inside the window; full = it glides home.
+  // Returns true when it moved the thing itself (gliding home / slipping back down).
+  function ringStep(L, dt) {
+    const R = L.ring;
+    if (R.ok) { L.p = Math.min(1, L.p + dt * 1.1); if (L.p >= SNAP) snapLift(L); return true; }
+    if (L.slip) { L.p -= dt * 0.55; if (L.p <= 0) { L.p = 0; L.slip = false; L.peak = 0; L.moved = false; } return true; }
+    const held = !!(drag && S.sel === L), inside = L.p >= R.u0 && L.p <= R.u1;
+    R.inside = inside && held;
+    if (R.inside) {
+      R.fill += dt / RING_HOLD;
+      if (R.fill >= 1) { R.fill = 1; R.ok = true; drag = null; fun.sfx.chime(); fun.sfx.tune([784, 1047], 0.08, 'sine'); liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 16); }
+    } else R.fill = Math.max(0, R.fill - dt / 1.2);
+    if (L.p > R.u1 + RING_OVER) { L.slip = true; R.fill = 0; L.hover = 0; if (S.sel === L) drag = null; fun.sfx.whoosh(); slipEvent(); return true; }
+    return false;
   }
   function nudge(L, v) {                     // set a lift's progress from a gesture
     if (!L || L.done || L.snap >= 0) return;
+    if (L.ring && (L.ring.ok || L.slip)) return;   // level 3: gliding home / slipping back: the finger lets go of it
     if (!L.moved && v > 0.02) { L.moved = true; player.play('Wave'); if (L.light || L.change || L.grow) fun.sfx.sparkle(); else fun.sfx.whoosh(); if (L.grow) fun.sfx.tone(330, 0.6, 'sine', 0.07, 0, 660); }
     L.p = Math.max(0, Math.min(1, v)); L.hover = L.hov0; if (L.p > L.peak) L.peak = L.p;
     S.idle = 0;
@@ -3303,6 +3528,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     else { line(S.C.praise[S.praise++ % S.C.praise.length], 1.8); }
   }
   function drop(L) {
+    if (L.ring) { L.peak = 0; L.moved = false; slipEvent(); return; }   // level 3: a let-go is a slip (free twice per station)
     S.drops++; L.peak = 0; L.moved = false;
     line(S.C.oops, 1.8, null); fun.sfx.soft();
   }
@@ -3322,7 +3548,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const k = K, pos = k.pPos;
     // orbiting sparkles: the not-yet-done lifts of the current set (the selected one gets most)
     let nOpen = 0; if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done) nOpen++;
-    const ordered = nOpen > 0 && S.lifts[0].inOrder;     // a follow-me set: only the next one twinkles
+    let ordered = nOpen > 0 && S.lifts[0].inOrder;     // a follow-me set: only the next one twinkles
+    let focus = null;                                  // levels 2-3: sparkles only round the touched one, or the next once hints are back
+    if (S.level > 1 && nOpen) { focus = S.sel && !S.sel.done ? S.sel : hintOK() ? nextL() : null; nOpen = focus ? 1 : 0; ordered = true; }
     let oi = 0;
     for (let i = 0; i < k.parts.length; i++) {
       const p = k.parts[i];
@@ -3335,7 +3563,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (nOpen && oi < 36) {
         // spread orbiters over the open lifts
         let target = null, j = oi % nOpen;
-        for (const L of S.lifts) { if (L.done) continue; if (ordered || j-- === 0) { target = L; break; } }
+        if (focus) target = focus; else for (const L of S.lifts) { if (L.done) continue; if (ordered || j-- === 0) { target = L; break; } }
         if (S.sel && !S.sel.done && oi % 3 !== 0 && !ordered) target = S.sel;
         oi++;
         samplePath(target, target.p, tmp2);
@@ -3360,13 +3588,14 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!S.on) return;
     let html = '', key = S.phase + ':';
     if (S.phase === 'lesson') { const ls = K ? K.lesson : []; ls.forEach((L, i) => { const c = L.done ? 'on' : (open() === L ? 'cur' : ''); key += c + i; html += '<i class="' + c + '">' + (S.C.lesson.pip || '🪶') + '</i>'; }); }
-    else { S.C.course.stations.forEach((st, i) => { const c = i < S.doneStations ? 'on' : i === S.step && S.phase === 'course' ? 'cur' : S.phase === 'reward' ? 'on' : ''; key += c + i; html += '<i class="' + c + '">' + st.icon + '</i>'; }); }
+    else { S.stations.forEach((st, i) => { const c = i < S.doneStations ? 'on' : i === S.step && S.phase === 'course' ? 'cur' : S.phase === 'reward' ? 'on' : ''; key += c + i; html += '<i class="' + c + '">' + st.icon + '</i>'; }); }
     if (key !== pipKey) { pipKey = key; top.innerHTML = html; }
   }
   function setBtn(on) { spB.classList.toggle('on', !!on); if (!on) { S.hold = false; spB.classList.remove('hold'); } }
 
   // ---- gestures ----
   const range = () => Math.max(110, Math.min(300, innerHeight * 0.3));
+  const rangeOf = (L) => L && L.ring ? Math.max(range(), 220) : range();   // level 3: a longer swipe, so the ring window is >= ~55 px on a phone
   // the screen direction a swipe should go: up for a lift; for a push, along the thing's path
   // as the camera sees it (from where it is now toward its outline, or along spec.dir)
   const sdA = new Vector3(), sdB = new Vector3(), swipeDir = { x: 0, y: -1 };
@@ -3385,6 +3614,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   ov.addEventListener('pointerdown', e => {
     if (!S.on || S.sub !== 'cast') return;
     e.preventDefault(); S.idle = 0;
+    // levels 2-3: only a touch ON the right thing casts (no forgiving 'anywhere'); a decoy / out-of-turn thing fizzles
+    if (S.level > 1 && !gate(pick(e.clientX, e.clientY))) return;
     if (S.C.verb === 'light') {
       // Lumos: touch the glowing thing and it starts to light; keep the finger on it = brighter. A touch
       // anywhere else (or the wrong star lamp) only makes the right one twinkle again: no penalty.
@@ -3424,7 +3655,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
     if (!drag || drag.light || e.pointerId !== drag.id || !S.sel) return;
     const dy = swiped(e);
-    if (dy > 10 || drag.moved) { drag.moved = true; nudge(S.sel, drag.p0 + Math.max(0, dy - 10) / range()); if (S.sel && S.sel.p >= SNAP) snapLift(S.sel); }
+    if (dy > 10 || drag.moved) { drag.moved = true; nudge(S.sel, drag.p0 + Math.max(0, dy - 10) / rangeOf(S.sel)); if (S.sel && S.sel.p >= SNAP && !S.sel.ring) snapLift(S.sel); }
   });
   const endDrag = (e) => {
     if (!drag || (e && e.pointerId !== drag.id)) return;
@@ -3440,7 +3671,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
     const L = S.sel, dy = e ? swiped(e) : 0, quick = performance.now() - drag.t0 < (L && L.push ? 450 : 350);   // a push flick gets a little longer (a sweep, not a snap of the wrist)
     if (L && !L.done) {
-      if (drag.moved && quick && dy > 50) snapLift(L);                     // a quick flick up: the swish-and-flick
+      if (drag.moved && quick && dy > 50 && !L.ring) snapLift(L);                     // a quick flick up: the swish-and-flick
       else if (!drag.moved && drag.onTarget) nudge(L, L.p + (L.grow ? TAP : TAP * 0.6));   // a tap on the thing: a little hop up (a seedling: a third)
     }
     drag = null;
@@ -3486,7 +3717,23 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
     at(t, beginCast);
   }
-  function beginCast() { S.handOn = false; S.sub = 'cast'; S.idle = 0; S.sel = null; select(open()); setBtn(true); setPips(); }
+  function beginCast() {
+    if (S.level > 1) {                    // levels 2-3: nothing pre-selected, no big 🪄 button; an ordered station first shows its order
+      S.handOn = false; S.sub = 'cast'; S.idle = 0; S.sel = null; setBtn(false); setPips();
+      if (S.order && S.phase === 'course') showOrder(false);
+      return;
+    }
+    S.handOn = false; S.sub = 'cast'; S.idle = 0; S.sel = null; select(open()); setBtn(true); setPips();
+  }
+  // levels 2-3 open without the lesson: the teacher says the twist (voice + bubble), then the course
+  function startTwist() {
+    const Ls = S.C.lesson;
+    S.phase = 'twist'; S.sub = 'intro'; S.step = 0; S.lifts = null; S.sel = null;
+    placeHero(Ls.stand[0], Ls.stand[1], yawTo(Ls.stand[0], Ls.stand[1], Ls.face[0], Ls.face[1]));
+    camTo(Ls.cam); setPips(); setBtn(false);
+    at(0.4, () => line(S.LV.twist, 3.8, 'talk'));
+    at(4.4, () => startStation(0));
+  }
   function setDone() {
     S.sub = 'after'; setBtn(false); hideHand(); S.sel = null;
     if (S.phase === 'lesson') {
@@ -3495,7 +3742,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       at(4.4, () => startStation(0));
       return;
     }
-    const st = S.C.course.stations[S.step];
+    const st = S.stations[S.step];
     S.doneStations = S.step + 1; setPips();
     line(S.C.praise[S.praise++ % S.C.praise.length], 2.0);
     const fx = st.after && K.B.effects[st.after];
@@ -3506,17 +3753,18 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       else if (st.after === 'chestOpen') { fun.sfx.tada(); fun.confetti(['⭐', '🪙', '✨', '💛'], 18); } else fun.sfx.hoot();
     }
     if (st.afterLine) at(st.afterLineT ?? 1.8, () => line(st.afterLine, 2.6, 'talk'));
-    at(fx ? (st.afterT || 2.8) : 1.6, () => { S.fx = null; if (S.step + 1 < S.C.course.stations.length) startStation(S.step + 1); else finish(); });
+    at(fx ? (st.afterT || 2.8) : 1.6, () => { S.fx = null; if (S.step + 1 < S.stations.length) startStation(S.step + 1); else finish(); });
   }
   function startStation(i) {
-    const st = S.C.course.stations[i];
+    const st = S.stations[i];
     if (S.phase !== 'course') { S.phase = 'course'; S.tCourse = 0; }
     S.step = i; S.sub = 'walk'; S.lifts = K.stations[i]; S.sel = null; S.fx = null; S.handOn = false;
     S.walk = { pts: st.walk, i: 0 };
+    if (S.level > 1) { S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; }
     camTo(st.cam); setPips(); setBtn(false); hideHand();
   }
   function arrive() {
-    const st = S.C.course.stations[S.step];
+    const st = S.stations[S.step];
     S.walk = null; S.sub = 'intro';
     const p = st.walk[st.walk.length - 1]; S.wantYaw = yawTo(p[0], p[1], st.face[0], st.face[1]);
     line(st.say, 2.6, 'talk');
@@ -3524,38 +3772,63 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   }
   function finish() {
     S.phase = 'reward'; S.sub = 'reward'; setBtn(false); hideHand(); setPips();
-    const C = S.C, three = S.tCourse <= C.course.star3 && S.drops <= 2;
-    S.stars = three ? 3 : 2;
+    const C = S.C;
+    if (S.level > 1) {                    // levels 2-3: stars from mistakes (and a generous time): careful = 3, random tapping = 1
+      const m = S.mistakes; S.stars = m <= 2 && S.tCourse <= (S.LV.star3 || 400) ? 3 : m <= 6 ? 2 : 1;
+    } else { const three = S.tCourse <= C.course.star3 && S.drops <= 2; S.stars = three ? 3 : 2; }
     award(S.stars);
     line(C.finale, 2.6, 'cast'); player.play('Cheer');
-    fun.sfx.tada(); fun.confetti(C.confetti || ['🪶', '⭐', '✨', '🌟', '💜'], 34);
+    if (S.level === 3) {                  // the special one: a longer fanfare, two waves of confetti
+      fun.sfx.fanfare(); fun.confetti(['🧙‍♂️', '⭐', '🌟', '✨', '💜', '🎉', C.spell.icon], 60);
+      setTimeout(() => { if (S.on) { fun.sfx.tada(); fun.confetti(['⭐', '🌟', '✨', '💛', '🎊'], 44); } }, 1000);
+      setTimeout(() => { if (S.on) fun.sfx.tune([784, 988, 1175, 1568, 0, 1568], 0.14); }, 1900);
+    } else { fun.sfx.tada(); fun.confetti(C.confetti || ['🪶', '⭐', '✨', '🌟', '💜'], 34); }
     at(2.6, showReward);
   }
   function award(stars) {
-    const rec = save[S.key] = save[S.key] || { stars: 0, plays: 0 };
-    rec.stars = Math.max(rec.stars || 0, stars); rec.plays = (rec.plays || 0) + 1; persist();
-    const pts = stars * 10;
+    const rec = save[S.key] = isObj(save[S.key]) ? save[S.key] : { stars: 0, plays: 0 };   // (a garbage entry is replaced, never written into)
+    const next = S.level + 1, wasOpen = unlocked(S.key, next);
+    let pts;
+    if (S.level > 1) {                    // levels 2-3 live in rec.lv; points scale like level 1's (3 stars = +40 / +50)
+      if (!isObj(rec.lv)) rec.lv = {};
+      const l = rec.lv[S.level] = isObj(rec.lv[S.level]) ? rec.lv[S.level] : { stars: 0, plays: 0 };
+      l.stars = Math.max(starsOf(l.stars), stars); l.plays = (Math.floor(Number(l.plays)) || 0) + 1; persist();
+      pts = Math.round(stars * LEVELS[S.level].pts / 3);
+    } else {
+      rec.stars = Math.max(rec.stars || 0, stars); rec.plays = (rec.plays || 0) + 1; persist();
+      pts = stars * 10;
+    }
     try { window.HPLessons.progress.bonus(pts); } catch { /* lessons not loaded */ }
     S.result = { stars, pts, t: Math.round(S.tCourse), drops: S.drops, casts: S.casts };
+    if (S.level > 1) { S.result.level = S.level; S.result.mistakes = S.mistakes; S.result.opened = next <= 3 && !wasOpen && unlocked(S.key, next) ? next : 0; }
     return pts;
   }
   function showReward() {
     if (!S.on) return;
     const r = S.result, crest = CREST[fun.store.house] || CREST.gryf;
+    if (S.level > 1) {                    // levels 2-3: the level's name; level 3 = the special 'expert wizard' screen; a newly opened level is shown
+      const L3 = S.level === 3, nx = r.opened ? LEVELS[r.opened] : null;
+      endOv.innerHTML = '<div class="p' + (L3 ? ' x3' : '') + '"><div class="tr">' + (L3 ? '🧙‍♂️' : (S.C.icon || S.C.spell.icon)) + '</div><div class="ti">' + (L3 ? 'קוֹסֵם מֻמְחֶה!' : r.stars >= 3 ? 'כָּל הַכָּבוֹד!' : 'יָפֶה מְאֹד!') + '</div>'
+        + '<div class="lvn">' + LEVELS[S.level].icon + ' ' + LEVELS[S.level].he + '</div>'
+        + '<div class="st">' + '⭐'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + '</div><div class="sc">' + crest + ' <span dir="ltr">+' + r.pts + '</span></div>'
+        + (nx ? '<div class="lvn">🔓 ' + nx.icon + ' ' + nx.he + '</div>' : '')
+        + '<div class="row"><button class="again">🔁 שׁוּב</button><button class="done">✅ סִיּוּם</button></div></div>';
+    } else
     endOv.innerHTML = '<div class="p"><div class="tr">' + (S.C.icon || S.C.spell.icon) + '</div><div class="ti">' + (r.stars >= 3 ? 'כָּל הַכָּבוֹד!' : 'יָפֶה מְאֹד!') + '</div>'
       + '<div class="st">' + '⭐'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + '</div><div class="sc">' + crest + ' <span dir="ltr">+' + r.pts + '</span></div>'
       + '<div class="row"><button class="again">🔁 שׁוּב</button><button class="done">✅ סִיּוּם</button></div></div>';
     endOv.querySelector('.again').addEventListener('click', e => { e.stopPropagation(); again(); });
     endOv.querySelector('.done').addEventListener('click', e => { e.stopPropagation(); leave(true); });
-    endOv.classList.add('on'); speak(r.stars >= 3 ? 'כָּל הַכָּבוֹד! שְׁלוֹשָׁה כּוֹכָבִים!' : 'יָפֶה מְאֹד!');
+    endOv.classList.add('on'); speak(S.level === 3 ? 'קוֹסֵם מֻמְחֶה! כָּל הַכָּבוֹד!' : r.stars >= 3 ? 'כָּל הַכָּבוֹד! שְׁלוֹשָׁה כּוֹכָבִים!' : 'יָפֶה מְאֹד!');
   }
   function again() {
     if (!S.on) return;
     endOv.classList.remove('on'); S.q.length = 0;
     resetKit(K, false); S.drops = 0; S.casts = 0; S.doneStations = 0; S.praise = 0; S.result = null; S.stars = 0; S.phase = 'course'; S.tCourse = 0;
+    S.mistakes = 0; S.miss = 0; S.slips = 0; S.missT = -9;
     startStation(0);
     // straight to station 1 (a little sparkle hop), not the long walk back via the lesson spot
-    const st = S.C.course.stations[0], p = st.walk[st.walk.length - 1];
+    const st = S.stations[0], p = st.walk[st.walk.length - 1];
     placeHero(p[0], p[1], yawTo(p[0], p[1], st.face[0], st.face[1]));
     burst(p[0], 1.0, p[1], 16); fun.sfx.sparkle();
     arrive();
@@ -3603,11 +3876,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
 
   // ---- start / leave ----
   const takeover = { spell: true, update };
-  function start(key = 'charms') {
+  function start(key = 'charms', level = 1) {
     const C = COURSES[key];
     if (!C || S.on || isModal() || isTakeover()) return false;
     if (C.room ? (interiors.active !== C.room || !interiors.room) : !!interiors.active) return false;   // a room course in its room; an outdoor one outside
+    level = level === 2 || level === 3 ? level : 1;
+    if (level > 1 && !unlocked(key, level)) return false;   // a locked (or not yet built) level cannot start
     S.key = key; S.C = C;
+    // level 1: S.stations IS the course's own array (nothing merged, nothing changed)
+    S.level = level; S.LV = level > 1 ? C.levels[level] : null;
+    S.stations = S.LV ? C.course.stations.map(st => Object.assign({}, st, (S.LV.stations && S.LV.stations[st.id]) || {})) : C.course.stations;
+    Object.assign(S, { order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1 });
     Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null,
       raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0, handOn: false });
     S.q.length = 0; pipKey = '';
@@ -3622,7 +3901,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     camPos.copy(camera.position); camera.getWorldDirection(tmp); camLook.copy(camera.position).addScaledVector(tmp, 6);
     fun.sfx.sparkle();
     if (C.dim) dimCapture();
-    startLesson();
+    if (S.level > 1) startTwist(); else startLesson();
     return true;
   }
   function leave(restore, inTeardown = false) {
@@ -3648,9 +3927,34 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function quit() {
     if (!S.on) return false;
     // left early after at least two stations: still a star (forgiving)
-    if (S.phase === 'course' && S.doneStations >= 2 && !S.result) { const pts = award(1); fun.toast('⭐', '+' + pts, 1800); }
+    if (S.level === 1 && S.phase === 'course' && S.doneStations >= 2 && !S.result) { const pts = award(1); fun.toast('⭐', '+' + pts, 1800); }   // (levels 2-3: stars only for a finish)
     leave(true);
     return true;
+  }
+
+  // level 3: the ring of beads round the window centre of the lift in hand (or the only / hinted one), square to the
+  // camera; beads light up round it as it is held inside, all bright when it is done
+  const _rx = new Vector3(), _ry = new Vector3();
+  function tickRing(t) {
+    const B = K.beads; if (!B) return;
+    let L = null;
+    if (S.sub === 'cast' && S.lifts) {
+      if (S.sel && !S.sel.done && S.sel.ring) L = S.sel;
+      else { const nx = nextL(); if (nx && nx.ring && (hintOK() || (!S.order && S.lifts.length === 1))) L = nx; }
+    }
+    if (!L) { if (B.visible) { B.visible = false; } return; }
+    B.visible = true;
+    const R = L.ring, sv = L.p; L.p = R.uc; liftWorld(L, tmp); L.p = sv; tmp.sub(worldOff);
+    _rx.set(1, 0, 0).applyQuaternion(camera.quaternion); _ry.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    const n = 16, lit = Math.round(R.fill * n), pulse = R.inside ? 1.25 + Math.sin(t * 14) * 0.12 : 1;
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI / 2 - i / n * Math.PI * 2, r = R.R * (R.inside ? 1 + Math.sin(t * 10) * 0.03 : 1);
+      _v.copy(tmp).addScaledVector(_rx, Math.cos(a) * r).addScaledVector(_ry, Math.sin(a) * r);
+      _m4.compose(_v, camera.quaternion, _s.setScalar((i < lit || R.ok ? 1.35 : 1) * pulse));
+      B.setMatrixAt(i, _m4);
+      if (R.ok || i < lit) B.setColorAt(i, _c.setRGB(1.6, 1.25, 0.45)); else B.setColorAt(i, _c.setRGB(0.75, 0.8, 1.0).multiplyScalar(0.7 + 0.25 * Math.sin(t * 4 + i * 0.4)));
+    }
+    B.instanceMatrix.needsUpdate = true; if (B.instanceColor) B.instanceColor.needsUpdate = true;
   }
 
   // ---- per frame (main.js takeover slot) ----
@@ -3701,7 +4005,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.hold) S.holdT += dt;
     if (S.sub === 'cast') {
       S.idle += dt;
-      if (S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; setPips(); } }   // finger still down: carry on with the next object
+      if (S.level === 1 && S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; setPips(); } }   // finger still down: carry on with the next object
       if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : S.sel.change ? CHANGE_HOLD : S.sel.grow ? GROW_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
     }
     for (let s = -1; s < K.stations.length; s++) {
@@ -3709,9 +4013,11 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       for (let j = 0; j < set.length; j++) {
         const L = set[j];
         if (L.done && L.popT >= 0 && L.popT < POP) L.popT += dt;
+        if (L.flash > 0) L.flash -= dt; if (L.shake > 0) L.shake -= dt;
         if (!L.done && L.snap >= 0) { L.snap += dt; L.p = Math.min(1, L.p + dt * 2.4); if (L.p >= 1 || L.snap > 0.4) { liftDone(L); if (!S.on) return; continue; } }
+        else if (L.ring && !L.done && S.lifts === set && ringStep(L, dt)) { /* level 3: gliding home or slipping back down */ }
         else if (!L.done && L.p > 0 && !(drag && S.sel === L) && !(S.hold && S.sel === L)) {
-          if (L.p >= SNAP) snapLift(L);
+          if (L.p >= SNAP && !L.ring) snapLift(L);
           else { L.hover -= dt; if (L.hover <= 0) { L.p -= dt * L.fall; if (L.p <= 0) { L.p = 0; if (L.peak >= 0.3 && !L.light && !L.change && !L.grow) drop(L); else L.peak = 0; L.moved = false; } } }
         }
         // rings light as the feather passes them (and stay lit)
@@ -3719,14 +4025,21 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         poseLift(L, t);
       }
     }
+    if (S.level > 1) for (const D of S.decoys) { if (D.shake > 0) D.shake -= dt; poseDecoy(D, t); }
     K.B.tick(K.movers, t, S, K, dt);
     if (S.fx) { S.fxT += dt; if (!S.fx(K.movers, S.fxT)) S.fx = null; }
 
     // glow, outline, ghost hand
     const pulse = 0.3 + Math.sin(t * 5) * 0.15;   // gentle: at 0.9 the red book and coloured blocks washed out to white
     for (const m of K.glowMats) m.emissiveIntensity = 0;
-    const cur = S.sub === 'cast' ? (S.sel && !S.sel.done ? S.sel : open()) : null;
+    const cur = S.level > 1 ? (S.sub === 'cast' ? (S.sel && !S.sel.done ? S.sel : hintOK() ? nextL() : null) : null)   // levels 2-3: outline / hand only for the touched one, or once hints are back
+      : S.sub === 'cast' ? (S.sel && !S.sel.done ? S.sel : open()) : null;
     if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) if (!L.done && L.mv.glows) L.mv.mat.emissiveIntensity = pulse;
+    if (S.level > 1) {                    // the decoys glow like the real things (the glow must not give the answer away); the order preview flashes
+      if (S.sub === 'cast') for (const D of S.decoys) if (D.mv.glows) D.mv.mat.emissiveIntensity = pulse;
+      if (S.lifts) for (const L of S.lifts) if (L.flash > 0 && L.mv.glows && !L.mv.mesh.isInstancedMesh) L.mv.mat.emissiveIntensity = 1.1;
+      tickRing(t);
+    }
     if (K.ghosts.length) {
       // Vera Verto: the glowing silhouette of each open thing's after shape floats above it (no outline box)
       let gi = 0;
@@ -3754,7 +4067,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       tmp.copy(handAt).add(worldOff).project(camera);
       hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
       if (!hand.classList.contains('on')) { hand.classList.remove('push', 'tap'); hand.classList.add('stir', 'on'); }
-    } else if (cur && S.idle > HINT_AFTER && cur.p < 0.05) {
+    } else if (cur && S.idle > (S.level > 1 ? 2.5 : HINT_AFTER) && cur.p < 0.05) {
       liftWorld(cur, tmp).project(camera);
       hand.style.left = ((tmp.x * 0.5 + 0.5) * innerWidth) + 'px'; hand.style.top = ((-tmp.y * 0.5 + 0.5) * innerHeight) + 'px';
       if (!hand.classList.contains('on')) {
@@ -3773,7 +4086,44 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   }
 
   // ---- outside the course: the 🪄 challenge prompt next to the lesson ▶ ----
-  promptB.addEventListener('click', e => { e.stopPropagation(); fun.sfx.squeak(); const k = promptB.dataset.k; if (k) start(k); });
+  // (the 🪄 prompt: level 1 with its lesson as always, unless a higher level is open: then the level choice)
+  promptB.addEventListener('click', e => { e.stopPropagation(); fun.sfx.squeak(); const k = promptB.dataset.k; if (!k) return; if (unlocked(k, 2)) openLevels(k, 'prompt'); else start(k); });
+
+  // ---- the level choice: three big buttons (icon, name, stars or a lock) + back ----
+  const lvOv = el('div', 'spLv');
+  let lvFrom = null;
+  function lvSetModal(v) { try { if (window.__game && window.__game.setModal) window.__game.setModal(v); } catch { /* ignore */ } }
+  function openLevels(key, from) {
+    const C = COURSES[key]; if (!C || S.on) return false;
+    lvFrom = from;
+    let html = '<div class="p"><div class="t">' + (C.icon || C.spell.icon) + ' ' + C.name + '</div><div class="row">';
+    for (let n = 1; n <= 3; n++) {
+      const L = LEVELS[n], open = unlocked(key, n), st = lvStars(key, n);
+      html += '<button type="button" class="lv l' + n + (open ? '' : ' lock') + '" data-lv="' + n + '">'
+        + '<div class="i">' + (open ? L.icon : '🔒') + '</div><div class="n">' + L.he + '</div>'
+        + (open ? '<div class="s">' + '⭐'.repeat(st) + '☆'.repeat(3 - st) + '</div>' : '<div class="k">' + (hasLevel(key, n) ? 'נַצֵּחַ בַּשָּׁלָב הַקּוֹדֵם' : 'בְּקָרוֹב...') + '</div>') + '</button>';
+    }
+    html += '</div><button type="button" class="back">↩️ חֲזָרָה</button></div>';
+    lvOv.innerHTML = html;
+    lvOv.querySelectorAll('.lv').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation(); const n = +b.dataset.lv;
+      if (!unlocked(key, n)) { fun.sfx.soft(); b.classList.remove('no'); void b.offsetWidth; b.classList.add('no'); return; }
+      fun.sfx.squeak(); closeLevels();
+      if (lvFrom === 'prompt') start(key, n);
+      else (async () => { await lessons.go(C.station); setTimeout(() => start(key, n), 500); })();
+    }));
+    lvOv.querySelector('.back').addEventListener('click', ev => {
+      ev.stopPropagation(); const from = lvFrom; closeLevels(); fun.sfx.pop();
+      if (from === 'picker') setTimeout(() => {   // back to the 🏆 chooser (the 🔔 picker, then its challenges card)
+        const bell = document.getElementById('bellBtn'); if (!bell || (window.__game && window.__game.modal)) return;
+        bell.click(); const all = document.querySelector('#pickOv .spCard[data-sp="all"]'); if (all) all.click();
+      }, 60);
+    });
+    lvOv.addEventListener('pointerdown', ev => { if (ev.target === lvOv) { ev.stopPropagation(); closeLevels(); } }, { once: true });
+    lvOv.classList.add('on'); lvSetModal(true); fun.sfx.flip();
+    return true;
+  }
+  function closeLevels() { if (!lvOv.classList.contains('on')) return; lvOv.classList.remove('on'); lvSetModal(false); }
   let promptOn = false;
   function idle() {
     let k = null;
@@ -3789,8 +4139,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const C = COURSES[key];
     return {
       key, icon: C.icon || C.spell.icon, name: C.name, best: () => best(key),
+      // levels: three pips (won = gold, open = a ring, locked = 🔒; not built yet = a faint lock), stars of all levels out of 9
+      max: 9, got: () => lvStars(key, 1) + lvStars(key, 2) + lvStars(key, 3),
+      pips: () => { let h = '<div class="spLvp">'; for (let n = 1; n <= 3; n++) h += unlocked(key, n) ? '<i class="' + (won(key, n) ? 'won' : '') + '">★</i>' : '<i class="lk' + (hasLevel(key, n) ? '' : ' soon') + '">🔒</i>'; return h + '</div>'; },
       fn: async () => {
         if (S.on) return;
+        if (hasLevel(key, 2)) { openLevels(key, 'picker'); return; }   // a course with levels: the level choice first
         await lessons.go(C.station);
         setTimeout(() => start(key), 500);
       },
@@ -3800,12 +4154,18 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // test hooks answer only with ?debug=1 or when a test sets window.__game.test = true
   const testOK = () => /[?&]debug=1/.test(location.search) || !!(window.__game && window.__game.test === true);
   const api = {
-    courses: COURSES, start, quit, idle, pickerCard, best,
+    courses: COURSES, start, quit, idle, pickerCard, best, openLevels, closeLevels,
+    levelStars: (key, lv) => lvStars(key, lv), unlocked: (key, lv) => unlocked(key, lv), hasLevel: (key, lv) => hasLevel(key, lv),
     state() {
       return { on: S.on, key: S.key, phase: S.on ? S.phase : null, sub: S.on ? S.sub : null, step: S.step, casts: S.casts, drops: S.drops, stars: S.stars,
         best: S.key ? best(S.key) : 0, t: Math.round(S.tCourse * 10) / 10, doneStations: S.doneStations, result: S.result,
         lifts: S.lifts ? S.lifts.map(L => ({ p: Math.round(L.p * 100) / 100, done: L.done })) : null, prompt: promptOn,
-        dim: Math.round(S.dim * 1000) / 1000, dimmed: !!DIM, raise: S.raise > 0 };
+        dim: Math.round(S.dim * 1000) / 1000, dimmed: !!DIM, raise: S.raise > 0,
+        // levels
+        level: S.on ? S.level : null, mistakes: S.mistakes, miss: S.miss, slips: S.slips, hint: S.on ? hintOK() : false, showing: S.showI,
+        order: S.on && S.order ? S.order.map(L => S.lifts.indexOf(L)) : null, next: S.on && S.lifts && nextL() ? S.lifts.indexOf(nextL()) : -1,
+        decoys: S.on ? S.decoys.length : 0, btn: spB.classList.contains('on'), choice: lvOv.classList.contains('on'),
+        ring: S.on && S.lifts ? S.lifts.map(L => L.ring ? { uc: L.ring.uc, fill: Math.round(L.ring.fill * 100) / 100, ok: L.ring.ok, inside: L.ring.inside, slip: L.slip } : null) : null };
     },
     // test hooks
     _cast() {
@@ -3813,7 +4173,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (!S.on || S.phase === 'reward') return false;
       if (S.sub === 'walk' && S.walk) { const w = S.walk, p = w.pts[w.pts.length - 1]; player.pos.x = p[0] + worldOff.x; player.pos.z = p[1] + worldOff.z; arrive(); }
       flushUntil(() => S.sub === 'cast');
-      const L = (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return false;
+      const L = S.level > 1 ? nextL() : (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return false;
       L.moved = true; liftDone(L); return true;
     },
     _drop() {
@@ -3828,8 +4188,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       S.q.length = 0; endOv.classList.remove('on');
       for (const L of K.lesson) if (!L.done) { L.done = true; L.p = 1; L.popT = POP; }
       for (const b of S.C.lesson.intro) if (b.fx && K.B.effects[b.fx]) K.B.effects[b.fx](K.movers, 99, true);
-      const n = S.C.course.stations.length;
-      for (let i = 0; i < Math.min(step, n); i++) { const fx = S.C.course.stations[i].after && K.B.effects[S.C.course.stations[i].after]; if (fx) fx(K.movers, 99, true); }
+      const n = S.stations.length;
+      for (let i = 0; i < Math.min(step, n); i++) { const fx = S.stations[i].after && K.B.effects[S.stations[i].after]; if (fx) fx(K.movers, 99, true); }
       for (let i = 0; i < Math.min(step, n); i++) for (const L of K.stations[i]) { L.done = true; L.p = 1; L.popT = POP; for (const r of L.rings) { r.mv.lit = true; r.mv.color(0xffe07a); } }
       if (S.phase !== 'course') { S.phase = 'course'; S.tCourse = 0; }
       S.doneStations = Math.min(step, n);
@@ -3840,12 +4200,27 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     _speed(k) { if (!testOK()) return 1; S.speed = Math.max(0.1, Math.min(8, +k || 1)); return S.speed; },   // reset to 1 on every start()
     _target() {                            // screen point of the thing to lift now (for real-touch tests)
       if (!testOK() || !S.on || !S.lifts) return null;
-      const L = (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return null;
+      const L = S.level > 1 ? nextL() : (S.sel && !S.sel.done) ? S.sel : open(); if (!L) return null;
       const sd = dirOf(L);
       liftWorld(L, tmp).project(camera);
       return { x: (tmp.x * 0.5 + 0.5) * innerWidth, y: (-tmp.y * 0.5 + 0.5) * innerHeight, p: L.p, dx: sd.x, dy: sd.y };
     },
     get _kit() { return testOK() ? K : null; },
+    _targets() {                           // screen points of every open thing and decoy of the station (levels tests)
+      if (!testOK() || !S.on || !S.lifts) return null;
+      const scr = (v) => { v.project(camera); return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, front: v.z <= 1 }; };
+      const out = S.lifts.map((L, i) => ({ kind: 'lift', i, done: L.done, next: L === nextL(), ...scr(liftWorld(L, tmp)) }));
+      S.decoys.forEach((D, i) => { const a = D.spec.at; out.push({ kind: 'decoy', i, m: D.spec.m, ...scr(tmp.set(a[0], a[1] + (D.spec.aimY || 0), a[2]).add(worldOff)) }); });
+      return out;
+    },
+    _unlock(key, level) {                  // test only: open a level without playing (the level below it counts as won)
+      if (!testOK() || !COURSES[key]) return false;
+      const r = save[key] = isObj(save[key]) ? save[key] : { stars: 0, plays: 0 };
+      if (level >= 2) r.stars = Math.max(starsOf(r.stars), 2);
+      if (level >= 3) { if (!isObj(r.lv)) r.lv = {}; const l = r.lv[2] = isObj(r.lv[2]) ? r.lv[2] : { stars: 0, plays: 0 }; l.stars = Math.max(starsOf(l.stars), 1); }
+      persist(); return unlocked(key, level);
+    },
+    _reload() { if (!testOK()) return false; try { save = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { save = {}; } if (!isObj(save)) save = {}; return true; },
   };
   fun.mods.spells = api;
   return api;
