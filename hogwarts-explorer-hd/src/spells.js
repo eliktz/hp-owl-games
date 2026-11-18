@@ -150,8 +150,8 @@ const CR = {
   puffs: [[-2.19, 5.19], [-1.75, 4.95], [-1.31, 4.71]],
   post: [-7.2, 3.6, 1.45], moles: [[-10.4, 6.6], [-9.4, 6.0], [-8.4, 6.6]],
   stream: [-12.6, 0.9, 5.5, 14.2], foal: [-11.6, 10.0],
-  nests: [[-6.6, 12.0], [-5.6, 12.2], [-4.6, 12.0]], drag: [-2.1, 3.6], curl: [-2.55, 3.1],
-  cams: { les: [0.5, 7.7], owl: [-6.2, 6.6], mole: [-10.0, 9.7], foal: [-12.2, 13.6], egg: [-5.2, 15.6], drag: [0.2, 6.6] },
+  nests: [[-6.6, 12.0], [-5.6, 12.2], [-4.6, 12.0]], drag: [-0.7, 5.3], curl: [-1.5, 3.3],
+  cams: { les: [0.5, 7.7], owl: [-6.2, 6.6], mole: [-10.0, 9.7], foal: [-12.2, 13.6], egg: [-5.2, 15.6], drag: [1.0, 7.8] },
 };
 const BALE_TOP = 0.42, MOUND_TOP = 0.136, NEST_Y = 0.09, MOLE_PEEK = -0.07;
 const camYaw = (x, z, c) => Math.atan2(c[0] - x, c[1] - z);
@@ -559,9 +559,10 @@ export const COURSES = {
           lifts: ['bdragon', 'owlet', 'turtle'].map((to, i) => { const [x, z] = CR.nests[i]; return petLift('egg' + i, x, NEST_Y, z, camYaw(x, z, CR.cams.egg), { to, aimY: 0.2, r: 0.22, free: true }); }),
           after: 'babyBounce', afterT: 2.8, afterSfx: 'none' },
         { id: 'dragon', icon: '🐉', say: 'לַטֵּף אֶת הַדְּרָקוֹן הַקָּטָן!',
-          walk: [[-1.6, 10.6], [0.2, 7.2], [0.2, 5.4], [-0.6, 4.2]], face: [CR.drag[0], CR.drag[1]],
-          cam: { pos: [0.2, 1.55, 6.6], look: [-2.5, 1.75, 2.6] },
-          afterCam: { pos: [0.6, 1.7, 7.0], look: [-2.6, 1.75, 2.6] },
+          walk: [[-1.6, 10.6], [0.8, 7.4], [0.3, 5.0]], face: [CR.drag[0], CR.drag[1]],
+          // the dragon sits in FRONT of the hay bale (from the camera), the hero to its right, Hagrid's face above them
+          cam: { pos: [1.0, 1.9, 7.8], look: [-2.5, 1.2, 2.6] },
+          afterCam: { pos: [0.9, 1.8, 7.4], look: [-2.3, 1.25, 2.8] },
           lifts: [petLift('drag', CR.drag[0], 0, CR.drag[1], camYaw(CR.drag[0], CR.drag[1], CR.cams.drag), { aimY: 0.35, r: 0.3 })],
           after: 'dragonCurl', afterT: 6.0, afterSfx: 'none', afterLine: 'אֵיזֶה יֹפִי! הוּא אוֹהֵב אוֹתְךָ!', afterLineT: 2.6 },
       ],
