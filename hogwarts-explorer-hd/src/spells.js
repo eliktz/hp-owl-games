@@ -89,6 +89,14 @@ const RING_HOLD = 0.8;                     // level 3: seconds to hold a lifted 
 const RING_HALF = 0.125;                   // ...the ring window: +- this much of the path (a quarter of it)
 const RING_OVER = 0.12;                    // ...pushed this far past the window: it slips and drifts back down
 const MISS_GAP = 0.7;                      // seconds: a second wrong touch inside this counts once (a fumbling finger)
+// levels 2-3: a timing gate. A target (or a station) with `gate: { period, open, lead?, R? }` is "ready" for `open` seconds
+// of every `period` seconds of GAME time (S.clock, so _speed scales it too); the first window opens `lead` s after casting
+// starts. Ready = its ring of beads turns green (a clock that fills while it waits), the thing glows green, a soft
+// tick-tick-ding plays as the window opens; a course may add its own look from L.gateK (0 closed .. 1 open, eased).
+// A push started while not ready fizzles softly: free twice per station, then a counted mistake. Once a push has started
+// (p > 0.05) more touches on it are always fine, even if the window closes meanwhile (generous).
+const GATE = { period: 3.2, open: 1.4, lead: 1.2, R: 0.42 };
+const GATE_GREEN = 0x40ff70;
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const starsOf = (v) => { v = Math.floor(Number(v)); return v >= 3 ? 3 : v >= 1 ? v : 0; };
 
@@ -236,7 +244,10 @@ export const COURSES = {
     // Difficulty levels. The data shape every course uses (level 1 = the course above, untouched):
     //   levels: { 2|3: { twist: the teacher's opening line, star3: seconds for 3 stars (with <= 2 mistakes),
     //     stations: { <station id>: { say?, lifts? (replaces the station's lifts), order?: [lift indices, shown first],
-    //       decoys?: [{ m: mover, at: [x, y, z], ry, r, aimY, say, shakeMode: 'no'|'rattle', breathe }], hold?: ring centre 0..1 (level 3) } } } }
+    //       decoys?: [{ m: mover, at: [x, y, z], ry, r, aimY, say, shakeMode: 'no'|'rattle', breathe }], hold?: ring centre 0..1 (level 3),
+    //       gate?: { period, open, lead?, R? } (a timing gate on the station's things; a lift may carry its own `gate`), see GATE,
+    //       phone?: { ...the same keys } (merged on top when the screen is phone-height, innerHeight < 500, at start) } },
+    //     hints?: { <key>: line } (the teacher's level lines: decoy, order, again, go, slip, slipMiss, gate, gateMiss) } }
     // The decoy / extra movers come from the course's build(kit) when kit.level > 1.
     levels: {
       2: { twist: 'עַכְשָׁו בַּסֵּדֶר הַנָּכוֹן! שִׂים לֵב מָה מַבְהִיק!', star3: 300,
@@ -3165,7 +3176,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     speed: 1, q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null,
     raise: 0, raiseK: 0, dim: 0, dimGoal: 0, profY: 0,
     // levels: S.stations = the course's stations (level 1: the very same array) merged with the level's per-station data
-    level: 1, LV: null, stations: null, order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1 };
+    level: 1, LV: null, stations: null, order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9 };
   let K = null;                            // the built kit for the running course: { group, movers, lesson, stations, ... }
   let drag = null;
   const tmp = new Vector3(), tmp2 = new Vector3(), camPos = new Vector3(), camLook = new Vector3(), camPosGoal = new Vector3(), camLookGoal = new Vector3();
@@ -3286,6 +3297,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         // level 3 only: a glowing ring part-way up the path (hold = its centre, 0..1 of the path) to hold the thing in
         ring: (S.level === 3 && !light && !change && !grow && (L.hold ?? (st && st.hold)) != null)
           ? { uc: L.hold ?? st.hold, u0: (L.hold ?? st.hold) - RING_HALF, u1: (L.hold ?? st.hold) + RING_HALF, R: L.ringR || st.ringR || 0.4, fill: 0, ok: false, inside: false } : null,
+        // levels 2-3 only: a timing gate (see GATE); hex0 = the thing's own glow colour (it glows green while ready)
+        gate: (S.level > 1 && (L.gate || (st && st.gate))) ? { ...GATE, ...(L.gate || st.gate), t0: 0, pu: -1, hex0: mv.mat.emissive ? mv.mat.emissive.getHex() : 0 } : null, gateK: 0,
         flash: 0, shake: 0, slip: false };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
@@ -3306,7 +3319,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.level > 1) {
       decoys = S.stations.map(st => (st.decoys || []).map(d => movers[d.m] ? { decoy: true, spec: d, mv: movers[d.m], shake: 0, ph: Math.random() * 6 } : null).filter(Boolean));
       orders = S.stations.map((st, i) => st.order ? st.order.map(j => stations[i][j]).filter(Boolean) : null);
-      if (S.level === 3) {                 // the ring to hold a lifted thing in: 16 beads that fill as it is held (one draw call)
+      for (const set of decoys) for (const D of set) D.mv.mesh.visible = false;   // shown per station (startStation): fewer draw calls
+      if (S.level === 3 || stations.some(set => set.some(L => L.gate))) {   // the ring to hold a lifted thing in (and a timing gate's clock): 16 beads (one draw call)
         const bm = new MeshBasicMaterial({ color: 0xffffff, fog: false }), bg = new SphereGeometry(0.045, 8, 6);
         beads = new InstancedMesh(bg, bm, 16); beads.name = 'spell-ringhold'; beads.frustumCulled = false; beads.raycast = () => {}; beads.renderOrder = 5;
         for (let i = 0; i < 16; i++) { _m4.makeScale(0, 0, 0); beads.setMatrixAt(i, _m4); beads.setColorAt(i, _c.setHex(0xffffff)); }
@@ -3327,6 +3341,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   }
   function resetLift(L) { L.p = 0; L.peak = 0; L.hover = 0; L.done = false; L.snap = -1; L.moved = false; L.popT = -1; for (const r of L.rings) r.mv.lit = false;
     L.flash = 0; L.shake = 0; L.slip = false; if (L.ring) { L.ring.fill = 0; L.ring.ok = false; L.ring.inside = false; }
+    if (L.gate) { L.gate.t0 = 0; L.gate.pu = -1; L.gateK = 0; }
     poseLift(L, 0); }
   function resetKit(k, lessonToo) {
     k.B.reset(k.movers);
@@ -3456,7 +3471,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   }
   // ---- levels 2-3: decoys, the shown order, delayed hints, the ring hold ----
   const HINTS = { decoy: 'לֹא אֶת זֶה! הַקְשֵׁב מָה לְהָרִים!', order: 'לֹא בַּסֵּדֶר! מָה הִבְהִיק קֹדֶם?', again: 'הִנֵּה שׁוּב הַסֵּדֶר!', go: 'עַכְשָׁו אַתָּה!',
-    slip: 'כִּמְעַט! עֲצֹר בְּתוֹךְ הַטַּבַּעַת!', slipMiss: 'לְאַט לְאַט... עֲצֹר בַּטַּבַּעַת!' };
+    slip: 'כִּמְעַט! עֲצֹר בְּתוֹךְ הַטַּבַּעַת!', slipMiss: 'לְאַט לְאַט... עֲצֹר בַּטַּבַּעַת!',
+    gate: 'עוֹד לֹא! חַכֵּה לַיָּרֹק!', gateMiss: 'סַבְלָנוּת... חַכֵּה שֶׁיִּהְיֶה יָרֹק!' };
   const hint = (k) => (S.LV && S.LV.hints && S.LV.hints[k]) || (S.C.hints && S.C.hints[k]) || HINTS[k];
   const hintNeed = () => S.level === 2 ? 1 : 2;           // mistakes at a station before the hints come back
   const hintOK = () => S.level === 1 || S.miss >= hintNeed();
@@ -3467,7 +3483,38 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!hit || S.level === 1) return hit;
     if (hit.decoy) { mistake(hit.spec.say || hint('decoy'), hit); return null; }
     if (S.order && hit !== nextL()) { mistake(hint('order'), hit); return null; }
+    if (hit.gate && hit.p < 0.05 && !gateOpen(hit)) { gateWait(hit); return null; }
     return hit;
+  }
+  // the timing gate (levels 2-3): where in its rhythm a gated thing is (0..period; ready while < open)
+  const gateU = (L) => { const G = L.gate, P = G.period; return (((S.clock - G.t0) % P) + P) % P; };
+  const gateOpen = (L) => !!L.gate && gateU(L) < L.gate.open;
+  function gateWait(L) {                   // pushed while not ready: it wobbles, a soft fizzle; free twice per station, then a mistake
+    L.shake = 0.6;
+    if (S.clock - S.gateT < MISS_GAP) return;             // one fumbling finger = one wait
+    S.gateT = S.clock; S.waits++;
+    if (S.waits > 2) mistake(hint('gateMiss'), L);
+    else { fun.sfx.soft(); line(hint('gate'), 1.8, null); }
+  }
+  // per frame: ease each gated thing's openness (L.gateK: a course's own look may follow it; it stays open while the thing
+  // is being pushed or is done) and, for the one being shown, the tick-tick-ding as the window opens and a low tock as it closes
+  function tickGates(dt, show) {
+    if (!S.lifts) return;
+    for (const L of S.lifts) {
+      if (!L.gate) continue;
+      const G = L.gate, u = gateU(L), want = (u < G.open || L.p > 0.02 || L.done) ? 1 : 0;
+      L.gateK += (want - L.gateK) * Math.min(1, dt * 6);
+      if (L === show && S.sub === 'cast' && !L.done && L.p < 0.05 && G.pu >= 0) {
+        const pu = G.pu, P = G.period;
+        if (u < pu) { fun.sfx.tone(1320, 0.12, 'triangle', 0.13); fun.sfx.tone(1760, 0.14, 'sine', 0.09, 0.09); }   // the window opens: ding-ding
+        else {
+          if (pu < P - 0.9 && u >= P - 0.9) fun.sfx.tone(1050, 0.05, 'sine', 0.07);   // tick
+          if (pu < P - 0.45 && u >= P - 0.45) fun.sfx.tone(1050, 0.05, 'sine', 0.08);   // tick
+          if (pu < G.open && u >= G.open) fun.sfx.tone(440, 0.09, 'sine', 0.05);        // closed again: a low soft tock
+        }
+      }
+      G.pu = u;
+    }
   }
   function mistake(text, obj) {
     if (obj) { obj.shake = 0.8; const a = obj.decoy ? obj.spec.at : null; if (a) burst(a[0], a[1] + (obj.spec.aimY || 0) + 0.2, a[2], 5); }
@@ -3518,6 +3565,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function liftDone(L) {
     L.done = true; L.p = 1; L.snap = -1; L.peak = 0; poseLift(L, S.clock);
     for (const r of L.rings) if (!r.mv.lit) { r.mv.lit = true; r.mv.color(0xffe07a); }
+    if (L.gate && L.mv.mat.emissive) L.mv.mat.emissive.setHex(L.gate.hex0);   // (levels 2-3: its own glow colour back)
     S.casts++; if (S.sel === L) S.sel = null;
     liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 20);
     if (L.pet) { L.popT = 0; fun.sfx.heart(); fun.sfx.giggle(true); }   // a happy creature (its heart puff is the course's own)
@@ -3721,6 +3769,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function beginCast() {
     if (S.level > 1) {                    // levels 2-3: nothing pre-selected, no big 🪄 button; an ordered station first shows its order
       S.handOn = false; S.sub = 'cast'; S.idle = 0; S.sel = null; setBtn(false); setPips();
+      if (S.lifts) for (const L of S.lifts) if (L.gate) { L.gate.t0 = S.clock + L.gate.lead; L.gate.pu = -1; }   // timing gates: the rhythm starts now
       if (S.order && S.phase === 'course') showOrder(false);
       return;
     }
@@ -3761,7 +3810,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.phase !== 'course') { S.phase = 'course'; S.tCourse = 0; }
     S.step = i; S.sub = 'walk'; S.lifts = K.stations[i]; S.sel = null; S.fx = null; S.handOn = false;
     S.walk = { pts: st.walk, i: 0 };
-    if (S.level > 1) { for (const D of S.decoys) D.mv.pose(0, -50, 0, 0, 0, 0, 0); S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; }
+    if (S.level > 1) {
+      for (const D of S.decoys) D.mv.pose(0, -50, 0, 0, 0, 0, 0);
+      S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; S.waits = 0; S.gateT = -9;
+      const used = new Set(S.decoys.map(D => D.mv.mesh));   // only this station's decoy meshes are drawn
+      for (const set of K.decoys) for (const D of set) D.mv.mesh.visible = used.has(D.mv.mesh);
+    }
     camTo(st.cam); setPips(); setBtn(false); hideHand();
   }
   function arrive() {
@@ -3886,8 +3940,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.key = key; S.C = C;
     // level 1: S.stations IS the course's own array (nothing merged, nothing changed)
     S.level = level; S.LV = level > 1 ? C.levels[level] : null;
-    S.stations = S.LV ? C.course.stations.map(st => Object.assign({}, st, (S.LV.stations && S.LV.stations[st.id]) || {})) : C.course.stations;
-    Object.assign(S, { order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1 });
+    S.stations = S.LV ? C.course.stations.map(st => { const o = (S.LV.stations && S.LV.stations[st.id]) || {}; return Object.assign({}, st, o, (innerHeight < 500 && o.phone) || {}); }) : C.course.stations;
+    Object.assign(S, { order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9 });
     Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null,
       raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0, handOn: false });
     S.q.length = 0; pipKey = '';
@@ -3937,13 +3991,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // camera; beads light up round it as it is held inside, all bright when it is done
   const _rx = new Vector3(), _ry = new Vector3();
   function tickRing(t) {
-    const B = K.beads; if (!B) return;
-    let L = null;
+    const B = K.beads; if (!B) return null;
+    let L = null, G = null;
     if (S.sub === 'cast' && S.lifts) {
+      const nx = nextL(), shown = (x) => x && (hintOK() || (!S.order && S.lifts.length === 1));
       if (S.sel && !S.sel.done && S.sel.ring) L = S.sel;
-      else { const nx = nextL(); if (nx && nx.ring && (hintOK() || (!S.order && S.lifts.length === 1))) L = nx; }
+      else if (nx && nx.ring && shown(nx)) L = nx;
+      else if (S.sel && !S.sel.done && S.sel.gate) G = S.sel;
+      else if (nx && nx.gate && shown(nx)) G = nx;
     }
-    if (!L) { if (B.visible) { B.visible = false; } return; }
+    if (G) { tickClock(B, G, t); return G; }
+    if (!L) { if (B.visible) { B.visible = false; } return null; }
     B.visible = true;
     const R = L.ring, sv = L.p; L.p = R.uc; liftWorld(L, tmp); L.p = sv; tmp.sub(worldOff);
     _rx.set(1, 0, 0).applyQuaternion(camera.quaternion); _ry.set(0, 1, 0).applyQuaternion(camera.quaternion);
@@ -3954,6 +4012,26 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       _m4.compose(_v, camera.quaternion, _s.setScalar((i < lit || R.ok ? 1.35 : 1) * pulse));
       B.setMatrixAt(i, _m4);
       if (R.ok || i < lit) B.setColorAt(i, _c.setRGB(1.6, 1.25, 0.45)); else B.setColorAt(i, _c.setRGB(0.75, 0.8, 1.0).multiplyScalar(0.7 + 0.25 * Math.sin(t * 4 + i * 0.4)));
+    }
+    B.instanceMatrix.needsUpdate = true; if (B.instanceColor) B.instanceColor.needsUpdate = true;
+  }
+
+  // levels 2-3: a timing gate's clock, the same 16 beads round the thing: while it waits they fill one by one in amber (the
+  // last ones as the ticks play); ready = all green and bigger, going out one by one as the window runs out
+  function tickClock(B, L, t) {
+    B.visible = true;
+    const G = L.gate, u = gateU(L), open = u < G.open || L.p > 0.02, n = 16;
+    const lit = open ? Math.ceil((L.p > 0.02 ? 1 : 1 - u / G.open) * n) : Math.floor((u - G.open) / (G.period - G.open) * n);
+    liftWorld(L, tmp).sub(worldOff);
+    _rx.set(1, 0, 0).applyQuaternion(camera.quaternion); _ry.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    const r = G.R * (open ? 1.08 + Math.sin(t * 9) * 0.03 : 1);
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI / 2 - i / n * Math.PI * 2;
+      _v.copy(tmp).addScaledVector(_rx, Math.cos(a) * r).addScaledVector(_ry, Math.sin(a) * r);
+      _m4.compose(_v, camera.quaternion, _s.setScalar(open ? (i < lit ? 1.5 : 0.9) : (i < lit ? 1.2 : 0.9)));
+      B.setMatrixAt(i, _m4);
+      if (open) B.setColorAt(i, i < lit ? _c.setRGB(0.45, 1.75, 0.55) : _c.setRGB(0.2, 0.55, 0.25));
+      else B.setColorAt(i, i < lit ? _c.setRGB(1.5, 0.95, 0.3) : _c.setRGB(0.55, 0.55, 0.7));
     }
     B.instanceMatrix.needsUpdate = true; if (B.instanceColor) B.instanceColor.needsUpdate = true;
   }
@@ -4039,7 +4117,13 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.level > 1) {                    // the decoys glow like the real things (the glow must not give the answer away); the order preview flashes
       if (S.sub === 'cast') for (const D of S.decoys) if (D.mv.glows) D.mv.mat.emissiveIntensity = pulse * 0.6;   // (the same pulse; dark iron reads cream at full strength)
       if (S.lifts) for (const L of S.lifts) if (L.flash > 0 && L.mv.glows && !L.mv.mesh.isInstancedMesh) L.mv.mat.emissiveIntensity = 1.1;
-      tickRing(t);
+      const gl = tickRing(t);              // (returns the gated thing whose clock is shown, if any)
+      tickGates(dt, gl);
+      if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) {   // a gated thing glows green while ready, its own soft glow while waiting
+        if (!L.gate || L.done || !L.mv.glows || !L.mv.mat.emissive) continue;
+        const on = gateOpen(L) || L.p > 0.02;
+        L.mv.mat.emissive.setHex(on ? GATE_GREEN : L.gate.hex0); L.mv.mat.emissiveIntensity = on ? 0.6 + Math.sin(t * 9) * 0.15 : pulse * 0.5;
+      }
     }
     if (K.ghosts.length) {
       // Vera Verto: the glowing silhouette of each open thing's after shape floats above it (no outline box)
@@ -4166,7 +4250,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         level: S.on ? S.level : null, mistakes: S.mistakes, miss: S.miss, slips: S.slips, hint: S.on ? hintOK() : false, showing: S.showI,
         order: S.on && S.order ? S.order.map(L => S.lifts.indexOf(L)) : null, next: S.on && S.lifts && nextL() ? S.lifts.indexOf(nextL()) : -1,
         decoys: S.on ? S.decoys.length : 0, btn: spB.classList.contains('on'), choice: lvOv.classList.contains('on'),
-        ring: S.on && S.lifts ? S.lifts.map(L => L.ring ? { uc: L.ring.uc, fill: Math.round(L.ring.fill * 100) / 100, ok: L.ring.ok, inside: L.ring.inside, slip: L.slip } : null) : null };
+        ring: S.on && S.lifts ? S.lifts.map(L => L.ring ? { uc: L.ring.uc, fill: Math.round(L.ring.fill * 100) / 100, ok: L.ring.ok, inside: L.ring.inside, slip: L.slip } : null) : null,
+        gate: S.on && S.lifts ? S.lifts.map(L => L.gate ? { open: gateOpen(L), u: Math.round(gateU(L) * 100) / 100, k: Math.round(L.gateK * 100) / 100, period: L.gate.period, win: L.gate.open } : null) : null,
+        waits: S.waits };
     },
     // test hooks
     _cast() {
