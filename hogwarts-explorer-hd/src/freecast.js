@@ -231,7 +231,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     const f = player.yaw, sx = Math.sin(f), sz = Math.cos(f);
     let bestT = null, bs = 1e9;
     for (const t of TARGETS) {
-      if (!t.spells.includes(key) || !t.ok(key)) continue;
+      if (!t.spells.includes(key) || (t.corner && !(C && C.group.visible)) || !t.ok(key)) continue;
       t.at(tv); const dx = tv.x - pos.x, dz = tv.z - pos.z, d = Math.hypot(dx, dz);
       if (d > maxD || Math.abs(tv.y - pos.y) > 4) continue;
       const dot = d < 0.01 ? 1 : (dx * sx + dz * sz) / d, sc = d - dot * 3;
@@ -265,6 +265,250 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
       if (C.group.visible !== near) C.group.visible = near;
     },
   };
+
+
+  // ================= spells on things =================
+  const _qa = new Quaternion(), _qb = new Quaternion(), w0 = new Vector3(), w1 = new Vector3(), w2 = new Vector3();
+  const resetBone = (i) => { const b = C.bones[i], r = C.rest[i]; b.position.copy(r.p); b.quaternion.copy(r.q); b.scale.copy(r.s); };
+  const toLocal = (wv, out) => out.copy(wv).sub(C.group.position);
+  const cornerTarget = (t) => { t.corner = true; TARGETS.push(t); return t; };
+  // a spell that needs a target: the sparks fly there and the target's own cast() does the rest
+  function targeted(key, extra = {}) {
+    return {
+      cast() {
+        const t = best(key); if (!t) return false;
+        t.at(tv);
+        if (key === 'aguamenti') jet(tv); else stream(tv, BYKEY[key].col);
+        t.cast(key); this.lastId = t.id; return true;
+      },
+      ...extra,
+    };
+  }
+
+  // ---- Lumos / Nox: a warm light at the wand tip, a pool of light on the ground, a modest ambient lift ----
+  const addMat = (hex, op = 1) => new MeshBasicMaterial({ map: glowTex, color: hex, transparent: true, opacity: op, depthWrite: false, blending: AdditiveBlending });
+  const lumGlow = new Mesh(new PlaneGeometry(1, 1), addMat(0xfff0c8));
+  const lumPool = new Mesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), addMat(0xffd690, 0.4));
+  for (const m of [lumGlow, lumPool]) { m.visible = false; m.frustumCulled = false; m.raycast = () => {}; m.renderOrder = 5; scene.add(m); }
+  let lumOn = false, lumK = 0, boost = 0, rDepth = 0, rSaved = null;
+  // the lift exists only while a frame renders (scene before/after render), so nothing that saves or
+  // restores the ambient (the interiors, a spell course's dimming) ever sees or keeps our boosted value
+  const prevB = scene.onBeforeRender, prevA = scene.onAfterRender;
+  scene.onBeforeRender = function (...a) { if (rDepth++ === 0 && boost > 0 && env && env.amb) { rSaved = env.amb.intensity; env.amb.intensity += boost; } return prevB && prevB.apply(this, a); };
+  scene.onAfterRender = function (...a) { if (--rDepth <= 0) { rDepth = 0; if (rSaved !== null) { env.amb.intensity = rSaved; rSaved = null; } } return prevA && prevA.apply(this, a); };
+  SP.lumos = {
+    noFallback: true, isOn: () => lumOn, toggles: 0,
+    cast() { lumOn = !lumOn; this.toggles++; this.lastId = lumOn ? 'lumos' : 'nox'; lumOn ? fun.sfx.chime() : fun.sfx.soft(); return true; },
+    tick(dt, inside, busy) {
+      if (rSaved !== null) { env.amb.intensity = rSaved; rSaved = null; rDepth = 0; }   // a render that never closed: put it back
+      lumK += ((lumOn && !busy ? 1 : 0) - lumK) * Math.min(1, dt * 6);
+      const vis = lumK > 0.01; lumGlow.visible = lumPool.visible = vis;
+      if (!vis) { boost = 0; return; }
+      const dark = inside || (env && env.time !== 'day');
+      tip(); lumGlow.position.copy(tipV); lumGlow.quaternion.copy(camera.quaternion);
+      lumGlow.scale.setScalar((dark ? 1.1 : 0.8) * lumK * (1 + Math.sin(T * 13) * 0.05));
+      lumPool.position.set(pos.x, pos.y + 0.06, pos.z); lumPool.scale.setScalar((dark ? 8 : 5) * lumK);
+      lumPool.material.opacity = (dark ? 0.5 : 0.22) * lumK;
+      boost = (dark ? 0.38 : 0.12) * lumK;
+    },
+    state: () => ({ on: lumOn, k: +lumK.toFixed(2), boost: +boost.toFixed(2), toggles: SP.lumos.toggles }),
+  };
+
+  // ---- loose props: Wingardium Leviosa (float, bob, spin, set down) and Accio (fly to Harry, hover, go home) ----
+  const props = {};
+  function mkProp(id, bi, spells) {
+    const p = { id, bi, mode: null, t: 0, maxRise: 0, floats: 0, accios: 0, reached: 0, reachD: null, returned: 0, from: new Vector3() };
+    props[id] = p;
+    cornerTarget({ id, spells, at: (o) => boneW(bi, o), ok: () => !p.mode, cast: (k) => { p.mode = k === 'accio' ? 'accio' : 'float'; p.t = -0.35; if (p.mode === 'float') p.maxRise = 0; } });
+    return p;
+  }
+  if (C) { mkProp('feather', B.feather, ['leviosa']); mkProp('book', B.book, ['leviosa', 'accio']); mkProp('crate', B.crate, ['leviosa']); mkProp('broom', B.broom, ['accio']); }
+  const FL = 5.9, AA = 0.9, AH = 3.0, AR = 1.1;
+  function hoverPoint(out) { const f = player.yaw; tip(); return out.set(tipV.x + Math.sin(f) * 0.55, pos.y + 1.2 * player.model.scale.y, tipV.z + Math.cos(f) * 0.55); }
+  function tickProp(p, dt) {
+    if (!p.mode) return;
+    p.t += dt; if (p.t < 0) return;
+    const b = C.bones[p.bi], r = C.rest[p.bi], t = p.t;
+    if (p.mode === 'float') {
+      const y = t < 1 ? ease(t) * 1.3 : t < 4.6 ? 1.3 + Math.sin((t - 1) * 3) * 0.12 : 1.3 * (1 - ease((t - 4.6) / 1.3));
+      b.position.copy(r.p); b.position.y += y; p.maxRise = Math.max(p.maxRise, y);
+      const amp = Math.sin(Math.PI * Math.min(1, t / FL)), ang = Math.PI * 4 * ease(Math.min(t, FL) / FL);
+      b.quaternion.copy(_qa.setFromEuler(_e.set(Math.sin(t * 2.3) * 0.3 * amp, ang, Math.cos(t * 1.7) * 0.2 * amp))).multiply(r.q);
+      if (Math.random() < dt * 8) { boneW(p.bi, w0); emit(w0.x, w0.y, w0.z, (Math.random() - 0.5) * 0.4, -0.2, (Math.random() - 0.5) * 0.4, 0.8, 0.18, 0xd8c8ff); }
+      if (t >= FL) { resetBone(p.bi); p.mode = null; p.floats++; fun.sfx.soft(); }
+    } else {
+      const restW = w1.copy(r.p).add(C.group.position);
+      let ang;
+      if (t < AA) {
+        const k = ease(t / AA); hoverPoint(w2); w0.lerpVectors(restW, w2, k); w0.y += Math.sin(k * Math.PI) * 1.0; ang = k * Math.PI * 2;
+      } else if (t < AA + AH) {
+        if (!p.reachedNow) { p.reachedNow = true; p.reached++; hoverPoint(w2); p.reachD = +Math.hypot(w2.x - pos.x, w2.z - pos.z).toFixed(2); fun.sfx.pop(); burst(w2.x, w2.y, w2.z, 0x9ad8ff, 10, 1.2, 0.5, 0.18, 0); }
+        hoverPoint(w0); w0.y += Math.sin((t - AA) * 3.2) * 0.08; ang = (t - AA) * 1.2;
+        p.from.copy(w0);
+      } else {
+        const k = ease((t - AA - AH) / AR); w0.lerpVectors(p.from, restW, k); w0.y += Math.sin(k * Math.PI) * 0.9; ang = (1 - k) * AH * 1.2;
+      }
+      toLocal(w0, b.position);
+      b.quaternion.copy(_qa.setFromEuler(_e.set(0, ang, 0))).multiply(r.q);
+      if (Math.random() < dt * 10) { boneW(p.bi, w0); emit(w0.x, w0.y, w0.z, 0, 0.1, 0, 0.6, 0.16, 0x9ad8ff); }
+      if (t >= AA + AH + AR) { resetBone(p.bi); p.mode = null; p.reachedNow = false; p.returned++; p.accios++; fun.sfx.soft(); }
+    }
+  }
+  SP.leviosa = targeted('leviosa', { tick(dt) { if (C) for (const k in props) tickProp(props[k], dt); }, state: () => Object.fromEntries(Object.values(props).map(p => [p.id, { mode: p.mode, maxRise: +p.maxRise.toFixed(2), floats: p.floats, reached: p.reached, reachD: p.reachD, returned: p.returned, dy: C ? +(C.bones[p.bi].position.y - C.rest[p.bi].p.y).toFixed(2) : 0 }])) });
+  SP.accio = targeted('accio');
+
+  // ---- Alohomora: the chest's lock pops, the lid swings, a gold star rises (house points once) ----
+  const chest = { state: 'locked', t: 0, opens: 0, paid: 0, rewarded: false };
+  if (C) {
+    C.bones[B.reward].scale.setScalar(0.001);
+    cornerTarget({ id: 'chest', spells: ['alohomora'], at: (o) => boneW(B.lock, o), ok: () => chest.state === 'locked', cast: () => { chest.state = 'opening'; chest.t = -0.35; chest.opens++; chest.rewarded = false; } });
+  }
+  function tickChest(dt) {
+    if (!C || chest.state === 'locked') return;
+    chest.t += dt; const t = chest.t; if (t < 0) return;
+    const lk = C.bones[B.lock], lr = C.rest[B.lock], ld = C.bones[B.lid], lrr = C.rest[B.lid], rw = C.bones[B.reward], rr = C.rest[B.reward];
+    if (t < 3.2) {
+      const k = Math.min(1, t / 0.7);
+      lk.position.copy(lr.p); lk.position.y += Math.sin(k * Math.PI) * 0.45 + k * 0.1; lk.position.z += k * 0.45;
+      lk.quaternion.copy(_qa.setFromEuler(_e.set(k * 9, 0, 0))).multiply(lr.q); lk.scale.setScalar(Math.max(0.001, 1 - ease((k - 0.5) * 2)));
+      if (t > 0 && !chest.popped) { chest.popped = true; fun.sfx.clank(); boneW(B.lock, w0); burst(w0.x, w0.y, w0.z, 0xffd76a, 18, 2, 0.7, 0.2, -2); }
+      ld.quaternion.copy(lrr.q).multiply(_qa.setFromEuler(_e.set(-1.9 * ease((t - 0.25) / 0.6), 0, 0)));
+      if (t > 0.8) {
+        const k2 = ease((t - 0.8) / 1.2), out = t > 2.6 ? 1 - ease((t - 2.6) / 0.5) : 1;
+        rw.position.copy(rr.p); rw.position.y += k2 * 1.1; rw.quaternion.copy(_qa.setFromEuler(_e.set(0, t * 5, 0)));
+        rw.scale.setScalar(Math.max(0.001, k2 * out * 1.3));
+        if (Math.random() < dt * 14) { boneW(B.reward, w0); emit(w0.x + (Math.random() - 0.5) * 0.4, w0.y + (Math.random() - 0.5) * 0.4, w0.z, 0, 0.3, 0, 0.7, 0.2, 0xffe27a); }
+      }
+      if (t > 2.6 && !chest.rewarded) {
+        chest.rewarded = true; boneW(B.reward, w0); burst(w0.x, w0.y, w0.z, 0xffe27a, 26, 2.4, 0.9, 0.24, -1.5); fun.sfx.tada();
+        if (!st.chestPaid) {
+          st.chestPaid = true; persist(); chest.paid++;
+          try { window.HPLessons.progress.bonus(10); } catch { /* lessons not loaded */ }
+          fun.toast('🔓⭐', '+10 נְקֻדּוֹת לַבַּיִת!', 2400); fun.confetti(['⭐', '✨', '🪙', '💛'], 18);
+        } else fun.toast('🔓✨', 'נִפְתַּח!', 1400);
+      }
+    } else if (t < 10) {
+      chest.state = 'open'; lk.scale.setScalar(0.001); rw.scale.setScalar(0.001);
+      ld.quaternion.copy(lrr.q).multiply(_qa.setFromEuler(_e.set(-1.9, 0, 0)));
+    } else if (t < 11.4) {
+      ld.quaternion.copy(lrr.q).multiply(_qa.setFromEuler(_e.set(-1.9 * (1 - ease((t - 10) / 0.8)), 0, 0)));
+      if (t > 10.8) { resetBone(B.lock); lk.scale.setScalar(Math.max(0.001, ease((t - 10.8) / 0.5))); }
+    } else { resetBone(B.lid); resetBone(B.lock); chest.state = 'locked'; chest.popped = false; fun.sfx.tink(); }
+  }
+  SP.alohomora = targeted('alohomora', { tick: tickChest, state: () => ({ state: chest.state, opens: chest.opens, paid: chest.paid, paidEver: st.chestPaid }) });
+
+
+  // ---- the Aguamenti water jet: droplets thrown on a ballistic arc from the tip to the target ----
+  const jets = [];
+  function jet(to, dur = 1.1) { jets.push({ x: to.x, y: to.y, z: to.z, t: 0, dur, acc: 0 }); fun.sfx.noise(dur, 0.12, 0, 1400, 0.4); }
+  function tickJets(dt) {
+    for (let i = jets.length - 1; i >= 0; i--) {
+      const j = jets[i]; j.t += dt; j.acc += dt; tip();
+      const tt = 0.55, g = -9;
+      while (j.acc > 0.014) {
+        j.acc -= 0.014;
+        const vx = (j.x - tipV.x) / tt, vz = (j.z - tipV.z) / tt, vy = (j.y - tipV.y) / tt - 0.5 * g * tt, sp = 0.35;
+        emit(tipV.x, tipV.y, tipV.z, vx + (Math.random() - 0.5) * sp, vy + (Math.random() - 0.5) * sp, vz + (Math.random() - 0.5) * sp, tt * (0.9 + Math.random() * 0.25), 0.16, Math.random() < 0.2 ? 0xe8f6ff : 0x4aa8ff, g, 0);
+      }
+      if (j.t >= j.dur) { jets.splice(i, 1); burst(j.x, j.y, j.z, 0x8ad0ff, 12, 1.4, 0.5, 0.16, -5); }
+    }
+  }
+
+  // ---- Reparo: the smashed vase flies back together (and topples again after a while) ----
+  const vase = { state: 'broken', t: 0, mends: 0, breaks: 0 };
+  const shardIdx = (i) => B.shard0 + i;
+  function poseShards(k, arc = 0) {   // k = 0 broken .. 1 whole
+    for (let i = 0; i < C.NSHARD; i++) {
+      const b = C.bones[shardIdx(i)], r = C.rest[shardIdx(i)], br = C.shardsBroken[i], kk = typeof k === 'function' ? k(i) : k;
+      b.position.lerpVectors(br.p, r.p, kk); b.position.y += Math.sin(kk * Math.PI) * arc;
+      b.quaternion.slerpQuaternions(br.q, r.q, kk);
+    }
+  }
+  if (C) {
+    poseShards(0);
+    cornerTarget({ id: 'vase', spells: ['reparo'], at: (o) => o.set(C.PD.x, C.PD.y + 0.3, C.PD.z).add(C.group.position).setY(C.group.position.y + C.PD.y + 0.3), ok: () => vase.state === 'broken', cast: () => { vase.state = 'mending'; vase.t = -0.35; } });
+  }
+  function tickVase(dt) {
+    if (!C || vase.state === 'broken') return;
+    vase.t += dt; const t = vase.t;
+    if (vase.state === 'mending') {
+      if (t < 0) return;
+      poseShards((i) => ease((t - i * 0.08) / 0.9), 0.6);
+      if (Math.random() < dt * 20) { const b = C.bones[shardIdx((Math.random() * C.NSHARD) | 0)]; w0.copy(b.position).add(C.group.position); emit(w0.x, w0.y + 0.2, w0.z, 0, 0.4, 0, 0.6, 0.18, 0x9affc8); }
+      if (t >= 1.45) { poseShards(1); vase.state = 'whole'; vase.t = 0; vase.mends++; w0.set(C.PD.x, C.PD.top + 0.3, C.PD.z).add(C.group.position); burst(w0.x, w0.y, w0.z, 0x9affc8, 22, 2, 0.8, 0.22, -1); fun.sfx.tink(0); fun.sfx.tink(3); fun.sfx.chime(); }
+    } else if (vase.state === 'whole') {
+      if (t > 30) { vase.state = 'wobble'; vase.t = 0; }
+    } else if (vase.state === 'wobble') {
+      const a = Math.sin(t * 16) * 0.12 * Math.min(1, t / 0.8);
+      _qb.setFromEuler(_e.set(a * 0.5, 0, a));
+      for (let i = 0; i < C.NSHARD; i++) { const b = C.bones[shardIdx(i)], r = C.rest[shardIdx(i)]; b.position.copy(r.p); b.quaternion.copy(_qb).multiply(r.q); }
+      if (t > 1.0) { vase.state = 'falling'; vase.t = 0; }
+    } else if (vase.state === 'falling') {
+      poseShards(1 - ease(t / 0.45), 0.25);
+      if (t >= 0.45) { poseShards(0); vase.state = 'broken'; vase.breaks++; fun.sfx.clank(); }
+    }
+  }
+  SP.reparo = targeted('reparo', { tick: tickVase, state: () => ({ state: vase.state, mends: vase.mends, breaks: vase.breaks }) });
+
+  // ---- Incendio lights the torches (they stay lit); Aguamenti puts one out ----
+  const torches = C ? C.TORCH.map((t, i) => ({ i, lit: false, k: 0, pend: 0, out: 0, lights: 0, douses: 0 })) : [];
+  torches.forEach((tc) => {
+    const t = C.TORCH[tc.i];
+    cornerTarget({ id: 'torch' + tc.i, spells: ['incendio', 'aguamenti'], at: (o) => o.set(t.x, t.flameY - 0.05, t.z).add(C.group.position),
+      ok: (k) => (k === 'incendio' ? !tc.lit && !tc.pend : tc.lit && !tc.out),
+      cast: (k) => { if (k === 'incendio') tc.pend = 0.4; else tc.out = 1.0; } });
+  });
+  let emberT = 0;
+  function tickTorches(dt) {
+    if (!C) return;
+    let any = false;
+    for (const tc of torches) {
+      const t = C.TORCH[tc.i];
+      if (tc.pend > 0) { tc.pend -= dt; if (tc.pend <= 0) { tc.pend = 0; tc.lit = true; tc.lights++; w0.set(t.x, t.flameY, t.z).add(C.group.position); burst(w0.x, w0.y, w0.z, 0xff9a30, 22, 2.2, 0.7, 0.24, 1); fun.sfx.whoosh(); fun.sfx.boom(); } }
+      if (tc.out > 0) { tc.out -= dt; if (tc.out <= 0.45 && tc.lit) { tc.lit = false; tc.douses++; w0.set(t.x, t.flameY, t.z).add(C.group.position); for (let n = 0; n < 16; n++) emit(w0.x + (Math.random() - 0.5) * 0.3, w0.y, w0.z + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0.6 + Math.random() * 0.6, (Math.random() - 0.5) * 0.3, 1.4, 0.4, 0x707a84, 0.2, 0.5); fun.sfx.noise(0.7, 0.14, 0, 3000, 0.8, 'highpass'); } if (tc.out < 0) tc.out = 0; }
+      tc.k += ((tc.lit ? 1 : 0) - tc.k) * Math.min(1, dt * (tc.lit ? 5 : 8));
+      if (tc.k > 0.01) any = true;
+    }
+    const F = C.flames;
+    if (!any || !C.group.visible) { if (F.visible) F.visible = false; return; }
+    F.visible = true;
+    emberT -= dt; const ember = emberT <= 0; if (ember) emberT = 0.12;
+    for (const tc of torches) {
+      const t = C.TORCH[tc.i], k = tc.k, fl = 1 + Math.sin(T * 17 + tc.i * 2.1) * 0.08 + Math.sin(T * 29 + tc.i) * 0.05;
+      F.setMatrixAt(tc.i, _m4.compose(w0.set(t.x, t.flameY + 0.04 * fl, t.z), camera.quaternion, w1.set(0.36 * k, 0.62 * k * fl, 1)));
+      F.setMatrixAt(3 + tc.i, _m4.compose(w0.set(t.x, t.flameY - 0.02, t.z), camera.quaternion, w1.set(1.5 * k * fl, 1.5 * k * fl, 1)));
+      if (ember && tc.lit) { w2.set(t.x, t.flameY + 0.1, t.z).add(C.group.position); emit(w2.x, w2.y, w2.z, (Math.random() - 0.5) * 0.3, 0.8 + Math.random() * 0.5, (Math.random() - 0.5) * 0.3, 0.9, 0.08, 0xffa040, 0.4); }
+    }
+    F.instanceMatrix.needsUpdate = true;
+  }
+  SP.incendio = targeted('incendio', { tick: tickTorches, state: () => ({ lit: torches.map(t => t.lit), lights: torches.reduce((a, t) => a + t.lights, 0), douses: torches.reduce((a, t) => a + t.douses, 0) }) });
+
+  // ---- Aguamenti waters the flower bed: the flowers perk up, the pumpkin grows ----
+  const bed = { wilt: 1, wiltTo: 1, pk: 1, pkTo: 1, last: -1e9, waters: 0, grows: 0, pend: 0 };
+  if (C) cornerTarget({ id: 'bed', spells: ['aguamenti'], at: (o) => o.set(C.BD.x, C.BD.y + 0.3, C.BD.z).add(C.group.position), ok: () => !bed.pend, cast: () => { bed.pend = 0.8; } });
+  function tickBed(dt) {
+    if (!C) return;
+    if (bed.pend > 0) {
+      bed.pend -= dt;
+      if (bed.pend <= 0) {
+        bed.pend = 0; bed.waters++; bed.last = T; bed.wiltTo = 0;
+        const n = Math.min(2.4, bed.pkTo * 1.35); if (n > bed.pkTo + 0.01) bed.grows++; bed.pkTo = n;
+        w0.set(C.BD.x, C.BD.y + 0.5, C.BD.z).add(C.group.position); burst(w0.x, w0.y, w0.z, 0x9aff7a, 18, 1.6, 0.9, 0.22, -0.5); fun.sfx.giggle(true); fun.sfx.sparkle();
+      }
+    }
+    if (T - bed.last > 45) { bed.wiltTo = 1; bed.pkTo = 1; }
+    const fast = bed.wiltTo < bed.wilt;
+    bed.wilt += (bed.wiltTo - bed.wilt) * Math.min(1, dt * (fast ? 2 : 0.3));
+    bed.pk += (bed.pkTo - bed.pk) * Math.min(1, dt * (bed.pkTo > bed.pk ? 2.5 : 0.3));
+    if (!C.group.visible) return;
+    for (let i = 0; i < C.NFLOWER; i++) {
+      const bi = C.flowers[i], b = C.bones[bi], r = C.rest[bi], w = bed.wilt, s = i % 2 ? 1 : -1;
+      b.quaternion.copy(r.q).multiply(_qa.setFromEuler(_e.set(0.35 * w, 0, s * 1.15 * w + Math.sin(T * 2 + i) * 0.04 * (1 - w))));
+      b.scale.set(1, 0.82 + 0.18 * (1 - w), 1);
+    }
+    C.bones[B.pumpkin].scale.setScalar(bed.pk);
+  }
+  SP.aguamenti = targeted('aguamenti', { tick(dt) { tickBed(dt); tickJets(dt); }, state: () => ({ wilt: +bed.wilt.toFixed(2), pumpkin: +bed.pk.toFixed(2), waters: bed.waters, grows: bed.grows }) });
 
   // ================= casting =================
   function castSelected() {
