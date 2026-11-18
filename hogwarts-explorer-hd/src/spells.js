@@ -241,23 +241,23 @@ export const COURSES = {
     levels: {
       2: { twist: 'עַכְשָׁו בַּסֵּדֶר הַנָּכוֹן! שִׂים לֵב מָה מַבְהִיק!', star3: 300,
         stations: {
-          shelf: { decoys: [chCat(0, -12.05, 0.75, CH_CAM.shelf), chCaul(0, -12.0, 2.5)] },
-          bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', order: [1, 2, 0], decoys: [chCaul(1, -13.05, 6.15), chCat(1, -10.55, 6.0, CH_CAM.bridge)] },
-          arch: { decoys: [chCat(2, -8.75, 5.25, CH_CAM.arch)] },
+          shelf: { decoys: [chCat(0, -12.05, 0.75, CH_CAM.shelf), chCaul(0, -12.75, 0.35)] },
+          bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', order: [1, 2, 0], decoys: [chCaul(1, -10.7, 4.95), chCat(1, -10.55, 6.0, CH_CAM.bridge)] },
+          arch: { decoys: [chCat(2, -8.6, 7.95, CH_CAM.arch)] },
           chest: { decoys: [chCaul(2, -6.05, 5.0)] },
-          rings: { decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(3, -7.75, 0.15)] },
+          rings: { decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(3, -6.6, -0.2)] },
         } },
       3: { twist: 'עַכְשָׁו בְּזָהִירוּת: עֲצֹר בְּדִיּוּק בַּטַּבַּעַת!', star3: 420,
         stations: {
           shelf: { say: 'הַחְזֵר אֶת הַסְּפָרִים בַּסֵּדֶר!', hold: 0.42,
             lifts: [chBook('book', 1.8, CH3.gaps[0], { ringR: 0.3 }), chBook('xbook0', 0.9, CH3.gaps[1], { ringR: 0.3 }), chBook('xbook1', 1.35, CH3.gaps[2], { ringR: 0.3 }), chBook('xbook2', 2.25, CH3.gaps[3], { ringR: 0.3 })],
-            order: [2, 0, 3, 1], decoys: [chCaul(0, -11.95, 2.8)] },
+            order: [2, 0, 3, 1], decoys: [chCaul(0, -12.75, 0.35)] },
           bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', hold: 0.45,
             lifts: CH3.holes.map((x, i) => ({ m: 'block' + i, path: [[x, 0.2, 5.5], [x, 1.5, 5.0], [x, 0.79, 4.3]], rot0: [0, 0.35 - i * 0.25, 0], rot1: [0, 0, 0], ringR: 0.42 })),
-            order: [3, 1, 0, 2], decoys: [chCat(0, -10.3, 6.05, CH_CAM.bridge), chCaul(1, -13.25, 6.15)] },
-          arch: { hold: 0.45, ringR: 0.55, decoys: [chCat(1, -8.75, 5.25, CH_CAM.arch), chCaul(2, -8.6, 8.15)] },
+            order: [3, 1, 0, 2], decoys: [chCat(0, -10.3, 6.05, CH_CAM.bridge), chCaul(1, -10.55, 4.95)] },
+          arch: { hold: 0.45, ringR: 0.55, decoys: [chCat(1, -8.6, 7.95, CH_CAM.arch), chCaul(2, -7.0, 7.9)] },
           chest: { hold: 0.45, ringR: 0.36, decoys: [chCaul(3, -6.05, 5.0), chCat(2, -4.05, 4.75, CH_CAM.chest)] },
-          rings: { hold: 0.45, ringR: 0.55, decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(4, -7.75, 0.15)] },
+          rings: { hold: 0.45, ringR: 0.55, decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(4, -6.6, -0.2)] },
         } },
     },
   },
@@ -736,8 +736,8 @@ function buildCharms(kit) {
   // levels 2-3: the decoys (posed by the runner from the level's data; spare ones stay hidden)
   const NDEC = 5;
   if (kit.level > 1) {
-    kit.inst('dcaul', cauldronGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xffd27a });
-    kit.inst('dcat', sleepCatGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xffd27a });
+    kit.inst('dcaul', cauldronGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0x9a7a3a });   // (a softer glow: dark iron must not wash out to cream)
+    kit.inst('dcat', sleepCatGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xb08a4a });
   }
 
   const owlA = [-13.2, 1.0, 4.3], owlB = [-10.4, 1.0, 4.3];
@@ -3331,7 +3331,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     k.B.reset(k.movers);
     if (lessonToo) for (const L of k.lesson) resetLift(L);
     for (const set of k.stations) for (const L of set) resetLift(L);
-    if (k.decoys) for (const set of k.decoys) for (const D of set) { D.shake = 0; poseDecoy(D, 0); }
+    if (k.decoys) for (const set of k.decoys) for (const D of set) { D.shake = 0; D.mv.pose(0, -50, 0, 0, 0, 0, 0); }   // a station's decoys appear when you get there
   }
   // a decoy sits where its level puts it (at, ry); a 'cat' breathes in its sleep; cast on it and it shakes its head
   // ('no') or rattles where it stands ('rattle': too heavy)
@@ -3760,7 +3760,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.phase !== 'course') { S.phase = 'course'; S.tCourse = 0; }
     S.step = i; S.sub = 'walk'; S.lifts = K.stations[i]; S.sel = null; S.fx = null; S.handOn = false;
     S.walk = { pts: st.walk, i: 0 };
-    if (S.level > 1) { S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; }
+    if (S.level > 1) { for (const D of S.decoys) D.mv.pose(0, -50, 0, 0, 0, 0, 0); S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; }
     camTo(st.cam); setPips(); setBtn(false); hideHand();
   }
   function arrive() {
@@ -4091,6 +4091,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
 
   // ---- the level choice: three big buttons (icon, name, stars or a lock) + back ----
   const lvOv = el('div', 'spLv');
+  lvOv.addEventListener('pointerdown', ev => { if (ev.target === lvOv) { ev.stopPropagation(); closeLevels(); } });   // a tap beside the panel closes it
   let lvFrom = null;
   function lvSetModal(v) { try { if (window.__game && window.__game.setModal) window.__game.setModal(v); } catch { /* ignore */ } }
   function openLevels(key, from) {
@@ -4119,7 +4120,6 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         bell.click(); const all = document.querySelector('#pickOv .spCard[data-sp="all"]'); if (all) all.click();
       }, 60);
     });
-    lvOv.addEventListener('pointerdown', ev => { if (ev.target === lvOv) { ev.stopPropagation(); closeLevels(); } }, { once: true });
     lvOv.classList.add('on'); lvSetModal(true); fun.sfx.flip();
     return true;
   }
