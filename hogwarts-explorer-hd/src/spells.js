@@ -278,10 +278,14 @@ export const COURSES = {
           shelf: { say: 'הַחְזֵר אֶת הַסְּפָרִים בַּסֵּדֶר!', hold: 0.42, ringR: 0.3,
             cam: { pos: [-9.9, 2.1, -0.1], look: [-12.6, 1.0, 1.3] },     // closer: four books on the floor need room on a phone
             lifts: [chBook('book', 0.8, CH3.gaps[0]), chBook('xbook0', 1.7, CH3.gaps[1]), chBook('xbook1', 0.35, CH3.gaps[2]), chBook('xbook2', 1.25, CH3.gaps[3])],
-            order: [2, 0, 3, 1], decoys: [chCaul(0, -13.0, 0.25)] },
+            order: [2, 0, 3, 1], decoys: [chCaul(0, -13.0, 0.25)],
+            // phone-height screens: the books lie wider apart (0.65 m, same order along the floor) under a lower, closer camera
+            phone: { cam: { pos: [-11.1, 2.1, 1.1], look: [-12.6, 1.2, 1.2] },
+              lifts: [chBook('book', 0.55, CH3.gaps[0]), chBook('xbook0', 1.85, CH3.gaps[1]), chBook('xbook1', -0.1, CH3.gaps[2]), chBook('xbook2', 1.2, CH3.gaps[3])] } },
           bridge: { say: 'הָרֵם אֶת הַקֻּבִּיּוֹת בַּסֵּדֶר!', hold: 0.45, cam: { pos: [-9.9, 2.55, 7.35], look: [-11.8, 0.8, 4.6] },
             lifts: CH3.holes.map((x, i) => ({ m: 'block' + i, path: [[x, 0.2, 5.5], [x, 1.5, 5.0], [x, 0.79, 4.3]], rot0: [0, 0.35 - i * 0.25, 0], rot1: [0, 0, 0], ringR: 0.42 })),
-            order: [3, 1, 0, 2], decoys: [chCat(0, -10.3, 6.05, CH_CAM.bridge), chCaul(1, -10.55, 4.95)] },
+            order: [3, 1, 0, 2], decoys: [chCat(0, -10.3, 6.05, CH_CAM.bridge), chCaul(1, -10.55, 4.95)],
+            phone: { cam: { pos: [-12.4, 2.0, 6.6], look: [-11.8, 0.6, 4.6] } } },   // phone-height: from beside the hero, low over the blocks
           arch: { hold: 0.45, ringR: 0.55, decoys: [chCat(1, -8.6, 7.95, CH_CAM.arch), chCaul(2, -7.0, 7.9)] },
           chest: { hold: 0.45, ringR: 0.36, decoys: [chCaul(3, -6.05, 5.0), chCat(2, -4.05, 4.75, CH_CAM.chest)] },
           rings: { hold: 0.555, ringR: 0.64, decoys: [chCat(3, -9.35, 1.15, CH_CAM.rings), chCaul(4, -6.0, -0.9)] },   // the ring hold frames the middle ring
