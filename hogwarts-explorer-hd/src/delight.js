@@ -109,8 +109,8 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
     lastCast.target = best ? best.id : null;
     return true;
   }
-  wandBtn.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); cast(); });
-  addEventListener('keydown', e => { if (e.key.toLowerCase() === 'f' && !window.__game.takeover) cast(); });
+  wandBtn.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); (api.onWand || cast)(); });   // freecast.js sets onWand (the selected spell; falls back to cast())
+  addEventListener('keydown', e => { if (e.key.toLowerCase() === 'f' && !window.__game.takeover) (api.onWand || cast)(); });
   function land() {
     const tg = fly.target;
     if (tg) {

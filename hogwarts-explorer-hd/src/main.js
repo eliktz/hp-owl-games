@@ -28,6 +28,7 @@ import { createStudents } from './students.js';
 import { createQuidditch } from './quidditch.js';
 import { createDelight } from './delight.js';
 import { createSpells } from './spells.js';
+import { createFreecast } from './freecast.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -245,6 +246,8 @@ async function boot() {
   if (students) hooks.push((dt, inside) => students.update(dt, inside));
   if (spells) hooks.push(() => spells.idle());
   if (hut) hooks.push((dt, inside) => hut.update(dt, player.pos, inside));
+  let freecast = null;   // free-play spell wheel (freecast.js); any failure -> simply the plain wand
+  try { freecast = createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal: () => modal, isTakeover: () => !!takeover, registerOutdoor: (o) => outdoorRoots.push(o) }); hooks.push((dt, inside) => freecast.update(dt, inside)); } catch (e) { console.warn('[freecast] disabled -', e && e.message || e); freecast = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -324,7 +327,7 @@ async function boot() {
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
-    music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; },
+    music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; }, get freecast() { return freecast; },
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
