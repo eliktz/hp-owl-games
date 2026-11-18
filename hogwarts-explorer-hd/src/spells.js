@@ -2627,7 +2627,7 @@ function buildCreatures(kit) {
   const EYE = [];                                  // shared eye slots: { mv (a mover), x, y, z (in its parent's frame), s, open }
   const eyesFor = (mv, x, y, z, gap, s) => { const k = EYE.length; for (const sd of [-1, 1]) EYE.push({ mv, x: x + sd * gap, y, z, s, open: 0 }); return k; };
   let LI = null, lastStep = -9, stepT = 0, eyesBuilt = false;
-  let dogT = -1, dogSfx = 0, owlT = 0, owlSfx = 0, coinT = 0, coinSfx = 0, foalT = 0, foalSfx = 0, babyT = 0, babySfx = 0, dragT = 0, dragSfx = 0;
+  let starGiven = false, dogT = -1, dogSfx = 0, owlT = 0, owlSfx = 0, coinT = 0, coinSfx = 0, foalT = 0, foalSfx = 0, babyT = 0, babySfx = 0, dragT = 0, dragSfx = 0;
   const pdone = new Float32Array(3), mdone = new Float32Array(3), hatchT = new Float32Array(3);
   const lastP = new Map();
   const ease = (k) => k * k * (3 - 2 * k);
@@ -2673,7 +2673,7 @@ function buildCreatures(kit) {
   }
   return {
     reset(M) {
-      dogT = -1; dogSfx = 0; owlT = 0; owlSfx = 0; coinT = 0; coinSfx = 0; foalT = 0; foalSfx = 0; babyT = 0; babySfx = 0; dragT = 0; dragSfx = 0;
+      starGiven = false; dogT = -1; dogSfx = 0; owlT = 0; owlSfx = 0; coinT = 0; coinSfx = 0; foalT = 0; foalSfx = 0; babyT = 0; babySfx = 0; dragT = 0; dragSfx = 0;
       mdone.fill(0); hatchT.fill(0); lastStep = -9; stepT = 0; lastP.clear();
       for (const p of HP) p.life = 0;
       M.star.pose(0, -50, 0, 0, 0, 0, 1);
@@ -2758,11 +2758,12 @@ function buildCreatures(kit) {
             sfree = true;
             if (o < 2.2) M.star.pose(x, y - 0.12, z, 0, t * 3, 0, 1);
             else if (o < 2.9) { const u = ease((o - 2.2) / 0.7), ex = hx(), ey = hy() + 1.15, ez = hz(); M.star.pose(Tx + (ex - Tx) * u, Ty - 0.12 + (ey - Ty + 0.12) * u, Tz + (ez - Tz) * u, 0, t * 4, 0, 1 - clamp01((o - 2.75) / 0.15)); }
-            else M.star.pose(0, -50, 0, 0, 0, 0, 0);
+            else { M.star.pose(0, -50, 0, 0, 0, 0, 0); starGiven = true; }   // given to the hero: it never comes back under the wing
           }
         } else if (L && L.done) M.owl.pose(OX, OY, OZ, 0, OYAW, 0, 1);
         owlWing(M, 0, up, flap); owlWing(M, 1, owlT > 0.5 && owlT < 4.6 ? up : 0.05 + 0.1 * p, flap);
-        if (!sfree && starOn) { attach(M.star.mesh, 0, M.owl, sX, sY + 0.06 * p, sZ, 0, t * 0.6, 0.3, 1, 1, 1); M.star.s = 1; }
+        if (!sfree && starOn && !starGiven) { attach(M.star.mesh, 0, M.owl, sX, sY + 0.06 * p, sZ, 0, t * 0.6, 0.3, 1, 1, 1); M.star.s = 1; }
+        else if (!sfree && starGiven) M.star.pose(0, -50, 0, 0, 0, 0, 0);
         const o = L && L.done ? 1 : 0.1 + 0.9 * p;
         EYE[8].open = EYE[9].open = o; }
       // ---- 2 the burrowers: peek from their holes, rise as they are stroked; happy, each pops out, hops forward and lays a
