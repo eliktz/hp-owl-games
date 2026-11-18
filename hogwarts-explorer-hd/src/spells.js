@@ -191,6 +191,21 @@ const chCat = (i, x, z, cam) => ({ m: 'dcat' + i, at: [x, 0, z], ry: camYaw(x, z
 const chCaul = (i, x, z) => ({ m: 'dcaul' + i, at: [x, 0, z], ry: 0, r: 0.3, aimY: 0.3, shakeMode: 'rattle', say: CAUL_SAY });
 const CH_CAM = { shelf: [-8.4, -0.3], bridge: [-9.1, 8.5], arch: [-11.6, 8.7], chest: [-7.0, 8.6], rings: [-6.0, 5.6] };
 
+// Defence levels 2-3 (brief 2026-11-18). The barrels station gets three free lanes (the south bale stands back, DF.bale2),
+// painted barrels (red, blue, yellow, green) for the shown order; level 3 adds a fourth barrel in front of the middle one
+// (so the blue one behind it must go first). The finish gets a round shield on a hinge post (DF.hinge) for the timing gate.
+const DF = { bale2: 6.15, barrelHex: [0xc8503a, 0x3a78c8, 0xe0b030, 0x3aa050], hinge: [12.1, 3.0],
+  cams: { gate: [6.0, -1.5], barrels: [11.4, 6.9], books: [10.0, 4.9], ball: [12.3, 8.4], finish: [10.5, 7.6] } };
+const dfBarrel = (i, x0, x1, z) => ({ m: 'barrel' + i, path: [[x0, 0.3, z], [(x0 + x1) / 2, 0.3, z], [x1, 0.3, z]], rot0: [0, 0, 0], rot1: [0, 0, (x0 - x1) / 0.3] });
+const FRIEND_SAY = 'אֲנִי חָבֵר!', CUPS_SAY = 'זְהִירוּת! הַסְּפָלִים יִשָּׁבְרוּ!', OWL_SAY = 'שְׁשְׁשׁ... הַיַּנְשׁוּף יָשֵׁן!';
+const dfFriend = (i, x, z, cam) => ({ m: 'ddum' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.3, aimY: 0.72, shakeMode: 'no', say: FRIEND_SAY });
+const dfCups = (i, x, z) => ({ m: 'dcups' + i, at: [x, 0, z], ry: 0, r: 0.22, aimY: 0.6, shakeMode: 'rattle', say: CUPS_SAY });
+const dfOwl = (i, x, z, cam, y = 0) => ({ m: 'dowl' + i, at: [x, y, z], ry: camYaw(x, z, cam), r: 0.25, aimY: 0.72, breathe: true, shakeMode: 'no', say: OWL_SAY });
+const DF_HINTS = { decoy: 'לֹא אֶת זֶה! הַקְשֵׁב מָה לִדְחֹף!', slip: 'כִּמְעַט! עֲצֹר עַל הַסִּימָן!', slipMiss: 'לְאַט לְאַט... עֲצֹר עַל הַסִּימָן!' };
+// phone-height cameras (844x390): neighbouring targets / decoys >= ~70 px apart (iPad framing unchanged)
+const DF_PHONE = { gate: { cam: { pos: [8.5, 1.8, 0.4], look: [10.3, 0.5, 1.5] } },
+  barrels2: { cam: { pos: [10.9, 1.7, 5.1], look: [8.4, 0.4, 5.1] } }, barrels3: { cam: { pos: [10.5, 1.6, 3.6], look: [8.4, 0.4, 4.8] } } };
+
 export const COURSES = {
   charms: {
     spell: { he: 'וִינְגַרְדְיוּם לֶבִיּוֹסָה', icon: '🪶', gesture: 'up' },
@@ -335,6 +350,21 @@ export const COURSES = {
           lifts: [{ m: 'dummy3', aimY: 1.0, path: [[12.7, 0, 3.4], [12.7, 0.17, 2.5], [12.7, 0.17, 1.6], [12.7, 0, 0.6], [12.7, 0, -0.9]], rot0: [0, 0, 0], rot1: [0, 0, 0] }],
           after: 'bow', afterT: 2.6, afterSfx: 'tada', afterConfetti: ['🏁', '⭐', '✨'] },
       ],
+    },
+    // Difficulty levels (the shape: see COURSES.charms.levels). Level 2: the barrels in the shown order, a decoy or two at
+    // every station. Level 3: four barrels (order shown once), push the crate and the ball onto a glowing mark and hold it
+    // there, and the timing gate at the books and the finish (the shield swings aside).
+    levels: {
+      2: { twist: 'עַכְשָׁו בַּסֵּדֶר הַנָּכוֹן, וְרַק מָה שֶׁצָּרִיךְ!', star3: 300, hints: DF_HINTS,
+        stations: {
+          gate: { decoys: [dfFriend(0, 11.5, 0.5, DF.cams.gate), dfCups(0, 9.7, 2.45)], phone: DF_PHONE.gate },
+          barrels: { say: 'דְּחֹף אֶת הֶחָבִיּוֹת בַּסֵּדֶר!', inOrder: false,
+            lifts: [4.2, 4.85, 5.5].map((z, i) => dfBarrel(i, 9.0, 7.2, z)), order: [1, 2, 0],
+            decoys: [dfOwl(0, 9.3, 3.55, DF.cams.barrels, 0.5), dfCups(1, 10.05, 5.95)], phone: DF_PHONE.barrels2 },
+          books: { decoys: [dfFriend(1, 10.6, 8.45, DF.cams.books), dfCups(2, 9.25, 6.6)] },
+          ball: { decoys: [dfCups(3, 12.55, 6.5)] },
+          finish: { decoys: [dfFriend(2, 11.6, 3.7, DF.cams.finish), dfOwl(1, 13.35, 4.6, DF.cams.finish)] },
+        } },
     },
   },
   // -------------------------------------------------------------------------------------
@@ -803,6 +833,49 @@ function dummyGeo() {
   ]);
 }
 
+// Defence levels 2-3 decoys (things that must NOT be pushed; origin on the floor, facing +z):
+//   a friendly practice dummy: the same straw dummy, but a big pink heart on its chest, rosy cheeks and a green scarf
+//   ("I'm a friend!": it shakes its head); a tower of teacups on saucers on a little stool (it rattles); a sleepy owl on a
+//   short perch (it shakes its head)
+function friendDummyGeo() {
+  const STRAW = 0xb88a3a, STRAW2 = 0xcaa050, WOOD = 0x6a4424;
+  return merge([
+    paint(place(new BoxGeometry(0.5, 0.08, 0.46), 0, 0.15, 0), WOOD),
+    ...[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([a, b]) => paint(place(new CylinderGeometry(0.075, 0.075, 0.05, 10), a * 0.22, 0.075, b * 0.17, 0, 0, Math.PI / 2), 0x2e2b30)),
+    paint(place(new CylinderGeometry(0.035, 0.035, 0.3, 6), 0, 0.33, 0), WOOD),
+    paint(place(new CylinderGeometry(0.2, 0.24, 0.62, 12), 0, 0.78, 0), STRAW, STRAW2),
+    paint(place(new CylinderGeometry(0.05, 0.05, 0.84, 6), 0, 0.98, 0, 0, 0, Math.PI / 2), STRAW),
+    paint(place(new TorusGeometry(0.15, 0.045, 6, 14), 0, 1.11, 0, Math.PI / 2), 0x2a9a4a, 0x48c068),        // the scarf
+    paint(place(new BoxGeometry(0.08, 0.26, 0.03), 0.09, 0.98, 0.2, 0, 0, 0.15), 0x2a9a4a, 0x48c068),
+    paint(place(new SphereGeometry(0.17, 12, 10), 0, 1.27, 0), STRAW2, STRAW),
+    place(heartGeo(0.12), 0, 0.83, 0.238),                                                                 // the big heart
+    paint(place(new SphereGeometry(0.025, 6, 5), -0.06, 1.3, 0.155), 0x1a1420), paint(place(new SphereGeometry(0.025, 6, 5), 0.06, 1.3, 0.155), 0x1a1420),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.03, 6, 5), s * 0.1, 1.24, 0.14, 0, 0, 0, 1, 0.7, 0.4), 0xf07a8a)),   // rosy cheeks
+    paint(place(new TorusGeometry(0.055, 0.013, 5, 10, Math.PI), 0, 1.23, 0.16, 0, 0, Math.PI), 0x8a3a2a),
+  ]);
+}
+function teacupsGeo() {
+  const parts = [paint(place(new CylinderGeometry(0.2, 0.2, 0.05, 14), 0, 0.42, 0), 0x6a4424),
+    ...[0, 1, 2].map(i => paint(place(new CylinderGeometry(0.025, 0.025, 0.4, 5), Math.cos(i * 2.1) * 0.14, 0.2, Math.sin(i * 2.1) * 0.14), 0x3a2614))];
+  const CUP = [0xf0e6f4, 0xe8f0f8, 0xf8eadc, 0xf0e6f4];
+  for (let i = 0; i < 4; i++) {
+    const y = 0.45 + i * 0.13, ry = i * 0.9;
+    parts.push(paint(place(new CylinderGeometry(0.11, 0.08, 0.018, 14), 0, y + 0.009, 0), 0xffffff, CUP[i]));                        // saucer
+    parts.push(paint(place(new CylinderGeometry(0.075, 0.05, 0.09, 12), 0, y + 0.063, 0), CUP[i], 0xffffff));                       // cup
+    parts.push(paint(place(new TorusGeometry(0.076, 0.008, 4, 14), 0, y + 0.1, 0, Math.PI / 2), 0xd8a940));                         // gold rim
+    parts.push(paint(place(new TorusGeometry(0.028, 0.008, 4, 8), Math.cos(ry) * 0.085, y + 0.065, Math.sin(ry) * 0.085, 0, -ry, 0), CUP[i]));   // handle
+    parts.push(paint(place(new SphereGeometry(0.014, 5, 4), Math.cos(ry + 1.6) * 0.07, y + 0.07, Math.sin(ry + 1.6) * 0.07), 0xe85a8a));   // a painted flower
+  }
+  return merge(parts);
+}
+function owlPerchGeo() {
+  return merge([
+    paint(place(new CylinderGeometry(0.03, 0.04, 0.5, 6), 0, 0.25, 0), 0x6a4424), paint(place(new CylinderGeometry(0.16, 0.18, 0.04, 10), 0, 0.02, 0), 0x3a2614),
+    paint(place(new CylinderGeometry(0.025, 0.025, 0.36, 6), 0, 0.5, 0, 0, 0, Math.PI / 2), 0x6a4424),
+    place(owlSleepyGeo(), 0, 0.5, 0),
+  ]);
+}
+
 // The Defence course props (see COURSES.defence for where each station stands).
 function buildDefence(kit) {
   const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x7a6a56, STONE2 = 0x9a8a70, BRASS = 0xb98b2e, GOLD = 0xffd23f, STRAW = 0xb88a3a;
@@ -828,12 +901,13 @@ function buildDefence(kit) {
     ...[-1, 1].flatMap(s => [paint(place(new BoxGeometry(0.7, 0.08, 0.04), 0, 0.33, s * 0.33), DARK), paint(place(new BoxGeometry(0.04, 0.08, 0.7), s * 0.33, 0.33, 0), DARK),
       paint(place(new BoxGeometry(0.7, 0.05, 0.7), 0, s < 0 ? 0.03 : 0.64, 0), 0x7a4a22)])]), { glowHex: 0xffc070 });
   // 2 straw bales either side of a stacked-barrel plug; a low pen on the west where barrels go
-  for (const z of [3.55, 5.25]) solid(paint(place(new BoxGeometry(1.2, 0.5, 0.6), 9.0, 0.25, z), 0x9a7030, 0xc89a48));
+  for (const z of [3.55, kit.level > 1 ? DF.bale2 : 5.25]) solid(paint(place(new BoxGeometry(1.2, 0.5, 0.6), 9.0, 0.25, z), 0x9a7030, 0xc89a48));   // (levels 2-3: the south bale stands back: three barrel lanes)
   for (let z = 3.3; z <= 5.71; z += 0.8) solid(paint(place(new BoxGeometry(0.1, 0.6, 0.1), 6.45, 0.3, z), DARK));
   solid(paint(place(new BoxGeometry(0.06, 0.08, 2.4), 6.45, 0.45, 4.5), WOOD));
   kit.inst('barrel', merge([paint(place(new CylinderGeometry(0.3, 0.3, 0.62, 14), 0, 0, 0, Math.PI / 2), 0xffffff, 0xd8d0c0, 'z'),
     paint(place(new CylinderGeometry(0.255, 0.255, 0.63, 14), 0, 0, 0, Math.PI / 2), 0x8a5a2e),
-    ...[-0.2, 0.2].map(z => paint(place(new TorusGeometry(0.3, 0.018, 4, 18), 0, 0, z), 0x2e2b30))]), 3, [0xa8743e, 0x9a6a36, 0xb07c40], { glowHex: 0xffc070 });
+    ...[-0.2, 0.2].map(z => paint(place(new TorusGeometry(0.3, 0.018, 4, 18), 0, 0, z), 0x2e2b30))]),
+    kit.level === 3 ? 4 : 3, kit.level > 1 ? DF.barrelHex.slice(0, kit.level === 3 ? 4 : 3) : [0xa8743e, 0x9a6a36, 0xb07c40], { glowHex: 0xffc070 });   // (levels 2-3: painted barrels, easy to tell apart in a shown order)
   // 3 a row of big standing books (dominoes; pivot on the +x bottom edge) and a bell on a gallows
   kit.inst('domino', merge([paint(place(new BoxGeometry(0.1, 0.62, 0.42), -0.05, 0.31, 0), 0xffffff),
     paint(place(new BoxGeometry(0.104, 0.58, 0.38), -0.05, 0.31, 0.025), 0xf0e4c0)]), 7, BOOKS, { glow: false });
@@ -862,6 +936,21 @@ function buildDefence(kit) {
   }
   // the ball: two-tone stripes so the roll reads
   kit.mesh('ball', paint(new SphereGeometry(0.17, 16, 12), 0xe8473a, 0xf2c230, 'z'), { glowHex: 0xffd27a });
+  // levels 2-3: the decoys (posed by the runner from the level's data; spare ones stay hidden); level 3: a round practice
+  // shield on a hinge post across the finish lane, swinging aside while the timing gate is open (it follows L.gateK)
+  const NDEC = 5;
+  if (kit.level > 1) {
+    kit.inst('ddum', friendDummyGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xff9ab0, scales: Array(NDEC).fill(0.85) });
+    kit.inst('dcups', teacupsGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xffd0e0 });
+    kit.inst('dowl', owlPerchGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xc0a070 });
+  }
+  if (kit.level === 3) {
+    solid(paint(place(new CylinderGeometry(0.05, 0.06, 1.2, 8), DF.hinge[0], 0.6, DF.hinge[1]), DARK));
+    solid(paint(place(new CylinderGeometry(0.16, 0.18, 0.05, 10), DF.hinge[0], 0.025, DF.hinge[1]), DARK));
+    const disc = (r, hex, hex2, z) => paint(place(new CylinderGeometry(r, r, 0.04, 22), 0.52, 0.62, z, Math.PI / 2), hex, hex2);
+    kit.mesh('shield', merge([disc(0.46, 0x2a4a8a, 0x3a5aa8, 0), disc(0.36, 0xd8b04a, 0xf0d070, 0.025), disc(0.26, 0x2a4a8a, 0x3a5aa8, 0.035), disc(0.1, 0xd8b04a, 0xf0d070, 0.045),
+      paint(place(new BoxGeometry(0.5, 0.05, 0.04), 0.25, 0.62, 0), 0x6a6670), paint(place(new BoxGeometry(0.5, 0.05, 0.04), 0.25, 0.9, 0), 0x6a6670)]), { glow: false });
+  }
 
   // fallen books rest on each other like shingles: each leans until its top corner meets the back of
   // the next (solved for 0.38 m spacing, 0.62 x 0.1 m books, the last one against the bell): first
@@ -877,9 +966,19 @@ function buildDefence(kit) {
       M.bell.pose(12.05, 0.9, 7.6, 0, 0, 0);
       M.bridge.pose(12.7, 0.12, 1.9, -Math.PI / 2, 0, 0);
       rang = 0; fell = 0;
+      if (M.ddum0) for (let i = 0; i < NDEC; i++) for (const n of ['ddum', 'dcups', 'dowl']) M[n + i].pose(0, -50, 0, 0, 0, 0, 0);
+      if (M.shield) { M.shield.pose(DF.hinge[0], 0, DF.hinge[1], 0, 0, 0); M.shield.mesh.visible = false; }
     },
     // once the row has fallen the first book (a lift: the runner re-poses it every frame) rests too
-    tick(M) { if (fell >= 6) M.domino0.pose(DX(0), 0, 7.6, 0, 0, -REST[0]); },
+    tick(M, t, st) {
+      if (fell >= 6) M.domino0.pose(DX(0), 0, 7.6, 0, 0, -REST[0]);
+      if (M.shield) {                      // level 3: the shield shows from the finish on; it swings aside with the gate's rhythm
+        const fin = st.phase === 'reward' || (st.phase === 'course' && st.step >= 4);
+        M.shield.mesh.visible = fin;
+        if (fin) { const L = st.lifts && st.lifts[0], k = st.phase === 'reward' || !L || !L.gate ? 1 : L.gateK, e = k * k * (3 - 2 * k);
+          M.shield.pose(DF.hinge[0], 0, DF.hinge[1], 0, e * 1.75 + (1 - e) * Math.sin(t * 2.2) * 0.04, 0); }
+      }
+    },
     effects: {
       // the portcullis rises (1.4 s)
       gateRise(M, t) { const k = Math.min(1, t / 1.2), e = k * k * (3 - 2 * k); M.gate.pose(9.0, e * 2.4, 2.9, 0, 0, 0); return t < 1.4; },
