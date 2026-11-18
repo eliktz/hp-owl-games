@@ -11,7 +11,7 @@ import { SPOTS } from './config.js';
 
 // radius = how close you must be for the piece to stream in.
 const PLACEMENT = {
-  hut:       { x: SPOTS.hut.x, z: SPOTS.hut.z + 6, footprint: 12, radius: 75 },
+  // (Hagrid's hut is no longer a fan model: grounds-film.js builds it in code at SPOTS.hut.x, z + 6.)
   quidditch: { x: -42, z: -34, footprint: 6, radius: 70 },
 };
 

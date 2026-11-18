@@ -13,6 +13,7 @@ import { Player } from './player.js';
 import { Input } from './input.js';
 import { loadTexture } from './assets.js';
 import { loadScenery } from './scenery.js';
+import { initGrounds, buildHut, groundsTime } from './grounds-film.js';
 import { createCharacters, hagridAtPaddock } from './characters.js';
 import { createQuests } from './quests.js';
 import { createMap } from './map.js';
@@ -61,7 +62,8 @@ async function boot() {
   await env.setTime('day');
   const terrain = buildTerrain(scene, { texture: grass });
   const lake = buildLake(scene);
-  env.onTime = (k, p, sky) => lake.userData.setTime(p, sky); lake.userData.setTime(TIMES[env.time] || TIMES.day, scene.environment);
+  env.onTime = (k, p, sky) => { lake.userData.setTime(p, sky); groundsTime(p, k); }; lake.userData.setTime(TIMES[env.time] || TIMES.day, scene.environment);
+  groundsTime(TIMES[env.time] || TIMES.day, env.time);
   const { group: castleGroup, colliders } = buildCastle(scene, mats);
 
   // Published fan scenery (Hagrid's hut, Quidditch props), area-streamed by distance.
@@ -71,6 +73,12 @@ async function boot() {
   const player = new Player(scene, camera, { heightAt, colliders });
   // The spring-arm raycasts against the castle shell + terrain so it never clips walls.
   player.cam.obstacles = [castleGroup, terrain];
+  // Grounds film look (grounds-film.js): Hagrid's hut + pumpkin patch built in code (the fan hut
+  // model is not shipped). Solid (colliders), the camera arm stops at its wall and roof, and it
+  // hides beyond 95 m / indoors (its update runs as a per-frame hook below).
+  let hut = null;
+  try { await initGrounds({ wood }); hut = buildHut({ scene, heightAt, colliders, camera, obstacles: player.cam.obstacles }); }
+  catch (e) { console.warn('[grounds] hut disabled -', e && e.message || e); hut = null; }
   const audio = createAudio();
 
   // Friendly characters (Ron/Hermione/Hedwig models + code-drawn Harry/Hagrid).
@@ -236,6 +244,7 @@ async function boot() {
   const hooks = [];                      // extra per-frame systems (delight, quidditch): fn(dt, inside)
   if (students) hooks.push((dt, inside) => students.update(dt, inside));
   if (spells) hooks.push(() => spells.idle());
+  if (hut) hooks.push((dt, inside) => hut.update(dt, player.pos, inside));
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
