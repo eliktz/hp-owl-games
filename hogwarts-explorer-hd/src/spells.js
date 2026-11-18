@@ -514,7 +514,7 @@ export const COURSES = {
   // -------------------------------------------------------------------------------------
   creatures: {
     spell: { he: 'לְלַטֵּף בַּעֲדִינוּת', icon: '💛', gesture: 'pet' }, icon: '🐉',
-    verb: 'pet', who: '🧔', pitch: 0.72, oneBubble: true, bubbleY: 3.72, back: 4.6,
+    verb: 'pet', who: '🧔', pitch: 0.72, oneBubble: true, bubbleY: 3.72, bubbleYPhone: 1.9, back: 4.6,
     title: 'טִפּוּל בִּיצוּרֵי פֶּלֶא', name: 'אֶתְגָּר: יְצוּרִים',
     teacher: 'hagrid', room: null, station: 'creatures',
     build: buildCreatures,
@@ -3060,7 +3060,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!(S.C.oneBubble && f && S.phase === 'lesson')) { sayEl.textContent = (S.C.who || '🧙‍♂️') + ' ' + text; sayEl.classList.add('on'); S.sayT = sec; }
     speak(text);
     if (f && S.phase === 'lesson') { f.getWorldPosition(tmp);   // in the course the top speech bar is enough (a 3D bubble covered the rings on a phone)
-      tmp.y += S.C.bubbleY ?? (f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9); fun.say(tmp, text, sec, 'spell'); }   // bubbleY: a giant (Hagrid) talks from above his own head
+      tmp.y += (innerHeight < 500 && S.C.bubbleYPhone != null ? S.C.bubbleYPhone : S.C.bubbleY) ?? (f.userData.labelY ? Math.min(2.4, f.userData.labelY) : 1.9); fun.say(tmp, text, sec, 'spell'); }   // bubbleY: a giant (Hagrid) talks from above his own head; on a short phone screen that is under the pips, so there it sits at his chest (bubbleYPhone)
     if (profPose === 'cast') { if (!(lessons.signature && lessons.signature(S.C.station))) hop(); if (S.C.verb === 'light') S.raise = sec; }
     else if (profPose) { pose(profPose); at(Math.max(1, sec - 0.6), () => pose(null)); }
   }
