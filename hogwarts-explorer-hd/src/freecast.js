@@ -510,6 +510,86 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   }
   SP.aguamenti = targeted('aguamenti', { tick(dt) { tickBed(dt); tickJets(dt); }, state: () => ({ wilt: +bed.wilt.toFixed(2), pumpkin: +bed.pk.toFixed(2), waters: bed.waters, grows: bed.grows }) });
 
+  // ================= Expecto Patronum: a silver stag leaps out of the wand and circles Harry =================
+  // ONE additive mesh (code-built, faces +z, feet at y 0, caught mid-leap) + the pooled particles for its light trail.
+  function stagGeo() {
+    const A = 0x7fc4ff, Bc = 0xe8f6ff, P = [];
+    const part = (g) => P.push(paint(g, A, Bc));
+    part(place(new SphereGeometry(0.36, 14, 10), 0, 1.08, 0, 0, 0, 0, 0.82, 0.86, 1.95));          // body
+    part(place(new SphereGeometry(0.3, 12, 8), 0, 1.16, 0.42, 0, 0, 0, 0.8, 0.9, 1.0));           // chest
+    part(rod([0, 1.22, 0.52], [0, 1.72, 0.86], 0.15, 0.09, 8));                                   // neck
+    part(place(new SphereGeometry(0.13, 12, 8), 0, 1.78, 0.95, 0.25, 0, 0, 0.95, 0.9, 1.45));     // head
+    part(place(new ConeGeometry(0.075, 0.2, 8), 0, 1.72, 1.15, Math.PI / 2 + 0.25, 0, 0));        // muzzle
+    part(place(new ConeGeometry(0.05, 0.2, 6), 0, 1.02, -0.72, -2.2, 0, 0));                      // tail
+    for (const sd of [-1, 1]) {
+      part(place(new ConeGeometry(0.035, 0.16, 5), sd * 0.12, 1.9, 0.86, -0.3, 0, -sd * 0.9));    // ear
+      // antler: a main beam sweeping up and back, three tines
+      part(rod([sd * 0.06, 1.88, 0.9], [sd * 0.3, 2.3, 0.72], 0.028, 0.02));
+      part(rod([sd * 0.3, 2.3, 0.72], [sd * 0.38, 2.68, 0.84], 0.02, 0.008));
+      part(rod([sd * 0.16, 2.06, 0.82], [sd * 0.2, 2.34, 1.02], 0.018, 0.006));
+      part(rod([sd * 0.26, 2.24, 0.75], [sd * 0.5, 2.46, 0.66], 0.018, 0.006));
+      part(rod([sd * 0.34, 2.5, 0.78], [sd * 0.26, 2.74, 0.62], 0.014, 0.006));
+      // legs mid-leap: the fore legs reach forward, the hind legs stretch back
+      part(rod([sd * 0.15, 1.0, 0.5], [sd * 0.15, 0.62, 0.92], 0.075, 0.045));
+      part(rod([sd * 0.15, 0.62, 0.92], [sd * 0.15, 0.2, 1.12], 0.045, 0.028));
+      part(rod([sd * 0.16, 1.0, -0.52], [sd * 0.16, 0.66, -0.9], 0.085, 0.05));
+      part(rod([sd * 0.16, 0.66, -0.9], [sd * 0.16, 0.22, -1.3], 0.05, 0.028));
+    }
+    return merge(P);
+  }
+  const PAT = { dur: 7.2, out: 0.7, fade: 1.2, R: 3.3, laps: 1.75 };
+  let stag = null, patT = -1, patAcc = 0, patA0 = 0, patCasts = 0;
+  const patP = new Vector3(), patPrev = new Vector3();
+  function patStart() {
+    if (!stag) {
+      const mat = new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+      stag = new Mesh(stagGeo(), mat); stag.name = 'freecast-patronus'; stag.frustumCulled = false; stag.raycast = () => {}; stag.renderOrder = 3; stag.visible = false;
+      scene.add(stag);
+    }
+    patT = 0; patAcc = 0; patA0 = player.yaw; patCasts++;
+    tip(); patPrev.copy(tipV);
+    burst(tipV.x, tipV.y, tipV.z, 0xbfe6ff, 26, 2.4, 0.9, 0.3, 0);
+    fun.sfx.chime(); fun.sfx.tune([523, 659, 784, 1047, 1319], 0.16, 'sine');
+  }
+  function tickPatronus(dt, inside, busy) {
+    if (patT < 0) return;
+    patT += dt;
+    if (patT >= PAT.dur || busy) { patT = -1; if (stag) stag.visible = false; return; }
+    const k = patT / PAT.dur, grow = Math.min(1, patT / PAT.out), left = PAT.dur - patT, fade = Math.min(1, left / PAT.fade);
+    const e = grow * grow * (3 - 2 * grow);
+    // the circle is centred on Harry (it follows him if he walks); the stag starts at the wand and swings out to the radius
+    const ang = patA0 + (patT / (PAT.dur - 0.4)) * PAT.laps * Math.PI * 2, R = PAT.R * e;
+    const gx = pos.x + Math.sin(ang) * R, gz = pos.z + Math.cos(ang) * R;
+    const ground = inside ? pos.y : heightAt(gx, gz);
+    const leap = Math.abs(Math.sin(patT * 5.2)), rise = (1 - fade) * (1 - fade) * 2.4;
+    tip();
+    patP.set(gx, ground + leap * 0.45 * e + rise + (1 - e) * (tipV.y - ground - 1.0), gz);
+    const s = (0.15 + 0.85 * e) * (0.9 + 0.1 * fade);
+    stag.position.copy(patP); stag.scale.setScalar(s);
+    // heading: along the circle (tangent), nose dips and lifts with each bound
+    stag.rotation.set(Math.cos(patT * 5.2) * 0.16 * Math.sign(Math.sin(patT * 5.2) || 1) - (1 - fade) * 0.5, ang + Math.PI / 2, 0, 'YXZ');
+    stag.material.opacity = 0.85 * fade * (0.85 + 0.15 * Math.sin(patT * 9));
+    stag.visible = true;
+    // the light trail: silver motes shed along its path, a few sparkles under the hooves at each landing
+    patAcc += dt;
+    while (patAcc > 0.03) {
+      patAcc -= 0.03;
+      const u = Math.random();
+      emit(patPrev.x + (patP.x - patPrev.x) * u + (Math.random() - 0.5) * 0.3, patP.y + 0.5 + Math.random() * 1.1, patPrev.z + (patP.z - patPrev.z) * u + (Math.random() - 0.5) * 0.3,
+        0, 0.15 + Math.random() * 0.3, 0, 0.9 + Math.random() * 0.7, 0.2 + Math.random() * 0.22, Math.random() < 0.3 ? 0xffffff : 0x9fd4ff, 0, 0.5);
+    }
+    if (leap < 0.12 && e > 0.9) emit(patP.x, ground + 0.08, patP.z, (Math.random() - 0.5) * 1.2, 0.8, (Math.random() - 0.5) * 1.2, 0.5, 0.18, 0xe8f6ff, -1.5, 1);
+    patPrev.copy(patP);
+  }
+  SP.patronum = {
+    noFallback: true, lastId: 'patronus',
+    cast() { patStart(); return true; },
+    tick: tickPatronus,
+    state: () => ({ on: patT >= 0, t: +Math.max(0, patT).toFixed(2), casts: patCasts, visible: !!(stag && stag.visible),
+      x: stag ? +stag.position.x.toFixed(2) : 0, y: stag ? +stag.position.y.toFixed(2) : 0, z: stag ? +stag.position.z.toFixed(2) : 0,
+      d: stag ? +Math.hypot(stag.position.x - pos.x, stag.position.z - pos.z).toFixed(2) : 0 }),
+  };
+
   // ================= casting =================
   function castSelected() {
     if (isModal() || isTakeover() || cool > 0) return false;
