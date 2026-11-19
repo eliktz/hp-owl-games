@@ -216,7 +216,29 @@ const asBat = (i, x, y, z, cam, s = 1.35) => ({ m: 'dbat' + i, at: [x, y, z], ry
 const asJar = (i, x, z, cam) => ({ m: 'djar' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.22, aimY: 0.65, shakeMode: 'rattle', say: MOTH_SAY });
 const AS_HINTS = { decoy: 'לֹא אֶת זֶה! רַק פָּנָסִים וְכוֹכָבִים!', order: 'לֹא בַּסֵּדֶר! מָה נִצְנֵץ קֹדֶם?' };
 const AS_GATE = { period: 3.4, open: 1.6 };
+// Transfiguration levels 2-3 (brief 2026-11-18). Decoys from McGonagall's classroom that must NOT be changed: her own
+// tartan biscuit tin on a little stool (it rattles), a toad asleep on a cushion on a footstool (it shakes 'no' in its
+// sleep), her square spectacles on a tall brass stand (they wobble 'no'). Level 3 adds MATCHING (the `ask` board: the
+// silhouettes stand together on a slate board in a different order, the board lights one, the child changes the thing
+// that becomes it) at the bridge (the chair, a goblet on a stool, a fifth pumpkin) and the shapes (a fourth pedestal
+// with a teacup), a fourth pumpkin in the nook, and the timing gate at the cat statue (its eyes glow in a slow rhythm).
+const TF_CAM = { stairs: [0.9, 3.9], lanterns: [-0.5, 3.9], bridge: [-1.35, 0.7], shapes: [0.7, 4.2], cat: [-0.9, -1.0], shapes3: [-2.0, 2.5], bridge3: [-1.35, 0.6] };
+const TF3 = { pump3: [2.85, 1.2], pump4: [1.15, 4.5], stool: [-1.2, 3.6], stoolH: 0.55, ped4: -0.2,
+  board1: [1.55, 1.55, 4.5], board2: [-2.0, 1.85, 6.75] };
+const TIN_SAY = 'זֹאת קֻפְסַת הָעוּגִיּוֹת שֶׁלִּי!', TOAD_SAY = 'שְׁשְׁשׁ... הַקַּרְפָּדָה יְשֵׁנָה!', SPEC_SAY = 'אֵלֶּה הַמִּשְׁקָפַיִם שֶׁלִּי!';
+const tfTin = (i, x, z, cam) => ({ m: 'dtin' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.26, aimY: 0.58, shakeMode: 'rattle', say: TIN_SAY });
+const tfToad = (i, x, z, cam) => ({ m: 'dtoad' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.28, aimY: 0.44, breathe: true, shakeMode: 'no', say: TOAD_SAY });
+const tfSpec = (i, x, z, cam) => ({ m: 'dspec' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.22, aimY: 0.86, shakeMode: 'no', say: SPEC_SAY });
+const TF_HINTS = { decoy: 'לֹא אֶת זֶה! רַק מָה שֶׁצָּרִיךְ!', order: 'לֹא בַּסֵּדֶר! מָה נִצְנֵץ קֹדֶם?', ask: 'לֹא זֶה! מָה הוֹפֵךְ לַצּוּרָה שֶׁעַל הַלּוּחַ?',
+  ask1: 'מָה הוֹפֵךְ לַצּוּרָה הַזּוֹהֶרֶת?', gate: 'עוֹד לֹא! חַכֵּה שֶׁהָעֵינַיִם יִזְהֲרוּ!', gateMiss: 'סַבְלָנוּת... חַכֵּה לָעֵינַיִם!' };
+const TF_GATE = { period: 3.4, open: 1.6, R: 0.55 };
+// a change target of the levels (the same keys as the course's own lifts; askSay: the teacher's question when the board asks for it)
+const tfPump = (i, x, z, o = {}) => ({ m: 'pumpkin' + i, to: 'lantern' + i, path: [[x, 0, z]], rot0: [0, -1.2 + (i % 3) * 0.5, 0], rot1: [0, -Math.PI / 2, 0], aimY: 0.2, hint: 0.85, r: 0.3, ...o });
+const tfPed = (m, to, x, rot1y, o = {}) => ({ m, to, path: [[x, 0.78, TF.pedZ]], rot0: [0, Math.PI, 0], rot1: [0, rot1y, 0], aimY: 0.17, hint: 0.7, r: 0.26, free: true, ...o });
 // phone-height cameras (844x390): neighbouring targets / decoys >= ~70 px apart (iPad framing unchanged)
+const TF_PHONE = { stairs: { cam: { pos: [-0.2, 1.9, 3.3], look: [-2.6, 0.6, 1.1] } }, lanterns: { cam: { pos: [2.0, 1.7, 3.1], look: [3.5, 0.35, 1.1] } },
+  shapes2: { cam: { pos: [-2.6, 2.0, 3.3], look: [-2.6, 0.8, 6.0] } }, bridge3: { cam: { pos: [-1.0, 2.1, 1.5], look: [0.0, 0.6, 4.0] } },
+  shapes3: { cam: { pos: [-2.0, 2.2, 3.3], look: [-2.0, 1.2, 6.3] } } };
 const DF_PHONE = { gate: { cam: { pos: [8.5, 1.8, 0.4], look: [10.3, 0.5, 1.5] } },
   barrels2: { cam: { pos: [10.9, 1.7, 5.1], look: [8.4, 0.4, 5.1] } }, barrels3: { cam: { pos: [10.5, 1.6, 3.6], look: [8.4, 0.4, 4.8] } } };
 
@@ -3457,7 +3479,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     speed: 1, q: [], lifts: null, sel: null, hold: false, holdT: 0, idle: 0, walk: null, wantYaw: 0, fx: null, fxT: 0, sayT: 0, praise: 0, result: null,
     raise: 0, raiseK: 0, dim: 0, dimGoal: 0, profY: 0,
     // levels: S.stations = the course's stations (level 1: the very same array) merged with the level's per-station data
-    level: 1, LV: null, stations: null, order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9 };
+    level: 1, LV: null, stations: null, order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9, ask: null, askT: 0 };
   let K = null;                            // the built kit for the running course: { group, movers, lesson, stations, ... }
   let drag = null;
   const tmp = new Vector3(), tmp2 = new Vector3(), camPos = new Vector3(), camLook = new Vector3(), camPosGoal = new Vector3(), camLookGoal = new Vector3();
@@ -3548,7 +3570,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     mats.push(ghostMat); geos.push(ghost.geometry);
     // Vera Verto: up to three glowing silhouettes of what each open thing will become (they share the ghost material)
     const ghosts = [];
-    if (C.verb === 'change') for (let i = 0; i < 3; i++) { const gm = new Mesh(ghost.geometry, ghostMat); gm.visible = false; gm.frustumCulled = false; gm.raycast = () => {}; gm.renderOrder = 4; group.add(gm); ghosts.push(gm); }
+    if (C.verb === 'change') for (let i = 0, n = S.level > 1 ? 4 : 3; i < n; i++) { const gm = new Mesh(ghost.geometry, ghostMat); gm.visible = false; gm.frustumCulled = false; gm.raycast = () => {}; gm.renderOrder = 4; group.add(gm); ghosts.push(gm); }
     const NP = 64, pPos = new Float32Array(NP * 3), pGeo = new PlaneGeometry(1, 1);
     const cv = document.createElement('canvas'); cv.width = cv.height = 32; const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(16, 16, 0, 16, 16, 16);
     gr.addColorStop(0, 'rgba(255,255,240,1)'); gr.addColorStop(0.35, 'rgba(255,220,120,.85)'); gr.addColorStop(1, 'rgba(255,200,80,0)'); g2.fillStyle = gr; g2.fillRect(0, 0, 32, 32);
@@ -3596,7 +3618,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       group.userData.onTeardown = () => { if (S.on && K && K.group === group) leave(false, true); };   // the room is being disposed (mid-traverse: do not detach)
     }
     // levels 2-3: the stations' decoys (movers the build made: things that must NOT be cast on), the shown orders, the ring beads
-    let decoys = null, orders = null, beads = null;
+    let decoys = null, orders = null, beads = null, board = null;
     if (S.level > 1) {
       decoys = S.stations.map(st => (st.decoys || []).map(d => movers[d.m] ? { decoy: true, spec: d, mv: movers[d.m], shake: 0, ph: Math.random() * 6 } : null).filter(Boolean));
       orders = S.stations.map((st, i) => st.order ? st.order.map(j => stations[i][j]).filter(Boolean) : null);
@@ -3607,8 +3629,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         for (let i = 0; i < 16; i++) { _m4.makeScale(0, 0, 0); beads.setMatrixAt(i, _m4); beads.setColorAt(i, _c.setHex(0xffffff)); }
         group.add(beads); mats.push(bm); geos.push(bg);
       }
+      // the `ask` board (see ASK): one silhouette mesh per slot (they borrow the things' own after-shape geometry), a dim
+      // and a lit material (additive, like the ghosts)
+      const nAsk = Math.min(5, Math.max(0, ...S.stations.map(st => st.ask && st.order ? st.lifts.length : 0)));
+      if (nAsk) {
+        const dim = new MeshBasicMaterial({ color: 0xa8c4ff, transparent: true, opacity: 0.2, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, fog: false });
+        const lit = new MeshBasicMaterial({ color: 0xffe07a, transparent: true, opacity: 0.8, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, fog: false });
+        mats.push(dim, lit); board = { dim, lit, meshes: [], boxes: new Map() };
+        for (let i = 0; i < nAsk; i++) { const m = new Mesh(ghost.geometry, dim); m.name = 'spell-askboard'; m.visible = false; m.frustumCulled = false; m.raycast = () => {}; m.renderOrder = 4; group.add(m); board.meshes.push(m); }
+      }
     }
-    const k = { group, movers, mats, geos, texs, B, ghost, ghosts, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations, ground, outdoor, decoys, orders, beads };
+    const k = { group, movers, mats, geos, texs, B, ghost, ghosts, ghostMat, sparks, pPos, pGeo, parts, pTex, lesson, stations, ground, outdoor, decoys, orders, beads, board };
     k.glowMats = glowMats;
     resetKit(k, true);
     // ring params: how far along the feather's path each ring sits (the sample nearest its centre)
@@ -3662,6 +3693,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     let sb = 1, sa = 0;
     if (L.done) { const u = L.popT < 0 ? 1 : Math.min(1, L.popT / POP); sb = Math.max(0, 1 - u / 0.45); const v = Math.max(0, (u - 0.45) / 0.55); sa = v <= 0 ? 0 : 1 + 2.7 * (v - 1) ** 3 + 1.7 * (v - 1) ** 2; }
     const w = L.done ? 1 : L.p, on = w > 0.01 ? 1 : 0;
+    if (!L.done && (L.flash > 0 || L.shake > 0)) {   // levels 2-3 only: shown in the order preview (a pop up) / touched out of turn (a shake 'no')
+      const pop = L.flash > 0 ? 1 + 0.3 * Math.sin(Math.min(1, L.flash / 0.75) * Math.PI) : 1, sh = L.shake > 0 ? Math.sin(t * 30) * 0.3 * Math.min(1, L.shake / 0.4) : 0;
+      L.mv.pose(x, y + (pop - 1) * 0.3, z, r0[0], r0[1] + sh, r0[2] + sh * 0.25, pop);
+      if (L.to) L.to.pose(x, y, z, r1[0], r1[1], r1[2], 0);
+      return;
+    }
     L.mv.pose(x, y + Math.abs(Math.sin(t * 9 + L.ph)) * 0.03 * w * on, z, r0[0], r0[1] + Math.sin(t * 7 + L.ph) * 0.2 * w * on, r0[2] + Math.sin(t * 16 + L.ph) * (0.03 + 0.12 * w) * on, sb * (1 + 0.1 * w * on));
     if (L.to && !(L.spec.free && L.done && L.popT >= POP)) L.to.pose(x, y, z, r1[0], r1[1], r1[2], sa);
   }
@@ -3753,7 +3790,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // ---- levels 2-3: decoys, the shown order, delayed hints, the ring hold ----
   const HINTS = { decoy: 'לֹא אֶת זֶה! הַקְשֵׁב מָה לְהָרִים!', order: 'לֹא בַּסֵּדֶר! מָה הִבְהִיק קֹדֶם?', again: 'הִנֵּה שׁוּב הַסֵּדֶר!', go: 'עַכְשָׁו אַתָּה!',
     slip: 'כִּמְעַט! עֲצֹר בְּתוֹךְ הַטַּבַּעַת!', slipMiss: 'לְאַט לְאַט... עֲצֹר בַּטַּבַּעַת!',
-    gate: 'עוֹד לֹא! חַכֵּה לַיָּרֹק!', gateMiss: 'סַבְלָנוּת... חַכֵּה שֶׁיִּהְיֶה יָרֹק!' };
+    gate: 'עוֹד לֹא! חַכֵּה לַיָּרֹק!', gateMiss: 'סַבְלָנוּת... חַכֵּה שֶׁיִּהְיֶה יָרֹק!',
+    ask: 'לֹא זֶה! מָה מַתְאִים לַצּוּרָה שֶׁעַל הַלּוּחַ?', ask1: 'מָה מַתְאִים לַצּוּרָה הַזּוֹהֶרֶת?' };
   const hint = (k) => (S.LV && S.LV.hints && S.LV.hints[k]) || (S.C.hints && S.C.hints[k]) || HINTS[k];
   const hintNeed = () => S.level === 2 ? 1 : 2;           // mistakes at a station before the hints come back
   const hintOK = () => S.level === 1 || S.miss >= hintNeed();
@@ -3763,7 +3801,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function gate(hit) {
     if (!hit || S.level === 1) return hit;
     if (hit.decoy) { mistake(hit.spec.say || hint('decoy'), hit); return null; }
-    if (S.order && hit !== nextL()) { mistake(hint('order'), hit); return null; }
+    if (S.order && hit !== nextL()) { mistake(hint(S.ask ? 'ask' : 'order'), hit); return null; }   // (an ask station: not the one the board asks for)
     if (hit.gate && hit.p < 0.05 && !gateOpen(hit)) { gateWait(hit); return null; }
     return hit;
   }
@@ -3803,7 +3841,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.clock - S.missT < MISS_GAP) return;             // one fumbling finger = one mistake
     S.missT = S.clock; S.mistakes++; S.miss++;
     line(text, 2.2, 'talk');
-    if (S.miss === hintNeed() && S.order && S.order.some(L => !L.done)) at(1.8, () => { if (S.sub === 'cast') showOrder(true); });
+    if (S.miss === hintNeed() && S.order && S.order.some(L => !L.done)) at(1.8, () => { if (S.sub === 'cast') { if (S.ask) askHint(); else showOrder(true); } });
   }
   // the order: each thing still to do lights up in turn (a pop, sparkles, a rising tink); no input meanwhile
   function showOrder(again) {
@@ -3814,6 +3852,51 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const t0 = again ? 1.3 : 0.5, gap = 0.95;
     seq.forEach((L, i) => at(t0 + i * gap, () => { S.showI = i; L.flash = 0.75; liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 14); fun.sfx.tone(880 * Math.pow(1.26, i), 0.28, 'sine', 0.13); }));
     at(t0 + seq.length * gap + 0.3, () => { S.showI = -1; if (!again) line(hint('go'), 1.6, 'talk'); S.sub = 'cast'; S.idle = 0; });
+  }
+  // ASK (levels 2-3, a station with `ask: { at: [x, y, z], ry, gap?, size?, slots? }` and an `order`): MATCHING. No order
+  // preview: the silhouettes of what the station's things become stand together on a board (centre `at`, facing `ry`, slot
+  // `gap` metres apart, each fitted into `size` metres) in the board order `slots` (lift indices, left to right as the
+  // camera sees it; default the lift order). The board lights ONE silhouette (the next of `order`) and the teacher asks
+  // (the lift's `askSay`, else hint('ask1')); the child changes the thing that becomes it. Touching another thing fizzles
+  // (hint('ask'), a counted mistake); after hintNeed() mistakes the right thing twinkles and its sparkles stay (the hint).
+  // A lift may set `askR: [rx, ry offset]` for how its silhouette is turned on the board. Works for any verb whose things
+  // have a `to` shape (else the thing's own shape is shown).
+  function askNext(delay) {
+    const i = S.step;
+    at(delay, () => {
+      if (!S.ask || S.step !== i || S.sub !== 'cast') return;
+      const L = nextL(); if (!L) return;
+      S.askT = 0.9; line(L.spec.askSay || hint('ask1'), 2.4, 'talk'); fun.sfx.tone(988, 0.16, 'sine', 0.1); fun.sfx.tone(1319, 0.2, 'sine', 0.08, 0.12);
+    });
+  }
+  function askHint() {                     // after the mistakes: the right thing twinkles (and the board asks again)
+    const L = nextL(); if (!L) return;
+    L.flash = 0.75; liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 14); fun.sfx.tink(3);
+    S.askT = 0.9; line(L.spec.askSay || hint('ask1'), 2.2, 'talk');
+  }
+  const _bq = new Vector3();
+  function tickBoard(t, dt) {
+    const B = K.board; if (!B) return;
+    const A = S.ask, on = !!A && S.phase === 'course' && S.sub !== 'walk' && S.lifts && S.lifts.some(L => !L.done);
+    if (!on) { for (const m of B.meshes) m.visible = false; return; }
+    if (S.askT > 0) S.askT -= dt;
+    const cur = S.sub === 'cast' || S.sub === 'after' ? nextL() : null, slots = A.slots || S.lifts.map((_, i) => i), n = slots.length;
+    const gap = A.gap || 0.6, ry = A.ry || 0, cs = Math.cos(ry), sn = Math.sin(ry), fl = S.askT > 0 ? Math.sin(S.askT / 0.9 * Math.PI) * 0.3 : 0;
+    for (let j = 0; j < B.meshes.length; j++) {
+      const m = B.meshes[j], L = j < n ? S.lifts[slots[j]] : null;
+      if (!L || L.done) { m.visible = false; continue; }
+      const src = L.to || L.mv, geo = src.geo; if (m.geometry !== geo) m.geometry = geo;
+      let bb = B.boxes.get(geo); if (!bb) { if (!geo.boundingBox) geo.computeBoundingBox(); bb = geo.boundingBox; B.boxes.set(geo, bb); }
+      const lit = L === cur, sz = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z) * src.scale;
+      const k = (A.size || 0.42) / Math.max(0.05, sz) * src.scale * (lit ? 1.22 + 0.05 * Math.sin(t * 4) + fl : 0.82);
+      const off = (j - (n - 1) / 2) * gap, ar = L.spec.askR || [0.2, 0.5];
+      m.material = lit ? B.lit : B.dim;
+      m.rotation.set(ar[0], ry + ar[1] + Math.sin(t * 0.9 + j * 1.7) * 0.18, 0); m.scale.setScalar(k);
+      _bq.set((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2).multiplyScalar(k).applyEuler(m.rotation);
+      m.position.set(A.at[0] + cs * off - _bq.x, A.at[1] + (lit ? Math.sin(t * 3) * 0.03 : 0) - _bq.y, A.at[2] - sn * off - _bq.z);
+      m.visible = true;
+    }
+    B.lit.opacity = 0.7 + 0.22 * Math.sin(t * 5); B.dim.opacity = 0.2;
   }
   // level 3: a lifted thing slipped (pushed past its ring, or let go before it was held there): free twice per station
   function slipEvent() {
@@ -3855,7 +3938,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     fun.sfx.sparkle(); fun.sfx.tune([1047, 1319, 1568], 0.09, 'sine');
     setPips();
     if (S.lifts.every(x => x.done)) setDone();
-    else { line(S.C.praise[S.praise++ % S.C.praise.length], 1.8); }
+    else { line(S.C.praise[S.praise++ % S.C.praise.length], 1.8); if (S.ask) askNext(1.7); }   // (levels 2-3: an ask station asks for the next one)
   }
   function drop(L) {
     if (L.ring) { L.peak = 0; L.moved = false; slipEvent(); return; }   // level 3: a let-go is a slip (free twice per station)
@@ -4051,7 +4134,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.level > 1) {                    // levels 2-3: nothing pre-selected, no big 🪄 button; an ordered station first shows its order
       S.handOn = false; S.sub = 'cast'; S.idle = 0; S.sel = null; setBtn(false); setPips();
       if (S.lifts) for (const L of S.lifts) if (L.gate) { L.gate.t0 = S.clock + L.gate.lead; L.gate.pu = -1; }   // timing gates: the rhythm starts now
-      if (S.order && S.phase === 'course') showOrder(false);
+      if (S.order && S.phase === 'course') { if (S.ask) askNext(1.3); else showOrder(false); }   // (an ask station: no preview, the board asks)
       return;
     }
     S.handOn = false; S.sub = 'cast'; S.idle = 0; S.sel = null; select(open()); setBtn(true); setPips();
@@ -4094,6 +4177,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.level > 1) {
       for (const D of S.decoys) D.mv.pose(0, -50, 0, 0, 0, 0, 0);
       S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; S.waits = 0; S.gateT = -9;
+      S.ask = st.ask && S.order && K.board ? st.ask : null; S.askT = 0;   // an `ask` station: the board asks for its things one at a time
       const used = new Set(S.decoys.map(D => D.mv.mesh));   // only this station's decoy meshes are drawn
       for (const set of K.decoys) for (const D of set) D.mv.mesh.visible = used.has(D.mv.mesh);
       if (st.pre) for (const j of st.pre) { const L = S.lifts[j]; if (L && !L.done) { L.done = true; L.p = 1; L.popT = POP; } }   // already lit / done when the station starts
@@ -4223,7 +4307,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     // level 1: S.stations IS the course's own array (nothing merged, nothing changed)
     S.level = level; S.LV = level > 1 ? C.levels[level] : null;
     S.stations = S.LV ? C.course.stations.map(st => { const o = (S.LV.stations && S.LV.stations[st.id]) || {}; return Object.assign({}, st, o, (innerHeight < 500 && o.phone) || {}); }) : C.course.stations;
-    Object.assign(S, { order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9 });
+    Object.assign(S, { order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9, ask: null, askT: 0 });
     Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null,
       raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0, handOn: false });
     S.q.length = 0; pipKey = '';
@@ -4406,11 +4490,12 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         const on = gateOpen(L) || L.p > 0.02;
         L.mv.mat.emissive.setHex(on ? GATE_GREEN : L.gate.hex0); L.mv.mat.emissiveIntensity = on ? 0.6 + Math.sin(t * 9) * 0.15 : pulse * 0.5;
       }
+      tickBoard(t, dt);                    // an ask station's board (hidden elsewhere)
     }
     if (K.ghosts.length) {
       // Vera Verto: the glowing silhouette of each open thing's after shape floats above it (no outline box)
       let gi = 0;
-      if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) {
+      if (S.sub === 'cast' && S.lifts && !S.ask) for (const L of S.lifts) {   // (levels 2-3: an ask station shows them on its board instead)
         if (gi >= K.ghosts.length) break;
         if (L.done || !L.to) continue;
         const g = K.ghosts[gi++], a = L.arr, r1 = L.rot1; if (g.geometry !== L.to.geo) g.geometry = L.to.geo;
@@ -4534,7 +4619,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         decoys: S.on ? S.decoys.length : 0, btn: spB.classList.contains('on'), choice: lvOv.classList.contains('on'),
         ring: S.on && S.lifts ? S.lifts.map(L => L.ring ? { uc: L.ring.uc, fill: Math.round(L.ring.fill * 100) / 100, ok: L.ring.ok, inside: L.ring.inside, slip: L.slip } : null) : null,
         gate: S.on && S.lifts ? S.lifts.map(L => L.gate ? { open: gateOpen(L), u: Math.round(gateU(L) * 100) / 100, k: Math.round(L.gateK * 100) / 100, period: L.gate.period, win: L.gate.open } : null) : null,
-        waits: S.waits };
+        waits: S.waits,
+        board: S.on && S.ask && K && K.board ? (() => { const sl = S.ask.slots || S.lifts.map((_, i) => i), nx = nextL(); return { slots: sl, lit: nx ? sl.indexOf(S.lifts.indexOf(nx)) : -1,
+          shown: K.board.meshes.filter(m => m.visible).length, litShown: K.board.meshes.filter(m => m.visible && m.material === K.board.lit).length }; })() : null };
     },
     // test hooks
     _cast() {
