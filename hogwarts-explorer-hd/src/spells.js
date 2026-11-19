@@ -586,7 +586,7 @@ export const COURSES = {
           bridge: { decoys: [tfTin(1, -1.3, 3.9, TF_CAM.bridge)] },
           shapes: { say: 'הֲפֹךְ אֶת הַדְּבָרִים בַּסֵּדֶר!', order: [2, 0, 1],
             decoys: [tfToad(2, -2.3, 4.75, TF_CAM.shapes), tfSpec(1, -1.45, 5.1, TF_CAM.shapes)], phone: TF_PHONE.shapes2 },
-          cat: { decoys: [tfTin(2, -2.6, -4.1, TF_CAM.cat), tfSpec(2, -0.55, -4.0, TF_CAM.cat)] },
+          cat: { decoys: [tfTin(2, -2.5, -5.0, TF_CAM.cat), tfSpec(2, -0.55, -4.0, TF_CAM.cat)] },
         } },
       3: { twist: 'עַכְשָׁו חֲשֹׁב: מָה הוֹפֵךְ לְמָה?', star3: 420, hints: TF_HINTS,
         stations: {
@@ -610,14 +610,14 @@ export const COURSES = {
             cam: { pos: [-2.0, 2.4, 2.5], look: [-2.0, 1.15, 6.3] },
             lifts: [
               tfPed('hat', 'rabbit', TF.peds[0], Math.PI, { aimY: 0.16, askSay: 'מָה הוֹפֵךְ לְאַרְנָב?' }),
-              tfPed('feather', 'quill', TF.peds[1], Math.PI, { aimY: 0.2, askSay: 'מָה הוֹפֵךְ לְעֵט נוֹצָה?' }),
-              tfPed('button', 'beetle', TF.peds[2], Math.PI + 0.3, { aimY: 0.15, askSay: 'מָה הוֹפֵךְ לְחִפּוּשִׁית?', askR: [0.8, 0.3] }),
+              tfPed('feather', 'quill', TF.peds[1], Math.PI, { aimY: 0.2, askSay: 'מָה הוֹפֵךְ לְעֵט נוֹצָה?', askS: 1.45 }),
+              tfPed('button', 'beetle', TF.peds[2], Math.PI + 0.3, { aimY: 0.15, askSay: 'מָה הוֹפֵךְ לְחִפּוּשִׁית?', askR: [0.55, 0.3], askS: 1.2 }),
               tfPed('xcup', 'xmouse', TF3.ped4, Math.PI, { aimY: 0.14, askSay: 'מָה הוֹפֵךְ לְעַכְבָּר?' }),
             ],
             order: [0, 2, 3, 1], ask: { at: TF3.board2, ry: Math.PI, gap: 0.7, size: 0.44, slots: [1, 2, 3, 0] },
             phone: TF_PHONE.shapes3 },
           cat: { say: 'חַכֵּה שֶׁעֵינֵי הֶחָתוּל יִזְהֲרוּ... וְאָז שַׁנֵּה!', gate: TF_GATE,
-            decoys: [tfTin(2, -2.6, -4.1, TF_CAM.cat), tfSpec(2, -0.55, -4.0, TF_CAM.cat)] },
+            decoys: [tfTin(2, -2.5, -5.0, TF_CAM.cat), tfSpec(2, -0.55, -4.0, TF_CAM.cat)] },
         } },
     },
   },
@@ -1835,7 +1835,7 @@ function buildTransfiguration(kit) {
     kit.mesh('xmouse', place(mouseGeo.clone(), 0, 0, 0, 0, 0, 0, 1.4), { glow: false });
     kit.mesh('xgoblet', place(gobM.geo.clone(), 0, 0, 0, 0, 0, 0, 2.2), { glowHex: 0xffd86a });
     kit.mesh('xbird', place(birdM.geo.clone(), 0, 0, 0, 0, 0, 0, 2.0), { glow: false });
-    eyes = kit.mesh('catEyes', merge([-1, 1].map(s => paint(place(new SphereGeometry(0.03, 10, 8), s * 0.0754, 0.7505, 0.284, 0, 0, 0, 1.25, 1.1, 0.6), 0xffffff))), { glow: false });
+    eyes = kit.mesh('catEyes', merge([-1, 1].map(s => paint(place(new SphereGeometry(0.038, 10, 8), s * 0.0754, 0.7505, 0.286, 0, 0, 0, 1.25, 1.1, 0.6), 0xffffff))), { glow: false });
     eyes.mat.emissive.setHex(0x6aff50); eyes.mesh.visible = false;
   }
 
@@ -4021,7 +4021,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // camera sees it; default the lift order). The board lights ONE silhouette (the next of `order`) and the teacher asks
   // (the lift's `askSay`, else hint('ask1')); the child changes the thing that becomes it. Touching another thing fizzles
   // (hint('ask'), a counted mistake); after hintNeed() mistakes the right thing twinkles and its sparkles stay (the hint).
-  // A lift may set `askR: [rx, ry offset]` for how its silhouette is turned on the board. Works for any verb whose things
+  // A lift may set `askR: [rx, ry offset]` for how its silhouette is turned on the board, `askS` a size factor (a thin quill). Works for any verb whose things
   // have a `to` shape (else the thing's own shape is shown).
   function askNext(delay) {
     const i = S.step;
@@ -4050,7 +4050,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       const src = L.to || L.mv, geo = src.geo; if (m.geometry !== geo) m.geometry = geo;
       let bb = B.boxes.get(geo); if (!bb) { if (!geo.boundingBox) geo.computeBoundingBox(); bb = geo.boundingBox; B.boxes.set(geo, bb); }
       const lit = L === cur, sz = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z) * src.scale;
-      const k = (A.size || 0.42) / Math.max(0.05, sz) * src.scale * (lit ? 1.3 + 0.05 * Math.sin(t * 4) + fl : 0.95);
+      const k = (A.size || 0.42) * (L.spec.askS || 1) / Math.max(0.05, sz) * src.scale * (lit ? 1.3 + 0.05 * Math.sin(t * 4) + fl : 0.95);
       const off = (j - (n - 1) / 2) * gap, ar = L.spec.askR || [0.2, 0.5];
       m.material = lit ? B.lit : B.dim;
       m.rotation.set(ar[0], ry + ar[1] + Math.sin(t * 0.9 + j * 1.7) * 0.18, 0); m.scale.setScalar(k);
