@@ -163,22 +163,28 @@ function recJarAt(R, j, out = [0, 0, 0]) {
 }
 // the level cameras of the recipe stations (the shelf in front, the cauldron behind it, the card beyond; phone-height: lower
 // and closer so the jars stand >= 70 px apart on an iPhone in landscape)
-const PO_CAM = { grow: [-6.3, -2.5], lamps: [-4.4, 4.6], ice: [-3.3, 4.2], colors: [4.5, 5.0], toad: [-1.6, -2.4] };
-const PO_SHELF = { grow: [-6.55, 0.4, -4.9], lamps: [-6.05, 0.4, 6.3], ice: [-3.6, 0.4, 6.2], colors: [4.5, 0.4, 7.35], toad: [-1.5, 0.4, -4.5] };
-const PO_CARD = { grow: [-5.45, 1.4, -7.1], lamps: [-8.0, 1.5, 9.1], ice: [-5.0, 1.4, 8.6], colors: [2.3, 1.35, 8.9], toad: [0.05, 1.6, -5.95] };
+const PO_CAM = { grow: [-6.0, -2.5], lamps: [-4.4, 4.6], ice: [-3.3, 4.2], colors: [4.5, 5.0], toad: [-1.6, -2.4] };
+const PO_SHELF = { grow: [-5.95, 0.4, -4.9], lamps: [-6.05, 0.4, 6.3], ice: [-3.6, 0.4, 6.2], colors: [4.5, 0.4, 7.35], toad: [-1.5, 0.4, -4.5] };
+const PO_CARD = { grow: [-6.05, 1.38, -7.4], lamps: [-7.6, 1.5, 8.75], ice: [-5.0, 1.32, 8.6], colors: [2.3, 1.35, 8.9], toad: [0.05, 1.6, -5.95] };
 const PO_KEY = [6.75, 1.3, 9.42];        // level 3: the colour-mixing key on the south wall, east of the pennants
 const poRec = (id, jars, o = {}) => { const s = PO_SHELF[id], c = PO_CARD[id];
   return { jars, shelf: { at: s, ry: camYaw(s[0], s[2], PO_CAM[id]) }, card: { at: c, ry: camYaw(c[0], c[2], PO_CAM[id]) }, ...o }; };
 const PO_LCAM = {
-  grow: { cam: { pos: [-6.3, 2.4, -2.5], look: [-6.45, 0.75, -6.3] }, phone: { cam: { pos: [-6.4, 2.0, -3.1], look: [-6.45, 0.8, -6.3] } } },
-  lamps: { cam: { pos: [-4.4, 2.3, 4.6], look: [-7.3, 0.8, 7.9] }, phone: { cam: { pos: [-5.0, 2.0, 5.2], look: [-7.3, 0.8, 7.9] } } },
-  ice: { cam: { pos: [-3.3, 2.4, 4.2], look: [-3.7, 0.75, 7.8] }, phone: { cam: { pos: [-3.4, 2.0, 4.8], look: [-3.7, 0.8, 7.8] } } },
-  colors: { cam: { pos: [4.5, 2.4, 5.0], look: [4.5, 0.9, 9.0] }, phone: { cam: { pos: [4.5, 2.0, 5.6], look: [4.5, 0.95, 9.0] } } },
-  toad: { cam: { pos: [-1.6, 2.4, -2.4], look: [-1.5, 0.9, -6.3] }, phone: { cam: { pos: [-1.6, 2.1, -3.0], look: [-1.5, 0.95, -6.3] } } },
+  // (the hero stands aside, off the shelf, the cauldron and the card; the walks go round the shelves)
+  grow: { walk: [[-4.0, -4.6], [-4.6, -6.2]], face: [-6.3, -6.4],
+    cam: { pos: [-6.0, 2.4, -2.5], look: [-6.1, 0.75, -6.3] }, phone: { cam: { pos: [-6.0, 2.0, -3.1], look: [-6.1, 0.8, -6.3] } } },
+  lamps: { walk: [[-6.3, -4.6], [-6.6, -1.0], [-6.6, 3.6], [-4.6, 5.0], [-4.3, 7.0]], face: [-7.5, 8.0],
+    cam: { pos: [-4.4, 2.3, 4.6], look: [-7.3, 0.8, 7.9] }, phone: { cam: { pos: [-5.0, 2.0, 5.2], look: [-7.3, 0.8, 7.9] } } },
+  ice: { walk: [[-3.3, 6.75], [-1.9, 7.6]], face: [-3.6, 7.6],
+    cam: { pos: [-3.3, 2.4, 4.2], look: [-3.7, 0.75, 7.8] }, phone: { cam: { pos: [-3.4, 2.0, 4.8], look: [-3.7, 0.8, 7.8] } } },
+  colors: { walk: [[-1.0, 5.4], [2.0, 5.6], [5.9, 6.6], [6.5, 6.9]], face: [4.5, 8.8],
+    cam: { pos: [4.5, 2.4, 5.0], look: [4.5, 0.9, 9.0] }, phone: { cam: { pos: [4.5, 2.0, 5.6], look: [4.5, 0.95, 9.0] } } },
+  toad: { walk: [[2.6, 5.0], [2.5, 0.5], [1.4, -3.0], [0.9, -4.6]], face: [PO_BIG[0], PO_BIG[2]],
+    cam: { pos: [-1.6, 2.4, -2.4], look: [-1.5, 0.9, -6.3] }, phone: { cam: { pos: [-1.6, 2.1, -3.0], look: [-1.5, 0.95, -6.3] } } },
 };
 // Snape's level lines: dry, never mean (masculine singular)
 const PO_HINTS2 = { recWrong: 'לֹא זֶה. הִסְתַּכֵּל בַּמַּתְכּוֹן.', recOrder: 'לֹא עַכְשָׁו. מָה בָּא קֹדֶם?', recFirst: 'קֹדֶם הַמַּרְכִּיבִים, אַחַר כָּךְ לִבְחֹשׁ.',
-  recStir: 'הַמַּתְכּוֹן מוּכָן. עַכְשָׁו בְּחֹשׁ!', recDone: 'עַכְשָׁו בְּחֹשׁ!' };
+  recStir: 'הַמַּתְכּוֹן מוּכָן. עַכְשָׁו בְּחֹשׁ!', recDone: 'עַכְשָׁו בְּחֹשׁ!', recIdle: 'גַּע בַּצִּנְצָנוֹת לְפִי הַמַּתְכּוֹן!' };
 const PO_HINTS3 = { ...PO_HINTS2, recWrong: 'לֹא זֶה. נַסֵּה לִזְכֹּר.', recOrder: 'לֹא עַכְשָׁו. מָה בָּא קֹדֶם?', recLook: 'הִסְתַּכֵּל טוֹב בַּמַּתְכּוֹן…',
   recMemory: 'עַכְשָׁו מֵהַזִּכָּרוֹן!', again: 'הִנֵּה שׁוּב הַמַּתְכּוֹן.', recMix: 'לֹא זֶה. הִסְתַּכֵּל בַּלּוּחַ שֶׁעַל הַקִּיר.',
   gate: 'עוֹד לֹא. חַכֵּה שֶׁהָאֵשׁ תִּגְבַּהּ.', gateMiss: 'סַבְלָנוּת… חַכֵּה לָאֵשׁ הַגְּבוֹהָה.' };
@@ -721,7 +727,7 @@ export const COURSES = {
     levels: {
       2: { twist: 'עַכְשָׁו לְפִי הַמַּתְכּוֹן: קֹדֶם הַמַּרְכִּיבִים, אַחַר כָּךְ לִבְחֹשׁ!', star3: 300, hints: PO_HINTS2,
         stations: {
-          grow: { ...PO_LCAM.grow, recipe: poRec('grow', ['star', 'leaf', 'berry', 'crystal'], { items: ['leaf', 'star', 'crystal'] }) },
+          grow: { ...PO_LCAM.grow, say: 'שִׂים בַּקְּדֵרָה אֶת מָה שֶׁעַל הַלּוּחַ!', recipe: poRec('grow', ['star', 'leaf', 'berry', 'crystal'], { items: ['leaf', 'star', 'crystal'] }) },
           lamps: { ...PO_LCAM.lamps, recipe: poRec('lamps', ['crystal', 'star', 'feather', 'shroom'], { items: ['star', 'feather', 'crystal'], shared: true }) },
           ice: { ...PO_LCAM.ice, recipe: poRec('ice', ['leaf', 'berry', 'feather', 'star'], { items: ['berry', 'star', 'feather'] }) },
           colors: { ...PO_LCAM.colors, lifts: [brewLift(9, { recipe: ['berry', 'feather'] }), brewLift(10, { recipe: ['feather', 'crystal'] }), brewLift(11, { recipe: ['shroom', 'feather'] })],
@@ -2223,6 +2229,9 @@ function buildPotions(kit) {
   // recipe changes). Level 3: the colour-mixing key on the south wall and the finale's fire (the timing gate). ----
   const LVD = kit.level > 1 && COURSES.potions.levels ? COURSES.potions.levels[kit.level] : null;
   let RJ = null;                                          // the recipe look (null on level 1)
+  // the card's half width / height (the canvas is 512 x 192) and a height offset: bigger and a little lower on a phone-height
+  // screen (read once at build: a course starts with the screen it has), so its pictures stay readable there
+  const CARD = typeof innerHeight === 'number' && innerHeight < 500 ? { w: 0.96, h: 0.36, y: -0.1 } : { w: 0.72, h: 0.27, y: 0 };
   if (LVD) {
     const recs = Object.entries(LVD.stations).filter(([, o]) => o.recipe);
     for (const [, o] of recs) {
@@ -2231,12 +2240,14 @@ function buildPotions(kit) {
       solid(paint(place(new BoxGeometry(w, 0.05, 0.36), s.at[0], s.at[1] - 0.025, s.at[2], 0, ry, 0), WOOD, 0x8a5a30));
       for (const e of [-1, 1]) { const [x, z] = at(e * (w / 2 - 0.03), 0); solid(paint(place(new BoxGeometry(0.06, s.at[1] - 0.05, 0.34), x, (s.at[1] - 0.05) / 2, z, 0, ry, 0), DARK)); }
       { const [x, z] = at(0, -0.16); solid(paint(place(new BoxGeometry(w, 0.1, 0.03), x, s.at[1] + 0.05, z, 0, ry, 0), DARK, WOOD)); }
-      const C = R.card, cc = Math.cos(C.ry || 0), cs = Math.sin(C.ry || 0), bx = C.at[0] - cs * 0.03, bz = C.at[2] - cc * 0.03;
-      solid(paint(place(new BoxGeometry(1.24, 0.56, 0.04), bx, C.at[1], bz, 0, C.ry || 0, 0), DARK, 0x7a5030));
-      for (const e of [-1, 1]) solid(paint(place(new BoxGeometry(0.05, C.at[1] - 0.2, 0.05), bx + cc * e * 0.52, (C.at[1] - 0.2) / 2, bz - cs * e * 0.52, 0, C.ry || 0, 0), DARK));
+      const C = R.card, cc = Math.cos(C.ry || 0), cs = Math.sin(C.ry || 0), bx = C.at[0] - cs * 0.05, bz = C.at[2] - cc * 0.05;   // (the frame well behind the face: no z-fight)
+      const cy = C.at[1] + CARD.y;
+      solid(paint(place(new BoxGeometry(2 * CARD.w + 0.08, 2 * CARD.h + 0.1, 0.04), bx, cy, bz, 0, C.ry || 0, 0), DARK, 0x7a5030));
+      for (const e of [-1, 1]) solid(paint(place(new BoxGeometry(0.05, cy - CARD.h, 0.05), bx + cc * e * (CARD.w - 0.08), (cy - CARD.h) / 2, bz - cs * e * (CARD.w - 0.08), 0, C.ry || 0, 0), DARK));
     }
-    // the ingredient atlas: INGR_K cells of 128 px
-    const atl = document.createElement('canvas'); atl.width = 128 * INGR_K.length; atl.height = 128;
+    // ONE canvas atlas (1024 x 512) for every picture of the recipe, so they are ONE mesh: the ingredients (INGR_K cells of 128
+    // px, top row), the card's face (512 x 192 below them, redrawn when the recipe changes), level 3's mixing key (256 x 256)
+    const atl = document.createElement('canvas'); atl.width = 1024; atl.height = 512;
     const ag = atl.getContext('2d'); INGR_K.forEach((k, i) => drawIngr(ag, k, i * 128 + 64, 64, 58));
     const atlTex = kit.tex(new CanvasTexture(atl)); atlTex.colorSpace = SRGBColorSpace;
     // the jars: a round glass jar (tinted by the instance colour) with a cork, glowing softly
@@ -2246,19 +2257,18 @@ function buildPotions(kit) {
       paint(place(new CylinderGeometry(0.05, 0.045, 0.05, 10), 0, 0.335, 0), 0x8a5a30, 0xb07a40),
     ]);
     const rjar = kit.inst('rjar', rjarGeo, 6, Array(6).fill(0xffffff), { glow: false, emissive: 0xffffff, emissiveIntensity: 0.16 });
-    // the jars' pictures: 6 quads (corners in PlaneGeometry order) re-placed each frame to face the camera
-    const labGeo = mergeGeometries(Array.from({ length: 6 }, () => new PlaneGeometry(1, 1)));
+    // the pictures: 8 quads (corners in PlaneGeometry order) placed each frame: 0-5 the jars' (facing the camera), 6 the card's
+    // face, 7 the key
+    const labGeo = mergeGeometries(Array.from({ length: 8 }, () => new PlaneGeometry(1, 1)));
     const rlab = kit.inst('rlab', labGeo, 1, [0xf2f2f2], { basic: true, map: atlTex, glow: false });
     rlab.material.alphaTest = 0.5; rlab.renderOrder = 2;
-    // the card's face
-    const cardCv = document.createElement('canvas'); cardCv.width = 512; cardCv.height = 192;
-    const cardTex = kit.tex(new CanvasTexture(cardCv)); cardTex.colorSpace = SRGBColorSpace;
-    kit.inst('rcard', new PlaneGeometry(1.16, 0.435), 1, [0xf0f0f0], { basic: true, map: cardTex, glow: false });
-    RJ = { atl, ag, labGeo, rjar, rlab, cardCv, cg: cardCv.getContext('2d'), cardTex, sig: '', jarSig: '', face: 1, flipT: 0, shownSig: '', key: null, fire: null };
+    { const uv = labGeo.attributes.uv, set = (q, u0, u1, y0, y1) => { for (let c = 0; c < 4; c++) uv.setXY(q * 4 + c, c % 2 ? u1 : u0, 1 - (c < 2 ? y0 : y1) / 512); };
+      set(6, 0, 0.5, 128, 320); set(7, 0.5, 0.75, 128, 384); }
+    RJ = { atl, ag, atlTex, labGeo, rjar, rlab, sig: '', jarSig: '', face: 1, flipT: 0, key: false, fire: null };
     if (kit.level === 3) {
       // the colour-mixing key: three rows, right to left: berry + crystal = purple, crystal + star = green, berry + star = orange
-      solid(paint(place(new BoxGeometry(0.9, 0.9, 0.04), PO_KEY[0], PO_KEY[1], PO_KEY[2] + 0.03), DARK, 0x7a5030));
-      const kc = document.createElement('canvas'); kc.width = kc.height = 384; const kg = kc.getContext('2d');
+      solid(paint(place(new BoxGeometry(0.9, 0.9, 0.04), PO_KEY[0], PO_KEY[1], PO_KEY[2] + 0.05), DARK, 0x7a5030));
+      const kg = ag; kg.save(); kg.translate(512, 128); kg.scale(256 / 384, 256 / 384);
       kg.fillStyle = '#1c2a26'; kg.fillRect(0, 0, 384, 384); kg.lineWidth = 10; kg.strokeStyle = '#c89a3a'; kg.strokeRect(5, 5, 374, 374);
       [['berry', 'crystal', 0], ['crystal', 'star', 1], ['berry', 'star', 2]].forEach(([a, b, j], r) => {
         const y = 66 + r * 126;
@@ -2266,8 +2276,7 @@ function buildPotions(kit) {
         kg.fillStyle = '#ffe6a0'; kg.font = 'bold 44px sans-serif'; kg.textAlign = 'center'; kg.textBaseline = 'middle'; kg.fillText('+', 257, y + 2); kg.fillText('=', 127, y + 2);
         kg.beginPath(); kg.arc(62, y, 40, 0, Math.PI * 2); kg.fillStyle = '#' + PO_MIXC[j].toString(16).padStart(6, '0'); kg.fill(); kg.lineWidth = 6; kg.strokeStyle = '#ffe6a0'; kg.stroke();
       });
-      const keyTex = kit.tex(new CanvasTexture(kc)); keyTex.colorSpace = SRGBColorSpace;
-      RJ.key = kit.inst('rkey', new PlaneGeometry(0.82, 0.82), 1, [0xf0f0f0], { basic: true, map: keyTex, glow: false });
+      kg.restore(); RJ.key = true;
       // the finale's fire: three orange and three yellow flames round the big cauldron's feet (unlit, they bloom), on embers
       solid(paint(place(new CylinderGeometry(0.62, 0.66, 0.03, 18), PO_BIG[0], 0.015, PO_BIG[2]), 0x3a1408, 0x6a2410));
       RJ.fire = kit.inst('rfire', new ConeGeometry(0.11, 1, 7).translate(0, 0.5, 0), 6, [0xff7a1a, 0xff7a1a, 0xff7a1a, 0xffd040, 0xffd040, 0xffd040], { basic: true, glow: false });
@@ -2297,8 +2306,11 @@ function buildPotions(kit) {
   // the card's face: the recipe right to left (numbered), what went in ticked; the next one ringed once hints are back; during
   // the level-3 showing the ingredients appear one by one; face down = a card back; MIXING = the colour = ? + ?
   function drawCard(R) {
-    const g = RJ.cg, W = 512, H = 192, L = R.L, r = L && L.rec;
-    g.clearRect(0, 0, W, H);
+    const g = RJ.ag, W = 512, H = 192, L = R.L, r = L && L.rec;
+    g.save(); g.translate(0, 128); g.beginPath(); g.rect(0, 0, W, H); g.clip(); g.clearRect(0, 0, W, H);
+    try { drawCardIn(g, R, W, H, L, r); } finally { g.restore(); }
+  }
+  function drawCardIn(g, R, W, H, L, r) {
     g.fillStyle = RJ.face ? '#1c2a26' : '#2a1e3a'; g.fillRect(0, 0, W, H);
     g.lineWidth = 10; g.strokeStyle = '#c89a3a'; g.strokeRect(5, 5, W - 10, H - 10);
     if (!r) return;
@@ -2337,7 +2349,7 @@ function buildPotions(kit) {
   // the camera, the flying ingredients (from the runner's events), the card (redrawn on change, a flip when it turns), halos
   function tickRecipe(M, t, st, step, dt) {
     const R = st.rec, on = !!R && st.phase === 'course';
-    M.rjar0.mesh.visible = on; M.rlab0.mesh.visible = on; M.rcard0.mesh.visible = on;
+    M.rjar0.mesh.visible = on; M.rlab0.mesh.visible = on;
     if (!on) return;
     const n = R.jars.length, sig = R.jars.map(J => J.key).join();
     const uv = RJ.labGeo.attributes.uv, pos = RJ.labGeo.attributes.position;
@@ -2350,6 +2362,7 @@ function buildPotions(kit) {
       }
       uv.needsUpdate = true;
     }
+    const quadAt = (q, x, y, z, ax, ay, az, bx, by, bz) => { for (let c = 0; c < 4; c++) { const sx = c % 2 ? 1 : -1, sy = c < 2 ? 1 : -1; pos.setXYZ(q * 4 + c, x + ax * sx + bx * sy, y + ay * sx + by * sy, z + az * sx + bz * sy); } };
     // the runner's events: a right ingredient flies to each cauldron that takes it
     if (R.ev.length) {
       for (const e of R.ev) { recJarAt(R.cfg, e.j, _ja);
@@ -2368,13 +2381,13 @@ function buildPotions(kit) {
       else if (J.kind === 'nudge' && u < 0.4) rz = Math.sin(u * 30) * 0.12 * (1 - u / 0.4);
       if (mark) sc *= 1 + 0.1 * Math.max(0, Math.sin(t * 6));
       M['rjar' + j].pose(a[0], y, a[2], 0, ry, rz, sc);
-      const hs = 0.15 * sc, cx = a[0] + _rz.x * 0.14, cy = y + 0.17 + _rz.y * 0.14, cz = a[2] + _rz.z * 0.14;
+      const hs = 0.125 * sc, cx = a[0] + _rz.x * 0.14, cy = y + 0.15 + _rz.y * 0.14, cz = a[2] + _rz.z * 0.14;
       for (let c = 0; c < 4; c++) { const sx = c % 2 ? hs : -hs, sy = c < 2 ? hs : -hs;
         pos.setXYZ(j * 4 + c, cx + _rx.x * sx + _ry.x * sy, cy + _rx.y * sx + _ry.y * sy, cz + _rx.z * sx + _ry.z * sy); }
       const col = c2.setHex(INGR[J.key]), gk = mark ? 0.5 + 0.3 * Math.sin(t * 6) : 0.26;
       quad(a[0], y + 0.18, a[2], 0.62, 0.62, col.r * gk, col.g * gk, col.b * gk);
     }
-    pos.needsUpdate = true; M.rlab0.pose(0, 0, 0, 0, 0, 0, 1);
+    M.rlab0.pose(0, 0, 0, 0, 0, 0, 1);
     // the card: redraw when what it shows changes; a flip (it narrows, turns, widens) when it goes face down / up
     const C = R.cfg.card, L = R.L, r = L && L.rec;
     const want = R.face ? 1 : 0;
@@ -2382,10 +2395,12 @@ function buildPotions(kit) {
     let sx = 1;
     if (RJ.flipT > 0) { RJ.flipT -= dt; const k = 1 - Math.max(0, RJ.flipT) / 0.5; sx = Math.abs(Math.cos(k * Math.PI)); if (k >= 0.5 && RJ.face !== want) RJ.face = want; }
     const csig = RJ.face + '|' + (r ? r.items.join() + '|' + r.k + '|' + r.got.join() : '-') + '|' + R.showI + '|' + R.mark + '|' + LI.indexOf(L);
-    if (csig !== RJ.sig) { RJ.sig = csig; drawCard(R); RJ.cardTex.needsUpdate = true; }
-    const cr = C.ry || 0, pop = R.showI >= 0 && R.showT != null ? 1 + 0.04 * Math.max(0, 1 - (t - R.showT) * 3) : 1;
-    M.rcard0.poseS(C.at[0], C.at[1], C.at[2], 0, cr, 0, sx * pop, pop, 1);
-    quad(C.at[0] - Math.sin(cr) * 0.06, C.at[1], C.at[2] - Math.cos(cr) * 0.06, 1.9, 1.0, 0.16, 0.13, 0.07);
+    if (csig !== RJ.sig) { RJ.sig = csig; drawCard(R); RJ.atlTex.needsUpdate = true; }
+    const cr = C.ry || 0, pop = R.showI >= 0 && R.showT != null ? 1 + 0.04 * Math.max(0, 1 - (t - R.showT) * 3) : 1, hw = CARD.w * sx * pop, hh = CARD.h * pop;
+    quadAt(6, C.at[0], C.at[1] + CARD.y, C.at[2], Math.cos(cr) * hw, 0, -Math.sin(cr) * hw, 0, hh, 0);
+    if (RJ.key && step >= 2 && step <= 4) quadAt(7, PO_KEY[0], PO_KEY[1], PO_KEY[2], -0.41, 0, 0, 0, 0.41, 0); else quadAt(7, 0, -50, 0, 0, 0, 0, 0, 0, 0);
+    quad(C.at[0] - Math.sin(cr) * 0.06, C.at[1] + CARD.y, C.at[2] - Math.cos(cr) * 0.06, CARD.w * 3.2, CARD.h * 3.6, 0.16, 0.13, 0.07);
+    pos.needsUpdate = true;
   }
   let demoT = 0, demoSfx = 0, growT = 0, growSfx = 0, chordT = 0, chord = 0, meltT = 0, meltSfx = 0, waveT = 0, waveSfx = 0, toadT = 0, toadSfx = 0, rainAcc = 0;
   let ladleA = 0, ladleV = 0, ladleK = 0;
@@ -2443,8 +2458,6 @@ function buildPotions(kit) {
       if (RJ) {                                          // (levels 2-3: the recipe look)
         recVis.fill(0); RJ.sig = ''; RJ.jarSig = ''; RJ.face = 1; RJ.flipT = 0;
         for (let j = 0; j < 6; j++) M['rjar' + j].pose(0, -50, 0, 0, 0, 0, 0);
-        M.rcard0.pose(0, -50, 0, 0, 0, 0, 0);
-        if (RJ.key) M.rkey0.pose(PO_KEY[0], PO_KEY[1], PO_KEY[2], 0, Math.PI, 0, 1);
         if (RJ.fire) for (let j = 0; j < 6; j++) M['rfire' + j].pose(0, -50, 0, 0, 0, 0, 0);
       }
     },
@@ -2638,7 +2651,6 @@ function buildPotions(kit) {
       if (RJ) {
         for (let i = 0; i < NP; i++) { const L = LI[i]; if (L && L.rec && L.rec.k === 0 && recVis[i] > 0) recVis[i] = 0; }
         tickRecipe(M, t, st, step, dt);
-        if (RJ.key) RJ.key.visible = step >= 2 && step <= 4;
         if (RJ.fire) {
           const L = LI[3], gk = L && L.gate ? L.gateK : 0, show = step >= 3;
           RJ.fire.visible = show;
@@ -2661,12 +2673,12 @@ function buildPotions(kit) {
       M.ladle0.mesh.visible = M.ladle0.s > 0.001 || M.ladle1.s > 0.001;
       bits.visible = bitsOn; bub.visible = bubOn;
       vis(M, ['cloud'], les);
-      vis(M, ['flower'], les || step === 0 || step === 1 || step === 4);   // (it is in the finale's view too)
+      vis(M, ['flower'], les || step === 0 || step === 1 || (step === 4 && !RJ));   // (it is in the finale's view too; not in the levels' closer one)
       vis(M, ['star'], step === 0);
       vis(M, ['stream'], step === 0 || step === 2);
       vis(M, ['jar0', 'jar1', 'jar2'], step >= 1 && step <= 2);
       vis(M, ['ice'], step >= 2 && step <= 3); vis(M, ['key'], step >= 2 && step <= 3);
-      vis(M, ['flag0', 'flag1', 'flag2'], step >= 2);
+      vis(M, ['flag0', 'flag1', 'flag2'], step >= (RJ ? 3 : 2));   // (levels 2-3: the ice station's level camera does not see them)
       vis(M, ['toad'], step >= 4);
     },
     effects: {
@@ -4263,7 +4275,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     gate: 'עוֹד לֹא! חַכֵּה לַיָּרֹק!', gateMiss: 'סַבְלָנוּת... חַכֵּה שֶׁיִּהְיֶה יָרֹק!',
     ask: 'לֹא זֶה! מָה מַתְאִים לַצּוּרָה שֶׁעַל הַלּוּחַ?', ask1: 'מָה מַתְאִים לַצּוּרָה הַזּוֹהֶרֶת?',
     recWrong: 'לֹא זֶה. הִסְתַּכֵּל בַּמַּתְכּוֹן.', recOrder: 'לֹא עַכְשָׁו. מָה בָּא קֹדֶם?', recFirst: 'קֹדֶם הַמַּרְכִּיבִים!', recStir: 'עַכְשָׁו בְּחֹשׁ!',
-    recDone: 'עַכְשָׁו בְּחֹשׁ!', recLook: 'הִסְתַּכֵּל טוֹב…', recMemory: 'עַכְשָׁו מֵהַזִּכָּרוֹן!', recMix: 'לֹא זֶה. הִסְתַּכֵּל בַּלּוּחַ.' };
+    recDone: 'עַכְשָׁו בְּחֹשׁ!', recIdle: 'גַּע בַּצִּנְצָנוֹת לְפִי הַמַּתְכּוֹן!', recLook: 'הִסְתַּכֵּל טוֹב…', recMemory: 'עַכְשָׁו מֵהַזִּכָּרוֹן!', recMix: 'לֹא זֶה. הִסְתַּכֵּל בַּלּוּחַ.' };
   const hint = (k) => (S.LV && S.LV.hints && S.LV.hints[k]) || (S.C.hints && S.C.hints[k]) || HINTS[k];
   const hintNeed = () => S.level === 2 ? 1 : 2;           // mistakes at a station before the hints come back
   const hintOK = () => S.level === 1 || S.miss >= hintNeed();
@@ -5038,7 +5050,9 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         L.mv.mat.emissive.setHex(on ? GATE_GREEN : L.gate.hex0); L.mv.mat.emissiveIntensity = on ? 0.6 + Math.sin(t * 9) * 0.15 : pulse * 0.5;
       }
       tickBoard(t, dt);                    // an ask station's board (hidden elsewhere)
-      if (S.rec) { const L = S.rec.L; S.rec.mark = S.sub === 'cast' && L && L.rec && !L.rec.done && hintOK() ? recNeed(L)[0] : null; }   // the next ingredient, once hints are back
+      if (S.rec) { const L = S.rec.L, filling = S.sub === 'cast' && L && L.rec && !L.rec.done;
+        S.rec.mark = filling && hintOK() ? recNeed(L)[0] : null;   // the next ingredient, once hints are back
+        if (filling && S.idle > 9) { S.idle = 0; line(hint('recIdle'), 2.4, 'talk'); } }   // a child who waits: what to do (no answer given)
     }
     if (K.ghosts.length) {
       // Vera Verto: the glowing silhouette of each open thing's after shape floats above it (no outline box)
