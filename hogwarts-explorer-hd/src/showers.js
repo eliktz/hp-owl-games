@@ -402,7 +402,8 @@ export function showerHall(room) {
     const m = new Object3D(); m.position.set(ox, ly, oz); m.userData.light = { k: 'torch', c: 0xffd49a, wr: 2.6, wa: 0.26, fr: 3.6, fa: 0.2 }; g.add(m);
   }
   // the 'all showers' plaque above the tap wheel
-  GL.push(uvTo(new PlaneGeometry(0.84, 0.42), R.plaque).rotateY(Math.PI / 2).translate(-W / 2 + 0.02, 2.2, 0));
+  GL.push(uvTo(new PlaneGeometry(1.12, 0.56), R.plaque).rotateY(Math.PI / 2).translate(-W / 2 + 0.02, 2.25, 0));
+  B.push(box(0.03, 0.6, 1.16, -W / 2 + 0.006, 2.25, 0));
   // the way back out: an oak door in the east end wall, cream stone surround, brass knob
   { const X = W / 2;
     P.push([box(0.06, 2.3, 1.2, X - 0.03, 1.15, 0), 0x6a4426]);
@@ -425,7 +426,7 @@ export function showerHall(room) {
   haze.name = 'showers-haze'; haze.renderOrder = 4; haze.raycast = () => {}; g.add(haze);
   // water streams: seven open cones, instanced, scrolling streaks tinted per shower
   const sg = new CylinderGeometry(0.15, 0.34, 1, 16, 1, true).translate(0, -0.5, 0);
-  const streams = new InstancedMesh(sg, new MeshBasicMaterial({ map: streamTex(), transparent: true, opacity: 0.62, depthWrite: false, side: DoubleSide, fog: false }), 7);
+  const streams = new InstancedMesh(sg, new MeshBasicMaterial({ map: streamTex(), transparent: true, opacity: 0.75, depthWrite: false, side: DoubleSide, fog: false }), 7);
   streams.name = 'showers-streams'; streams.renderOrder = 5; streams.frustumCulled = false; streams.raycast = () => {}; streams.instanceMatrix.setUsage(DynamicDrawUsage);
   { const m = new Matrix4().makeScale(0, 0, 0), c = new Color(1, 1, 1); for (let i = 0; i < 7; i++) { streams.setMatrixAt(i, m); streams.setColorAt(i, c); } }
   streams.visible = false; g.add(streams);
@@ -496,7 +497,7 @@ export function createShowers({ camera, player, interiors, delight, freecast, en
   const debug = /[?&]debug=1/.test(location.search);
   let Hh = null, T = 0, speed = 1, FY = -200;
   // ---- per-bay state ----
-  const bays = BAY_X.map((x, i) => ({ x, i, mode: MODES[i], hold: 0, on: false, k: 0, runs: 0, onT: 0, acc: new Float32Array(6), eff: MODES[i], house: 0, switches: 0 }));
+  const bays = BAY_X.map((x, i) => ({ x, i, mode: MODES[i], hold: 0, on: false, k: 0, runs: 0, onT: 0, acc: new Float32Array(6), eff: MODES[i], house: 0, switches: 0, made: new Int32Array(7), seen: 0, houses: 0, hues: 0 }));
   let allT = 0, allRuns = 0, wheelSpin = 0, steam = 0, steamBoost = 0, foam = 0, foamMax = 0, wet = 0, wasUnder = false, towels = 0, wetSparks = 0;
   let duckHop = 0, quacks = 0, visitPopped = 0, splashes = 0, steamPuffs = 0, hissT = 0, lumK = 0, maxAlive = 0, maxDrawn = 0, popTaps = 0;
   let base = null;   // the room's ambient/hemi on entry (restored when we walk on to another room)
@@ -628,37 +629,39 @@ export function createShowers({ camera, player, interiors, delight, freecast, en
   }
   function streamColor(b, eff) {
     switch (eff) {
-      case 'bubbles': return col.setRGB(0.85, 1.0, 1.15);
+      case 'bubbles': return col.setRGB(0.6, 0.95, 1.25);
       case 'rainbow': return hue(T * 0.6, 0.7).multiplyScalar(0.9);
       case 'gold': return col.setRGB(1.5, 1.1, 0.32);
       case 'foam': return col.setRGB(1.15, 1.15, 1.18);
       case 'houses': { const h = HOUSE_RGB[b.house]; return col.setRGB(h[0] * 1.3, h[1] * 1.3, h[2] * 1.3); }
-      default: return col.setRGB(0.72, 0.9, 1.2);
+      default: return col.setRGB(0.42, 0.74, 1.4);
     }
   }
   function runBay(b, eff, dt) {
-    const k = b.k, A = b.acc, x0 = b.x;
-    if (eff === 'houses') b.house = Math.floor((T - b.onT) / 1.2) % 4;
+    const k = b.k, A = b.acc, x0 = b.x, M = b.made;
+    if (eff === 'houses') { b.house = Math.floor((T - b.onT) / 1.2) % 4; b.houses |= 1 << b.house; }
+    b.seen |= 1 << MODES.indexOf(eff);
+    if (eff === 'rainbow') b.hues |= 1 << (Math.floor(((T * 0.15) % 1) * 6) % 6);
     const rates = eff === 'water' ? [26, 0, 0, 1.3, 6] : eff === 'bubbles' ? [12, 5, 0, 0.8, 3] : eff === 'rainbow' ? [44, 0, 5, 0.8, 6]
       : eff === 'gold' ? [16, 0, 16, 0.6, 4] : eff === 'foam' ? [6, 1.6, 0, 0.6, 2] : [22, 0, 4, 0.8, 5];
     // [drops, bubbles, sparkles, steam, splashes] per second (+ foam puffs below)
     for (let j = 0; j < 5; j++) A[j] += rates[j] * k * dt;
     if (eff === 'foam') A[5] += 9 * k * dt;
-    while (A[0] >= 1) { A[0]--;
+    while (A[0] >= 1) { A[0]--; M[K_DROP]++;
       const a = rnd() * 6.28, rr = Math.sqrt(rnd()) * 0.17, rb = eff === 'rainbow', c = rb ? hue(a / 6.28 + T * 0.15, 0.6).multiplyScalar(1.5) : streamColor(b, eff);
-      emit(K_DROP, x0 + Math.cos(a) * rr, HEAD_Y - 0.06, HEAD_Z + Math.sin(a) * rr, Math.cos(a) * rr * 1.2, -4.2 - rnd() * 1.2, Math.sin(a) * rr * 1.2, 1.2, rb ? 0.1 + rnd() * 0.04 : 0.07 + rnd() * 0.03, c.r, c.g, c.b, -6, 0); }
-    while (A[1] >= 1) { A[1]--;
+      emit(K_DROP, x0 + Math.cos(a) * rr, HEAD_Y - 0.06, HEAD_Z + Math.sin(a) * rr, Math.cos(a) * rr * 1.2, -4.2 - rnd() * 1.2, Math.sin(a) * rr * 1.2, 1.2, rb ? 0.1 + rnd() * 0.04 : 0.08 + rnd() * 0.04, c.r, c.g, c.b, -6, 0); }
+    while (A[1] >= 1) { A[1]--; M[K_BUBBLE]++;
       const c = hue(rnd(), 0.88);
       emit(K_BUBBLE, x0 + (rnd() - 0.5) * 0.8, 0.5 + rnd() * 1.4, HEAD_Z + (rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.15, 0.3 + rnd() * 0.3, 0.18 + rnd() * 0.25, 9 + rnd() * 4, 0.16 + rnd() * 0.18, c.r * 1.05, c.g * 1.05, c.b * 1.1, 0, 0); }
-    while (A[2] >= 1) { A[2]--;
+    while (A[2] >= 1) { A[2]--; M[K_SPARK]++;
       const c = eff === 'gold' ? col.setRGB(2.4, 1.8, 0.55) : eff === 'rainbow' ? hue(rnd(), 0.7).multiplyScalar(1.8) : streamColor(b, eff).multiplyScalar(1.5);
       emit(K_SPARK, x0 + (rnd() - 0.5) * 0.7, 0.2 + rnd() * 2.2, HEAD_Z + (rnd() - 0.5) * 0.6, (rnd() - 0.5) * 0.2, 0.1 + rnd() * 0.3, (rnd() - 0.5) * 0.2, 0.7 + rnd() * 0.5, 0.1 + rnd() * 0.08, c.r, c.g, c.b, 0, 0.5); }
-    while (A[3] >= 1) { A[3]--;
+    while (A[3] >= 1) { A[3]--; M[K_STEAM]++;
       emit(K_STEAM, x0 + (rnd() - 0.5) * 0.5, 1.7 + rnd() * 0.6, HEAD_Z + 0.2, (rnd() - 0.5) * 0.15, 0.3 + rnd() * 0.15, 0.15 + rnd() * 0.15, 3.6, 0.45, 1, 1, 1, 0, 0.1, 0.55); }
-    while (A[4] >= 1) { A[4]--;
+    while (A[4] >= 1) { A[4]--; M[K_SPLASH]++;
       const a = rnd() * 6.28, c = eff === 'rainbow' ? hue(rnd(), 0.65) : streamColor(b, eff);
       emit(K_SPLASH, x0 + Math.cos(a) * 0.3, 0.05, HEAD_Z + Math.sin(a) * 0.3, Math.cos(a) * 0.9, 1.1 + rnd() * 0.9, Math.sin(a) * 0.9, 0.5, 0.06, c.r, c.g, c.b, -8, 0.5); }
-    while (A[5] >= 1) { A[5]--;
+    while (A[5] >= 1) { A[5]--; M[K_FOAM]++;
       emit(K_FOAM, x0 + (rnd() - 0.5) * 0.3, HEAD_Y - 0.1, HEAD_Z + (rnd() - 0.5) * 0.3, (rnd() - 0.5) * 0.3, -1.4, (rnd() - 0.5) * 0.3, 3, 0.14 + rnd() * 0.08, 1.05, 1.05, 1.08, -3, 0.6); }
   }
   const moundH = (x, z) => { if (foam <= 0) return 0; const dx = (x - BAY_X[FOAM_BAY]) / 0.62, dz = (z - HEAD_Z) / 0.5, q = 1 - dx * dx - dz * dz; return q > 0 ? q * 0.55 * foam : 0; };
@@ -675,7 +678,7 @@ export function createShowers({ camera, player, interiors, delight, freecast, en
       if (PD[o + 14]) PD[o + 8] *= 1 + PD[o + 14] * dt;
       if (kd === K_BUBBLE) { PD[o] += Math.sin(T * 2.3 + PD[o + 15]) * 0.12 * dt; if (PD[o + 1] > H - 0.25) { kill(i); continue; } }
       if ((kd === K_DROP || kd === K_SPLASH) && PD[o + 1] < 0.03) { if (kd === K_DROP && rnd() < 0.18) emit(K_SPLASH, PD[o], 0.04, PD[o + 2], (rnd() - 0.5) * 1.2, 0.8 + rnd() * 0.8, (rnd() - 0.5) * 1.2, 0.35, 0.05, PD[o + 9], PD[o + 10], PD[o + 11], -8, 0); kill(i); continue; }
-      if (kd === K_FOAM && PD[o + 1] < Math.max(0.06, moundH(PD[o], PD[o + 2]))) { foam = Math.min(1, foam + 0.012); kill(i); continue; }
+      if (kd === K_FOAM && PD[o + 1] < Math.max(0.06, moundH(PD[o], PD[o + 2]))) { if (Math.abs(PD[o] - BAY_X[FOAM_BAY]) < 0.8) foam = Math.min(1, foam + 0.012); kill(i); continue; }   // (the surprise shower's foam just fizzles)
       if (n >= NP - FOAM_N) continue;
       const f = PD[o + 6] / PD[o + 7];
       let a = Math.min(1, (1 - f) * 10) * Math.min(1, f * 4), s = PD[o + 8], sy = s;
@@ -788,7 +791,10 @@ export function createShowers({ camera, player, interiors, delight, freecast, en
     fun.sfx.poof(); fun.sfx.tune([1319, 1568, 2093], 0.08, 'sine');
   }
 
-  const bayState = () => bays.map(b => ({ i: b.i, x: b.x, mode: b.mode, eff: b.eff, on: b.on, k: +b.k.toFixed(2), runs: b.runs, house: b.house, switches: b.switches }));
+  const seenList = (m) => MODES.filter((_, j) => m & (1 << j));
+  const bits = (m) => { let n = 0; for (; m; m >>= 1) n += m & 1; return n; };
+  const bayState = () => bays.map(b => ({ i: b.i, x: b.x, mode: b.mode, eff: b.eff, on: b.on, k: +b.k.toFixed(2), runs: b.runs, house: b.house, switches: b.switches,
+    made: { drops: b.made[K_DROP], bubbles: b.made[K_BUBBLE], sparks: b.made[K_SPARK], steam: b.made[K_STEAM], splashes: b.made[K_SPLASH], foam: b.made[K_FOAM] }, seen: seenList(b.seen), houses: bits(b.houses), hues: bits(b.hues) }));
   const api = {
     update,
     state: () => ({
