@@ -1951,10 +1951,10 @@ function buildTransfiguration(kit) {
         if (popped(xg)) { const a = xg.arr; M.xbird.pose(a[0], a[1] + Math.max(0, Math.sin(t * 2.6)) * 0.03, a[2], 0, xg.rot1[1] + Math.sin(t * 0.9) * 0.3, Math.sin(t * 1.7) * 0.06, 1); }
         const L = Lof.statue, on = ph === 'course' && step === 4 && !!L && !L.done && M.statue.s > 0.001;
         eyes.mesh.visible = on;
-        if (on) {                          // they glow while the gate is open (L.gateK), a faint ember while it waits
+        if (on) {                          // they glow while the gate is open (L.gateK), plain stone while it waits
           const sm = M.statue.mesh, k = L.gate ? L.gateK : 0;
           eyes.mesh.position.copy(sm.position); eyes.mesh.rotation.copy(sm.rotation); eyes.mesh.scale.copy(sm.scale);
-          eyes.mat.emissiveIntensity = 0.08 + 2.6 * k; eyes.mat.color.setHex(k > 0.4 ? 0xc8ffb8 : 0x46463e);
+          eyes.mat.emissiveIntensity = 2.6 * k; eyes.mat.color.setHex(k > 0.4 ? 0xc8ffb8 : 0x6a6862);   // (closed: plain stone grey, no green)
         }
       }
     },
