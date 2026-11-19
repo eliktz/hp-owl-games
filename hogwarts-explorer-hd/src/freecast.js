@@ -509,7 +509,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     }
     F.instanceMatrix.needsUpdate = true;
   }
-  SP.incendio = targeted('incendio', { tick: tickTorches, state: () => ({ lit: torches.map(t => t.lit), lights: torches.reduce((a, t) => a + t.lights, 0), douses: torches.reduce((a, t) => a + t.douses, 0) }) });
+  SP.incendio = targeted('incendio', { tick: tickTorches, state: () => ({ lit: torches.map(t => t.lit), lighting: torches.filter(t => t.pend > 0).length, lights: torches.reduce((a, t) => a + t.lights, 0), douses: torches.reduce((a, t) => a + t.douses, 0) }) });
 
   // ---- Aguamenti waters the flower bed: the flowers perk up, the pumpkin grows ----
   const bed = { wilt: 1, wiltTo: 1, pk: 1, pkTo: 1, last: -1e9, waters: 0, grows: 0, pend: 0 };
@@ -683,9 +683,10 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     },
     _speed(k) { speed = k || 1; },
     corner: () => (C ? { x: CORNER.x, z: CORNER.z, y: C.Y0, visible: C.group.visible } : null),
-    showCorner(on) { cornerOn = !!on; },
+    showCorner(on) { cornerOn = !!on; if (D) D.SP._duel.on = !!on; },
+    duel: () => (D ? { x: DUEL.x, z: DUEL.z, y: D.Y0, visible: D.group.visible, show: { x: +(D.SHOW.x + DUEL.x).toFixed(2), z: +(D.SHOW.z + DUEL.z).toFixed(2) } } : null),
     _cool() { cool = 0; },
   };
-  api._internal = { scene, emit, burst, stream, tip, tipBurst, TARGETS, SP, st, persist, glowTex, log };
+  api._internal = { scene, emit, burst, stream, tip, tipBurst, TARGETS, SP, st, persist, glowTex, log, D };
   return api;
 }
