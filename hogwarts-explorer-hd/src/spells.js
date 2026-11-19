@@ -223,7 +223,7 @@ const AS_GATE = { period: 3.4, open: 1.6 };
 // that becomes it) at the bridge (the chair, a goblet on a stool, a fifth pumpkin) and the shapes (a fourth pedestal
 // with a teacup), a fourth pumpkin in the nook, and the timing gate at the cat statue (its eyes glow in a slow rhythm).
 const TF_CAM = { stairs: [0.9, 3.9], lanterns: [-0.5, 3.9], bridge: [-1.35, 0.7], shapes: [0.7, 4.2], cat: [-0.9, -1.0], shapes3: [-2.0, 2.5], bridge3: [-1.35, 0.6] };
-const TF3 = { pump3: [2.85, 1.2], pump4: [1.15, 4.5], stool: [-1.2, 3.6], stoolH: 0.55, ped4: -0.2,
+const TF3 = { pump3: [2.45, 1.9], pump4: [1.15, 4.5], stool: [-1.2, 3.6], stoolH: 0.55, ped4: -0.2,
   board1: [1.55, 1.55, 4.5], board2: [-2.0, 1.85, 6.75] };
 const TIN_SAY = 'זֹאת קֻפְסַת הָעוּגִיּוֹת שֶׁלִּי!', TOAD_SAY = 'שְׁשְׁשׁ... הַקַּרְפָּדָה יְשֵׁנָה!', SPEC_SAY = 'אֵלֶּה הַמִּשְׁקָפַיִם שֶׁלִּי!';
 const tfTin = (i, x, z, cam) => ({ m: 'dtin' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.26, aimY: 0.58, shakeMode: 'rattle', say: TIN_SAY });
@@ -571,6 +571,53 @@ export const COURSES = {
           lifts: [{ m: 'statue', to: 'tabby', path: [[TF.plinth[0], TF.plinth[1], TF.plinth[2]]], rot0: [0, 0.6, 0], rot1: [0, 0.6, 0], aimY: 0.45, hint: 1.25, hs: 0.6, r: 0.5, free: true }],
           after: 'catWake', afterT: 5.4, afterSfx: 'none', afterLine: 'אֵיזֶה חָתוּל נֶחְמָד!', afterLineT: 3.6 },
       ],
+    },
+    // Difficulty levels (the shape: see COURSES.charms.levels; `ask`: the matching board, see ASK in the runner).
+    // Level 2: the pumpkins and the shapes in the shown order (3 steps), McGonagall's biscuit tin, a sleeping toad and her
+    // spectacles as decoys. Level 3: MATCHING at the bridge (chair / goblet / pumpkin -> bridge / bird / lantern) and the
+    // shapes (hat / feather / button / teacup on four pedestals -> rabbit / quill / beetle / mouse), the board asks one at a
+    // time; four pumpkins in an order shown once; the timing gate at the cat statue (its eyes glow).
+    levels: {
+      2: { twist: 'עַכְשָׁו רַק מָה שֶׁצָּרִיךְ, וּבַסֵּדֶר הַנָּכוֹן!', star3: 300, hints: TF_HINTS,
+        stations: {
+          stairs: { decoys: [tfTin(0, -3.2, 2.4, TF_CAM.stairs), tfToad(0, -1.6, 2.5, TF_CAM.stairs)], phone: TF_PHONE.stairs },
+          lanterns: { say: 'הֲפֹךְ אֶת הַדְּלָעוֹת בַּסֵּדֶר!', order: [1, 2, 0],
+            decoys: [tfSpec(0, 3.85, 2.65, TF_CAM.lanterns), tfToad(1, 2.95, 2.95, TF_CAM.lanterns)], phone: TF_PHONE.lanterns },
+          bridge: { decoys: [tfTin(1, -1.3, 3.9, TF_CAM.bridge)] },
+          shapes: { say: 'הֲפֹךְ אֶת הַדְּבָרִים בַּסֵּדֶר!', order: [2, 0, 1],
+            decoys: [tfToad(2, -2.3, 4.75, TF_CAM.shapes), tfSpec(1, -1.45, 5.1, TF_CAM.shapes)], phone: TF_PHONE.shapes2 },
+          cat: { decoys: [tfTin(2, -2.6, -4.1, TF_CAM.cat), tfSpec(2, -0.55, -4.0, TF_CAM.cat)] },
+        } },
+      3: { twist: 'עַכְשָׁו חֲשֹׁב: מָה הוֹפֵךְ לְמָה?', star3: 420, hints: TF_HINTS,
+        stations: {
+          stairs: { decoys: [tfTin(0, -3.2, 2.4, TF_CAM.stairs), tfSpec(0, -1.6, 2.5, TF_CAM.stairs)], phone: TF_PHONE.stairs },
+          lanterns: { say: 'זְכֹר אֶת הַסֵּדֶר וְשַׁנֵּה!', order: [3, 1, 0, 2],
+            lifts: [...TF.pumpkins.map(([x, z], i) => tfPump(i, x, z)), tfPump(3, TF3.pump3[0], TF3.pump3[1])],
+            decoys: [tfSpec(1, 3.85, 2.65, TF_CAM.lanterns), tfToad(0, 2.95, 2.95, TF_CAM.lanterns)], phone: TF_PHONE.lanterns },
+          bridge: { say: 'הִסְתַּכֵּל עַל הַלּוּחַ: מָה הוֹפֵךְ לְמָה?',
+            cam: { pos: [-1.35, 2.5, 0.6], look: [0.2, 0.75, 3.9] },
+            lifts: [
+              { m: 'chair', to: 'bridge', path: [TF.puddle], rot0: [0, 0.5, 0.07], rot1: [0, 0, 0], aimY: 0.4, hint: 1.05, hs: 0.6, r: 0.45, askSay: 'מָה הוֹפֵךְ לְגֶשֶׁר?', askR: [0.3, Math.PI / 2] },
+              { m: 'xgoblet', to: 'xbird', path: [[TF3.stool[0], TF3.stoolH, TF3.stool[1]]], rot0: [0, 0, 0], rot1: [0, camYaw(TF3.stool[0], TF3.stool[1], TF_CAM.bridge3), 0],
+                aimY: 0.25, hint: 0.7, r: 0.26, free: true, askSay: 'מָה הוֹפֵךְ לְצִפּוֹר?' },
+              tfPump(4, TF3.pump4[0], TF3.pump4[1], { askSay: 'מָה הוֹפֵךְ לְפָנָס?' }),
+            ],
+            order: [1, 0, 2], ask: { at: TF3.board1, ry: camYaw(TF3.board1[0], TF3.board1[2], TF_CAM.bridge3), gap: 0.62, size: 0.46, slots: [1, 2, 0] },
+            phone: TF_PHONE.bridge3 },
+          shapes: { say: 'הִסְתַּכֵּל עַל הַלּוּחַ: מָה הוֹפֵךְ לְמָה?',
+            walk: [[0, 2.6], [0.2, 4.2], [0.35, 5.1]], face: [-0.4, 6.2],
+            cam: { pos: [-2.0, 2.4, 2.5], look: [-2.0, 1.15, 6.3] },
+            lifts: [
+              tfPed('hat', 'rabbit', TF.peds[0], Math.PI, { aimY: 0.16, askSay: 'מָה הוֹפֵךְ לְאַרְנָב?' }),
+              tfPed('feather', 'quill', TF.peds[1], Math.PI, { aimY: 0.2, askSay: 'מָה הוֹפֵךְ לְעֵט נוֹצָה?' }),
+              tfPed('button', 'beetle', TF.peds[2], Math.PI + 0.3, { aimY: 0.15, askSay: 'מָה הוֹפֵךְ לְחִפּוּשִׁית?', askR: [0.8, 0.3] }),
+              tfPed('xcup', 'xmouse', TF3.ped4, Math.PI, { aimY: 0.14, askSay: 'מָה הוֹפֵךְ לְעַכְבָּר?' }),
+            ],
+            order: [0, 2, 3, 1], ask: { at: TF3.board2, ry: Math.PI, gap: 0.7, size: 0.44, slots: [1, 2, 3, 0] },
+            phone: TF_PHONE.shapes3 },
+          cat: { say: 'חַכֵּה שֶׁעֵינֵי הֶחָתוּל יִזְהֲרוּ... וְאָז שַׁנֵּה!', gate: TF_GATE,
+            decoys: [tfTin(2, -2.6, -4.1, TF_CAM.cat), tfSpec(2, -0.55, -4.0, TF_CAM.cat)] },
+        } },
     },
   },
   // -------------------------------------------------------------------------------------
@@ -1540,6 +1587,73 @@ function starGeo(r = 0.16) {
   return paint(new ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.012, bevelSegments: 1 }).translate(0, 0, -0.02), 0xffe070, 0xffb020);
 }
 
+// Transfiguration levels 2-3 decoys (origin on the floor, facing +z). McGonagall's tartan: a red ground with green bands
+// round it and dark-blue bands across, thin yellow lines where they meet.
+function tartan(geo) {
+  const P = geo.attributes.position, n = P.count, col = new Float32Array(n * 3);
+  const R = new Color(0xb0202a), G = new Color(0x1e5a32), N = new Color(0x1a2450), Y = new Color(0xe8c040);
+  for (let i = 0; i < n; i++) {
+    const u = Math.sin(Math.atan2(P.getZ(i), P.getX(i)) * 8), v = Math.sin(P.getY(i) * 90);
+    _c.copy(R); if (u > 0.5) _c.lerp(G, 0.85); if (v > 0.55) _c.lerp(N, 0.6); if (Math.abs(u) < 0.12 || Math.abs(v) < 0.1) _c.lerp(Y, 0.55);
+    col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b;
+  }
+  geo.setAttribute('color', new BufferAttribute(col, 3));
+  return geo;
+}
+function tinGeo() {                                 // her biscuit tin on a little three-legged stool (tin top ~0.68 m)
+  return merge([
+    paint(place(new CylinderGeometry(0.21, 0.2, 0.045, 18), 0, 0.477, 0), 0x7a4e2a, 0x9a6a3a),
+    ...[0, 1, 2].map(i => { const a = i * Math.PI * 2 / 3; return paint(place(new CylinderGeometry(0.022, 0.028, 0.46, 6), Math.cos(a) * 0.14, 0.23, Math.sin(a) * 0.14, Math.sin(a) * 0.12, 0, -Math.cos(a) * 0.12), 0x5a3a20); }),
+    tartan(place(new CylinderGeometry(0.16, 0.16, 0.14, 40, 8, true), 0, 0.57, 0)),
+    tartan(place(new CylinderGeometry(0.168, 0.168, 0.035, 40, 2), 0, 0.655, 0)),
+    paint(place(new TorusGeometry(0.166, 0.008, 4, 32), 0, 0.638, 0, Math.PI / 2), 0xd8b04a),
+    paint(place(new TorusGeometry(0.161, 0.007, 4, 32), 0, 0.502, 0, Math.PI / 2), 0xd8b04a),
+    paint(place(new SphereGeometry(0.03, 10, 6), 0, 0.68, 0, 0, 0, 0, 1, 0.6, 1), 0xd8b04a),
+  ]);
+}
+function toadGeo() {                                // a fat green toad asleep (eyes shut) on a purple cushion on a footstool (top ~0.56 m)
+  const G1 = 0x4e7e34, G2 = 0x8cb85a;
+  return merge([
+    paint(place(new BoxGeometry(0.46, 0.2, 0.36), 0, 0.12, 0), 0x6a4424, 0x7a5030),
+    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => paint(place(new BoxGeometry(0.05, 0.04, 0.05), a * 0.19, 0.02, b * 0.14), 0x3a2614)),
+    paint(place(new SphereGeometry(0.26, 18, 10), 0, 0.27, 0, 0, 0, 0, 1, 0.24, 0.8), 0x5a2e82, 0x8a5ab8),
+    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => paint(place(new SphereGeometry(0.022, 6, 5), a * 0.2, 0.25, b * 0.15), 0xe8c040)),
+    paint(place(new SphereGeometry(0.12, 16, 10), 0, 0.39, -0.01, 0, 0, 0, 1.15, 0.72, 1.05), G1, G2),
+    paint(place(new SphereGeometry(0.085, 14, 10), 0, 0.42, 0.08, 0, 0, 0, 1.25, 0.72, 1.0), G1, G2),
+    paint(place(new SphereGeometry(0.075, 12, 8), 0, 0.37, 0.07, 0, 0, 0, 1.2, 0.6, 1.05), 0xe8e0b0),   // pale belly / chin
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.034, 10, 8), s * 0.05, 0.47, 0.1), G2)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.02, 8, 5), s * 0.052, 0.475, 0.128, 0, 0, s * 0.2, 1.4, 0.32, 0.8), 0x1e2a14)),   // shut eyes
+    paint(place(new BoxGeometry(0.1, 0.006, 0.01), 0, 0.405, 0.16), 0x2a3a1a),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.035, 8, 6), s * 0.08, 0.34, 0.1, 0, 0, 0, 1, 0.5, 1.3), G1)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.05, 8, 6), s * 0.11, 0.35, -0.07, 0, 0, 0, 0.8, 0.6, 1.4), G1)),
+  ]);
+}
+function specGeo() {                                // her square spectacles on a tall brass stand (glasses ~0.9 m up, facing +z)
+  const F = 0x2a2228, specs = merge([
+    ...[-1, 1].map(s => paint(place(new TorusGeometry(0.052, 0.009, 4, 4), s * 0.065, 0, 0, 0, 0, Math.PI / 4), F)),
+    ...[-1, 1].map(s => paint(place(new BoxGeometry(0.068, 0.068, 0.004), s * 0.065, 0, 0), 0x9ac8e0, 0xd8f0ff)),
+    paint(place(new BoxGeometry(0.035, 0.009, 0.009), 0, 0.012, 0), F),
+    ...[-1, 1].map(s => paint(place(new BoxGeometry(0.008, 0.008, 0.13), s * 0.105, 0.015, -0.065), F)),
+  ]);
+  return merge([
+    paint(place(new CylinderGeometry(0.13, 0.15, 0.03, 16), 0, 0.015, 0), 0x6a4a1e, 0x9a7a2e),
+    paint(place(new CylinderGeometry(0.013, 0.016, 0.8, 8), 0, 0.42, 0), 0xb98b2e, 0xd8b04a),
+    paint(place(new BoxGeometry(0.26, 0.016, 0.03), 0, 0.82, -0.04), 0xb98b2e),
+    place(specs, 0, 0.9, 0, -0.15, 0, 0, 1.75),
+  ]);
+}
+// level 3: a slate board on two legs (local: centred on x, facing +z, slate centre at height y) for the `ask` silhouettes
+function boardGeo(w, y) {
+  const WD = 0x6a4424, h = 0.82;
+  return merge([
+    paint(place(new BoxGeometry(w, h, 0.04), 0, y, -0.03), 0x1a2622, 0x24342e),
+    ...[-1, 1].map(s => paint(place(new BoxGeometry(0.06, h + 0.12, 0.06), s * (w / 2 + 0.03), y, -0.03), WD)),
+    ...[-1, 1].map(s => paint(place(new BoxGeometry(w + 0.12, 0.06, 0.06), 0, y + s * (h / 2 + 0.03), -0.03), WD, 0x7a5030)),
+    ...[-1, 1].map(s => paint(place(new BoxGeometry(0.06, y - h / 2, 0.06), s * (w / 2 - 0.1), (y - h / 2) / 2, -0.05), 0x5a3a20)),
+    paint(place(new BoxGeometry(w * 0.6, 0.03, 0.08), 0, y - h / 2 - 0.05, 0.01), WD),   // the chalk ledge
+  ]);
+}
+
 // The Transfiguration course props (see COURSES.transfiguration). Every change target is a pair of movers:
 // the "before" shape (glows while it waits) and the "after" shape the runner pops in (scale 0 until then).
 // A mesh (or an instanced set) is only drawn while its station is near and something of it is showing, so
@@ -1549,6 +1663,7 @@ function buildTransfiguration(kit) {
   const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x8a8478, STONE2 = 0xa8a294, BRASS = 0xb98b2e, GOLD = 0xd8b04a;
   const BOOKS = [0xb3262a, 0x1f5e9e, 0x2c7a3a, 0xc88a1e, 0x6a3a92, 0xd0602a, 0x1e6a6a];
   const { solid, ctx } = kit;
+  const L3 = kit.level === 3;   // level 3: a 4th and 5th pumpkin, a 4th pedestal, a teacup and a goblet to change, two ask boards, the statue's eyes
   const book = (x, y, z, w, h, d, ry, i, out) => {
     out.push(paint(place(new BoxGeometry(w, h, d), x, y + h / 2, z, 0, ry), BOOKS[i % BOOKS.length]));
     out.push(paint(place(new BoxGeometry(w - 0.03, h - 0.025, d + 0.006), x + 0.012, y + h / 2, z, 0, ry), 0xf0e4c0));
@@ -1577,9 +1692,9 @@ function buildTransfiguration(kit) {
     paint(place(new TorusGeometry(0.06, 0.006, 4, 10, Math.PI), 0, 0.03, -0.1, Math.PI / 2, 0, Math.PI / 2), 0xe0a0a8),
   ]);
   kit.inst('mouse', place(mouseGeo, 0, 0, 0, 0, 0, 0, 1.6), 3, [0xffffff, 0xfff0e8, 0xf0f0ff], { glow: false });
-  kit.mesh('goblet', merge([paint(place(new CylinderGeometry(0.07, 0.08, 0.02, 12), 0, 0.01, 0), BRASS), paint(place(new CylinderGeometry(0.014, 0.014, 0.1, 6), 0, 0.07, 0), GOLD),
+  const gobM = kit.mesh('goblet', merge([paint(place(new CylinderGeometry(0.07, 0.08, 0.02, 12), 0, 0.01, 0), BRASS), paint(place(new CylinderGeometry(0.014, 0.014, 0.1, 6), 0, 0.07, 0), GOLD),
     paint(place(new CylinderGeometry(0.075, 0.04, 0.12, 12, 1, true), 0, 0.18, 0), 0xffd86a, BRASS)]), { glow: false });
-  kit.mesh('bird', merge([
+  const birdM = kit.mesh('bird', merge([
     paint(place(new SphereGeometry(0.07, 10, 8), 0, 0.07, 0, 0, 0, 0, 0.9, 0.85, 1.2), 0x4a8ad8, 0x8ac0f0),
     paint(place(new SphereGeometry(0.05, 10, 8), 0, 0.13, 0.06), 0x5a9ae0),
     paint(place(new ConeGeometry(0.016, 0.04, 5), 0, 0.125, 0.115, Math.PI / 2), 0xffb020),
@@ -1611,7 +1726,8 @@ function buildTransfiguration(kit) {
     paint(place(new CylinderGeometry(0.025, 0.035, 0.1, 6), 0, 0.42, 0, 0, 0, 0.2), 0x4a6a2a),
     paint(place(new TorusGeometry(0.05, 0.012, 4, 8, Math.PI), 0.05, 0.42, 0, Math.PI / 2), 0x5a8a3a),
   ]);
-  kit.inst('pumpkin', pumpGeo, 3, [0xffffff, 0xfff0e0, 0xffe8d0], { glowHex: 0xffa040 });
+  const NPU = L3 ? 5 : 3, PUMPS = [], LANTS = []; for (let i = 0; i < NPU; i++) { PUMPS.push('pumpkin' + i); LANTS.push('lantern' + i); }   // (level 3: 3 = the nook's 4th, 4 = at the bridge)
+  kit.inst('pumpkin', pumpGeo, NPU, L3 ? [0xffffff, 0xfff0e0, 0xffe8d0, 0xfff6e8, 0xffecd8] : [0xffffff, 0xfff0e0, 0xffe8d0], { glowHex: 0xffa040 });
   const lanternGeo = merge([
     paint(place(new CylinderGeometry(0.16, 0.18, 0.05, 8), 0, 0.025, 0), 0x2e2b30),
     paint(place(new CylinderGeometry(0.12, 0.12, 0.3, 8), 0, 0.2, 0), 0xfff2b0, 0xffd870),
@@ -1619,18 +1735,19 @@ function buildTransfiguration(kit) {
     paint(place(new ConeGeometry(0.17, 0.14, 8), 0, 0.42, 0), 0x2e2b30, 0x4a4650),
     paint(place(new TorusGeometry(0.04, 0.01, 4, 10), 0, 0.53, 0), BRASS),
   ]);
-  const lanterns = kit.inst('lantern', place(lanternGeo, 0, 0, 0, 0, 0, 0, 1.3), 3, [0xffffff, 0xffffff, 0xffffff], { glow: false, emissive: 0xffa030, emissiveIntensity: 0.3 });
+  const lanterns = kit.inst('lantern', place(lanternGeo, 0, 0, 0, 0, 0, 0, 1.3), NPU, L3 ? new Array(NPU).fill(0xffffff) : [0xffffff, 0xffffff, 0xffffff], { glow: false, emissive: 0xffa030, emissiveIntensity: 0.3 });
   // the warm light of the lanterns: ONE instanced additive quad set with a soft canvas (the course's one new canvas)
   const cv = document.createElement('canvas'); cv.width = cv.height = 64;
   const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(0.6, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
   const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
-  const NQ = 7, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  // (quads 0..NL-1: each lit lantern, NL..2NL-1: its pool on the floor, 2NL: the drape; NL = 3 lanterns in the nook, 4 at level 3)
+  const NL = L3 ? 4 : 3, NQ = 2 * NL + 1, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
   glow.renderOrder = 3;
-  const LP = TF.pumpkins.map(([x, z]) => [x, 0, z]);
-  for (let i = 0; i < 3; i++) { _m4.compose(_v.set(LP[i][0], 0.02, LP[i][2]), _q.setFromEuler(_e.set(-Math.PI / 2, 0, 0)), _s.set(1.7, 1.7, 1)); glow.setMatrixAt(3 + i, _m4); }
-  _m4.compose(_v.set(4.17, 1.1, 1.2), _q.setFromEuler(_e.set(0, -Math.PI / 2, 0)), _s.set(3.4, 2.6, 1)); glow.setMatrixAt(6, _m4);
+  const LP = (L3 ? [...TF.pumpkins, TF3.pump3] : TF.pumpkins).map(([x, z]) => [x, 0, z]);
+  for (let i = 0; i < NL; i++) { _m4.compose(_v.set(LP[i][0], 0.02, LP[i][2]), _q.setFromEuler(_e.set(-Math.PI / 2, 0, 0)), _s.set(1.7, 1.7, 1)); glow.setMatrixAt(NL + i, _m4); }
+  _m4.compose(_v.set(4.17, 1.1, 1.2), _q.setFromEuler(_e.set(0, -Math.PI / 2, 0)), _s.set(3.4, 2.6, 1)); glow.setMatrixAt(2 * NL, _m4);
 
   // ---- 3 a puddle across the lane: a wobbly broken chair -> a little wooden bridge ----
   solid(paint(place(new CylinderGeometry(0.85, 0.85, 0.012, 24), TF.puddle[0], 0.007, TF.puddle[2], 0, 0, 0, 1.25, 1, 0.75), 0x173f7a, 0x2f6aae));
@@ -1692,10 +1809,39 @@ function buildTransfiguration(kit) {
   kit.mesh('statue', merge([place(catGeo(false), 0, 0.04, 0, 0, 0, 0, 1.45), paint(place(new BoxGeometry(0.46, 0.05, 0.5), 0, 0.025, 0), 0x66625c)]), { glowHex: 0xffb840 });
   kit.mesh('tabby', place(catGeo(true), 0, 0, 0, 0, 0, 0, 1.1), { glow: false });
 
+  // ---- levels 2-3: the decoys (posed by the runner from the level's data; spare ones stay hidden) ----
+  const NDEC = 4;
+  if (kit.level > 1) {
+    kit.inst('dtin', tinGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xffb060 });
+    kit.inst('dtoad', toadGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xc0e080 });
+    kit.inst('dspec', specGeo(), NDEC, Array(NDEC).fill(0xffffff), { glowHex: 0xffd27a });
+  }
+  // ---- level 3: a 4th pedestal with a teacup (-> a mouse), a goblet on a stool at the puddle (-> a bird), the two ask
+  // boards (TF3.board1 at the bridge, TF3.board2 behind the pedestals), the statue's eyes for the timing gate ----
+  let eyes = null;
+  if (L3) {
+    const x4 = TF3.ped4;
+    solid(paint(place(new BoxGeometry(0.5, 0.06, 0.5), x4, 0.03, TF.pedZ), STONE));
+    solid(paint(place(new CylinderGeometry(0.17, 0.2, 0.68, 10), x4, 0.4, TF.pedZ), STONE, STONE2));
+    solid(paint(place(new BoxGeometry(0.46, 0.05, 0.46), x4, 0.755, TF.pedZ), STONE2));
+    const [sx, sz] = TF3.stool, sh = TF3.stoolH;
+    solid(paint(place(new CylinderGeometry(0.2, 0.19, 0.05, 14), sx, sh - 0.025, sz), WOOD, 0x7a5030));
+    for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3 + 0.4; solid(paint(place(new CylinderGeometry(0.022, 0.028, sh - 0.04, 6), sx + Math.cos(a) * 0.13, (sh - 0.04) / 2, sz + Math.sin(a) * 0.13), DARK)); }
+    const B1 = TF3.board1, B2 = TF3.board2;
+    solid(place(boardGeo(2.05, B1[1]), B1[0], 0, B1[2], 0, camYaw(B1[0], B1[2], TF_CAM.bridge3), 0));
+    solid(place(boardGeo(3.05, B2[1]), B2[0], 0, B2[2], 0, Math.PI, 0));
+    kit.mesh('xcup', place(cupGeo.clone(), 0, 0, 0, 0, 0, 0, 1.35), { glowHex: 0xffe08a });
+    kit.mesh('xmouse', place(mouseGeo.clone(), 0, 0, 0, 0, 0, 0, 1.4), { glow: false });
+    kit.mesh('xgoblet', place(gobM.geo.clone(), 0, 0, 0, 0, 0, 0, 2.2), { glowHex: 0xffd86a });
+    kit.mesh('xbird', place(birdM.geo.clone(), 0, 0, 0, 0, 0, 0, 2.0), { glow: false });
+    eyes = kit.mesh('catEyes', merge([-1, 1].map(s => paint(place(new SphereGeometry(0.03, 10, 8), s * 0.0754, 0.7505, 0.284, 0, 0, 0, 1.25, 1.1, 0.6), 0xffffff))), { glow: false });
+    eyes.mat.emissive.setHex(0x6aff50); eyes.mesh.visible = false;
+  }
+
   // ---- state the effects leave behind (put back by reset) ----
   let demoT = 0, demoPop = 0, miceT0 = -1, starT = 0, flareT = 0, chord = 0, settle = 0, paradeT = 0, catT = 0, catSfx = 0;
   let Lof = null;
-  const lev = new Float32Array(3);
+  const lev = new Float32Array(NL);
   const popped = (L) => !!L && L.done && L.popT >= POP;
   const ease = (k) => k * k * (3 - 2 * k);
   const clamp01 = (k) => Math.max(0, Math.min(1, k));
@@ -1709,7 +1855,8 @@ function buildTransfiguration(kit) {
       demoT = 0; demoPop = 0; miceT0 = -1; starT = 0; flareT = 0; chord = 0; settle = 0; paradeT = 0; catT = 0; catSfx = 0; lev.fill(0);
       M.goblet.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 1); M.bird.pose(GOB[0], GOB[1], GOB[2], 0, 0, 0, 0);
       M.star.pose(STAR_HOPS[0][0], STAR_HOPS[0][1], STAR_HOPS[0][2], 0, 1.04, 0, 1);
-      for (let i = 0; i < 7; i++) glow.setColorAt(i, _c.setRGB(0, 0, 0));
+      for (let i = 0; i < NQ; i++) glow.setColorAt(i, _c.setRGB(0, 0, 0));
+      if (M.dtin0) for (let i = 0; i < NDEC; i++) for (const n of ['dtin', 'dtoad', 'dspec']) M[n + i].pose(0, -50, 0, 0, 0, 0, 0);   // (levels 2-3: spare decoys stay hidden)
     },
     tick(M, t, st, K, dt = 0.016) {
       if (!K) return;
@@ -1748,18 +1895,19 @@ function buildTransfiguration(kit) {
       }
       // the lanterns' light: each lit one glows (eased), the chord flares them together
       const flare = flareT > 0 && flareT < 1.6 ? Math.sin(flareT / 1.6 * Math.PI) * 0.8 : 0;
-      for (let i = 0; i < 3; i++) { lev[i] += ((popped(Lof['pumpkin' + i]) ? 1 : 0) - lev[i]) * Math.min(1, dt * 3); }
-      if (near(1) && (lev[0] + lev[1] + lev[2]) > 0.01) {
+      let lsum = 0, lmax = 0;
+      for (let i = 0; i < NL; i++) { lev[i] += ((popped(Lof['pumpkin' + i]) ? 1 : 0) - lev[i]) * Math.min(1, dt * 3); lsum += lev[i]; lmax = Math.max(lmax, lev[i]); }
+      if (near(1) && lsum > 0.01) {
         const q = ctx.camera.quaternion, fl = 0.93 + 0.05 * Math.sin(t * 7.3) + 0.02 * Math.sin(t * 17.1);
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < NL; i++) {
           const l = lev[i] * fl + flare * lev[i], P = LP[i];
           _m4.compose(_v.set(P[0], 0.3, P[2]), q, _s.setScalar(lev[i] > 0.01 ? 0.75 + 0.2 * l : 0)); glow.setMatrixAt(i, _m4);
-          glow.setColorAt(i, _c.setRGB(2.0 * l, 1.45 * l, 0.75 * l)); glow.setColorAt(3 + i, _c.setRGB(0.75 * l, 0.52 * l, 0.26 * l));
+          glow.setColorAt(i, _c.setRGB(2.0 * l, 1.45 * l, 0.75 * l)); glow.setColorAt(NL + i, _c.setRGB(0.75 * l, 0.52 * l, 0.26 * l));
         }
-        const w = (lev[0] + lev[1] + lev[2]) / 3 * fl + flare * 0.3; glow.setColorAt(6, _c.setRGB(0.4 * w, 0.28 * w, 0.14 * w));
+        const w = lsum / NL * fl + flare * 0.3; glow.setColorAt(2 * NL, _c.setRGB(0.4 * w, 0.28 * w, 0.14 * w));
         glow.instanceMatrix.needsUpdate = true; glow.instanceColor.needsUpdate = true; glow.visible = true;
       } else glow.visible = false;
-      lanterns.material.emissiveIntensity = 0.15 + 0.3 * Math.max(lev[0], lev[1], lev[2]) + flare * 0.4;
+      lanterns.material.emissiveIntensity = 0.15 + 0.3 * lmax + flare * 0.4;
       // station 4: the rabbit hops, the quill writes, the beetle walks off the pedestal (all after the parade starts)
       const rab = Lof.hat, qu = Lof.feather, bt = Lof.button;
       if (popped(rab)) { const a = rab.arr, hop = paradeT > 0 && paradeT < 1.6 ? Math.abs(Math.sin(paradeT / 1.6 * Math.PI * 3)) * 0.2 : 0; M.rabbit.pose(a[0], a[1] + hop, a[2], Math.sin(t * 7) * 0.03, rab.rot1[1] + Math.sin(t * 0.8) * 0.2, 0, 1); }
@@ -1791,10 +1939,23 @@ function buildTransfiguration(kit) {
       vis(M, ['cup0', 'cup1', 'cup2'], les); vis(M, ['mouse0', 'mouse1', 'mouse2'], les);
       M.goblet.mesh.visible = les && shows(M.goblet); M.bird.mesh.visible = les && shows(M.bird);
       vis(M, ['books'], near(0)); vis(M, ['steps'], near(0)); vis(M, ['star'], near(0));
-      vis(M, ['pumpkin0', 'pumpkin1', 'pumpkin2'], near(1)); vis(M, ['lantern0', 'lantern1', 'lantern2'], near(1));
+      vis(M, PUMPS, near(1)); vis(M, LANTS, near(1));
       vis(M, ['chair'], near(2)); vis(M, ['bridge'], near(2));
       for (const n of ['hat', 'rabbit', 'feather', 'quill', 'button', 'beetle']) vis(M, [n], near(3));
       vis(M, ['statue'], les || near(4)); vis(M, ['tabby'], les || near(4));
+      if (L3) {                            // level 3: the goblet / teacup and what they become; the bird and the mouse come alive; the statue's eyes
+        vis(M, ['xgoblet'], near(2)); vis(M, ['xbird'], near(2)); vis(M, ['xcup'], near(3)); vis(M, ['xmouse'], near(3));
+        const xc = Lof.xcup, xg = Lof.xgoblet;
+        if (popped(xc)) { const a = xc.arr; M.xmouse.pose(a[0], a[1], a[2], 0, xc.rot1[1] + Math.sin(t * 5) * 0.15, 0, 1 + Math.sin(t * 9) * 0.02); }
+        if (popped(xg)) { const a = xg.arr; M.xbird.pose(a[0], a[1] + Math.max(0, Math.sin(t * 2.6)) * 0.03, a[2], 0, xg.rot1[1] + Math.sin(t * 0.9) * 0.3, Math.sin(t * 1.7) * 0.06, 1); }
+        const L = Lof.statue, on = ph === 'course' && step === 4 && !!L && !L.done && M.statue.s > 0.001;
+        eyes.mesh.visible = on;
+        if (on) {                          // they glow while the gate is open (L.gateK), a faint ember while it waits
+          const sm = M.statue.mesh, k = L.gate ? L.gateK : 0;
+          eyes.mesh.position.copy(sm.position); eyes.mesh.rotation.copy(sm.rotation); eyes.mesh.scale.copy(sm.scale);
+          eyes.mat.emissiveIntensity = 0.08 + 2.6 * k; eyes.mat.color.setHex(k > 0.4 ? 0xc8ffb8 : 0x46463e);
+        }
+      }
     },
     effects: {
       // McGonagall's Vera Verto in the lesson: the goblet wobbles, pops into a little bird that flutters to the perch (3 s)
@@ -3888,7 +4049,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       const src = L.to || L.mv, geo = src.geo; if (m.geometry !== geo) m.geometry = geo;
       let bb = B.boxes.get(geo); if (!bb) { if (!geo.boundingBox) geo.computeBoundingBox(); bb = geo.boundingBox; B.boxes.set(geo, bb); }
       const lit = L === cur, sz = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z) * src.scale;
-      const k = (A.size || 0.42) / Math.max(0.05, sz) * src.scale * (lit ? 1.22 + 0.05 * Math.sin(t * 4) + fl : 0.82);
+      const k = (A.size || 0.42) / Math.max(0.05, sz) * src.scale * (lit ? 1.3 + 0.05 * Math.sin(t * 4) + fl : 0.95);
       const off = (j - (n - 1) / 2) * gap, ar = L.spec.askR || [0.2, 0.5];
       m.material = lit ? B.lit : B.dim;
       m.rotation.set(ar[0], ry + ar[1] + Math.sin(t * 0.9 + j * 1.7) * 0.18, 0); m.scale.setScalar(k);
@@ -3896,7 +4057,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       m.position.set(A.at[0] + cs * off - _bq.x, A.at[1] + (lit ? Math.sin(t * 3) * 0.03 : 0) - _bq.y, A.at[2] - sn * off - _bq.z);
       m.visible = true;
     }
-    B.lit.opacity = 0.7 + 0.22 * Math.sin(t * 5); B.dim.opacity = 0.2;
+    B.lit.opacity = 0.7 + 0.22 * Math.sin(t * 5); B.dim.opacity = 0.3;
   }
   // level 3: a lifted thing slipped (pushed past its ring, or let go before it was held there): free twice per station
   function slipEvent() {
