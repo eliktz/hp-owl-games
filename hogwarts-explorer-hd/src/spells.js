@@ -361,27 +361,27 @@ export const COURSES = {
     levels: {
       2: { twist: 'עַכְשָׁו בַּסֵּדֶר הַנָּכוֹן, וְרַק מָה שֶׁצָּרִיךְ!', star3: 300, hints: DF_HINTS,
         stations: {
-          gate: { decoys: [dfFriend(0, 11.5, 0.5, DF.cams.gate), dfCups(0, 9.7, 2.45)], phone: DF_PHONE.gate },
+          gate: { decoys: [dfFriend(0, 11.5, 0.5, DF.cams.gate), dfCups(0, 9.85, 0.45)], phone: DF_PHONE.gate },
           barrels: { say: 'דְּחֹף אֶת הֶחָבִיּוֹת בַּסֵּדֶר!', inOrder: false,
             lifts: [4.2, 4.85, 5.5].map((z, i) => dfBarrel(i, 9.0, 7.2, z)), order: [1, 2, 0],
-            decoys: [dfOwl(0, 9.3, 3.55, DF.cams.barrels, 0.5), dfCups(1, 10.05, 5.95)], phone: DF_PHONE.barrels2 },
+            decoys: [dfOwl(0, 9.3, 3.55, DF.cams.barrels, 0.5), dfCups(1, 10.0, 5.6)], phone: DF_PHONE.barrels2 },
           books: { decoys: [dfFriend(1, 10.6, 8.45, DF.cams.books), dfCups(2, 9.25, 6.6)] },
           ball: { decoys: [dfCups(3, 12.55, 6.5)] },
-          finish: { decoys: [dfFriend(2, 11.6, 3.7, DF.cams.finish), dfOwl(1, 13.35, 4.6, DF.cams.finish)] },
+          finish: { decoys: [dfFriend(2, 11.6, 3.7, DF.cams.finish), dfOwl(1, 11.35, 1.6, DF.cams.finish)] },
         } },
       3: { twist: 'עַכְשָׁו בְּדִיּוּק: דְּחֹף עַד הַסִּימָן וְחַכֵּה לָרֶגַע הַנָּכוֹן!', star3: 420, hints: DF_HINTS,
         stations: {
           gate: { say: 'דְּחֹף אֶת הָאַרְגָּז עַד הַסִּימָן וְחַכֵּה!', hold: 0.5, ringR: 0.5,
-            decoys: [dfFriend(0, 11.5, 0.5, DF.cams.gate), dfCups(0, 9.7, 2.45)], phone: DF_PHONE.gate },
+            decoys: [dfFriend(0, 11.5, 0.5, DF.cams.gate), dfCups(0, 9.85, 0.45)], phone: DF_PHONE.gate },
           barrels: { say: 'דְּחֹף אֶת הֶחָבִיּוֹת בַּסֵּדֶר!', inOrder: false,
             lifts: [...[4.2, 4.85, 5.5].map((z, i) => dfBarrel(i, 8.9, 7.2, z)), dfBarrel(3, 9.55, 7.85, 4.85)], order: [2, 1, 3, 0],
-            decoys: [dfOwl(0, 9.3, 3.55, DF.cams.barrels, 0.5), dfCups(1, 10.05, 5.95)], phone: DF_PHONE.barrels3 },
+            decoys: [dfOwl(0, 9.3, 3.55, DF.cams.barrels, 0.5), dfCups(1, 10.0, 5.6)], phone: DF_PHONE.barrels3 },
           books: { say: 'חַכֵּה לַיָּרֹק... וְאָז דְּחֹף!', gate: { period: 3.2, open: 1.4 },
             decoys: [dfFriend(1, 10.6, 8.45, DF.cams.books), dfOwl(2, 11.9, 8.4, DF.cams.books)] },
           ball: { say: 'גַּלְגֵּל עַד הַסִּימָן וְחַכֵּה!', hold: 0.45, ringR: 0.32,
             decoys: [dfCups(3, 12.55, 6.5), dfFriend(3, 12.35, 5.2, DF.cams.ball)] },
           finish: { say: 'חַכֵּה שֶׁהַמָּגֵן יָזוּז... וְאָז דְּחֹף!', gate: { period: 3.2, open: 1.4, R: 0.5 },
-            decoys: [dfFriend(2, 11.6, 3.7, DF.cams.finish), dfOwl(1, 13.35, 4.6, DF.cams.finish)] },
+            decoys: [dfFriend(2, 11.6, 3.7, DF.cams.finish), dfOwl(1, 11.35, 1.6, DF.cams.finish)] },
         } },
     },
   },
@@ -4237,7 +4237,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       const gl = tickRing(t);              // (returns the gated thing whose clock is shown, if any)
       tickGates(dt, gl);
       if (S.sub === 'cast' && S.lifts) for (const L of S.lifts) {   // a gated thing glows green while ready, its own soft glow while waiting
-        if (!L.gate || L.done || !L.mv.glows || !L.mv.mat.emissive) continue;
+        if (!L.gate || L.done || !L.mv.glows || !L.mv.mat.emissive || L.mv.mesh.isInstancedMesh) continue;   // (an instanced thing shares its material: its clock / course look shows it)
         const on = gateOpen(L) || L.p > 0.02;
         L.mv.mat.emissive.setHex(on ? GATE_GREEN : L.gate.hex0); L.mv.mat.emissiveIntensity = on ? 0.6 + Math.sin(t * 9) * 0.15 : pulse * 0.5;
       }
