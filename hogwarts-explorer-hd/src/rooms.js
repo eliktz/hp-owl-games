@@ -17,6 +17,7 @@ import { carpet, headTable, bookshelf, armchair, fireplace, archway, chandelier 
 import { bakeLight } from './atmosphere.js';
 import { decorate } from './decor.js';
 import { addDumbledore } from './dumbledore.js';
+import { showerDoor, showerHall } from './showers.js';
 
 export const FLOOR_Y = -200;
 // Gryffindor red, Ravenclaw blue, Hufflepuff gold, Slytherin green.
@@ -133,6 +134,7 @@ function entranceHall() {
   g.userData.chandelierSwing = () => swing;
   // low torches (3.8 m) with wide washes so the lower walls glow and the tops fall into shadow
   for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 3.8, z, 0xff8a2a, { shared: true, wash: 3.6, glowBall: false });
+  const showers = showerDoor(g);                            // west wall, z 7: the oak door + towel sign to the shower hall (showers.js)
   // Everything static that shares a material merges (walls, steps, arches, doors' stone, torches,
   // carpet); the chandelier keeps swinging on its own.
   mergeStatic(g, g.children.filter(c => c !== ch));
@@ -166,6 +168,7 @@ function entranceHall() {
     { x: -W / 2 + 1.2, z: 1, r: 2.3, to: 'greathall' },
     { x: W / 2 - 1.2, z: 1, r: 2.3, to: 'library' },
     { x: 0, z: -D / 2 + 3.4, r: 1.7, to: 'staircase' },      // up the steps -> the grand staircase hall
+    showers.portal,                                          // west wall door -> the shower hall
   ];
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'entrancehall',
@@ -614,4 +617,4 @@ function tower() {
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, { id: 'tower', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }] });
 }
 
-export const BUILDERS = { entrancehall: entranceHall, greathall: greatHall, staircase, library, commonroom: commonRoom, dungeon, classrooms, tower };
+export const BUILDERS = { entrancehall: entranceHall, greathall: greatHall, staircase, library, commonroom: commonRoom, dungeon, classrooms, tower, showers: () => showerHall(room) };

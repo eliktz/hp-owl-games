@@ -29,6 +29,7 @@ import { createQuidditch } from './quidditch.js';
 import { createDelight } from './delight.js';
 import { createSpells } from './spells.js';
 import { createFreecast } from './freecast.js';
+import { createShowers } from './showers.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -100,7 +101,7 @@ async function boot() {
   // Interiors (streamed) + the Hebrew map / fast-travel screen.
   const interiors = createInteriors({
     scene, env, player, terrainHeightAt: heightAt, homeSpot: SPOTS.courtyard,
-    onEnter: (id) => { setExit(true); toast('✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); if (students) students.roomEntered(id, interiors.room.group); if (delight) delight.roomEntered(id, interiors.room.group); },
+    onEnter: (id) => { setExit(true); toast(id === 'showers' ? '🚿 ' + labelOf(id) + ' ✨' : '✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); if (students) students.roomEntered(id, interiors.room.group); if (delight) delight.roomEntered(id, interiors.room.group); },
     onExit: () => setExit(false),
   });
   // A full-screen overlay (lesson, picker, ceremony) owns the screen: the hero + camera freeze.
@@ -248,6 +249,8 @@ async function boot() {
   if (hut) hooks.push((dt, inside) => hut.update(dt, player.pos, inside));
   let freecast = null;   // free-play spell wheel (freecast.js); any failure -> simply the plain wand
   try { freecast = createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal: () => modal, isTakeover: () => !!takeover, registerOutdoor: (o) => outdoorRoots.push(o) }); hooks.push((dt, inside) => freecast.update(dt, inside)); } catch (e) { console.warn('[freecast] disabled -', e && e.message || e); freecast = null; }
+  let showers = null;   // the shower hall's play (showers.js): idle unless the hall is the room
+  try { showers = createShowers({ scene, camera, player, interiors, delight, freecast, env }); hooks.push((dt) => showers.update(dt)); } catch (e) { console.warn('[showers] disabled -', e && e.message || e); showers = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -327,7 +330,7 @@ async function boot() {
     },
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
-    music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; }, get freecast() { return freecast; },
+    music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; }, get freecast() { return freecast; }, get showers() { return showers; },
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
@@ -397,7 +400,7 @@ async function boot() {
 
 function labelOf(id) {
   return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות הנעות', library: 'הספרייה', commonroom: 'חדר הטרקלין',
-    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים' }[id] || id;
+    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס' }[id] || id;
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 

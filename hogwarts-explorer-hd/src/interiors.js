@@ -15,7 +15,7 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
   let savedAmb = 0, savedHemi = 0, savedColliders = null, savedObstacles = null;
   let savedAmbC = 0xffffff, savedHemiC = 0xbcd2ec, savedHemiG = 0x56503f;
 
-  async function enter(id) {
+  async function enter(id, at) {             // at: optional { x, z, yaw } arrival spot (a portal's far side)
     const build = BUILDERS[id]; if (!build) return;
     const my = ++gen;
     const tex = await ensureTex();            // load stone/wood maps so rooms aren't flat grey
@@ -35,8 +35,9 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
     // Indoors: raycast the spring-arm only against this room so the lens never slips outside.
     player.cam.obstacles = [r.group];
     player.cam.setIndoor(true);
-    player.yaw = r.spawn.yaw ?? 0;
-    player.teleport(r.spawn.x, r.spawn.z);
+    const sp = at || r.spawn;
+    player.yaw = sp.yaw ?? 0;
+    player.teleport(sp.x, sp.z);
     player.pos.y = FLOOR_Y; player.smoothY = FLOOR_Y;
     cooldown = 0.6;                            // ignore portals briefly after arriving
     if (!inside) {
@@ -99,7 +100,7 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
       // straight into a doorway after spawning (e.g. the exit, ~3.8m away) still triggers.
       // The cooldown only gates the actual fire, which is what stops an instant re-bounce.
       if (d > p.r + 1.2) p.armed = true;
-      else if (p.armed && d < p.r && cooldown <= 0) { p.armed = false; if (p.to === 'out') exit(); else enter(p.to); return; }
+      else if (p.armed && d < p.r && cooldown <= 0) { p.armed = false; if (p.to === 'out') exit(); else enter(p.to, p.at); return; }
     }
   }
 
