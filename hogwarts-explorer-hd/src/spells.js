@@ -122,7 +122,11 @@ const ASTRO = {
     [0, 0, 0, 0.28], [0, 0, 0, 0.7], [0, 0, 0, 0.28],                                     // 16 hero wand tip, 17 the light orb, 18 Sinistra's wand tip
   ],
 };
-const bulbLift = (i) => ({ m: 'bulb' + i, path: [ASTRO.bulbs[i].slice(0, 3)] });
+// Astronomy level 3 (brief 2026-11-18) adds two bulbs AFTER the tips (16-18), so levels 1-2 keep the very same set:
+// 19 a fourth sconce at the foot of the stair, 20 a fourth star lamp east of the three
+const ASTRO_X = [[-7.22, 1.2, 2.3, 0.9], [4.0, 1.75, -6.6, 1.1]];
+const bulbAt = (i) => i < ASTRO.bulbs.length ? ASTRO.bulbs[i] : ASTRO_X[i - ASTRO.bulbs.length];
+const bulbLift = (i) => ({ m: 'bulb' + i, path: [bulbAt(i).slice(0, 3)] });
 // Course #4 places (classrooms, room-local): the book pile below the star shelf (west), the three pumpkins
 // in the dim nook (east), the broken chair standing in the puddle (middle), the three pedestals by the
 // south wall, the cat statue's plinth beside McGonagall (her desk at (0, -6.2)).
@@ -202,6 +206,16 @@ const dfFriend = (i, x, z, cam) => ({ m: 'ddum' + i, at: [x, 0, z], ry: camYaw(x
 const dfCups = (i, x, z) => ({ m: 'dcups' + i, at: [x, 0, z], ry: 0, r: 0.22, aimY: 0.6, shakeMode: 'rattle', say: CUPS_SAY });
 const dfOwl = (i, x, z, cam, y = 0) => ({ m: 'dowl' + i, at: [x, y, z], ry: camYaw(x, z, cam), r: 0.25, aimY: 0.72, breathe: true, shakeMode: 'no', say: OWL_SAY });
 const DF_HINTS = { decoy: 'לֹא אֶת זֶה! הַקְשֵׁב מָה לִדְחֹף!', slip: 'כִּמְעַט! עֲצֹר עַל הַסִּימָן!', slipMiss: 'לְאַט לְאַט... עֲצֹר עַל הַסִּימָן!' };
+// Astronomy levels 2-3 (brief 2026-11-18). Decoys that fit a night tower and must NOT be lit: a sleeping bat hanging
+// upside down from a little perch on a chain (lit: it squeaks, opens one eye, wraps its wings again; origin = the perch,
+// the bat hangs below it, so aimY is negative) and a jar of moon-moths on a stool (they love the dark: it rattles).
+// Both carry their own soft moonlit glow (the tower is dimmed). The sky's bats are big (scale 2.4: far up in the dome).
+const AS_CAM = { stair: [-2.4, 3.4], lamps: [2.2, -1.2], corner: [3.2, -0.4], sky: [0, 6.6], telescope: [0.8, 0.9] };
+const BAT_SAY = 'שְׁשְׁשׁ… הָעֲטַלֵּף יָשֵׁן!', MOTH_SAY = 'פַּרְפְּרֵי הַלַּיְלָה אוֹהֲבִים חֹשֶׁךְ!';
+const asBat = (i, x, y, z, cam, s = 1.35) => ({ m: 'dbat' + i, at: [x, y, z], ry: camYaw(x, z, cam), r: 0.2 * s, aimY: -0.2 * s, breathe: true, shakeMode: 'no', say: BAT_SAY });
+const asJar = (i, x, z, cam) => ({ m: 'djar' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.22, aimY: 0.65, shakeMode: 'rattle', say: MOTH_SAY });
+const AS_HINTS = { decoy: 'לֹא אֶת זֶה! רַק פָּנָסִים וְכוֹכָבִים!', order: 'לֹא בַּסֵּדֶר! מָה נִצְנֵץ קֹדֶם?' };
+const AS_GATE = { period: 3.4, open: 1.6 };
 // phone-height cameras (844x390): neighbouring targets / decoys >= ~70 px apart (iPad framing unchanged)
 const DF_PHONE = { gate: { cam: { pos: [8.5, 1.8, 0.4], look: [10.3, 0.5, 1.5] } },
   barrels2: { cam: { pos: [10.9, 1.7, 5.1], look: [8.4, 0.4, 5.1] } }, barrels3: { cam: { pos: [10.5, 1.6, 3.6], look: [8.4, 0.4, 4.8] } } };
@@ -437,6 +451,37 @@ export const COURSES = {
           afterCam: { pos: [0.6, 1.8, 4.4], look: [0.8, 8.6, -3.8] },
           lifts: [bulbLift(15)], after: 'skyFill', afterT: 4.2, afterSfx: 'tada', afterConfetti: ['🌟', '⭐', '✨', '🔭'] },
       ],
+    },
+    // Difficulty levels (the shape: see COURSES.charms.levels; `pre`: lamps of the station already lit when it starts).
+    // Level 2: the lamps in the order the stars show (each twinkles in turn), 3 at the stair and the star lamps, 4 at the
+    // constellation (its chin star already shines); a bat / a moth jar or two at every station. Level 3: a fourth sconce
+    // and a fourth star lamp, orders of 4 and 5 shown once, the constellation drawn line by line (the order traces the cat),
+    // and the timing gate at the owl's lantern (a little cloud drifts over it) and at the big lamp (its shutter turns).
+    levels: {
+      2: { twist: 'עַכְשָׁו בַּסֵּדֶר שֶׁהַכּוֹכָבִים מַרְאִים!', star3: 300, hints: AS_HINTS,
+        stations: {
+          stair: { say: 'הַדְלֵק אֶת הַפָּנָסִים בַּסֵּדֶר!', order: [2, 0, 1],
+            decoys: [asBat(0, -6.4, 3.3, 0.9, AS_CAM.stair), asJar(0, -5.9, 0.3, AS_CAM.stair)] },
+          lamps: { say: 'הַדְלֵק אֶת הַמְּנוֹרוֹת בַּסֵּדֶר!', inOrder: false, order: [2, 0, 1],
+            decoys: [asBat(1, -0.5, 2.8, -6.9, AS_CAM.lamps), asJar(1, 2.2, -5.3, AS_CAM.lamps)] },
+          corner: { decoys: [asBat(2, 5.0, 3.0, -7.1, AS_CAM.corner)] },
+          sky: { say: 'הַדְלֵק אֶת הַכּוֹכָבִים בַּסֵּדֶר!', pre: [3], order: [4, 0, 1, 2],
+            decoys: [asBat(4, -5.6, 8.48, -3.8, AS_CAM.sky, 2.4)] },
+          telescope: { decoys: [asJar(2, 2.6, -3.8, AS_CAM.telescope)] },
+        } },
+      3: { twist: 'עַכְשָׁו מֵהַזִּכָּרוֹן: צַיֵּר אֶת קְבוּצַת הַכּוֹכָבִים!', star3: 420, hints: AS_HINTS,
+        stations: {
+          stair: { say: 'זְכֹר אֶת הַסֵּדֶר וְהַדְלֵק!', lifts: [3, 4, 5, 19].map(bulbLift), order: [1, 3, 2, 0],
+            decoys: [asBat(0, -6.4, 3.3, 0.9, AS_CAM.stair), asJar(0, -5.9, 0.3, AS_CAM.stair)] },
+          lamps: { say: 'זְכֹר אֶת הַסֵּדֶר וְהַדְלֵק!', inOrder: false, lifts: [6, 7, 8, 20].map(bulbLift), order: [2, 3, 1, 0],
+            decoys: [asBat(1, -0.5, 2.8, -6.9, AS_CAM.lamps), asJar(1, 2.2, -5.3, AS_CAM.lamps)] },
+          corner: { say: 'חַכֵּה שֶׁהֶעָנָן יָזוּז... וְאָז הַדְלֵק!', gate: { ...AS_GATE, R: 0.55 },
+            decoys: [asBat(2, 5.0, 3.0, -7.1, AS_CAM.corner), asJar(2, 7.1, -5.4, AS_CAM.corner)] },
+          sky: { say: 'צַיֵּר אֶת הֶחָתוּל: כּוֹכָב אַחֲרֵי כּוֹכָב!', order: [1, 0, 4, 3, 2],
+            decoys: [asBat(4, -5.6, 8.48, -3.8, AS_CAM.sky, 2.4), asBat(5, 5.6, 8.48, -3.8, AS_CAM.sky, 2.4)] },
+          telescope: { say: 'חַכֵּה שֶׁהַתְּרִיס יִפָּתַח... וְאָז הַדְלֵק!', gate: { ...AS_GATE, R: 0.62 },
+            decoys: [asBat(3, 4.6, 3.4, -5.2, AS_CAM.telescope), asJar(3, 2.6, -3.8, AS_CAM.telescope)] },
+        } },
     },
   },
   // -------------------------------------------------------------------------------------
@@ -1042,6 +1087,54 @@ function owlEyesGeo() {
   ]);
 }
 
+// Astronomy levels 2-3 decoys and level-3 gate props (see AS_CAM).
+//   bat: hangs upside down from a little wooden perch on a chain (origin = the perch; faces +z; the head at the bottom,
+//        ears pointing down, wings wrapped round it, eyes shut). Its open eye is a separate unlit dot (batEye).
+//   jar: a frosted glass jar of pale moon-moths with a cork and a little crescent, on a three-legged stool (origin: floor).
+//   cloud: a small fluffy night cloud (faces +z) that drifts over the owl's lantern; shutter: a brass half-shell round
+//        the big lamp's globe (open side -z at rotation 0) that turns away while its timing gate is open.
+function batGeo() {
+  const FUR = 0x3a2c40, FUR2 = 0x5a4868, WING = 0x2e2236, WING2 = 0x4a3a58;
+  return merge([
+    paint(place(new CylinderGeometry(0.014, 0.014, 0.3, 6), 0, 0, 0, 0, 0, Math.PI / 2), 0x6a4424),                    // the perch
+    paint(place(new CylinderGeometry(0.006, 0.006, 0.7, 4), 0, 0.35, 0), 0x2e2b30),                                    // its chain
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.018, 6, 4), s * 0.03, -0.015, 0), 0x2a2026)),                // feet
+    paint(place(new SphereGeometry(0.1, 12, 10), 0, -0.17, 0, 0, 0, 0, 1, 1.55, 0.85), FUR2, FUR),                     // the body
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.075, 10, 8), s * 0.068, -0.16, 0.025, 0, 0, s * 0.12, 0.62, 1.75, 0.9), WING2, WING)),   // wrapped wings
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.018, 0.05, 4), s * 0.07, -0.02, 0.03, 0, 0, s * 0.3), WING)),   // the wing thumbs
+    paint(place(new SphereGeometry(0.07, 12, 10), 0, -0.32, 0.025), 0x4a3a50, FUR2),                                  // the head
+    ...[-1, 1].map(s => paint(place(new ConeGeometry(0.03, 0.08, 4), s * 0.042, -0.405, 0.02, Math.PI, 0, -s * 0.25), 0x4a3a50)),   // ears (down)
+    ...[-1, 1].map(s => paint(place(new BoxGeometry(0.03, 0.006, 0.01), s * 0.026, -0.325, 0.09, 0, 0, -s * 0.15), 0x120c14)),     // eyes shut
+    paint(place(new SphereGeometry(0.016, 6, 5), 0, -0.29, 0.09), 0xd88a9a),                                         // a pink nose
+  ]);
+}
+const BAT_EYE = [0.026, -0.325, 0.088];
+function mothJarGeo() {
+  const parts = [
+    paint(place(new CylinderGeometry(0.2, 0.2, 0.04, 14), 0, 0.5, 0), 0x6a4424),
+    ...[0, 1, 2].map(i => paint(place(new CylinderGeometry(0.022, 0.022, 0.5, 5), Math.cos(i * 2.1) * 0.14, 0.25, Math.sin(i * 2.1) * 0.14), 0x3a2614)),
+    paint(place(new CylinderGeometry(0.11, 0.105, 0.27, 16), 0, 0.655, 0), 0xa8c8d4, 0xd8eef0),                       // the frosted glass
+    paint(place(new TorusGeometry(0.095, 0.012, 5, 16), 0, 0.79, 0, Math.PI / 2), 0x6a5a9a),                          // a ribbon at the neck
+    paint(place(new CylinderGeometry(0.085, 0.08, 0.05, 12), 0, 0.815, 0), 0xa07a4a, 0xc09a6a),                       // the cork
+    paint(place(new TorusGeometry(0.03, 0.008, 4, 10, Math.PI * 1.25), 0.05, 0.57, 0.108, 0, 0, 0.6), 0xf0e0a0),     // a little crescent moon
+  ];
+  for (const [x, y, a] of [[-0.035, 0.62, 0.3], [0.04, 0.7, -0.4], [-0.01, 0.75, 0.1]]) {   // three pale moths on the glass
+    for (const s of [-1, 1]) parts.push(paint(place(new SphereGeometry(0.024, 6, 4), x + s * 0.02 * Math.cos(a), y + s * 0.02 * Math.sin(a), 0.11, 0, 0, a + s * 0.5, 1.2, 0.75, 0.25), 0xeef8d8));
+    parts.push(paint(place(new SphereGeometry(0.008, 4, 3), x, y, 0.114, 0, 0, a, 1, 2.2, 1), 0x8a7a6a));
+  }
+  return merge(parts);
+}
+function cloudGeo() {
+  return merge([[0, 0, 0.21], [-0.2, -0.03, 0.15], [0.21, -0.02, 0.16], [-0.08, 0.12, 0.15], [0.1, 0.1, 0.14], [0.33, -0.06, 0.1], [-0.32, -0.07, 0.1]]
+    .map(([x, y, r]) => paint(place(new SphereGeometry(r, 12, 8), x, y, 0, 0, 0, 0, 1, 0.92, 0.7), 0x5a6284, 0x9aa2c4)));
+}
+function shutterGeo() {
+  const R = 0.45, shell = paint(new SphereGeometry(R, 20, 12, 0, Math.PI, 0.32, Math.PI - 0.75), 0x8a6a2a, 0xc89a40);   // the +z half
+  return merge([shell,
+    ...[-0.95, 0, 0.95].map(a => paint(place(new TorusGeometry(R + 0.012, 0.014, 4, 16, Math.PI), 0, 0, 0, 0, a - Math.PI / 2, -Math.PI / 2), 0xd8b04a)),   // brass ribs (front meridians)
+    paint(place(new TorusGeometry(R + 0.01, 0.02, 4, 20, Math.PI), 0, 0, 0, Math.PI / 2, 0, 0), 0xd8b04a)]);                                               // the rim round its middle
+}
+
 // The Astronomy course props and its light (see COURSES.astronomy). Everything that glows is one of:
 //   bulbs   ONE instanced unlit sphere set (lanterns, sconces, star lamps, stars, the wand tips, the orb):
 //           instance colour = brightness (above 1 blooms on HIGH)
@@ -1052,7 +1145,10 @@ function owlEyesGeo() {
 function buildAstronomy(kit) {
   const WOOD = 0x6a4424, DARK = 0x3a2614, STONE = 0x77707e, STONE2 = 0x938b98, BRASS = 0xb98b2e, GOLD = 0xd8b04a;
   const { solid, ctx } = kit;
-  const BL = ASTRO.bulbs, NB = BL.length, WAND = 16, ORB = 17, PROF = 18, TELE = 15;
+  const L3 = kit.level === 3, LV = kit.level > 1;   // levels 2-3: decoys, the order preview; level 3: two more lamps, the cloud, the shutter
+  const BL = L3 ? [...ASTRO.bulbs, ...ASTRO_X] : ASTRO.bulbs, NB = BL.length, WAND = 16, ORB = 17, PROF = 18, TELE = 15;
+  const LIT = []; for (let i = 0; i <= TELE; i++) LIT.push(i); if (L3) LIT.push(19, 20);   // the bulbs a child lights (level 1: 0..15)
+  const isLamp = (i) => (i >= 6 && i < 9) || (L3 && i === 20);
   const lantern = (x, y, z, s = 1) => {           // a little brass cage round a bulb at (x, y, z)
     solid(paint(place(new CylinderGeometry(0.1 * s, 0.11 * s, 0.035 * s, 10), x, y - 0.15 * s, z), BRASS));
     for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) solid(paint(place(new BoxGeometry(0.018 * s, 0.3 * s, 0.018 * s), x + a * 0.085 * s, y, z + b * 0.085 * s), BRASS));
@@ -1066,14 +1162,14 @@ function buildAstronomy(kit) {
   // 1 a stone stair up the west wall to a landing, a sconce over the steps
   for (let k = 0; k < 4; k++) solid(paint(place(new BoxGeometry(1.2, 0.25 * (k + 1), 0.8), -6.9, 0.125 * (k + 1), 1.2 - 0.8 * k), STONE, STONE2));
   solid(paint(place(new BoxGeometry(1.2, 1.0, 1.6), -6.9, 0.5, -2.4), STONE, STONE2));
-  for (let i = 3; i < 6; i++) {
+  for (const i of L3 ? [3, 4, 5, 19] : [3, 4, 5]) {
     const [x, y, z] = BL[i];
     solid(paint(place(new BoxGeometry(0.26, 0.05, 0.05), x - 0.11, y - 0.2, z), DARK));
     solid(paint(place(new CylinderGeometry(0.13, 0.06, 0.12, 10, 1, true), x, y - 0.13, z), BRASS, GOLD));
     solid(paint(place(new CylinderGeometry(0.06, 0.06, 0.02, 10), x, y - 0.19, z), BRASS));
   }
   // 2 three star lamps on brass posts along the north wall
-  for (let i = 6; i < 9; i++) {
+  for (const i of L3 ? [6, 7, 8, 20] : [6, 7, 8]) {
     const [x, y, z] = BL[i];
     solid(paint(place(new CylinderGeometry(0.035, 0.045, y - 0.15, 6), x, (y - 0.15) / 2, z), BRASS, GOLD));
     solid(paint(place(new CylinderGeometry(0.2, 0.24, 0.05, 12), x, 0.025, z), DARK));
@@ -1105,6 +1201,20 @@ function buildAstronomy(kit) {
   const key = kit.mesh('key', place(merge([paint(place(new TorusGeometry(0.055, 0.017, 6, 14), -0.15), 0xffd86a), paint(new BoxGeometry(0.24, 0.03, 0.03), 0xe8c050),
     paint(place(new BoxGeometry(0.03, 0.06, 0.02), 0.09, -0.04), 0xe8c050), paint(place(new BoxGeometry(0.03, 0.045, 0.02), 0.04, -0.035), 0xe8c050)]), 0, 0, 0, 0, 0, 0, 1.6), { glow: false, glowHex: 0xffd86a });
   key.mat.emissiveIntensity = 0.35;
+  // levels 2-3: the decoys (posed by the runner from the level's data; spare ones stay hidden), each with its own soft
+  // moonlit glow (the tower is dimmed): bats 0-3 hang in the room (scale 1.35), 4-5 are big ones up in the dome; a bat's open eye
+  const NBAT = 6, NJAR = 4, BAT_S = [1.35, 1.35, 1.35, 1.35, 2.4, 2.4];
+  let eyes2 = null, cloud = null, shutter = null;
+  if (LV) {
+    kit.inst('dbat', batGeo(), NBAT, Array(NBAT).fill(0xffffff), { glow: false, emissive: 0x6a5a9a, emissiveIntensity: 0.4, scales: BAT_S });
+    kit.inst('djar', mothJarGeo(), NJAR, Array(NJAR).fill(0xffffff), { glow: false, emissive: 0x6a9a80, emissiveIntensity: 0.22 });
+    eyes2 = kit.inst('dbeye', new SphereGeometry(0.02, 8, 6), NBAT, Array(NBAT).fill(0xffd040), { basic: true, glow: false, scales: BAT_S });
+    eyes2.visible = false;
+  }
+  if (L3) {   // the timing gate's looks: a little cloud over the owl's lantern, a turning brass shutter round the big lamp
+    cloud = kit.mesh('cloud', cloudGeo(), { glow: false }); cloud.mat.emissive.setHex(0x7a84b0); cloud.mat.emissiveIntensity = 0.35; cloud.mesh.visible = false;
+    shutter = kit.mesh('shutter', shutterGeo(), { glow: false }); shutter.mat.emissive.setHex(0x8a6a30); shutter.mat.emissiveIntensity = 0.3; shutter.mesh.visible = false;
+  }
   // the soft radial light texture (the course's one new canvas, 64 px)
   const cv = document.createElement('canvas'); cv.width = cv.height = 64;
   const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -1122,10 +1232,13 @@ function buildAstronomy(kit) {
   for (let i = 6; i < 9; i++) { pool(i, 'wallZ', BL[i][0], BL[i][1], -7.46, 1.0, 0.45); pool(i, 'floor', BL[i][0], 0.02, -6.3, 0.85, 0.4); }
   pool(9, 'floor', 6.5, 0.02, -6.5, 2.1, 0.6); pool(9, 'wallZ', 6.3, 1.7, -7.46, 1.8, 0.5); pool(9, 'wallX-', 7.46, 1.7, -6.3, 1.8, 0.5);
   pool(TELE, 'floor', BL[TELE][0], 0.02, BL[TELE][2], 3.4, 0.55); pool(TELE, 'wallX-', 7.46, 2.2, BL[TELE][2], 2.6, 0.4);
+  if (L3) { pool(19, 'wallX+', -7.46, BL[19][1], BL[19][2], 1.15, 0.5); pool(19, 'floor', -6.9, 0.02, BL[19][2], 0.62, 0.55); pool(20, 'wallZ', BL[20][0], BL[20][1], -7.46, 1.0, 0.45); pool(20, 'floor', BL[20][0], 0.02, -6.3, 0.85, 0.4); }
   const NPOOL = Q.length;
   for (let i = 0; i < NB; i++) Q.push({ b: i, k: 'halo', p: [0, 0, 0], r: i >= 10 && i < 15 ? 0.75 : i === TELE ? 1.5 : i >= WAND ? (i === ORB ? 0.75 : 0.42) : 0.42, a: 1, c: i >= 10 && i < 15 ? COOL : WARM });
   const RIM = Q.length; Q.push({ b: -3, k: 'halo', p: [0, 0, 0], r: 1.25, a: 1, c: COOL });            // moonlight behind the hero (a rim round his silhouette)
   const HPOOL = Q.length; Q.push({ b: -3, k: 'floor', p: [0, 0.03, 0], r: 1.3, a: 1, c: WARM });          // the wand's pool at his feet
+  const DH = Q.length, MINT = [0.72, 1.0, 0.82];                                                       // levels 2-3: a soft moonlit halo behind each decoy of the station
+  if (LV) for (let j = 0; j < 2; j++) Q.push({ b: -5, k: 'halo', p: [0, 0, 0], r: 0.5, a: 1, c: COOL });
   const quads = kit.inst('light', new PlaneGeometry(1, 1), Q.length, new Array(Q.length).fill(0), { basic: true, additive: true, map: soft, glow: false });
   quads.renderOrder = 3;
   Q.forEach((q, i) => {
@@ -1169,8 +1282,9 @@ function buildAstronomy(kit) {
   const setBulb = (i, x, y, z, s, r, g, b) => { _m4.compose(_v.set(x, y, z), _q.identity(), _s.setScalar(BL[i][3] * s)); bulbs.setMatrixAt(i, _m4); bulbs.setColorAt(i, _c.setRGB(r, g, b)); };
 
   return {
-    reset() {
+    reset(M) {
       pathK = 0; flare = 0; awake = 0; keyK = 0; faceK = 0; skyK = 0; orbT = -1; orbCool = 0; pb = 0; hooted = 0; lastP.clear();
+      if (LV) for (let i = 0; i < NBAT; i++) { M['dbat' + i].pose(0, -50, 0, 0, 0, 0, 0); M['dbeye' + i].pose(0, -50, 0, 0, 0, 0, 0); if (i < NJAR) M['djar' + i].pose(0, -50, 0, 0, 0, 0, 0); }
       poseOwl(0, 0); poseKey(0, 0);
       for (const s of segs) s.k = 0;
     },
@@ -1180,7 +1294,7 @@ function buildAstronomy(kit) {
       if (!liftOf) { liftOf = new Array(NB).fill(null); for (const L of [...K.lesson, ...K.stations.flat()]) { L.bi = Number(L.mv.name.slice(4)); liftOf[L.bi] = L; } }
       // levels: a done thing is fully lit; the one being lit follows its p
       let rising = null, done = 0;
-      for (let i = 0; i <= TELE; i++) {
+      for (const i of LIT) {
         const L = liftOf[i]; const want = L ? (L.done ? 1 : L.p) : 0;
         lev[i] += (want - lev[i]) * Math.min(1, dt * 8);
         if (L && L.done) done++;
@@ -1218,14 +1332,18 @@ function buildAstronomy(kit) {
       // bulbs
       let cur = null;
       if (st.sub === 'cast' && st.lifts) { if (st.sel && !st.sel.done) cur = st.sel; else for (const L of st.lifts) if (!L.done) { cur = L; break; } }
-      for (let i = 0; i <= TELE; i++) {
+      for (const i of LIT) {
         const L = liftOf[i], b = BL[i], l = lev[i], star = i >= 10 && i < 15;
         const open = L && !L.done && st.sub === 'cast' && st.lifts && st.lifts.includes(L) && (!L.inOrder || L === cur);
         const tw = open ? 0.3 + 0.22 * Math.sin(t * 6 + i) : 0;
-        const k = 0.5 + 2.6 * l + (i >= 6 && i < 9 ? flare : 0) + (i === TELE ? skyK * 1.5 : 0);
+        const k = 0.5 + 2.6 * l + (isLamp(i) ? flare : 0) + (i === TELE ? skyK * 1.5 : 0);
         const base = star ? 0.25 : 0.2, cr = star ? 0.85 : 1, cg = star ? 0.9 : 0.8, cb = star ? 1 : 0.46;
         if (l > 0.02) setBulb(i, b[0], b[1], b[2], 1 + 0.12 * l + (star ? Math.sin(t * 3 + i) * 0.06 * l : 0), cr * k, cg * k, cb * k);
         else setBulb(i, b[0], b[1], b[2], 1 + tw * 0.25, base + tw * cr, base * 0.85 + tw * cg, base * 0.6 + tw * cb * 0.7);
+        if (LV && L && (L.flash > 0 || L.shake > 0)) {   // levels 2-3: shown in the order preview (it blooms) / lit out of turn (a red flicker)
+          const f = L.flash > 0 ? Math.sin(Math.min(1, L.flash / 0.75) * Math.PI) : 0, sh = L.shake > 0 ? Math.min(1, L.shake / 0.4) : 0, kk = 0.5 + 2.6 * l + 3 * f;
+          setBulb(i, b[0] + Math.sin(t * 41) * 0.035 * sh, b[1] + Math.sin(t * 37) * 0.02 * sh, b[2], 1 + 0.12 * l + 0.8 * f, cr * kk + 0.7 * sh, cg * kk + 0.12 * sh, cb * kk + 0.08 * sh);
+        }
       }
       setBulb(WAND, tip.x, tip.y, tip.z, wandK > 0.02 ? 1 + 0.2 * Math.sin(t * 9) * wandK : 0, 3 * wandK, 2.6 * wandK, 1.6 * wandK);
       setBulb(ORB, vA.x, vA.y, vA.z, orbL, 3.2, 2.6, 1.4);
@@ -1239,10 +1357,19 @@ function buildAstronomy(kit) {
         const q = Q[i]; let a;
         if (i < NPOOL) a = q.b === -1 ? lesson3 : q.b === -2 ? pathK : lev[q.b];
         else if (i === RIM || i === HPOOL) a = i === RIM ? 0.05 + 0.13 * dimK : 0.15 * dimK + 0.45 * wandK;
-        else {
+        else if (q.b === -5) {   // levels 2-3: the halo behind decoy j of the station (cool for a bat, mint for the moth jar)
+          const D = st.phase === 'course' && st.decoys ? st.decoys[i - DH] : null;
+          if (D) {
+            const bat = D.spec.m.startsWith('dbat'), sc = bat ? D.mv.scale : 1, at = D.spec.at;
+            vB.set(at[0], at[1] + D.spec.aimY, at[2]); cdir.copy(camera.position).sub(worldOff).sub(vB).normalize(); vB.addScaledVector(cdir, -0.25 * sc);
+            a = (bat ? 0.3 : 0.42) * (0.85 + 0.15 * Math.sin(t * 1.3 + i)); q.c = bat ? COOL : MINT;
+            _m4.compose(vB, camera.quaternion, _s.setScalar((bat ? 0.75 : 0.95) * sc)); quads.setMatrixAt(i, _m4);
+          } else a = 0;
+        } else {
           a = q.b === WAND ? wandK * 0.8 : q.b === ORB ? orbL * 0.9 : q.b === PROF ? profK : lev[q.b] * 0.55 + (q.b === TELE ? skyK * 0.4 : 0);
           const open = liftOf[q.b] && !liftOf[q.b].done && cur && (cur === liftOf[q.b] || (!cur.inOrder && st.lifts.includes(liftOf[q.b])));
           if (open && lev[q.b] < 0.3) a += 0.18 + 0.12 * Math.sin(t * 6 + q.b);   // the unlit target twinkles
+          if (LV && liftOf[q.b] && liftOf[q.b].flash > 0) a += 1.1 * Math.sin(Math.min(1, liftOf[q.b].flash / 0.75) * Math.PI);   // (levels 2-3: the order preview)
           const p = q.b === WAND ? tip : q.b === ORB ? vA : q.b === PROF ? ptip : vB.set(BL[q.b][0], BL[q.b][1], BL[q.b][2]);
           _m4.compose(p, camera.quaternion, _s.setScalar(q.r * 2 * (0.8 + 0.4 * Math.min(1, a)))); quads.setMatrixAt(i, _m4);
         }
@@ -1273,6 +1400,43 @@ function buildAstronomy(kit) {
         sky.instanceMatrix.needsUpdate = true;
       }
       if (!st.fx) { poseOwl(t, awake ? blinkOpen(t) : 0); poseKey(t, keyK); }
+      if (LV) {
+        // a lit decoy (the runner's shake): a bat squeaks softly and opens one eye a moment, the moon-moths flutter
+        const ds = st.decoys || [];
+        if (eyes2) for (let j = 0; j < NBAT; j++) M['dbeye' + j].pose(0, -50, 0, 0, 0, 0, 0);
+        let eyeOn = false;
+        for (const D of ds) {
+          const sh = D.shake || 0, prev = D.sh0 || 0, bat = D.spec.m.startsWith('dbat'); D.sh0 = sh;
+          if (sh > prev + 0.3) {
+            if (bat) { fun.sfx.tone(2500, 0.07, 'triangle', 0.05, 0, 3300); fun.sfx.tone(2900, 0.06, 'triangle', 0.04, 0.1, 2200); }
+            else for (let n = 0; n < 4; n++) fun.sfx.tone(480 + n * 70, 0.04, 'sine', 0.035, n * 0.06);
+          }
+          if (bat && sh > 0.1) {
+            const j = Number(D.spec.m.slice(4)), s0 = D.mv.scale, a = D.spec.at, k = Math.min(1, sh / 0.4), ry = (D.spec.ry || 0) + Math.sin(t * 22) * 0.38 * k;
+            const ex = BAT_EYE[0] * s0, ez = BAT_EYE[2] * s0;
+            M['dbeye' + j].pose(a[0] + ex * Math.cos(ry) + ez * Math.sin(ry), a[1] + BAT_EYE[1] * s0, a[2] - ex * Math.sin(ry) + ez * Math.cos(ry), 0, 0, 0, 1); eyeOn = true;
+          }
+        }
+        if (eyes2) eyes2.visible = eyeOn;
+      }
+      if (cloud) {             // level 3, the owl's corner: the little cloud covers the lantern, then drifts aside while the gate is open
+        const Lc = liftOf[9], on = st.phase === 'course' && st.step === 2;
+        cloud.mesh.visible = on;
+        if (on) {
+          const k = Lc && Lc.gate ? Lc.gateK : 1, e = k * k * (3 - 2 * k), b = BL[9];
+          vA.set(camera.position.x - worldOff.x - b[0], 0, camera.position.z - worldOff.z - b[2]).normalize();
+          cloud.pose(b[0] + vA.x * 0.5 + vA.z * e * 1.05 + Math.sin(t * 0.9) * 0.04, b[1] + 0.03 + e * 0.3 + Math.sin(t * 1.3) * 0.03, b[2] + vA.z * 0.5 - vA.x * e * 1.05,
+            0, Math.atan2(vA.x, vA.z), Math.sin(t * 0.7) * 0.05, 1.3);
+        }
+      }
+      if (shutter) {           // level 3, the big lamp: its brass shutter faces the camera (closed) and turns away while the gate is open
+        const vis = st.phase === 'reward' || (st.phase === 'course' && st.step >= 3);
+        shutter.mesh.visible = vis;
+        if (vis) {
+          const Lt = liftOf[TELE], k = st.phase === 'reward' || !Lt || !Lt.gate ? 1 : Lt.gateK, e = k * k * (3 - 2 * k), b = BL[TELE];
+          shutter.pose(b[0], b[1], b[2], 0, Math.atan2(camera.position.x - worldOff.x - b[0], camera.position.z - worldOff.z - b[2]) + e * Math.PI * 0.92, 0);
+        }
+      }
     },
     effects: {
       // the stair path lights step by step (2 s)
@@ -1284,7 +1448,7 @@ function buildAstronomy(kit) {
       },
       // the three star lamps sing a little chord and flare together (1.6 s)
       lampChord(M, t, quiet) {
-        if (!quiet && t < 0.05 && !hooted) { hooted = 1; fun.sfx.tune([1047, 1319, 1568, 2093], 0.12, 'sine'); for (let i = 6; i < 9; i++) kit.burst(BL[i][0], BL[i][1], BL[i][2], 8); }
+        if (!quiet && t < 0.05 && !hooted) { hooted = 1; fun.sfx.tune([1047, 1319, 1568, 2093], 0.12, 'sine'); for (const i of L3 ? [6, 7, 8, 20] : [6, 7, 8]) kit.burst(BL[i][0], BL[i][1], BL[i][2], 8); }
         flare = Math.max(0, Math.sin(Math.min(1, t / 1.4) * Math.PI)) * 2.2;
         if (t >= 1.6) { flare = 0; hooted = 0; }
         return t < 1.6;
@@ -3932,6 +4096,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; S.waits = 0; S.gateT = -9;
       const used = new Set(S.decoys.map(D => D.mv.mesh));   // only this station's decoy meshes are drawn
       for (const set of K.decoys) for (const D of set) D.mv.mesh.visible = used.has(D.mv.mesh);
+      if (st.pre) for (const j of st.pre) { const L = S.lifts[j]; if (L && !L.done) { L.done = true; L.p = 1; L.popT = POP; } }   // already lit / done when the station starts
     }
     camTo(st.cam); setPips(); setBtn(false); hideHand();
   }
