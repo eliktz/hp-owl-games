@@ -403,7 +403,7 @@ export function showerHall(room) {
   }
   // the 'all showers' plaque above the tap wheel
   GL.push(uvTo(new PlaneGeometry(1.12, 0.56), R.plaque).rotateY(Math.PI / 2).translate(-W / 2 + 0.02, 2.25, 0));
-  B.push(box(0.03, 0.6, 1.16, -W / 2 + 0.006, 2.25, 0));
+  B.push(box(0.014, 0.6, 1.16, -W / 2 + 0.006, 2.25, 0));   // brass backing, its face 7 mm behind the plaque
   // the way back out: an oak door in the east end wall, cream stone surround, brass knob
   { const X = W / 2;
     P.push([box(0.06, 2.3, 1.2, X - 0.03, 1.15, 0), 0x6a4426]);
@@ -487,6 +487,7 @@ function particleMesh() {
 
 // ============================== play ==============================
 // the hall's own draw calls: its visible meshes (each instanced mesh is one call), for tests
+function roomTris(g) { let n = 0; g.traverse(o => { if (o.isMesh && o.visible && o.geometry) { const c = o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count; n += (c / 3) * (o.isInstancedMesh ? o.count : 1); } }); return Math.round(n); }
 function roomDraws(g) { let n = 0; g.traverse(o => { if (o.isMesh && o.visible && (!o.isInstancedMesh || o.count > 0)) { let v = true; for (let p = o.parent; p && p !== g; p = p.parent) if (!p.visible) v = false; if (v) n++; } }); return n; }
 let CTRL = null;
 export function createShowers({ camera, player, interiors, delight, freecast, env }) {
@@ -803,7 +804,7 @@ export function createShowers({ camera, player, interiors, delight, freecast, en
       wet: wet > 0, wetSparks, towels, popped: saved.popped, best: saved.best, visitPopped, popTaps, quacks, duckHop: +Math.max(0, duckHop).toFixed(2),
       duckY: Hh ? +Hh.duck.position.y.toFixed(3) : null, steam: +steam.toFixed(2), steamBoost: +Math.max(0, steamBoost).toFixed(2), steamPuffs, splashes,
       lumos: +lumK.toFixed(2), wheelSpin: +Math.max(0, wheelSpin).toFixed(2), counter: cntEl ? { on: cntEl.classList.contains('on'), text: cntEl.textContent } : null,
-      streamsVisible: Hh ? Hh.streams.visible : false, partsVisible: Hh ? Hh.parts.visible : false, name: NAME, meshes: Hh ? roomDraws(Hh.group) : 0,
+      streamsVisible: Hh ? Hh.streams.visible : false, partsVisible: Hh ? Hh.parts.visible : false, name: NAME, meshes: Hh ? roomDraws(Hh.group) : 0, tris: Hh ? roomTris(Hh.group) : 0,
     }),
     squeak, allOn, tapAt,
   };
