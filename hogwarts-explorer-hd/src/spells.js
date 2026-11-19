@@ -1425,7 +1425,7 @@ function buildAstronomy(kit) {
         if (on) {
           const k = Lc && Lc.gate ? Lc.gateK : 1, e = k * k * (3 - 2 * k), b = BL[9];
           vA.set(camera.position.x - worldOff.x - b[0], 0, camera.position.z - worldOff.z - b[2]).normalize();
-          cloud.pose(b[0] + vA.x * 0.5 + vA.z * e * 1.05 + Math.sin(t * 0.9) * 0.04, b[1] + 0.03 + e * 0.3 + Math.sin(t * 1.3) * 0.03, b[2] + vA.z * 0.5 - vA.x * e * 1.05,
+          cloud.pose(b[0] + vA.x * 0.5 + vA.z * e * 1.4 + Math.sin(t * 0.9) * 0.04, b[1] + 0.03 + e * 0.45 + Math.sin(t * 1.3) * 0.03, b[2] + vA.z * 0.5 - vA.x * e * 1.4,
             0, Math.atan2(vA.x, vA.z), Math.sin(t * 0.7) * 0.05, 1.3);
         }
       }
