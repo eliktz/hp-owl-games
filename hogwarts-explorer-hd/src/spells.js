@@ -237,8 +237,8 @@ const tfPump = (i, x, z, o = {}) => ({ m: 'pumpkin' + i, to: 'lantern' + i, path
 const tfPed = (m, to, x, rot1y, o = {}) => ({ m, to, path: [[x, 0.78, TF.pedZ]], rot0: [0, Math.PI, 0], rot1: [0, rot1y, 0], aimY: 0.17, hint: 0.7, r: 0.26, free: true, ...o });
 // phone-height cameras (844x390): neighbouring targets / decoys >= ~70 px apart (iPad framing unchanged)
 const TF_PHONE = { stairs: { cam: { pos: [-0.2, 1.9, 3.3], look: [-2.6, 0.6, 1.1] } }, lanterns: { cam: { pos: [2.0, 1.7, 3.1], look: [3.5, 0.35, 1.1] } },
-  shapes2: { cam: { pos: [-2.6, 2.0, 3.3], look: [-2.6, 0.8, 6.0] } }, bridge3: { cam: { pos: [-1.0, 2.1, 1.5], look: [0.0, 0.6, 4.0] } },
-  shapes3: { cam: { pos: [-2.0, 2.2, 3.3], look: [-2.0, 1.2, 6.3] } } };
+  shapes2: { cam: { pos: [-2.6, 2.0, 3.3], look: [-2.6, 0.8, 6.0] } }, bridge3: { cam: { pos: [-0.6, 3.0, 0.6], look: [0.4, 0.9, 4.2] } },   // (higher: the board clears the speech bar)
+  shapes3: { cam: { pos: [-2.0, 2.2, 3.3], look: [-2.0, 1.45, 6.3] } } };
 const DF_PHONE = { gate: { cam: { pos: [8.5, 1.8, 0.4], look: [10.3, 0.5, 1.5] } },
   barrels2: { cam: { pos: [10.9, 1.7, 5.1], look: [8.4, 0.4, 5.1] } }, barrels3: { cam: { pos: [10.5, 1.6, 3.6], look: [8.4, 0.4, 4.8] } } };
 
@@ -582,7 +582,7 @@ export const COURSES = {
         stations: {
           stairs: { decoys: [tfTin(0, -3.2, 2.4, TF_CAM.stairs), tfToad(0, -1.6, 2.5, TF_CAM.stairs)], phone: TF_PHONE.stairs },
           lanterns: { say: 'הֲפֹךְ אֶת הַדְּלָעוֹת בַּסֵּדֶר!', order: [1, 2, 0],
-            decoys: [tfSpec(0, 3.85, 2.65, TF_CAM.lanterns), tfToad(1, 2.95, 2.95, TF_CAM.lanterns)], phone: TF_PHONE.lanterns },
+            decoys: [tfSpec(0, 3.85, 2.65, TF_CAM.lanterns), tfToad(1, 3.35, 2.95, TF_CAM.lanterns)], phone: TF_PHONE.lanterns },
           bridge: { decoys: [tfTin(1, -1.3, 3.9, TF_CAM.bridge)] },
           shapes: { say: 'הֲפֹךְ אֶת הַדְּבָרִים בַּסֵּדֶר!', order: [2, 0, 1],
             decoys: [tfToad(2, -2.3, 4.75, TF_CAM.shapes), tfSpec(1, -1.45, 5.1, TF_CAM.shapes)], phone: TF_PHONE.shapes2 },
@@ -593,8 +593,9 @@ export const COURSES = {
           stairs: { decoys: [tfTin(0, -3.2, 2.4, TF_CAM.stairs), tfSpec(0, -1.6, 2.5, TF_CAM.stairs)], phone: TF_PHONE.stairs },
           lanterns: { say: 'זְכֹר אֶת הַסֵּדֶר וְשַׁנֵּה!', order: [3, 1, 0, 2],
             lifts: [...TF.pumpkins.map(([x, z], i) => tfPump(i, x, z)), tfPump(3, TF3.pump3[0], TF3.pump3[1])],
-            decoys: [tfSpec(1, 3.85, 2.65, TF_CAM.lanterns), tfToad(0, 2.95, 2.95, TF_CAM.lanterns)], phone: TF_PHONE.lanterns },
+            decoys: [tfSpec(1, 3.85, 2.65, TF_CAM.lanterns), tfToad(0, 3.35, 2.95, TF_CAM.lanterns)], phone: TF_PHONE.lanterns },
           bridge: { say: 'הִסְתַּכֵּל עַל הַלּוּחַ: מָה הוֹפֵךְ לְמָה?',
+            walk: [[0.6, 1.7], [0.6, 2.0]], face: [0, 3.6],      // the hero a step east: chair, goblet and board stay clear of him
             cam: { pos: [-1.35, 2.5, 0.6], look: [0.2, 0.75, 3.9] },
             lifts: [
               { m: 'chair', to: 'bridge', path: [TF.puddle], rot0: [0, 0.5, 0.07], rot1: [0, 0, 0], aimY: 0.4, hint: 1.05, hs: 0.6, r: 0.45, askSay: 'מָה הוֹפֵךְ לְגֶשֶׁר?', askR: [0.3, Math.PI / 2] },
