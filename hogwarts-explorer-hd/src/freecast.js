@@ -16,6 +16,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as fun from './fun.js';
 import { buildCorner, CORNER, B } from './freecast-corner.js';
+import { createDuel, DUEL } from './freecast-duel.js';
 
 const KEY = 'hpFreecast1';
 export const SPELLS = [
@@ -26,6 +27,10 @@ export const SPELLS = [
   { key: 'reparo', icon: '🏺', name: 'רֶפָּארוֹ', words: 'רֶפָּארוֹ!', col: 0x9affc8 },
   { key: 'incendio', icon: '🔥', name: 'אִינְסֶנְדְיוֹ', words: 'אִינְסֶנְדְיוֹ!', col: 0xff8a2a },
   { key: 'aguamenti', icon: '💧', name: 'אָגוּאָמֶנְטִי', words: 'אָגוּאָמֶנְטִי!', col: 0x5ab8ff },
+  { key: 'expelliarmus', icon: '🪃', name: 'אֶקְסְפֶּלִיאַרְמוּס', words: 'אֶקְסְפֶּלִיאַרְמוּס!', col: 0xff3a3a },
+  { key: 'stupefy', icon: '💫', name: 'סְטוּפֶּפַי', words: 'סְטוּפֶּפַי!', col: 0xff6a2a },
+  { key: 'protego', icon: '🛡️', name: 'פְּרוֹטֶגוֹ', words: 'פְּרוֹטֶגוֹ!', col: 0x7ac8ff },
+  { key: 'riddikulus', icon: '😂', name: 'רִידִיקוּלוּס', words: 'רִידִיקוּלוּס!', col: 0xff9ad8 },
   { key: 'patronum', icon: '🦌', name: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם', words: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם!', col: 0xbfe4ff },
 ];
 const BYKEY = Object.fromEntries(SPELLS.map(s => [s.key, s]));
@@ -100,9 +105,12 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   #fcWheel .sp .n{font-size:19px;font-weight:bold;line-height:1.15;text-align:center;color:#ffe9a8}
   #fcWheel .sp.on{border-color:#fff3b0;background:radial-gradient(circle at 50% 30%,rgba(140,105,255,.95),rgba(60,35,140,.95));box-shadow:0 0 0 4px rgba(255,215,106,.5),0 0 22px rgba(255,215,106,.8)}
   #fcWheel .sp .st{position:absolute;top:4px;left:8px;font-size:20px}
-  @media (max-aspect-ratio:1/1){#fcWheel .grid{grid-template-columns:repeat(2,min(42vw,190px))}}
-  @media (max-height:520px){#fcWheel .pan{padding:8px 12px 10px;gap:6px} #fcWheel .hd{font-size:22px}
-    #fcWheel .grid{grid-template-columns:repeat(4,min(21vw,170px));gap:8px} #fcWheel .sp{height:min(36vh,132px)} #fcWheel .sp .i{font-size:44px} #fcWheel .sp .n{font-size:16px}}
+  @media (max-height:860px){#fcWheel .sp{height:min(140px,calc((100vh - 110px) / 3 - 12px))}}
+  @media (max-aspect-ratio:1/1){#fcWheel .grid{grid-template-columns:repeat(3,min(27vw,190px));gap:10px}
+    #fcWheel .sp{height:min(140px,calc((100vh - 120px) / 4 - 10px))} #fcWheel .sp .i{font-size:min(56px,11vw)} #fcWheel .sp .n{font-size:min(19px,3.9vw)}}
+  @media (max-height:520px){#fcWheel .pan{padding:6px 12px 8px;gap:5px} #fcWheel .hd{font-size:21px} #fcWheel .cnt{font-size:17px}
+    #fcWheel .grid{grid-template-columns:repeat(4,min(21vw,170px));gap:6px} #fcWheel .sp{height:min(108px,calc((100vh - 74px) / 3 - 6px));border-radius:18px;gap:2px}
+    #fcWheel .sp .i{font-size:38px} #fcWheel .sp .n{font-size:15px}}
   body.modalOn #fcBtn,body.inMatch #fcBtn,body.inSpell #fcBtn,body.modalOn #fcWheel,body.inMatch #fcWheel,body.inSpell #fcWheel{display:none !important}`;
   document.head.appendChild(css);
   const btn = document.createElement('button'); btn.id = 'fcBtn'; btn.className = 'gamebtn'; btn.setAttribute('aria-label', 'בְּחַר לַחַשׁ');
@@ -224,6 +232,26 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     }
   }
 
+  // a fast bolt from the tip to a point: a bright head racing out with a trail (Expelliarmus, Stupefy, the bogart charm)
+  const BOLTS = []; for (let i = 0; i < 4; i++) BOLTS.push({ on: false, x: 0, y: 0, z: 0, x0: 0, y0: 0, z0: 0, hex: 0, t: 0, dur: 0.3, acc: 0, fizzle: false });
+  function bolt(to, hex, dur = 0.3, fizzle = false) {
+    const b = BOLTS.find(q => !q.on) || BOLTS[0];
+    tip(); b.on = true; b.x0 = tipV.x; b.y0 = tipV.y; b.z0 = tipV.z; b.x = to.x; b.y = to.y; b.z = to.z; b.hex = hex; b.t = 0; b.dur = dur; b.acc = 0; b.fizzle = fizzle;
+  }
+  function tickBolts(dt) {
+    for (const b of BOLTS) {
+      if (!b.on) continue;
+      b.t += dt; b.acc += dt;
+      const k = Math.min(1, b.t / b.dur);
+      const hx = b.x0 + (b.x - b.x0) * k, hy = b.y0 + (b.y - b.y0) * k, hz = b.z0 + (b.z - b.z0) * k;
+      emit(hx, hy, hz, 0, 0, 0, 0.09, 0.5, 0xffffff); emit(hx, hy, hz, 0, 0, 0, 0.12, 0.75, b.hex);
+      while (b.acc > 0.01) { b.acc -= 0.01; const u = Math.random() * 0.25; emit(hx - (b.x - b.x0) * u * k, hy - (b.y - b.y0) * u * k, hz - (b.z - b.z0) * u * k, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, 0.3, 0.2, b.hex, 0, 1); }
+      if (k >= 1) { b.on = false; burst(b.x, b.y, b.z, b.hex, b.fizzle ? 10 : 18, b.fizzle ? 1 : 2.2, 0.5, b.fizzle ? 0.16 : 0.24, -1); }
+    }
+  }
+  // a bolt thrown straight ahead that fizzles out (a duelling spell with nothing to hit)
+  function boltAhead(hex, d = 6) { const f = player.yaw; tip(); bolt(_v.set(tipV.x + Math.sin(f) * d, tipV.y + 0.2, tipV.z + Math.cos(f) * d), hex, 0.45, true); }
+
   // ================= targets (filled by the practice corner + world bits below) =================
   const TARGETS = [];   // { id, spells: [keys], at(outVec3), ok(), cast(spellKey) }
   const tv = new Vector3();
@@ -231,7 +259,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     const f = player.yaw, sx = Math.sin(f), sz = Math.cos(f);
     let bestT = null, bs = 1e9;
     for (const t of TARGETS) {
-      if (!t.spells.includes(key) || (t.corner && !(C && C.group.visible)) || !t.ok(key)) continue;
+      if (!t.spells.includes(key) || (t.corner && !(C && C.group.visible)) || (t.grp && !t.grp.visible) || !t.ok(key)) continue;
       t.at(tv); const dx = tv.x - pos.x, dz = tv.z - pos.z, d = Math.hypot(dx, dz);
       if (d > maxD || Math.abs(tv.y - pos.y) > 4) continue;
       const dot = d < 0.01 ? 1 : (dx * sx + dz * sz) / d, sc = d - dot * 3;
@@ -590,6 +618,13 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
       d: stag ? +Math.hypot(stag.position.x - pos.x, stag.position.z - pos.z).toFixed(2) : 0 }),
   };
 
+  // ================= the duelling spot (freecast-duel.js): Expelliarmus, Stupefy, Protego, Riddikulus =================
+  let D = null;
+  try { D = createDuel({ scene, camera, player, heightAt, fun, emit, burst, bolt, boltAhead, tip, tipV, glowTex, best }); }
+  catch (e) { console.warn('[freecast] duelling spot skipped -', e && e.message || e); D = null; }
+  if (D) { for (const t of D.targets) TARGETS.push(t); Object.assign(SP, D.SP); }
+  for (const k of ['expelliarmus', 'stupefy', 'protego', 'riddikulus']) if (!SP[k]) SP[k] = { noFallback: true, cast() { if (k === 'riddikulus' || k === 'protego') { tip(); burst(tipV.x, tipV.y, tipV.z, BYKEY[k].col, 16, 2, 0.8, 0.22, -1); if (k === 'riddikulus') fun.sfx.giggle(true); else fun.sfx.chime(); } else boltAhead(BYKEY[k].col); return false; } };
+
   // ================= casting =================
   function castSelected() {
     if (isModal() || isTakeover() || cool > 0) return false;
@@ -623,7 +658,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     if (busy && wheel.classList.contains('on')) closeWheel();
     if (cool > 0) { cool -= dt; if (cool <= 0) { const w = document.getElementById('wandBtn'); if (w) w.classList.remove('cool'); } }
     for (const k in SP) if (SP[k].tick) SP[k].tick(dt, inside, busy);
-    tickStreams(dt);
+    tickStreams(dt); tickBolts(dt);
     // hint: a soft sparkle on the thing the selected spell would act on
     hintT -= dt;
     if (hintT <= 0 && !busy) {
