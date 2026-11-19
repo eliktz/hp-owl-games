@@ -172,9 +172,9 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     const wi = d.i ? DB.wand1 : DB.wand0, H = [x - 0.42, y + 1.38, z + 0.1];
     mkBone(wi, ...H); d.wand = wi;
     const wp = [];
-    wp.push(paint(rod([0, 0, 0], [-0.06, 0.29, 0.2], 0.017, 0.012, 6), 0xd8b880, 0xf0d8a8));
-    wp.push(paint(place(new TorusGeometry(0.018, 0.007, 4, 8), -0.008, 0.04, 0.027, Math.PI / 2 - 0.6, 0, 0), GOLD));
-    wp.push(paint(place(new SphereGeometry(0.035, 8, 6), -0.062, 0.3, 0.208), 0xe8473a, 0xff7a6a));
+    wp.push(paint(rod([0, 0, 0], [-0.08, 0.38, 0.26], 0.022, 0.016, 6), 0xd8b880, 0xf0d8a8));
+    wp.push(paint(place(new TorusGeometry(0.024, 0.009, 4, 8), -0.01, 0.05, 0.034, Math.PI / 2 - 0.6, 0, 0), GOLD));
+    wp.push(paint(place(new SphereGeometry(0.046, 8, 6), -0.081, 0.39, 0.27), 0xe8473a, 0xff7a6a));
     M(mergeGeometries(wp.map(plain)).translate(H[0], H[1], H[2]), wi);
     // the dizzy stars (hidden until Stupefy)
     const si = d.i ? DB.stars1 : DB.stars0, SP0 = [x, y + 2.12, z];
@@ -333,7 +333,7 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     // a dummy that "casts" (Protego's show): a pink glint at its wand tip
     if (d.leanT >= 0 && Math.random() < dt * 25) { wandTipW(d, v0); emit(v0.x, v0.y, v0.z, (Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4, 0.5, 0.18, 0xff8ad8); }
   }
-  function wandTipW(d, out) { const wbn = bones[d.wand]; return out.set(-0.062, 0.3, 0.208).applyQuaternion(wbn.quaternion).add(wbn.position).add(group.position); }
+  function wandTipW(d, out) { const wbn = bones[d.wand]; return out.set(-0.081, 0.39, 0.27).applyQuaternion(wbn.quaternion).add(wbn.position).add(group.position); }
 
   function duelCast(key) {
     return {

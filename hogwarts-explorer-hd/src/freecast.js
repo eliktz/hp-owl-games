@@ -3,7 +3,9 @@
 // says its incantation in a bubble over Harry and speaks it in Hebrew (speechSynthesis, no audio files);
 // near the little practice corner by the spawn (and on a few things that already exist) it really does
 // something. With no spell-specific target in reach, a cast falls through to the wand's own delights
-// (Pip loops, the Sorting Hat giggles, Trevor hops...).
+// (Pip loops, the Sorting Hat giggles, Trevor hops...). The four duelling spells (Expelliarmus, Stupefy,
+// Protego, Riddikulus) act only on the dummies and the wardrobe of the duelling spot (freecast-duel.js) and
+// never fall through to the wand's delights: nothing is cast on people or creatures.
 //   hpFreecast1 (localStorage)  { sel, disc: [spell keys cast on a real target], chestPaid }
 // Cost: nothing while idle (the corner hides beyond 70 m / indoors, effects are pooled and hidden when
 // unused, nothing is allocated per frame).
