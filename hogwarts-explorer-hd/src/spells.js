@@ -2332,7 +2332,7 @@ function buildPotions(kit) {
       });
       return;
     }
-    const n = r.items.length, sw = Math.min(118, (W - 30) / n), x0 = W - 15 - sw / 2, rad = Math.min(46, sw * 0.4);
+    const n = r.items.length, sw = Math.min(150, (W - 30) / n), x0 = W / 2 + (n - 1) * sw / 2, rad = Math.min(56, sw * 0.4);   // (centred; the first on the right)
     for (let i = 0; i < n; i++) {
       const x = x0 - i * sw, y = 80, done = i < r.k;
       const shown = R.showI === -1 || (R.showI >= 0 && (i <= R.showI || i < r.k));
