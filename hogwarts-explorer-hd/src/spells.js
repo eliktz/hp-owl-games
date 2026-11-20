@@ -206,6 +206,39 @@ const BED_SOIL = 0.17, POT_SOIL = 0.3, VINE_S = 1.95, BEAN_H = 2.6, GIANT_H = 2.
 const archY = (u) => 0.3 * Math.pow(Math.max(0, Math.sin(Math.PI * u)), 0.7) - 0.09 * u;   // the vine bridge's deck, u 0..1 along its span
 const potSoil = (i, x, z) => { const P = HB.pots[i]; return [x ?? P[0], P[3] + POT_SOIL * P[2], z ?? P[1]]; };
 const growLift = (seed, to, at, o = {}) => ({ m: 'seed' + seed, to, path: [at], rot0: [0, seed * 1.3, 0], rot1: [0, 0, 0], aimY: 0.1, r: 0.22, ...o });
+// Herbology levels 2-3 (brief 2026-11-18). Decoys that fit a garden and must NOT be grown: a prickly thistle weed with a
+// grumpy face (grown: it shakes its prickles) and a garden snail asleep on a big leaf (it shakes 'no' in its sleep). Their
+// `at` y is height above the terrain (the runner adds the ground); both glow softly at night (the course's night quads).
+// Level 3: HEIGHT (the framework's ring hold, which `grow` uses at level 3: the beanstalk up to a star on a shorter post, the
+// giant flower up to a glowing band on a garden stake; the plant then stays at the height it was held at), MATCHING at the
+// vegetable beds (four beds, no picture signs: each seedling shows its own leaves, a leaf key board beside them, the `ask`
+// board asks for one vegetable at a time), the timing gate at the vine (a rain cloud drifts over its seedling: it only grows
+// while the sun is on it), four sunflowers in an order shown once.
+const HB_CAM = { bean: [-1.5, 8.7], sun: [-3.7, 13.4], vine: [-0.1, 15.5], veg: [3.0, 14.9], flower: [3.3, 5.9], veg3: [4.9, 15.3], sun3: [-4.3, 12.3] };
+// phone-height cameras (844x390): closer, so seedlings and decoys stand >= ~70 px apart (iPad framing unchanged)
+const HB_PHONE = { bean: { cam: { pos: [-2.3, 1.7, 7.6], look: [-4.3, 1.0, 4.4] } }, sun2: { cam: { pos: [-4.4, 1.9, 11.0], look: [-4.5, 0.4, 8.2] } },
+  sun3: { cam: { pos: [-4.5, 1.9, 10.9], look: [-4.5, 0.4, 8.3] } }, vine: { cam: { pos: [-0.4, 1.9, 13.9], look: [0.1, 0.6, 10.8] } },
+  veg2: { cam: { pos: [4.4, 1.9, 13.3], look: [4.4, 0.5, 10.3] } }, veg3: { cam: { pos: [5.1, 1.9, 14.0], look: [5.1, 0.7, 10.1] } },
+  flower: { cam: { pos: [2.9, 1.9, 4.9], look: [1.0, 1.4, 0.9] } } };
+const WEED_SAY = 'זֶה עֵשֶׂב שׁוֹטֶה! לֹא אוֹתוֹ!', SNAIL_SAY = 'שְׁשְׁשׁ… הַשַּׁבְּלוּל יָשֵׁן!';
+const hbWeed = (i, x, z, cam, y = 0) => ({ m: 'dweed' + i, at: [x, y, z], ry: camYaw(x, z, cam), r: 0.26, aimY: 0.26, shakeMode: 'rattle', say: WEED_SAY });
+const hbSnail = (i, x, z, cam, y = 0) => ({ m: 'dsnail' + i, at: [x, y, z], ry: camYaw(x, z, cam) + 1.1, r: 0.24, aimY: 0.12, breathe: true, shakeMode: 'no', say: SNAIL_SAY });
+// Sprout's level lines: warm and encouraging (masculine singular)
+const HB_HINTS = { decoy: 'לֹא אֶת זֶה, יַקִּירִי! רַק אֶת הַנְּבָטִים!', order: 'כִּמְעַט! אֵיזֶה נֶבֶט נִצְנֵץ קֹדֶם?', again: 'הִנֵּה שׁוּב הַסֵּדֶר, יַקִּירִי!', go: 'עַכְשָׁו אַתָּה!',
+  slip: 'אוֹי, גָּבוֹהַּ מִדַּי! עֲצֹר בְּתוֹךְ הַטַּבַּעַת!', slipMiss: 'לְאַט לְאַט… עֲצֹר בְּתוֹךְ הַטַּבַּעַת!',
+  gate: 'עוֹד רֶגַע! חַכֵּה לַשֶּׁמֶשׁ!', gateMiss: 'סַבְלָנוּת, יַקִּירִי… חַכֵּה שֶׁהַשֶּׁמֶשׁ תָּאִיר!',
+  ask: 'כִּמְעַט! הִסְתַּכֵּל בַּלּוּחַ שֶׁל הֶעָלִים!', ask1: 'אֵיזֶה נֶבֶט יִהְיֶה הַיָּרָק הַזֶּה?' };
+// level 3 places: four sunflowers in the long bed, four vegetable beds (no signs), the ask board behind them (y above the
+// terrain), the leaf key board east of them, the garden stake beside the giant flower's pot, the bean's ring height
+const HB3 = { sun: [[-5.55, 8.3], [-4.85, 8.3], [-4.15, 8.3], [-3.45, 8.3]], veg: [[2.7, 10.4], [3.9, 10.4], [5.1, 10.4], [6.3, 10.4]],
+  board: [4.5, 1.32, 9.45], key: [7.6, 10.75], stake: [1.0, 1.3], beanU: 0.45, flowerU: 0.68 };
+const HB3_VEG = ['pumpkin', 'carrot', 'beet', 'berry'];   // what grows in the four beds (west to east)
+const HB3_SAY = { carrot: 'אֵיזֶה נֶבֶט יִהְיֶה גֶּזֶר?', pumpkin: 'אֵיזֶה נֶבֶט יִהְיֶה דְּלַעַת?', berry: 'אֵיזֶה נֶבֶט יִהְיֶה תּוּת?', beet: 'אֵיזֶה נֶבֶט יִהְיֶה סֶלֶק?' };
+const hbVeg3 = (j) => ({ m: 'lf' + j, to: HB3_VEG[j], path: [[HB3.veg[j][0], BED_SOIL, HB3.veg[j][1]]], rot0: [0, 0.2, 0], rot1: [0, -0.3, 0], aimY: 0.1, r: 0.22, top: 0.5, free: true,
+  askSay: HB3_SAY[HB3_VEG[j]], askM: 'pic' + HB3_VEG[j], askR: [0.15, 0] });   // (the board shows the vegetable itself, not the whole plant)
+// grow: the plant's height factor at progress p (the runner's poseGrow; level 3 rings sit at the plant's top at their centre)
+const growSY = (p) => { p = Math.max(0, Math.min(1, p)); return 0.1 + 0.9 * p * p * (3 - 2 * p); };
+const growDone = (p) => { const sy = growSY(p); return [Math.min(1, 0.45 + 0.6 * sy), sy]; };   // a plant held at p, once grown: [width, height] factors
 
 // Course #7 places: OUTDOORS round Hagrid's paddock (the pen of STATIONS.creatures: a fence ring r 3.2 at the origin, its own
 // three critters are held out of the way while the course runs). Metres local to the pen centre: x east, z south, every y
@@ -804,6 +837,43 @@ export const COURSES = {
           lifts: [growLift(12, 'giant', potSoil(4, HB.stem[0], HB.stem[1]), { rot1: [0, 0.33, 0], top: GIANT_H + 0.3, r: 0.35, aimY: 0.12 })],
           after: 'mandrake', afterT: 5.8, afterSfx: 'none', afterLine: 'אֵיזֶה גַּן נִפְלָא!', afterLineT: 3.6 },
       ],
+    },
+    // Difficulty levels (the shape: see COURSES.charms.levels; HB_HINTS = Sprout's lines). Level 2: the sunflowers and the
+    // vegetables in the shown order (3 steps), a thistle weed and a sleeping snail as decoys. Level 3: HEIGHT at the beanstalk
+    // (up to the star, now on a shorter post) and the giant flower (up to the band on a stake): grow it into the ring and hold
+    // still (`hold`, the framework's ring hold); four sunflowers in an order shown once; the vine's seedling under a drifting
+    // rain cloud (the timing gate); MATCHING at four vegetable beds (`ask`): the board asks for a vegetable, the seedlings'
+    // leaves and the leaf key board tell which one grows into it.
+    levels: {
+      2: { twist: 'עַכְשָׁו רַק אֶת הַצְּמָחִים הַטּוֹבִים, וּבַסֵּדֶר הַנָּכוֹן!', star3: 300, hints: HB_HINTS,
+        stations: {
+          bean: { decoys: [hbWeed(0, -3.3, 3.95, HB_CAM.bean), hbSnail(0, -5.1, 5.1, HB_CAM.bean)], phone: HB_PHONE.bean },
+          sun: { say: 'גַּדֵּל אֶת הַחַמָּנִיּוֹת בַּסֵּדֶר!', order: [2, 0, 1],
+            decoys: [hbWeed(1, -4.9, 9.35, HB_CAM.sun), hbSnail(1, -6.3, 8.95, HB_CAM.sun)], phone: HB_PHONE.sun2 },
+          vine: { decoys: [hbWeed(2, 1.8, 11.95, HB_CAM.vine)], phone: HB_PHONE.vine },
+          veg: { say: 'גַּדֵּל אֶת הַיְּרָקוֹת בַּסֵּדֶר!', order: [1, 2, 0],
+            decoys: [hbSnail(2, 3.75, 11.45, HB_CAM.veg), hbWeed(3, 5.05, 11.5, HB_CAM.veg)], phone: HB_PHONE.veg2 },
+          flower: { decoys: [hbWeed(0, 2.5, 2.2, HB_CAM.flower), hbSnail(0, 0.55, 2.15, HB_CAM.flower)], phone: HB_PHONE.flower },
+        } },
+      3: { twist: 'עַכְשָׁו בְּדִיּוּק בַּגֹּבַהּ הַנָּכוֹן!', star3: 420, hints: HB_HINTS,
+        stations: {
+          bean: { say: 'גַּדֵּל אֶת הַשְּׁעוּעִית עַד הַכּוֹכָב, וַעֲצֹר שָׁם!', hold: HB3.beanU, ringR: 0.42,
+            decoys: [hbWeed(0, -3.3, 3.95, HB_CAM.bean), hbSnail(0, -5.1, 5.1, HB_CAM.bean)], phone: HB_PHONE.bean },
+          sun: { say: 'זְכֹר אֶת הַסֵּדֶר וְגַדֵּל!', cam: { pos: [-4.3, 2.2, 12.3], look: [-4.5, 0.9, 8.4] },
+            lifts: HB3.sun.map(([x, z], j) => growLift(j < 3 ? 5 + j : 13, 'sunf' + (j + 1), [x, BED_SOIL, z], { rot1: [0, 0.6, 0], top: 1.55 })),
+            order: [2, 0, 3, 1], decoys: [hbWeed(1, -4.5, 9.2, HB_CAM.sun3), hbSnail(1, -6.3, 8.95, HB_CAM.sun3)], phone: HB_PHONE.sun3 },
+          vine: { say: 'חַכֵּה שֶׁהַשֶּׁמֶשׁ תָּאִיר עַל הַנֶּבֶט… וְאָז גַּדֵּל!', gate: { period: 3.4, open: 1.6, R: 0.5 },
+            decoys: [hbWeed(2, 1.8, 11.95, HB_CAM.vine), hbSnail(2, -1.4, 10.4, HB_CAM.vine)], phone: HB_PHONE.vine },
+          veg: { say: 'הִסְתַּכֵּל בָּעָלִים: אֵיזֶה נֶבֶט יִהְיֶה אֵיזֶה יָרָק?',
+            walk: [[-0.9, 11.0], [2.1, 11.0], [1.95, 12.3]], face: [4.5, 10.4],
+            cam: { pos: [4.9, 2.3, 15.3], look: [5.0, 0.8, 10.2] },
+            lifts: [0, 1, 2, 3].map(hbVeg3), order: [2, 0, 3, 1],
+            ask: { at: HB3.board, ry: camYaw(HB3.board[0], HB3.board[2], HB_CAM.veg3), gap: 0.62, size: 0.42, slots: [1, 3, 0, 2] },
+            decoys: [hbWeed(3, 5.7, 11.75, HB_CAM.veg3)], phone: HB_PHONE.veg3 },
+          flower: { say: 'גַּדֵּל אֶת הַפֶּרַח עַד הַסִּימָן, וַעֲצֹר שָׁם!', hold: HB3.flowerU, ringR: 0.32,
+            lifts: [growLift(12, 'giant', potSoil(4, HB.stem[0], HB.stem[1]), { rot1: [0, 0.33, 0], top: GIANT_H + 0.05, r: 0.35, aimY: 0.12 })],
+            decoys: [hbWeed(0, 2.5, 2.2, HB_CAM.flower), hbSnail(0, 0.55, 2.15, HB_CAM.flower)], phone: HB_PHONE.flower },
+        } },
     },
   },
   // -------------------------------------------------------------------------------------
@@ -2904,6 +2974,115 @@ function potGeo() {                                // a terracotta pot, soil top
   ]);
 }
 
+// ---- Herbology levels 2-3 geometry (built only when kit.level > 1) ----
+function weedGeo() {                               // a prickly thistle weed with a grumpy face (faces +z, ~0.55 m)
+  const P = [];
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.3, c = Math.cos(a), s = Math.sin(a);
+    P.push(leafG(0.13, c * 0.13, 0.04, s * 0.13, 0, -a, 0.3, 1.45, 0.2, 0.5, 0x2a5a24, 0x5a8a34));
+    for (const k of [0.6, 1.0]) P.push(paint(place(new ConeGeometry(0.014, 0.07, 4), c * 0.19 * k + s * 0.04, 0.06, s * 0.19 * k - c * 0.04, 0, -a, -Math.PI / 2 + 0.3), 0xe8f0b0)); }
+  P.push(paint(place(new CylinderGeometry(0.02, 0.03, 0.3, 6), 0, 0.15, 0), 0x3a6a2a, 0x5a8a3a));
+  P.push(paint(place(new SphereGeometry(0.105, 12, 9), 0, 0.36, 0, 0, 0, 0, 1, 0.92, 0.9), 0x3a7a2e, 0x6aa040));
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; if (Math.sin(a) > 0.55) continue;   // prickles round the body (none on the face)
+    P.push(paint(place(new ConeGeometry(0.012, 0.07, 4), Math.sin(a) * 0.11, 0.33 + (i % 2) * 0.06, Math.cos(a) * 0.1, Math.PI / 2 - (i % 2) * 0.3, a, 0), 0xe8f0b0)); }
+  for (let i = 0; i < 11; i++) { const a = i / 11 * Math.PI * 2, r = 0.05;   // the purple thistle crown
+    P.push(paint(place(new ConeGeometry(0.018, 0.13, 4), Math.cos(a) * r, 0.49, Math.sin(a) * r, Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5), 0x8a2ab8, 0xe080ff)); }
+  P.push(paint(place(new SphereGeometry(0.06, 10, 6), 0, 0.45, 0, 0, 0, 0, 1, 0.6, 1), 0x5a8a34));
+  for (const s of [-1, 1]) {                       // the grumpy face: eyes, angry brows, a frown
+    P.push(paint(place(new SphereGeometry(0.027, 8, 6), s * 0.042, 0.375, 0.085), 0xf4f4f0));
+    P.push(paint(place(new SphereGeometry(0.014, 6, 5), s * 0.04, 0.37, 0.108), 0x141018));
+    P.push(paint(place(new BoxGeometry(0.055, 0.013, 0.014), s * 0.044, 0.414, 0.093, 0, 0, s * 0.5), 0x1e2a14));
+  }
+  P.push(paint(place(new TorusGeometry(0.03, 0.007, 4, 10, Math.PI), 0, 0.316, 0.096), 0x2a1410));
+  return place(merge(P), 0, 0, 0, 0, 0, 0, 1.15);
+}
+function snailGeo() {                              // a garden snail asleep on a big leaf (head toward +x, ~0.25 m)
+  return place(merge([
+    paint(place(new SphereGeometry(0.16, 14, 6), 0, 0.012, 0, 0, 0, 0, 1.45, 0.07, 0.95), 0x2f8a2a, 0x6ac050),
+    paint(place(new BoxGeometry(0.42, 0.006, 0.012), 0, 0.024, 0), 0x9ad870),
+    paint(place(new SphereGeometry(0.04, 10, 6), 0.02, 0.05, 0, 0, 0, 0, 2.6, 0.7, 1.0), 0xb8a080, 0xd8c4a0),
+    paint(place(new SphereGeometry(0.035, 10, 7), 0.11, 0.075, 0), 0xc8b090, 0xe0ccaa),
+    ...[-1, 1].map(s => paint(place(new CylinderGeometry(0.006, 0.007, 0.055, 5), 0.13, 0.115, s * 0.015, s * -0.3, 0, -0.9), 0xc8b090)),
+    ...[-1, 1].map(s => paint(place(new SphereGeometry(0.011, 6, 4), 0.155, 0.13, s * 0.024, 0, 0, 0, 1, 0.55, 1), 0x3a2a20)),
+    paint(place(new SphereGeometry(0.075, 14, 10), -0.025, 0.105, 0, 0, 0, 0, 1, 1, 0.78), 0xa85a20, 0xe8a050),
+    ...[-1, 1].map(s => paint(place(new TorusGeometry(0.04, 0.011, 5, 14), -0.025, 0.105, s * 0.052), 0x6a3010)),
+    ...[-1, 1].map(s => paint(place(new TorusGeometry(0.018, 0.008, 4, 10), -0.022, 0.108, s * 0.058), 0x6a3010)),
+  ]), 0, 0, 0, 0, 0, 0, 1.55);
+}
+// level 3: the four vegetables' seedlings, each with its own leaves (shape AND colour): carrot feathery, pumpkin big and
+// round, strawberry three-part, beetroot oval on red stems (~0.25 m, origin = the soil, face +z)
+function sproutGeo(kind) {
+  const P = [];
+  if (kind === 'carrot') {
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.2, c = Math.cos(a), s = Math.sin(a), L = 0.17;
+      P.push(paint(place(new CylinderGeometry(0.004, 0.006, L, 4), c * 0.04, L / 2, s * 0.04, s * 0.4, 0, -c * 0.4), 0x5aa82a));
+      for (let k = 1; k <= 5; k++) { const u = k / 5.6, x = c * (0.04 + Math.sin(0.4) * L * u), y = Math.cos(0.4) * L * u;
+        for (const sd of [-1, 1]) P.push(paint(place(new SphereGeometry(0.016, 5, 3), x - s * sd * 0.014, y, s * (0.04 + Math.sin(0.4) * L * u) + c * sd * 0.014, 0, -a, sd * 0.8, 1.4, 0.35, 0.5), 0x8ad838, 0xc8ff70)); } }
+  } else if (kind === 'pumpkin') {
+    P.push(paint(place(new CylinderGeometry(0.01, 0.014, 0.1, 5), 0, 0.05, 0), 0x3a7a2a));
+    for (const s of [-1, 1]) P.push(paint(place(new SphereGeometry(0.085, 14, 6), s * 0.075, 0.105, 0, 0, 0, s * -0.35, 1, 0.12, 1), 0x1a5a1e, 0x2f7a2a));
+    P.push(paint(place(new SphereGeometry(0.06, 12, 5), 0, 0.12, -0.06, -0.5, 0, 0, 1, 0.12, 1), 0x1f6422, 0x358030));
+    P.push(paint(place(new TorusGeometry(0.03, 0.005, 4, 12, Math.PI * 1.6), 0.02, 0.17, 0.03, 0, 0, 0.5), 0x9ad860));
+  } else if (kind === 'berry') {
+    P.push(paint(place(new CylinderGeometry(0.007, 0.01, 0.15, 5), 0, 0.075, 0), 0x4a9a3a));
+    for (const [y, a0, r] of [[0.16, 0, 1], [0.09, 1.0, 0.8]]) for (let i = 0; i < 3; i++) { const a = a0 + i / 3 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+      P.push(paint(place(new SphereGeometry(0.042 * r, 10, 6), c * 0.045 * r, y, s * 0.045 * r, 0, -a, 0.35, 1.35, 0.16, 1.0), 0x3aa83a, 0x7ad860)); }
+  } else {                                         // beetroot: oval leaves, dark green going red at the base, on bright red stems
+    for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.4, c = Math.cos(a), s = Math.sin(a);
+      P.push(paint(place(new CylinderGeometry(0.006, 0.008, 0.11, 5), c * 0.025, 0.055, s * 0.025, s * 0.35, 0, -c * 0.35), 0xd0203a));
+      P.push(paint(place(new SphereGeometry(0.05, 10, 7), c * 0.06, 0.15, s * 0.06, s * 0.35, 0, -c * 0.35, 0.7, 1.5, 0.2), 0xb01840, 0x2f6a2a)); }
+  }
+  return place(merge(P), 0, 0, 0, 0, 0, 0, 1.4);
+}
+function beetGeo() {                               // the grown beetroot: a round red root half in the soil, leaves on red stems
+  const P = [paint(place(new SphereGeometry(0.13, 16, 10), 0, 0.02, 0), 0x6a0c2a, 0xc0204e), paint(place(new ConeGeometry(0.04, 0.16, 8), 0, -0.16, 0, Math.PI), 0x7a1030)];
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + 0.3, c = Math.cos(a), s = Math.sin(a);
+    P.push(paint(place(new CylinderGeometry(0.01, 0.014, 0.2, 5), c * 0.05, 0.22, s * 0.05, s * 0.35, 0, -c * 0.35), 0xd0203a));
+    P.push(paint(place(new SphereGeometry(0.085, 10, 7), c * 0.12, 0.38, s * 0.12, s * 0.45, 0, -c * 0.45, 0.65, 1.55, 0.2), 0xa01840, 0x2f6a2a)); }
+  return merge(P);
+}
+function rainGeo() {                               // rain streaks under the cloud (origin = the cloud's belly, falling to -1 m)
+  const P = [];
+  for (let i = 0; i < 12; i++) { const a = i * 2.4, r = 0.06 + (i % 4) * 0.06, y = -0.1 - (i % 5) * 0.15;
+    P.push(paint(place(new CylinderGeometry(0.007, 0.007, 0.2, 4), Math.cos(a) * r * 1.4, y, Math.sin(a) * r * 0.8), 0x9ad0ff, 0xd8f0ff)); }
+  return merge(P);
+}
+// a vegetable's picture (carrot, pumpkin, strawberry, beetroot; centred on the origin, ~0.24 m, facing +z): the leaf key's
+// bottom row (flattened) and the `ask` board's silhouettes (askM)
+function vegPicGeo(kind) {
+  const P = [];
+  if (kind === 'carrot') {
+    P.push(paint(place(new ConeGeometry(0.05, 0.2, 10), 0, -0.03, 0, 0, 0, Math.PI), 0xe06a10, 0xff9a30));
+    for (const k of [-1, 0, 1]) P.push(leafG(0.025, k * 0.018, 0.1, 0, 0, 0, k * 0.4, 0.6, 2.2, 0.6, 0x2a8a2a, 0x6ac050));
+  } else if (kind === 'pumpkin') {
+    P.push(ribs(place(new SphereGeometry(0.09, 14, 9), 0, -0.02, 0, 0, 0, 0, 1.3, 0.95, 1.1), 0xd85a08, 0xffa030, 6));
+    P.push(paint(place(new CylinderGeometry(0.014, 0.018, 0.07, 5), 0, 0.085, 0, 0, 0, 0.2), 0x5a6a20));
+  } else if (kind === 'berry') {
+    P.push(paint(place(new ConeGeometry(0.065, 0.15, 12), 0, -0.03, 0, Math.PI), 0xd0101e, 0xff4a4a));
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; P.push(leafG(0.028, Math.cos(a) * 0.03, 0.05, Math.sin(a) * 0.03, Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9, 1.4, 0.5, 0.6, 0x2a8a2a, 0x6ac050)); }
+  } else {
+    P.push(paint(place(new SphereGeometry(0.068, 14, 10), 0, -0.03, 0), 0x7a0c30, 0xc8204e));
+    P.push(paint(place(new ConeGeometry(0.02, 0.08, 6), 0, -0.13, 0, Math.PI), 0x7a1030));
+    for (const k of [-1, 0, 1]) P.push(paint(place(new SphereGeometry(0.026, 6, 4), k * 0.028, 0.075, 0, 0, 0, k * 0.4, 0.6, 1.7, 0.4), 0xb01840, 0x2f6a2a));
+  }
+  return merge(P);
+}
+// level 3: the leaf key board (local, facing +z, standing on the ground): four columns, each a seedling's leaves on top, a
+// little arrow, the vegetable it grows into below (painted reliefs like the level-1 signs)
+function leafKeyGeo(order) {
+  const WOOD = 0x7a5232, WOOD2 = 0xa0703e, DARK = 0x4a3020, P = [], w = 1.5, h = 0.92, cy = 1.02, gap = 0.36;
+  P.push(paint(place(new BoxGeometry(w + 0.08, h + 0.08, 0.05), 0, cy, -0.03), WOOD, WOOD2));
+  P.push(paint(place(new BoxGeometry(w, h, 0.02), 0, cy, 0.0), 0xf4e8c8));
+  for (const s of [-1, 1]) P.push(paint(place(new BoxGeometry(0.07, cy - h / 2, 0.07), s * (w / 2 - 0.12), (cy - h / 2) / 2, -0.05), DARK));
+  order.forEach((kind, j) => {
+    const x = (j - (order.length - 1) / 2) * gap, z = 0.03;
+    if (j > 0) P.push(paint(place(new BoxGeometry(0.012, h - 0.12, 0.012), x - gap / 2, cy, 0.015), 0xc8b48a));
+    P.push(place(sproutGeo(kind), x, cy + 0.15, z, 0.15, 0, 0, 0.85, 0.85, 0.4));
+    P.push(paint(place(new ConeGeometry(0.03, 0.06, 6), x, cy + 0.06, z, Math.PI, 0, 0, 1, 1, 0.3), 0x8a6a40));
+    P.push(place(vegPicGeo(kind), x, cy - 0.21, z + 0.02, 0, 0, 0, 1, 1, 0.4));
+  });
+  return merge(P);
+}
+
 // The Herbology course props (see COURSES.herbology and HB): OUTDOORS, so every prop sits on ctx.ground(x, z). Pots,
 // bench, beds, the star post, the stream and the picture signs are the ONE merged static mesh; the seedlings are ONE
 // instanced set (the grow targets: they glow while they wait); each grown plant is a mover the runner scales up with the
@@ -2916,6 +3095,8 @@ function buildHerbology(kit) {
   const { solid, ctx } = kit;
   const G = ctx.ground, NK = ctx.night ? ctx.night() : 0;
   const WOOD = 0x7a5232, WOOD2 = 0xa0703e, DARK = 0x4a3020, SOIL = 0x3a2616, SOIL2 = 0x5e4028;
+  const LV = kit.level > 1, L3 = kit.level === 3;   // levels 2-3: decoys; level 3: a shorter star post, a 4th sunflower, four vegetable beds, boards, a stake, the rain cloud
+  const BEAN3Y = L3 ? G(HB.bean[0], HB.bean[1]) + BED_SOIL + BEAN_H * growSY(HB3.beanU) : 0;   // level 3: the star waits at the bean's ring height
   // ---- static ----
   const pot = (x, z, s, y0) => solid(place(potGeo(), x, G(x, z) + y0, z, 0, 0, 0, s));
   HB.pots.forEach(([x, z, s, y0]) => pot(x, z, s, y0));
@@ -2937,7 +3118,7 @@ function buildHerbology(kit) {
     solid(paint(place(new TorusGeometry(0.08, 0.015, 4, 12, Math.PI), cx + 0.02, cy + 0.22, cz, 0, Math.PI / 2, 0), 0x2a6a50)); }
   // 1 the beanstalk bed and the tall garden post with its little platform (the star waits on top)
   bed(HB.bean[0], HB.bean[1], 0.9, 0.7);
-  { const [x, z, h] = HB.post, y = G(x, z);
+  { const [x, z] = HB.post, y = G(x, z), h = L3 ? BEAN3Y - 0.22 - y : HB.post[2];
     solid(paint(place(new CylinderGeometry(0.05, 0.065, h, 8), x, y + h / 2, z), DARK, WOOD2));
     solid(paint(place(new BoxGeometry(0.34, 0.05, 0.34), x, y + h + 0.025, z), WOOD, WOOD2));
     for (const ry of [0, Math.PI / 2]) solid(paint(place(new BoxGeometry(0.04, 0.04, 0.4), x, y + h - 0.22, z, 0, ry, 0), WOOD));
@@ -2963,8 +3144,9 @@ function buildHerbology(kit) {
     const [vx, vz] = HB.vine;
     solid(paint(place(new SphereGeometry(0.32, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), vx, G(vx, vz) - 0.01, vz, 0, 0, 0, 1, 0.3, 1), SOIL, SOIL2)); }
   // 4 three vegetable beds, each with a picture sign behind it (the pictures are little painted reliefs: carrot, pumpkin, strawberry)
-  HB.veg.forEach(([x, z], j) => {
+  (L3 ? HB3.veg : HB.veg).forEach(([x, z], j) => {
     bed(x, z, 0.9, 0.7);
+    if (L3) return;                                // (level 3: no picture signs, the seedlings' leaves tell)
     const sz = z - 0.5, y = G(x, sz);
     solid(paint(place(new BoxGeometry(0.06, 0.8, 0.06), x, y + 0.4, sz - 0.02), DARK));
     solid(paint(place(new BoxGeometry(0.56, 0.46, 0.04), x, y + 0.9, sz), WOOD, WOOD2));
@@ -2981,38 +3163,66 @@ function buildHerbology(kit) {
       for (const k of [-1, 0, 1]) solid(leafG(0.03, x + k * 0.035, fy + 0.07, fz + 0.01, 0, 0, k * 0.6, 1.4, 0.5, 0.4, 0x2a8a2a, 0x6ac050));
     }
   });
+  // level 3: the ask board behind the four beds, the leaf key board east of them, the garden stake beside the giant flower
+  if (L3) {
+    const [bx, by, bz] = HB3.board, [kx, kz] = HB3.key, [tx, tz] = HB3.stake;
+    solid(place(boardGeo(2.65, by), bx, G(bx, bz), bz, 0, camYaw(bx, bz, HB_CAM.veg3), 0));
+    solid(place(leafKeyGeo(['carrot', 'pumpkin', 'berry', 'beet']), kx, G(kx, kz), kz, 0, camYaw(kx, kz, HB_CAM.veg3), 0));
+    solid(paint(place(new CylinderGeometry(0.022, 0.028, 2.35, 6), tx, G(tx, tz) + 1.175, tz), WOOD, WOOD2));
+    solid(paint(place(new ConeGeometry(0.03, 0.08, 6), tx, G(tx, tz) + 2.39, tz), WOOD2));
+  }
 
   // ---- movers ----
-  const NS = 13, SEEDS = [];                       // seed 0 = Sprout's demo, 1-3 the lesson, 4 bean, 5-7 sunflowers, 8 vine, 9-11 vegetables, 12 the finale
+  const NS = L3 ? 14 : 13, SEEDS = [];            // seed 0 = Sprout's demo, 1-3 the lesson, 4 bean, 5-7 sunflowers, 8 vine, 9-11 vegetables, 12 the finale (level 3: 13 the 4th sunflower)
   for (let i = 0; i < NS; i++) SEEDS.push('seed' + i);
   kit.inst('seed', seedGeo(), NS, new Array(NS).fill(0xffffff), { glowHex: 0xfff0a0 });
   kit.mesh('tulip', tulipGeo(), { glow: false }); kit.mesh('daisy', daisyGeo(), { glow: false }); kit.mesh('fern', fernGeo(), { glow: false });
   const trioAt = (i) => potSoil(1 + i);
   kit.mesh('trio', merge([tulipGeo(), daisyGeo(), fernGeo()].map((g, i) => { const P = trioAt(i); return place(g, P[0], P[1] + G(P[0], P[2]), P[2], 0, 0.6, 0); })), { glow: false });
-  kit.inst('sunf', sunGeo(), 4, [0xffffff, 0xffffff, 0xffffff, 0xffffff], { glow: false });
+  const NSUN = L3 ? 4 : 3, SUNN = L3 ? ['sunf0', 'sunf1', 'sunf2', 'sunf3', 'sunf4'] : ['sunf0', 'sunf1', 'sunf2', 'sunf3'];   // (level 3: a 4th sunflower)
+  kit.inst('sunf', sunGeo(), NSUN + 1, new Array(NSUN + 1).fill(0xffffff), { glow: false });
   kit.mesh('bean', beanGeo(), { glow: false });
   kit.mesh('vine', vineGeo(), { glow: false });
   const VEG = ['carrot', 'pumpkin', 'berry'], vegG = [carrotGeo, pumpkinGeo, berryGeo];
   VEG.forEach((n, j) => kit.mesh(n, vegG[j](), { glow: false }));
-  kit.mesh('vegAll', merge(vegG.map((f, j) => { const [x, z] = HB.veg[j]; return place(f(), x, G(x, z) + BED_SOIL, z, 0, -0.3, 0); })), { glow: false });
+  // the vegetable station's plants: [seedling mover, plant mover, bed] (level 3: four beds, each seedling its own leaves)
+  const VEGL = L3 ? HB3_VEG.map((n, j) => ({ seed: 'lf' + j, n, at: HB3.veg[j] })) : VEG.map((n, j) => ({ seed: 'seed' + (9 + j), n, at: HB.veg[j] }));
+  if (L3) { kit.mesh('beet', beetGeo(), { glow: false }); HB3_VEG.forEach((n, j) => kit.mesh('lf' + j, sproutGeo(n), { glowHex: 0xfff0a0 }));
+    for (const n of HB3_VEG) kit.mesh('pic' + n, vegPicGeo(n), { glow: false }).mesh.visible = false; }   // (the ask board's pictures: never drawn themselves)
+  const vegOf = { carrot: carrotGeo, pumpkin: pumpkinGeo, berry: berryGeo, beet: beetGeo };
+  kit.mesh('vegAll', L3 ? merge(VEGL.map(({ n, at: [x, z] }) => place(vegOf[n](), x, G(x, z) + BED_SOIL, z, 0, -0.3, 0)))
+    : merge(vegG.map((f, j) => { const [x, z] = HB.veg[j]; return place(f(), x, G(x, z) + BED_SOIL, z, 0, -0.3, 0); })), { glow: false });
   kit.mesh('giant', giantGeo(), { glow: false });
   kit.mesh('bloom', bloomGeo(), { glow: false });
   kit.mesh('mandrake', mandrakeGeo(), { glow: false }); kit.mesh('arm', armGeo(), { glow: false });
   kit.inst('bee', beeGeo(), 3, [0xffffff, 0xffffff, 0xffffff], { glow: false });
   kit.mesh('bug', ladyGeo(), { glow: false });
   const star = kit.mesh('star', starGeo(0.17), { glow: false, glowHex: 0xffc030 }); star.mat.emissiveIntensity = 0.9;
+  // levels 2-3: the decoys (posed by the runner from the level's data; spare ones stay hidden); level 3: the rain cloud over
+  // the vine's seedling (the timing gate), its rain, the glowing band on the giant flower's stake
+  const NDEC = 4;
+  if (LV) {
+    kit.inst('dweed', weedGeo(), NDEC, new Array(NDEC).fill(0xffffff), { glowHex: 0xd8ff90 });
+    kit.inst('dsnail', snailGeo(), NDEC, new Array(NDEC).fill(0xffffff), { glowHex: 0xffe0a0 });
+  }
+  if (L3) {
+    kit.mesh('cloud', place(cloudGeo(), 0, 0, 0, 0, 0, 0, 1.6), { glow: false });
+    kit.mesh('rain', rainGeo(), { glow: false });
+    const mk = kit.mesh('mark', merge([paint(place(new TorusGeometry(0.12, 0.035, 6, 20), 0, 0, 0, Math.PI / 2), 0xffd040, 0xfff090), paint(place(new ConeGeometry(0.05, 0.1, 6), 0.19, 0, 0, 0, 0, Math.PI / 2), 0xffd040)]), { glow: false, glowHex: 0xffe860 });
+    mk.mat.emissiveIntensity = 0.85;
+  }
   // the soft light (night only): ONE additive instanced quad set with a soft canvas
   const cv = document.createElement('canvas'); cv.width = cv.height = 64;
   const g2 = cv.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(0.6, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
   const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
-  const NQ = 10, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  const NQ = LV ? 16 : 10, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
   glow.renderOrder = 3;
 
   // ---- places and state ----
   const D0 = potSoil(0), D0y = D0[1] + G(D0[0], D0[2]);           // Sprout's own pot (the demo)
-  const [PX, PZ, PH] = HB.post, STAR_Y = G(PX, PZ) + PH + 0.22;
+  const [PX, PZ] = HB.post, PH = L3 ? BEAN3Y - 0.22 - G(PX, PZ) : HB.post[2], STAR_Y = G(PX, PZ) + PH + 0.22;
   const BX = HB.bean[0], BZ = HB.bean[1], BY = G(BX, BZ) + BED_SOIL;
   const SLIDE = new Float32Array((BEAN_LEAVES.length + 1) * 3);    // the star's way down: the stalk's top, then each leaf
   SLIDE[0] = BX + 0.05; SLIDE[1] = BY + BEAN_H + 0.18; SLIDE[2] = BZ;
@@ -3022,7 +3232,16 @@ function buildHerbology(kit) {
   const MP = HB.pots[4], MX = HB.man[0], MZ = HB.man[1], MY = G(MP[0], MP[1]) + POT_SOIL * MP[2], MYAW = Math.atan2(3.0 - MX, 5.4 - MZ), MS = 1.15;
   const CEN = [[0, 1.4], [-3.9, 5.0], [-4.1, 8.9], [0.0, 11.3], [4.6, 11.2], [1.8, 1.6]].map(([x, z]) => [x, G(x, z), z]);
   const m1 = new Matrix4(), v1 = new Vector3(), q1 = new Quaternion(), q0 = new Quaternion(), e1 = new Euler(), s1 = new Vector3(), c1 = new Color();
-  const syaw = new Float32Array(4);
+  const syaw = new Float32Array(NSUN + 1);
+  // level 3: the star's way down a beanstalk held lower (its leaves scaled like the plant), the band's height on the stake
+  let slid3 = false;
+  function slide3() {
+    const L = LI && LI.seed4, [gx, gy] = growDone(L && L.ring ? (L.ring.pDone ?? L.ring.uc) : 1);
+    SLIDE[0] = BX + 0.05 * gx; SLIDE[1] = BY + BEAN_H * gy + 0.18; SLIDE[2] = BZ;
+    BEAN_LEAVES.forEach((p, k) => { SLIDE[3 + k * 3] = BX + p[0] * gx; SLIDE[4 + k * 3] = BY + p[1] * gy; SLIDE[5 + k * 3] = BZ + p[2] * gx; });
+  }
+  const MARK_Y = L3 ? G(HB.stem[0], HB.stem[1]) + POT_SOIL * HB.pots[4][2] + (GIANT_H + 0.05) * growSY(HB3.flowerU) : 0;
+  let cloudOut = 0;
   let LI = null, lastStep = -9, stepT = 0, yaw0 = -1.2;
   let demoT = 0, demoSfx = 0, starT = 0, starSfx = 0, sunT = 0, sunSfx = 0, layT = 0, laySfx = 0, vegT = 0, vegSfx = 0, manT = 0, manSfx = 0;
   let trioMerged = false, vegMerged = false;
@@ -3054,6 +3273,12 @@ function buildHerbology(kit) {
       M.bug.pose(VX - 0.4, G(VX - 0.4, VZ + 0.35) + 0.01, VZ + 0.35, 0, Math.PI / 2, 0, 1);
       M.star.pose(PX, STAR_Y, PZ, 0, 0, 0, 1);
       for (let i = 0; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); glow.setColorAt(i, c1.setRGB(0, 0, 0)); }
+      if (LV) for (let i = 0; i < NDEC; i++) { M['dweed' + i].pose(0, -50, 0, 0, 0, 0, 0); M['dsnail' + i].pose(0, -50, 0, 0, 0, 0, 0); }   // (the level's decoys are posed by the runner)
+      if (L3) {
+        slid3 = false; cloudOut = 0;
+        for (const n of ['seed9', 'seed10', 'seed11', 'cloud', 'rain', ...HB3_VEG.map(v => 'pic' + v)]) M[n].pose(0, -50, 0, 0, 0, 0, 0);   // (level 3: the vegetables have their own seedlings)
+        M.mark.pose(HB3.stake[0], MARK_Y, HB3.stake[1], 0, 0, 0, 1);
+      }
     },
     tick(M, t, st, K, dt = 0.016) {
       if (!K) return;
@@ -3074,10 +3299,12 @@ function buildHerbology(kit) {
       // ---- the lesson's three plants: free once popped; one merged copy once all three are done ----
       let lesDone = true;
       for (let j = 0; j < 3; j++) { const L = LI['seed' + (1 + j)]; if (!L || !L.done || L.popT < POP) { lesDone = false; continue; } if (!trioMerged) poseFree(M, ['tulip', 'daisy', 'fern'][j], L, t, j); }
+      if (LV && !trioMerged) lesDone = true;   // (levels 2-3 have no lesson: Sprout's three pots stand grown)
       if (lesDone && !trioMerged) { trioMerged = true; M.trio.pose(0, 0, 0, 0, 0, 0, 1); for (const n of ['tulip', 'daisy', 'fern']) M[n].pose(0, 0, 0, 0, 0, 0, 0); }
       // ---- 1 the star waits on the post; after the beanstalk grows it hops onto the top and slides down leaf by leaf to the hero ----
       if (starT <= 0) M.star.pose(PX, STAR_Y + Math.sin(t * 2) * 0.03, PZ, 0, t * 1.2, 0, 1);
       else {
+        if (L3 && !slid3) { slid3 = true; slide3(); }   // (level 3: the beanstalk stands at the height it was held at)
         let x, y, z, s = 1;
         if (starT < 0.6) { const u = ease(starT / 0.6); x = PX + (SLIDE[0] - PX) * u; z = PZ + (SLIDE[2] - PZ) * u; y = STAR_Y + (SLIDE[1] - STAR_Y) * u + Math.sin(u * Math.PI) * 0.3; }
         else if (starT < 3.4) {
@@ -3092,12 +3319,12 @@ function buildHerbology(kit) {
         M.star.pose(x, y, z, 0, t * 3, 0, s);
       }
       // ---- 2 the sunflowers turn to the hero together (and keep following him); three bees circle their heads ----
-      for (let j = 1; j <= 3; j++) {
-        const L = LI['seed' + (4 + j)]; if (!L || !L.done || L.popT < POP) continue;
+      for (let j = 1; j <= NSUN; j++) {
+        const L = LI[j < 4 ? 'seed' + (4 + j) : 'seed13']; if (!L || !L.done || L.popT < POP) continue;   // (level 3: the 4th is seed 13)
         const a = L.arr;
         if (sunT > 0) syaw[j] = turnTo(syaw[j], Math.atan2(hx - a[0], hz - a[2]), Math.min(1, dt * (sunT >= 99 ? 99 : 2.6)));
         M['sunf' + j].poseS(a[0], a[1], a[2], 0, syaw[j], Math.sin(t * 1.6 + j) * 0.05, 1, 1, 1);
-        const bee = M['bee' + (j - 1)];
+        const bee = M['bee' + (j - 1)]; if (!bee) continue;
         if (sunT > 0.2) {
           const e = ease(clamp01((sunT - 0.2) / 0.9)), ang = t * 3.2 + j * 2.1, r = 0.34 + (1 - e) * 1.4, cx = a[0] + Math.sin(syaw[j]) * 0.05, cz = a[2] + Math.cos(syaw[j]) * 0.05;
           bee.pose(cx + Math.cos(ang) * r, a[1] + 1.55 + Math.sin(t * 5 + j) * 0.08 + (1 - e) * 1.0, cz + Math.sin(ang) * r, 0, Math.atan2(-Math.sin(ang), Math.cos(ang)), Math.sin(t * 9 + j) * 0.2, e);
@@ -3121,13 +3348,13 @@ function buildHerbology(kit) {
           if (u > 0 && u < 1 && Math.abs(hz - VZ) < 0.5) { const yw = ctx.worldOff.y + VY + archY(u) + 0.05; if (yw > P.y) { P.y = yw; ctx.player.model.position.y = yw; } }
         } }
       // ---- 4 the vegetables: free once popped, a little bounce together, then one merged copy ----
-      for (let j = 0; j < 3; j++) {
-        const L = LI['seed' + (9 + j)]; if (!L || !L.done || L.popT < POP || vegMerged) continue;
+      for (let j = 0; j < VEGL.length; j++) {
+        const L = LI[VEGL[j].seed]; if (!L || !L.done || L.popT < POP || vegMerged) continue;
         const k = vegT - j * 0.22, hop = k > 0 && k < 2.0 ? Math.abs(Math.sin(k * 5.2)) * 0.13 * (1 - k / 2.0) : 0, sq = k > 0 && k < 2.0 ? Math.sin(k * 10.4) * 0.07 * (1 - k / 2.0) : 0;
-        if (vegT > 0) { const a = L.arr; M[VEG[j]].poseS(a[0], a[1] + hop, a[2], 0, L.rot1[1], 0, 1 + sq, 1 - sq, 1 + sq); }
-        else poseFree(M, VEG[j], L, t, j);
+        if (vegT > 0) { const a = L.arr; M[VEGL[j].n].poseS(a[0], a[1] + hop, a[2], 0, L.rot1[1], 0, 1 + sq, 1 - sq, 1 + sq); }
+        else poseFree(M, VEGL[j].n, L, t, j);
       }
-      if (vegT >= 2.6 && !vegMerged) { vegMerged = true; M.vegAll.pose(0, 0, 0, 0, 0, 0, 1); for (const n of VEG) M[n].pose(0, 0, 0, 0, 0, 0, 0); }
+      if (vegT >= 2.6 && !vegMerged) { vegMerged = true; M.vegAll.pose(0, 0, 0, 0, 0, 0, 1); for (const v of VEGL) M[v.n].pose(0, 0, 0, 0, 0, 0, 0); }
       // ---- 5 the giant flower: its bloom rides the top of the stem (a closed bud until it opens); the baby mandrake ----
       { const gm = M.giant.mesh;
         if (shows(M.giant)) {
@@ -3147,6 +3374,21 @@ function buildHerbology(kit) {
             M.arm.pose(MX + c * ox, y + oy * (1 - sq), MZ - sn * ox, 0, MYAW, -(0.75 + 0.42 * Math.sin(t * 10)), s);
           } else M.arm.pose(0, 0, 0, 0, 0, 0, 0);
         } else { M.mandrake.pose(0, 0, 0, 0, 0, 0, 0); M.arm.pose(0, 0, 0, 0, 0, 0, 0); } }
+      // ---- level 3: the rain cloud over the vine's seedling drifts aside while its timing gate is open (L.gateK); the sun
+      // then warms the seedling (a soft warm glow); once the vine grows the cloud drifts off and shrinks away ----
+      if (L3) {
+        const L = LI.seed8, k = !L || !L.gate || L.done ? 1 : L.gateK, e = k * k * (3 - 2 * k);
+        if (L && L.done && step === 2) cloudOut += dt; else if (step < 2) cloudOut = 0;
+        const go = clamp01(cloudOut / 1.4), cs = step === 2 ? 1 - go : 0;
+        if (cs > 0.001) {
+          const cx = VX + 1.45 * e + go * 1.5, cy = VY + 1.55 + 0.2 * e + Math.sin(t * 1.3) * 0.04, cz = VZ - 0.35 * e;
+          M.cloud.pose(cx, cy, cz, 0, camYaw(VX, VZ, HB_CAM.vine), 0, cs);
+          const rk = (1 - e) * cs;
+          if (rk > 0.02) M.rain.poseS(cx, cy - 0.1 - ((t * 1.7) % 0.17), cz, 0, 0, 0, 1, rk, 1); else M.rain.pose(0, -50, 0, 0, 0, 0, 0);
+          if (e > 0.05 && L && !L.done) quad(VX, VY + 0.45, VZ, 1.0 * e, 1.3 * e, 0.75 * e, 0.62 * e, 0.22 * e);
+        } else { M.cloud.pose(0, -50, 0, 0, 0, 0, 0); M.rain.pose(0, -50, 0, 0, 0, 0, 0); }
+        M.mark.pose(HB3.stake[0], MARK_Y, HB3.stake[1], 0, t * 0.8, 0, step === 4 && st.lifts && st.lifts[0] && st.lifts[0].done ? 0 : 1 + Math.sin(t * 4) * 0.06);
+      }
       // ---- night: a soft pool of light at the station, a halo round the open seedling, fireflies ----
       if (NK > 0) {
         const C = CEN[les ? 0 : Math.min(5, step + 1)];
@@ -3157,20 +3399,27 @@ function buildHerbology(kit) {
           const a = t * 0.35 * (1 + i * 0.13) + i * 0.9, r = 1.4 + (i % 3) * 0.5, fl = 0.6 + 0.4 * Math.sin(t * 7 + i * 2.3);
           quad(C[0] + Math.cos(a) * r, C[1] + 0.6 + 0.9 * (0.5 + 0.5 * Math.sin(t * 0.9 + i * 1.7)), C[2] + Math.sin(a * 1.3) * r * 0.7, 0.14, 0.14, 1.3 * fl * NK, 1.6 * fl * NK, 0.5 * fl * NK);
         }
+        if (LV && st.phase === 'course' && st.decoys) for (const D of st.decoys) quad(D.at[0], D.at[1] + D.spec.aimY + 0.05, D.at[2], 0.75, 0.75, 0.32 * NK, 0.36 * NK, 0.28 * NK);   // (levels 2-3: the decoys carry their own soft glow)
+        if (L3 && step === 3) { const [bx, by, bz] = HB3.board, [kx, kz] = HB3.key;   // (level 3: the two boards read at night)
+          quad(bx, G(bx, bz) + by, bz - 0.12, 3.0, 1.3, 0.3 * NK, 0.28 * NK, 0.2 * NK); quad(kx, G(kx, kz) + 1.02, kz - 0.12, 1.9, 1.3, 0.34 * NK, 0.31 * NK, 0.22 * NK); }
+        if (L3 && step === 4) quad(HB3.stake[0], MARK_Y, HB3.stake[1], 0.6, 0.6, 0.5 * NK, 0.48 * NK, 0.2 * NK);
       }
       for (let i = gq; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); }
       glow.instanceMatrix.needsUpdate = true; if (glow.instanceColor) glow.instanceColor.needsUpdate = true; glow.visible = gq > 0;
       // ---- what is drawn: a thing only while it shows and its station (or the one just left, for a moment) is near ----
       const left = (s) => step === s || (step === s + 1 && stepT < 2.5);
-      vis(M, SEEDS, true);
+      vis(M, SEEDS, !(L3 && step === 3));   // (level 3: the vegetable beds have their own seedlings; the rest are far away)
+      if (LV) for (let j = 1; j <= 3; j++) M['seed' + j].pose(0, -50, 0, 0, 0, 0, 0);   // (levels 2-3: the lesson's seedlings are grown already)
       vis(M, ['tulip'], !trioMerged); vis(M, ['daisy'], !trioMerged); vis(M, ['fern'], !trioMerged); vis(M, ['trio'], trioMerged);
-      vis(M, ['sunf0', 'sunf1', 'sunf2', 'sunf3'], true);
+      vis(M, SUNN, !(L3 && step === 3));
       vis(M, ['bean'], step <= 2 || left(2));
       vis(M, ['star'], step <= 1);
       vis(M, ['bee0', 'bee1', 'bee2'], sunT > 0.2 && left(1));
       vis(M, ['vine'], step === 2 || step === 3 || left(3));
       M.bug.mesh.visible = step === 2 || step === 3 || left(3);
       vis(M, ['carrot'], !vegMerged); vis(M, ['pumpkin'], !vegMerged); vis(M, ['berry'], !vegMerged);
+      if (L3) { vis(M, ['beet'], !vegMerged); for (let j = 0; j < 4; j++) vis(M, ['lf' + j], step === 3);
+        vis(M, ['cloud'], step === 2); vis(M, ['rain'], step === 2); vis(M, ['mark'], step === 4); }
       vis(M, ['vegAll'], vegMerged && left(3));
       vis(M, ['giant'], true); vis(M, ['bloom'], true); vis(M, ['mandrake'], true); vis(M, ['arm'], true);
     },
@@ -3220,7 +3469,7 @@ function buildHerbology(kit) {
         vegT = quiet ? 99 : t;
         if (!quiet) {
           if (vegSfx < 1) { vegSfx = 1; fun.sfx.tune([523, 659, 784, 1047], 0.11, 'triangle'); }
-          for (let j = 0; j < 3; j++) if (vegSfx < 2 + j && t > 0.05 + j * 0.22) { vegSfx = 2 + j; fun.sfx.boing(); kit.burst(HB.veg[j][0], 0.6, HB.veg[j][1], 6); }
+          for (let j = 0; j < VEGL.length; j++) if (vegSfx < 2 + j && t > 0.05 + j * 0.22) { vegSfx = 2 + j; fun.sfx.boing(); kit.burst(VEGL[j].at[0], 0.6, VEGL[j].at[1], 6); }
         }
         return t < 2.8;
       },
@@ -4069,7 +4318,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         hov0: push ? PUSH_HOVER : light ? LIGHT_HOVER : pet ? PET_HOVER : change ? CHANGE_HOVER : grow ? GROW_HOVER : HOVER, fall: push ? PUSH_FALL : light ? LIGHT_FALL : pet ? PET_FALL : change ? CHANGE_FALL : grow ? GROW_FALL : FALL,
         inOrder: !!(st && st.inOrder), aimY: L.aimY || 0,
         // level 3 only: a glowing ring part-way up the path (hold = its centre, 0..1 of the path) to hold the thing in
-        ring: (S.level === 3 && !light && !change && !grow && (L.hold ?? (st && st.hold)) != null)
+        ring: (S.level === 3 && !light && !change && (L.hold ?? (st && st.hold)) != null)   // (grow too: the plant's top held at the ring's height)
           ? { uc: L.hold ?? st.hold, u0: (L.hold ?? st.hold) - RING_HALF, u1: (L.hold ?? st.hold) + RING_HALF, R: L.ringR || st.ringR || 0.4, fill: 0, ok: false, inside: false } : null,
         // levels 2-3 only: a timing gate (see GATE); hex0 = the thing's own glow colour (it glows green while ready)
         gate: (S.level > 1 && (L.gate || (st && st.gate))) ? { ...GATE, ...(L.gate || st.gate), t0: 0, pu: -1, hex0: mv.mat.emissive ? mv.mat.emissive.getHex() : 0 } : null, gateK: 0,
@@ -4097,7 +4346,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     // levels 2-3: the stations' decoys (movers the build made: things that must NOT be cast on), the shown orders, the ring beads
     let decoys = null, orders = null, beads = null, board = null;
     if (S.level > 1) {
-      decoys = S.stations.map(st => (st.decoys || []).map(d => movers[d.m] ? { decoy: true, spec: d, mv: movers[d.m], shake: 0, ph: Math.random() * 6 } : null).filter(Boolean));
+      decoys = S.stations.map(st => (st.decoys || []).map(d => movers[d.m] ? { decoy: true, spec: d, mv: movers[d.m], shake: 0, ph: Math.random() * 6,
+        at: [d.at[0], d.at[1] + ground(d.at[0], d.at[2]), d.at[2]] } : null).filter(Boolean));   // (at: on the ground outdoors; a room's floor is 0)
       orders = S.stations.map((st, i) => st.order ? st.order.map(j => stations[i][j]).filter(Boolean) : null);
       for (const set of decoys) for (const D of set) D.mv.mesh.visible = false;   // shown per station (startStation): fewer draw calls
       if (S.level === 3 || stations.some(set => set.some(L => L.gate))) {   // the ring to hold a lifted thing in (and a timing gate's clock): 16 beads (one draw call)
@@ -4142,7 +4392,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // a decoy sits where its level puts it (at, ry); a 'cat' breathes in its sleep; cast on it and it shakes its head
   // ('no') or rattles where it stands ('rattle': too heavy)
   function poseDecoy(D, t) {
-    const a = D.spec.at, ry = D.spec.ry || 0, k = D.shake > 0 ? Math.min(1, D.shake / 0.4) : 0;
+    const a = D.at, ry = D.spec.ry || 0, k = D.shake > 0 ? Math.min(1, D.shake / 0.4) : 0;
     const br = D.spec.breathe ? Math.sin(t * 1.7 + D.ph) * 0.025 : 0;
     if (D.spec.shakeMode === 'rattle') D.mv.poseS(a[0] + Math.sin(t * 47) * 0.03 * k, a[1] + Math.abs(Math.sin(t * 31)) * 0.03 * k, a[2], 0, ry, Math.sin(t * 39) * 0.06 * k, 1, 1 + br, 1);
     else D.mv.poseS(a[0], a[1], a[2], 0, ry + Math.sin(t * 22) * 0.38 * k, 0, 1, 1 + br, 1);
@@ -4197,9 +4447,14 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     const a = L.arr, x = a[0], y = a[1], z = a[2], r0 = L.rot0, r1 = L.rot1;
     const w = L.done ? 1 : L.p, e = w * w * (3 - 2 * w), live = !L.done && w > 0.01 ? 1 : 0;
     L.mv.pose(x, y, z, r0[0], r0[1] + Math.sin(t * 5 + L.ph) * 0.3 * w * live, r0[2] + Math.sin(t * 13 + L.ph) * 0.14 * w * live, L.done ? 0 : Math.max(0, 1 - w / 0.3) * (1 + 0.3 * w));
+    if (S.level > 1 && !L.done && (L.flash > 0 || L.shake > 0)) {   // levels 2-3 only: shown in the order preview (a pop up) / touched out of turn (a shake 'no')
+      const pop = L.flash > 0 ? 1 + 0.6 * Math.sin(Math.min(1, L.flash / 0.75) * Math.PI) : 1, sh = L.shake > 0 ? Math.sin(t * 30) * 0.45 * Math.min(1, L.shake / 0.4) : 0;
+      L.mv.pose(x, y + (pop - 1) * 0.08, z, r0[0], r0[1] + sh, r0[2] + sh * 0.5, Math.max(0, 1 - w / 0.3) * (1 + 0.3 * w) * pop);
+    }
     if (!L.to || (L.spec.free && L.done && L.popT >= POP)) return;
     let sx = 0, sy = 0;
-    if (L.done) { const u = L.popT < 0 ? 1 : Math.min(1, L.popT / POP), b = Math.sin(u * Math.PI) * (1 - 0.4 * u); sy = 1 + 0.16 * b; sx = 1 + 0.28 * b; }
+    if (L.done) { const u = L.popT < 0 ? 1 : Math.min(1, L.popT / POP), b = Math.sin(u * Math.PI) * (1 - 0.4 * u); sy = 1 + 0.16 * b; sx = 1 + 0.28 * b;
+      if (L.ring) { const g = growDone(L.ring.pDone ?? L.ring.uc); sx *= g[0]; sy *= g[1]; } }   // (level 3: it stays at the height it was held at)
     else if (w > 0.01) { sy = 0.1 + 0.9 * e; sx = sy * (0.6 + 0.4 * e); }
     const sway = L.done ? Math.sin(t * 1.6 + L.ph) * 0.05 : Math.sin(t * 7 + L.ph) * 0.06 * live * (1 - e);
     L.to.poseS(x, y, z, r1[0], r1[1], r1[2] + sway, sx, sy, sx);
@@ -4257,7 +4512,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (d < bd) { bd = d; best = L; }
     }
     if (S.level > 1) for (const D of S.decoys) {   // levels 2-3: the station's decoys can be touched too (and fizzle)
-      const a = D.spec.at; tmp.set(a[0], a[1] + (D.spec.aimY || 0), a[2]).add(worldOff);
+      const a = D.at; tmp.set(a[0], a[1] + (D.spec.aimY || 0), a[2]).add(worldOff);
       const rr = D.spec.r ? D.spec.r * 1.3 * innerHeight / (2 * Math.tan((camera.fov || 50) * Math.PI / 360) * Math.max(0.3, tmp.distanceTo(camera.position))) : 0;
       tmp.project(camera); if (tmp.z > 1) continue;
       const d = Math.hypot((tmp.x * 0.5 + 0.5) * innerWidth - x, (-tmp.y * 0.5 + 0.5) * innerHeight - y) - Math.max(0, rr - R);
@@ -4323,7 +4578,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     }
   }
   function mistake(text, obj) {
-    if (obj) { obj.shake = 0.8; const a = obj.decoy ? obj.spec.at : null; if (a) burst(a[0], a[1] + (obj.spec.aimY || 0) + 0.2, a[2], 5); }
+    if (obj) { obj.shake = 0.8; const a = obj.decoy ? obj.at : null; if (a) burst(a[0], a[1] + (obj.spec.aimY || 0) + 0.2, a[2], 5); }
     fun.sfx.poof();
     if (S.clock - S.missT < MISS_GAP) return;             // one fumbling finger = one mistake
     S.missT = S.clock; S.mistakes++; S.miss++;
@@ -4441,7 +4696,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     for (let j = 0; j < B.meshes.length; j++) {
       const m = B.meshes[j], L = j < n ? S.lifts[slots[j]] : null;
       if (!L || L.done) { m.visible = false; continue; }
-      const src = L.to || L.mv, geo = src.geo; if (m.geometry !== geo) m.geometry = geo;
+      const src = (L.spec.askM && K.movers[L.spec.askM]) || L.to || L.mv, geo = src.geo; if (m.geometry !== geo) m.geometry = geo;   // (askM: a picture to show instead)
       let bb = B.boxes.get(geo); if (!bb) { if (!geo.boundingBox) geo.computeBoundingBox(); bb = geo.boundingBox; B.boxes.set(geo, bb); }
       const lit = L === cur, sz = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z) * src.scale;
       const k = (A.size || 0.42) * (L.spec.askS || 1) / Math.max(0.05, sz) * src.scale * (lit ? 1.3 + 0.05 * Math.sin(t * 4) + fl : 0.95);
@@ -4449,7 +4704,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       m.material = lit ? B.lit : B.dim;
       m.rotation.set(ar[0], ry + ar[1] + Math.sin(t * 0.9 + j * 1.7) * 0.18, 0); m.scale.setScalar(k);
       _bq.set((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2).multiplyScalar(k).applyEuler(m.rotation);
-      m.position.set(A.at[0] + cs * off - _bq.x, A.at[1] + (lit ? Math.sin(t * 3) * 0.03 : 0) - _bq.y, A.at[2] - sn * off - _bq.z);
+      m.position.set(A.at[0] + cs * off - _bq.x, A.at[1] + K.ground(A.at[0], A.at[2]) + (lit ? Math.sin(t * 3) * 0.03 : 0) - _bq.y, A.at[2] - sn * off - _bq.z);   // (outdoors: above the ground)
       m.visible = true;
     }
     B.lit.opacity = 0.7 + 0.22 * Math.sin(t * 5); B.dim.opacity = 0.3;
@@ -4463,13 +4718,14 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   // Returns true when it moved the thing itself (gliding home / slipping back down).
   function ringStep(L, dt) {
     const R = L.ring;
+    if (R.ok && L.grow) { if (!L.done) liftDone(L); return true; }   // (a plant: it is done right where it was held, it does not shoot up)
     if (R.ok) { L.p = Math.min(1, L.p + dt * 1.1); if (L.p >= SNAP) snapLift(L); return true; }
     if (L.slip) { L.p -= dt * 0.55; if (L.p <= 0) { L.p = 0; L.slip = false; L.peak = 0; L.moved = false; } return true; }
     const held = !!(drag && S.sel === L), inside = L.p >= R.u0 && L.p <= R.u1;
     R.inside = inside && held;
     if (R.inside) {
       R.fill += dt / RING_HOLD;
-      if (R.fill >= 1) { R.fill = 1; R.ok = true; drag = null; fun.sfx.chime(); fun.sfx.tune([784, 1047], 0.08, 'sine'); liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 16); }
+      if (R.fill >= 1) { R.fill = 1; R.ok = true; R.pDone = L.p; drag = null; fun.sfx.chime(); fun.sfx.tune([784, 1047], 0.08, 'sine'); liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 16); }
     } else R.fill = Math.max(0, R.fill - dt / 1.2);
     if (L.p > R.u1 + RING_OVER) { L.slip = true; R.fill = 0; L.hover = 0; if (S.sel === L) drag = null; fun.sfx.whoosh(); slipEvent(); return true; }
     return false;
@@ -4490,7 +4746,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     liftWorld(L, tmp); burst(tmp.x - worldOff.x, tmp.y - worldOff.y, tmp.z - worldOff.z, 20);
     if (L.pet) { L.popT = 0; fun.sfx.heart(); fun.sfx.giggle(true); }   // a happy creature (its heart puff is the course's own)
     else if (L.change) { L.popT = 0; fun.sfx.pop(); fun.sfx.poof(); }
-    if (L.grow) { L.popT = 0; fun.sfx.pop(); burst(tmp.x - worldOff.x, tmp.y - worldOff.y + (L.spec.top || 0.4) * 0.85, tmp.z - worldOff.z, 16); }
+    if (L.grow) { L.popT = 0; fun.sfx.pop(); burst(tmp.x - worldOff.x, tmp.y - worldOff.y + (L.spec.top || 0.4) * 0.85 * (L.ring ? growSY(L.ring.pDone ?? L.ring.uc) : 1), tmp.z - worldOff.z, 16); }
     fun.sfx.sparkle(); fun.sfx.tune([1047, 1319, 1568], 0.09, 'sine');
     setPips();
     if (S.lifts.every(x => x.done)) setDone();
@@ -4929,6 +5185,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!L) { if (B.visible) { B.visible = false; } return null; }
     B.visible = true;
     const R = L.ring, sv = L.p; L.p = R.uc; liftWorld(L, tmp); L.p = sv; tmp.sub(worldOff);
+    if (L.grow) tmp.y += (L.spec.top || 0.4) * growSY(R.uc) - L.aimY;   // (a plant: round its top at the ring's height)
     _rx.set(1, 0, 0).applyQuaternion(camera.quaternion); _ry.set(0, 1, 0).applyQuaternion(camera.quaternion);
     const n = 16, lit = Math.round(R.fill * n), pulse = R.inside ? 1.25 + Math.sin(t * 14) * 0.12 : 1;
     for (let i = 0; i < n; i++) {
@@ -5071,6 +5328,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       const g = K.ghost, src = cur.to || cur.mv; if (g.geometry !== src.geo) g.geometry = src.geo;
       const a = cur.arr, r1 = cur.rot1;
       g.position.set(a[0], a[1], a[2]); g.rotation.set(r1[0], r1[1], r1[2]); g.scale.setScalar(src.scale * 1.03);
+      if (cur.ring) { const gd = growDone(cur.ring.uc); g.scale.set(src.scale * 1.03 * gd[0], src.scale * 1.03 * gd[1], src.scale * 1.03 * gd[0]); }   // (level 3: the plant as tall as its ring)
       K.ghostMat.opacity = (0.24 + Math.sin(t * 4) * 0.09) * (1 - 0.6 * cur.p); g.visible = true;
     } else if (cur && !cur.brew && !cur.pet) {   // (a cauldron needs no outline: its colour shows the progress; a creature neither)
       const g = K.ghost; if (g.geometry !== cur.mv.geo) g.geometry = cur.mv.geo;
@@ -5232,7 +5490,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
       if (!testOK() || !S.on || !S.lifts) return null;
       const scr = (v) => { v.project(camera); return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, front: v.z <= 1 }; };
       const out = S.lifts.map((L, i) => ({ kind: 'lift', i, done: L.done, next: L === nextL(), ...scr(liftWorld(L, tmp)) }));
-      S.decoys.forEach((D, i) => { const a = D.spec.at; out.push({ kind: 'decoy', i, m: D.spec.m, ...scr(tmp.set(a[0], a[1] + (D.spec.aimY || 0), a[2]).add(worldOff)) }); });
+      S.decoys.forEach((D, i) => { const a = D.at; out.push({ kind: 'decoy', i, m: D.spec.m, ...scr(tmp.set(a[0], a[1] + (D.spec.aimY || 0), a[2]).add(worldOff)) }); });
       if (S.rec) S.rec.jars.forEach(J => out.push({ kind: 'jar', i: J.j, key: J.key, ...scr(tmp.set(J.at[0], J.at[1] + REC_AIM, J.at[2]).add(worldOff)) }));
       return out;
     },
