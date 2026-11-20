@@ -96,6 +96,13 @@ const MISS_GAP = 0.7;                      // seconds: a second wrong touch insi
 // A push started while not ready fizzles softly: free twice per station, then a counted mistake. Once a push has started
 // (p > 0.05) more touches on it are always fine, even if the window closes meanwhile (generous).
 const GATE = { period: 3.2, open: 1.4, lead: 1.2, R: 0.42 };
+// levels 2-3: the GENTLE HOLD. A pet target (or a station) with `calm: { R?, t?, max?, drain?, tap? }` is calmed, not stirred:
+// while the finger rests on it or strokes it SLOWLY its calm meter (its progress p) fills, t game seconds to full; if the
+// finger scribbles fast (finger speed above `max` screen-heights per game second, the screen's short side, so an iPad and
+// an iPhone behave alike) it drains a little (`drain` per second) and the teacher says hint('calm') once per station: no
+// mistake, it only takes longer. A tap adds `tap`. A let-go settles back slowly as always. The level-3 ring beads round
+// the creature (radius R metres) show the meter; full = happy (the usual snap).
+const CALM = { R: 0.45, t: 2.6, max: 1.5, drain: 0.22, tap: 0.06 };
 const GATE_GREEN = 0x40ff70;
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const starsOf = (v) => { v = Math.floor(Number(v)); return v >= 3 ? 3 : v >= 1 ? v : 0; };
@@ -256,6 +263,31 @@ const CR = {
 const BALE_TOP = 0.42, MOUND_TOP = 0.136, NEST_Y = 0.09, MOLE_PEEK = -0.07;
 const camYaw = (x, z, c) => Math.atan2(c[0] - x, c[1] - z);
 const petLift = (m, x, y, z, yaw, o = {}) => ({ m, path: [[x, y, z]], rot0: [0, yaw, 0], rot1: [0, yaw, 0], aimY: 0.2, r: 0.26, ...o });
+// Creatures levels 2-3 (brief 2026-11-18). Friendly throughout: a "mistake" is only a creature that wants to be left alone.
+// Decoys: a hedgehog curled into a prickly ball (petted: it puffs its prickles and shakes 'no') and a mother hen sitting on
+// her nest (she shakes 'no': she is guarding her eggs); both glow softly at night (the course's night quads). Level 3: MOOD
+// TIMING (the framework's timing gate: the owl dozes and wakes in a slow rhythm, one shy burrower peeks out and ducks back),
+// the GENTLE HOLD (`calm`, see CALM in the runner) at the foal and the finale dragon, MATCHING at four eggs (no picture signs:
+// each egg has its own pattern, an egg key board beside them, the `ask` board asks for one baby at a time), four burrowers
+// in an order shown once.
+const CR3 = { moles: [[-11.0, 6.5], [-10.0, 6.0], [-9.0, 6.0], [-8.0, 6.5]], nests: [[-7.1, 12.0], [-6.1, 12.2], [-5.1, 12.2], [-4.1, 12.0]],
+  board: [-5.6, 1.32, 11.0], key: [-8.45, 11.85] };
+const CR3_EGG = ['dragon', 'owl', 'turtle', 'duck'], CR3_BABY = ['bdragon', 'owlet', 'turtle', 'bduck'];   // nest j's egg and its baby (west to east)
+const CR_CAM3 = { mole: [-9.5, 9.9], egg: [-6.3, 15.9] };
+const CR3_SAY = { dragon: 'אֵיזוֹ בֵּיצָה שֶׁל הַדְּרָקוֹן?', owl: 'אֵיזוֹ בֵּיצָה שֶׁל הַיַּנְשׁוּף?', turtle: 'אֵיזוֹ בֵּיצָה שֶׁל הַצָּב?', duck: 'אֵיזוֹ בֵּיצָה שֶׁל הַבַּרְוָז?' };
+const crEgg3 = (j) => { const [x, z] = CR3.nests[j]; return petLift('xegg' + j, x, NEST_Y, z, camYaw(x, z, CR_CAM3.egg), { to: CR3_BABY[j], aimY: 0.2, r: 0.22, free: true, askSay: CR3_SAY[CR3_EGG[j]], askR: [0.1, 0] }); };
+const HOG_SAY = 'הַקִּפּוֹד רוֹצֶה לָנוּחַ עַכְשָׁו.', HEN_SAY = 'הִיא שׁוֹמֶרֶת עַל הַבֵּיצִים שֶׁלָּהּ.';
+const crHog = (i, x, z, cam) => ({ m: 'dhog' + i, at: [x, 0, z], ry: camYaw(x, z, cam), r: 0.24, aimY: 0.15, breathe: true, shakeMode: 'no', say: HOG_SAY });
+const crHen = (i, x, z, cam) => ({ m: 'dhen' + i, at: [x, 0, z], ry: camYaw(x, z, cam) + 0.45, r: 0.28, aimY: 0.28, breathe: true, shakeMode: 'no', say: HEN_SAY });
+// Hagrid's level lines: warm (masculine singular)
+const CR_HINTS = { decoy: 'לֹא אוֹתוֹ, חָבֵר. הוּא רוֹצֶה מְנוּחָה.', order: 'כִּמְעַט! מִי נִצְנֵץ קֹדֶם?', again: 'הִנֵּה שׁוּב הַסֵּדֶר, חָבֵר!', go: 'עַכְשָׁו אַתָּה!',
+  gate: 'עוֹד רֶגַע, חָבֵר… הוּא בַּיְשָׁן.', gateMiss: 'חַכֵּה שֶׁהוּא יָצִיץ.', ask: 'כִּמְעַט! הִסְתַּכֵּל בַּלּוּחַ שֶׁל הַבֵּיצִים!', ask1: 'אֵיזוֹ בֵּיצָה?',
+  calm: 'לְאַט… בַּעֲדִינוּת.' };
+const CR_OWL_HINTS = { gate: 'שְׁשְׁשׁ… הוּא מְנַמְנֵם.', gateMiss: 'חַכֵּה שֶׁהוּא יִפְקַח אֶת הָעֵינַיִם.' };
+const CR_GATE = { period: 3.4, open: 1.6 };
+// phone-height cameras (844x390): closer, so creatures and decoys stand >= ~70 px apart (iPad framing unchanged)
+const CR_PHONE = { mole2: { cam: { pos: [-9.4, 1.7, 8.9], look: [-9.4, 0.35, 6.3] } }, mole3: { cam: { pos: [-9.5, 1.75, 9.0], look: [-9.5, 0.35, 6.2] } },
+  egg2: { cam: { pos: [-5.5, 1.8, 14.7], look: [-5.6, 0.6, 12.0] } }, egg3: { cam: { pos: [-6.2, 1.9, 14.9], look: [-6.2, 0.75, 11.7] } } };
 
 // Charms levels 2-3 (brief 2026-11-18). Level 3's shelf takes four books (four gaps), its bridge four blocks (four holes).
 const CH3 = {
@@ -934,6 +966,40 @@ export const COURSES = {
           lifts: [petLift('drag', CR.drag[0], 0, CR.drag[1], camYaw(CR.drag[0], CR.drag[1], CR.cams.drag), { aimY: 0.35, r: 0.3 })],
           after: 'dragonCurl', afterT: 6.0, afterSfx: 'none', afterLine: 'אֵיזֶה יֹפִי! הוּא אוֹהֵב אוֹתְךָ!', afterLineT: 2.6 },
       ],
+    },
+    // Difficulty levels (the shape: see COURSES.charms.levels; CR_HINTS = Hagrid's lines; a station's own `hints` win).
+    // Level 2: the burrowers and the eggs in a shown order (3 steps), a curled-up hedgehog and a mother hen on her nest as
+    // decoys. Level 3: MOOD TIMING (the gate: the owl dozes and wakes; the fourth burrower is shy and peeks out in a slow
+    // rhythm), four burrowers in an order shown once, the GENTLE HOLD (`calm`: a soft ring fills while the finger strokes
+    // slowly or rests on the creature) at the foal and the dragon, MATCHING at four patterned eggs (`ask` + an egg key board).
+    levels: {
+      2: { twist: 'עַכְשָׁו רַק אֶת מִי שֶׁרוֹצֶה לִטּוּף, וּבַסֵּדֶר הַנָּכוֹן!', star3: 300, hints: CR_HINTS,
+        stations: {
+          owl: { decoys: [crHog(0, -7.95, 3.95, CR.cams.owl)] },
+          moles: { say: 'לַטֵּף אֶת הַחֲפַרְפָּרוֹת בַּסֵּדֶר!', order: [1, 2, 0],
+            decoys: [crHog(1, -11.35, 7.0, CR.cams.mole), crHen(0, -7.6, 6.75, CR.cams.mole)], phone: CR_PHONE.mole2 },
+          foal: { decoys: [crHen(1, -12.05, 11.55, CR.cams.foal)] },
+          eggs: { say: 'לַטֵּף אֶת הַבֵּיצִים בַּסֵּדֶר!', order: [2, 0, 1],
+            decoys: [crHen(0, -7.65, 12.3, CR.cams.egg), crHog(0, -5.1, 13.05, CR.cams.egg)], phone: CR_PHONE.egg2 },
+          dragon: { decoys: [crHog(1, -1.75, 6.15, CR.cams.drag), crHen(1, 0.2, 3.95, CR.cams.drag)] },
+        } },
+      3: { twist: 'עַכְשָׁו בַּעֲדִינוּת וּבַזְּמַן הַנָּכוֹן!', star3: 420, hints: CR_HINTS,
+        stations: {
+          owl: { say: 'הַיַּנְשׁוּף מְנַמְנֵם… לַטֵּף כְּשֶׁהוּא פּוֹקֵחַ עֵינַיִם!', gate: { ...CR_GATE, R: 0.42 }, hints: CR_OWL_HINTS,
+            decoys: [crHog(0, -7.95, 3.95, CR.cams.owl)] },
+          moles: { say: 'זְכֹר אֶת הַסֵּדֶר וְלַטֵּף!', walk: [[-6.6, 6.0], [-7.0, 8.1]], face: [-9.5, 6.2],
+            cam: { pos: [-9.5, 1.95, 9.9], look: [-9.5, 0.4, 6.3] },
+            lifts: CR3.moles.map(([x, z], i) => petLift('mole' + i, x, MOLE_PEEK, z, camYaw(x, z, CR_CAM3.mole), { aimY: 0.3, r: 0.24, ...(i === 3 ? { gate: { ...CR_GATE, lead: 0.8, R: 0.36 } } : {}) })),
+            order: [2, 0, 3, 1], decoys: [crHog(1, -11.65, 7.25, CR_CAM3.mole), crHen(0, -7.25, 6.0, CR_CAM3.mole)], phone: CR_PHONE.mole3 },
+          foal: { say: 'לַטֵּף אֶת הַסְּיָח לְאַט לְאַט, בַּעֲדִינוּת!', calm: { R: 0.62 }, decoys: [crHen(1, -12.05, 11.55, CR.cams.foal)] },
+          eggs: { say: 'הִסְתַּכֵּל בַּלּוּחַ: אֵיזוֹ בֵּיצָה שֶׁל מִי?', walk: [[-9.4, 13.4], [-6.0, 13.8], [-3.3, 13.1]], face: [-5.6, 12.1],
+            cam: { pos: [-6.3, 2.4, 15.9], look: [-6.3, 0.85, 11.6] },
+            lifts: [0, 1, 2, 3].map(crEgg3), order: [1, 3, 0, 2],
+            ask: { at: CR3.board, ry: camYaw(CR3.board[0], CR3.board[2], CR_CAM3.egg), gap: 0.62, size: 0.36, slots: [2, 0, 3, 1] },
+            decoys: [crHen(0, -3.75, 11.3, CR_CAM3.egg)], phone: CR_PHONE.egg3 },
+          dragon: { say: 'לַטֵּף אֶת הַדְּרָקוֹן בַּעֲדִינוּת, לְאַט לְאַט!', calm: { R: 0.46 },
+            decoys: [crHog(1, -1.75, 6.15, CR.cams.drag), crHen(1, 0.2, 3.95, CR.cams.drag)] },
+        } },
     },
   },
 };
@@ -3637,6 +3703,83 @@ function dragonGeo(happy) {                        // the finale's baby dragon: 
   return merge(P);
 }
 
+// ---- Creatures levels 2-3 geometry (built only when kit.level > 1) ----
+const _Y = new Vector3(0, 1, 0);
+function alongDir(geo, dx, dy, dz, px, py, pz, s = 1) {   // turn a +y-pointing part to point along (dx, dy, dz), then move it to (px, py, pz)
+  const n = new Vector3(dx, dy, dz).normalize(), q = new Quaternion().setFromUnitVectors(_Y, n);
+  return geo.applyMatrix4(new Matrix4().compose(new Vector3(px, py, pz), q, new Vector3(s, s, s)));
+}
+function hogGeo() {                                // a hedgehog curled into a prickly ball, asleep, its little face peeking out (faces +z, ~0.3 m)
+  const P = [ball(0.13, 0, 0.13, 0, 0x4a3020, 0x6a4a30, 1.12, 0.92, 1.12, 12, 9)];
+  for (let i = 0; i < 44; i++) {
+    const y = 1 - (i + 0.5) / 44 * 2, rr = Math.sqrt(1 - y * y), a = i * 2.4, x = Math.cos(a) * rr, z = Math.sin(a) * rr;
+    if ((z > 0.5 && y < 0.45) || y < -0.5) continue;   // the face at the front stays clear; none underneath
+    P.push(alongDir(paint(new ConeGeometry(0.024, 0.1, 4), 0x2e1e12, 0xb89c78), x, y * 0.9, z, x * 0.14, 0.13 + y * 0.12, z * 0.14));
+  }
+  P.push(ball(0.06, 0, 0.09, 0.13, 0xd8b890, 0xe8ccaa, 1, 0.85, 1.3, 10, 7));                  // the snout
+  P.push(ball(0.02, 0, 0.1, 0.205, 0x1a1418, null, 1, 1, 1, 6, 5));
+  for (const s of [-1, 1]) {
+    P.push(paint(place(new BoxGeometry(0.03, 0.006, 0.01), s * 0.04, 0.13, 0.16, 0, 0, s * 0.2), 0x1a1418));   // eyes shut
+    P.push(ball(0.028, s * 0.07, 0.025, 0.1, 0xc8a080, null, 1, 0.6, 1.3, 6, 5));                              // tucked-in paws
+    P.push(ball(0.02, s * 0.075, 0.105, 0.135, 0xff9ab0, null, 1, 0.7, 0.4, 6, 4));                            // pink cheeks
+  }
+  return merge(P);
+}
+function henGeo() {                                // a mother hen sitting on her nest of straw, wide awake and watchful (faces +z, ~0.45 m)
+  const RED = 0xd82a2a, B1 = 0xb8682e, B2 = 0xe09a52;
+  const P = [
+    paint(place(new TorusGeometry(0.21, 0.075, 6, 16), 0, 0.06, 0, Math.PI / 2), 0xa07a3a, 0xc8a04c),
+    paint(place(new CylinderGeometry(0.2, 0.15, 0.06, 12), 0, 0.04, 0), 0x7a5a2a),
+    ...[[-0.13, 0.17], [0.12, 0.18]].map(([x, z]) => ball(0.045, x, 0.1, z, 0xf4ead0, 0xfff8e8, 1, 1.25, 1, 8, 6)),   // two eggs peek out under her
+    ball(0.17, 0, 0.2, -0.02, B1, B2, 1.05, 0.82, 1.2), ball(0.1, 0, 0.25, 0.11, B2, 0xf0b870, 1, 1, 0.8),
+    ball(0.075, 0, 0.37, 0.12, B1, B2, 1, 1.05, 1),
+    paint(place(new ConeGeometry(0.022, 0.06, 6), 0, 0.36, 0.205, Math.PI / 2), 0xffb020),
+    ball(0.018, 0, 0.32, 0.17, RED, null, 0.8, 1.4, 0.8, 6, 5),                                   // the wattle
+    ...[-0.03, 0, 0.03].map((x, k) => ball(0.024, 0, 0.44 + (k === 1 ? 0.015 : 0), 0.12 + x, RED, null, 0.7, 1, 1, 6, 5)),   // the comb
+    ...[0, 1, 2].map(k => paint(place(new ConeGeometry(0.035, 0.16, 5), (k - 1) * 0.05, 0.33, -0.2, -0.7, 0, (k - 1) * 0.35), 0x8a4a1e, 0xc87a3a)),   // tail feathers
+    ...[-1, 1].map(s => ball(0.1, s * 0.14, 0.2, -0.04, 0x9a5424, B1, 0.35, 0.75, 1.15, 8, 6)),   // folded wings
+  ];
+  eyesOn(P, 0, 0.385, 0.175, 0.014, 0.045);
+  return merge(P);
+}
+// level 3: an egg with its own pattern (origin at its foot, the same size as eggGeo): the dragon's green with scales, the
+// owl's cream with brown speckles, the turtle's pale blue-green with hexagons, the duck's plain pale yellow
+const EGG3_HEX = { dragon: [0x4a9a3e, 0x7ac862], owl: [0xe8dcc0, 0xfaf0dc], turtle: [0x96ccbc, 0xbce8d8], duck: [0xf0d050, 0xf8e488] };
+function eggPatGeo(kind) {
+  const R = 0.14, H = 0.182, C = 0.17, P = [paint(place(new SphereGeometry(R, 18, 14), 0, C, 0, 0, 0, 0, 1, H / R, 1), ...EGG3_HEX[kind])];
+  const on = (g, th, ph, s = 1) => { const sx = Math.sin(ph) * Math.cos(th), sy = Math.cos(ph), sz = Math.sin(ph) * Math.sin(th);
+    return alongDir(g, sx / R, sy / H, sz / R, R * sx, C + H * sy, R * sz, s); };
+  if (kind === 'dragon') {                         // overlapping scales in rows (darker green, flat half-domes)
+    for (let r = 0; r < 7; r++) { const ph = 0.42 + r * 0.36, n = Math.max(5, Math.round(12 * Math.sin(ph)));
+      for (let k = 0; k < n; k++) P.push(on(paint(place(new SphereGeometry(0.034, 6, 4), 0, 0, 0, 0, 0, 0, 1, 0.32, 0.8), 0x2a6a24, 0x3e8a32), (k + (r % 2) * 0.5) / n * Math.PI * 2, ph)); }
+  } else if (kind === 'owl') {                     // brown speckles, a few bigger
+    for (let i = 0; i < 46; i++) { const y = 1 - (i + 0.5) / 46 * 2, ph = Math.acos(y), th = i * 2.4 + 0.3, s = 0.012 + (i % 4) * 0.005;
+      P.push(on(paint(place(new SphereGeometry(s, 6, 4), 0, 0, 0, 0, 0, 0, 1, 0.3, 1), 0x6a3e1c, 0x8a5428), th, ph)); }
+  } else if (kind === 'turtle') {                  // a pattern of hexagon outlines, like a little shell
+    for (let r = 0; r < 6; r++) { const ph = 0.45 + r * 0.42, n = Math.max(4, Math.round(9 * Math.sin(ph)));
+      for (let k = 0; k < n; k++) P.push(on(paint(place(new TorusGeometry(0.03, 0.0065, 3, 6), 0, 0, 0, Math.PI / 2, 0, 0), 0x2a6a5a, 0x3a8a74), (k + (r % 2) * 0.5) / n * Math.PI * 2, ph)); }
+  }
+  return merge(P);
+}
+// level 3: the egg key board (local, facing +z, standing on the ground): four columns, each an egg on top, a little arrow,
+// the baby that hatches from it below (painted reliefs, like the level-1 signs)
+function eggKeyGeo() {
+  const WOOD = 0x7a5232, WOOD2 = 0xa0703e, DARK = 0x4a3020, P = [], w = 1.5, h = 0.96, cy = 1.04, gap = 0.36;
+  P.push(paint(place(new BoxGeometry(w + 0.08, h + 0.08, 0.05), 0, cy, -0.03), WOOD, WOOD2));
+  P.push(paint(place(new BoxGeometry(w, h, 0.02), 0, cy, 0.0), 0xc8b48c));   // (a darker card than the level-1 signs: pale eggs must stand out on it)
+  for (const s of [-1, 1]) P.push(paint(place(new BoxGeometry(0.07, cy - h / 2, 0.07), s * (w / 2 - 0.12), (cy - h / 2) / 2, -0.05), DARK));
+  const baby = { dragon: bdragonGeo, owl: owletGeo, turtle: turtleGeo, duck: duckGeo };
+  CR3_EGG.forEach((kind, j) => {
+    const x = (j - 1.5) * gap, z = 0.03;
+    if (j > 0) P.push(paint(place(new BoxGeometry(0.012, h - 0.12, 0.012), x - gap / 2, cy, 0.015), 0xc8b48a));
+    P.push(place(eggPatGeo(kind), x, cy + 0.06, z, 0, 0, 0, 0.72, 0.72, 0.4));
+    P.push(paint(place(new ConeGeometry(0.03, 0.06, 6), x, cy + 0.02, z, Math.PI, 0, 0, 1, 1, 0.3), 0x8a6a40));
+    const s = kind === 'duck' ? 1.25 : kind === 'turtle' ? 0.95 : 1.0;
+    P.push(place(baby[kind](), x, cy - h / 2 + 0.05, z + 0.02, 0, 0, 0, s, s, 0.4 * s));
+  });
+  return merge(P);
+}
+
 // The Creatures course props (see COURSES.creatures and CR): OUTDOORS round the paddock, so every prop sits on ctx.ground.
 // Static (ONE merged mesh): the hay bale, the dog's blanket, the owl's post, three burrow mounds, the stream bed, three nests
 // with picture signs. Movers: the three puffballs (one instanced set), the dog and its tail, the owl and its wing pair, the
@@ -3650,6 +3793,8 @@ function buildCreatures(kit) {
   const { solid, ctx } = kit;
   const G = ctx.ground, NK = ctx.night ? ctx.night() : 0;
   const WOOD = 0x7a5232, WOOD2 = 0xa0703e, DARK = 0x4a3020, STRAW = 0xa88438, STRAW2 = 0xc8a04c, SOIL = 0x5a3c24, SOIL2 = 0x7a5634;
+  const LV = kit.level > 1, L3 = kit.level === 3;   // levels 2-3: decoys; level 3: four burrows, four nests with patterned eggs (no signs), the egg key and ask boards
+  const MOLES = L3 ? CR3.moles : CR.moles, NMO = MOLES.length;
   // ---- static ----
   { const [x, z, ry] = CR.bale, y = G(x, z);                     // the hay bale (the puffballs sit on it)
     solid(paint(place(new BoxGeometry(1.5, BALE_TOP, 0.56), x, y + BALE_TOP / 2 - 0.01, z, 0, ry, 0), STRAW, STRAW2));
@@ -3661,7 +3806,7 @@ function buildCreatures(kit) {
     solid(paint(place(new CylinderGeometry(0.075, 0.095, h, 8), x, y + h / 2, z), DARK, WOOD2));
     solid(paint(place(new CylinderGeometry(0.17, 0.17, 0.05, 12), x, y + h - 0.01, z), WOOD, WOOD2));
     solid(paint(place(new CylinderGeometry(0.15, 0.17, 0.08, 10), x, y + 0.03, z), 0x8a8478, 0xa8a294)); }
-  for (const [x, z] of CR.moles) { const y = G(x, z);              // burrow mounds: a dirt dome with a dark hole on top
+  for (const [x, z] of MOLES) { const y = G(x, z);                 // burrow mounds: a dirt dome with a dark hole on top
     solid(paint(place(new SphereGeometry(0.38, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2), x, y - 0.005, z, 0, 0, 0, 1, 0.35, 1), SOIL, SOIL2));
     solid(paint(place(new CircleGeometry(0.17, 14), x, y + MOUND_TOP, z, -Math.PI / 2), 0x1a120a));
     for (let i = 0; i < 4; i++) { const a = i * 1.7 + x; solid(paint(place(new SphereGeometry(0.06, 6, 4), x + Math.cos(a) * 0.45, G(x + Math.cos(a) * 0.45, z + Math.sin(a) * 0.45) + 0.01, z + Math.sin(a) * 0.45, 0, 0, 0, 1, 0.5, 1), SOIL2)); } }
@@ -3681,11 +3826,12 @@ function buildCreatures(kit) {
       solid(paint(place(new SphereGeometry(0.1, 8, 4), x, G(x, z) + 0.032, z, 0, 0, 0, 1.4, 0.05, 0.2), 0xd8f4ff)); }
     for (const [x, z] of [[sx - w / 2 - 0.45, CR.foal[1] + 0.6], [sx - w / 2 - 0.35, CR.foal[1] - 0.8], [sx + w / 2 + 0.3, CR.foal[1] - 1.2]])
       for (let k = 0; k < 4; k++) solid(paint(place(new CylinderGeometry(0.012, 0.018, 0.5 + k * 0.08, 4), x + (k - 1.5) * 0.06, G(x, z) + 0.25 + k * 0.04, z + (k % 2) * 0.05, (k - 1.5) * 0.12, 0, (k - 1.5) * 0.1), 0x3a7a2a, 0x8ac050)); }
-  CR.nests.forEach(([x, z], j) => {                               // nests of straw, each with its picture sign behind
+  (L3 ? CR3.nests : CR.nests).forEach(([x, z], j) => {            // nests of straw, each with its picture sign behind
     const y = G(x, z);
     solid(paint(place(new TorusGeometry(0.19, 0.075, 6, 16), x, y + 0.06, z, Math.PI / 2, 0, 0, 1, 1, 0.9), 0xa07a3a, STRAW));
     solid(paint(place(new CylinderGeometry(0.17, 0.12, 0.05, 12), x, y + 0.04, z), 0x7a5a2a));
     for (let i = 0; i < 6; i++) { const a = i * 1.05 + j; solid(paint(place(new CylinderGeometry(0.008, 0.008, 0.2, 3), x + Math.cos(a) * 0.2, y + 0.1, z + Math.sin(a) * 0.2, 1.2, a, 0), STRAW2)); }
+    if (L3) return;                                                // (level 3: no picture signs, the eggs' patterns and the key board tell)
     const sz = z - 0.55, sy = G(x, sz);
     solid(paint(place(new BoxGeometry(0.06, 0.8, 0.06), x, sy + 0.4, sz - 0.02), DARK));
     solid(paint(place(new BoxGeometry(0.56, 0.46, 0.04), x, sy + 0.9, sz), WOOD, WOOD2));
@@ -3707,6 +3853,11 @@ function buildCreatures(kit) {
       solid(paint(place(new SphereGeometry(0.012, 5, 4), x + 0.18, fy - 0.015, fz + 0.03), 0x141018));
     }
   });
+  if (L3) {                                                        // level 3: the ask board behind the four nests, the egg key board west of them
+    const [bx, by, bz] = CR3.board, [kx, kz] = CR3.key;
+    solid(place(boardGeo(2.65, by), bx, G(bx, bz), bz, 0, camYaw(bx, bz, CR_CAM3.egg), 0));
+    solid(place(eggKeyGeo(), kx, G(kx, kz), kz, 0, camYaw(kx, kz, CR_CAM3.egg), 0));
+  }
 
   // ---- movers ----
   const pet = { glowHex: 0x7a3a5a };   // the runner's 'touch me' pulse, soft (white fur / feathers / shells must not wash out)
@@ -3716,8 +3867,8 @@ function buildCreatures(kit) {
   kit.mesh('owl', owl2Geo(), pet);
   const owlWings = kit.inst('owlWing', owlWingGeo(), 2, [0xffffff, 0xffffff], { glow: false });
   const star = kit.mesh('star', starGeo(0.13), { glow: false, glowHex: 0xffc030 }); star.mat.emissiveIntensity = 0.9;
-  kit.inst('mole', moleGeo(), 3, [0xffffff, 0xffffff, 0xffffff], pet);
-  kit.inst('coin', coinGeo(), 3, [0xffffff, 0xffffff, 0xffffff], { glow: false, emissive: 0xffc030, emissiveIntensity: 0.25 });
+  kit.inst('mole', moleGeo(), NMO, new Array(NMO).fill(0xffffff), pet);   // (level 3: four)
+  kit.inst('coin', coinGeo(), NMO, new Array(NMO).fill(0xffffff), { glow: false, emissive: 0xffc030, emissiveIntensity: 0.25 });
   kit.mesh('foal', foalGeo(), pet);
   const fWings = kit.inst('fWing', foalWingGeo(), 2, [0xffffff, 0xffffff], { glow: false });
   kit.mesh('duck', duckGeo(), { glow: false });
@@ -3727,7 +3878,21 @@ function buildCreatures(kit) {
   kit.mesh('bdragon', bdragonGeo(), { glow: false }); kit.mesh('owlet', owletGeo(), { glow: false }); kit.mesh('turtle', turtleGeo(), { glow: false });
   kit.mesh('drag', dragonGeo(false), pet); kit.mesh('dragHappy', dragonGeo(true), { glow: false });
   kit.mesh('ring', heartRingGeo(), { glow: false, glowHex: 0xffffff }).mat.emissiveIntensity = 0.35;
-  const NE = 20, eyes = kit.inst('eye', eyeGeo(), NE, new Array(NE).fill(0xffffff), { glow: false });
+  // levels 2-3: the decoys (posed by the runner from the level's data; spare ones stay hidden); level 3: four patterned eggs
+  // (each its own mesh: the patterns differ), their shells, the duckling baby
+  const NDEC = 2;
+  if (LV) {
+    kit.inst('dhog', hogGeo(), NDEC, new Array(NDEC).fill(0xffffff), { glowHex: 0x6a4a30 });   // (a dim warm glow: brown prickles stay brown)
+    kit.inst('dhen', henGeo(), NDEC, new Array(NDEC).fill(0xffffff), { glowHex: 0x7a4a24 });
+  }
+  const NS3 = CR3.nests.map(([x, z]) => [x, G(x, z) + NEST_Y, z, camYaw(x, z, CR_CAM3.egg)]), hatch3 = new Float32Array(4);
+  if (L3) {
+    CR3_EGG.forEach((k, j) => kit.mesh('xegg' + j, eggPatGeo(k), pet));
+    const SH3 = CR3_EGG.map(k => EGG3_HEX[k][1]);
+    kit.inst('xshell', shellGeo(), 8, [...SH3, ...SH3], { glow: false });
+    kit.mesh('bduck', place(duckGeo(), 0, 0, 0, 0, 0, 0, 1.45), { glow: false });
+  }
+  const NE = L3 ? 22 : 20, eyes = kit.inst('eye', eyeGeo(), NE, new Array(NE).fill(0xffffff), { glow: false });   // (level 3: the fourth burrower's pair)
   const NH = 18, hearts = kit.inst('heart', heartGeo(), NH, new Array(NH).fill(0xffffff), { glow: false, emissive: 0xff4a8a, emissiveIntensity: 0.55 });
   hearts.renderOrder = 4;
   // the soft light: ONE additive instanced quad set with a soft canvas (an egg's warmth; at night a pool, halos, fireflies)
@@ -3736,7 +3901,7 @@ function buildCreatures(kit) {
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(0.6, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
   const soft = kit.tex(new CanvasTexture(cv)); soft.colorSpace = SRGBColorSpace;
-  const NQ = 10, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });
+  const NQ = LV ? 16 : 10, glow = kit.inst('glow', new PlaneGeometry(1, 1), NQ, new Array(NQ).fill(0), { basic: true, additive: true, map: soft, glow: false });   // (levels 2-3: the decoys' and boards' glow too)
   glow.renderOrder = 3;
 
   // ---- places and state ----
@@ -3744,7 +3909,7 @@ function buildCreatures(kit) {
   const PU = CR.puffs.map(([x, z]) => [x, G(x, z) + BALE_TOP, z]);
   const [DX, DZ, DYAW] = CR.dog, DY = G(DX, DZ) + 0.03;
   const [OX, OZ, OH] = CR.post, OY = G(OX, OZ) + OH + 0.02, OYAW = camYaw(OX, OZ, CR.cams.owl);
-  const MO = CR.moles.map(([x, z]) => { const y = G(x, z), yaw = camYaw(x, z, CR.cams.mole), cx = x + Math.sin(yaw) * 0.55, cz = z + Math.cos(yaw) * 0.55; return { x, z, y, yaw, cx, cz, cy: G(cx, cz) }; });
+  const MO = MOLES.map(([x, z]) => { const y = G(x, z), yaw = camYaw(x, z, L3 ? CR_CAM3.mole : CR.cams.mole), cx = x + Math.sin(yaw) * 0.55, cz = z + Math.cos(yaw) * 0.55; return { x, z, y, yaw, cx, cz, cy: G(cx, cz) }; });
   const [FX, FZ] = CR.foal, FY = G(FX, FZ), FYAW = camYaw(FX, FZ, CR.cams.foal);
   const DUCK0 = [CR.stream[0] - 0.95, CR.foal[1] + 0.25], DUCK1 = [FX + 0.55, FZ + 0.85];
   const NS = CR.nests.map(([x, z]) => [x, G(x, z) + NEST_Y, z, camYaw(x, z, CR.cams.egg)]);
@@ -3754,7 +3919,7 @@ function buildCreatures(kit) {
   const eyesFor = (mv, x, y, z, gap, s) => { const k = EYE.length; for (const sd of [-1, 1]) EYE.push({ mv, x: x + sd * gap, y, z, s, open: 0 }); return k; };
   let LI = null, lastStep = -9, stepT = 0, eyesBuilt = false;
   let starGiven = false, dogT = -1, dogSfx = 0, owlT = 0, owlSfx = 0, coinT = 0, coinSfx = 0, foalT = 0, foalSfx = 0, babyT = 0, babySfx = 0, dragT = 0, dragSfx = 0;
-  const pdone = new Float32Array(3), mdone = new Float32Array(3), hatchT = new Float32Array(3);
+  const pdone = new Float32Array(3), mdone = new Float32Array(4), hatchT = new Float32Array(3);   // (mdone: level 3 has four burrowers)
   const lastP = new Map();
   const ease = (k) => k * k * (3 - 2 * k);
   const clamp01 = (k) => Math.max(0, Math.min(1, k));
@@ -3803,7 +3968,7 @@ function buildCreatures(kit) {
       mdone.fill(0); hatchT.fill(0); lastStep = -9; stepT = 0; lastP.clear();
       for (const p of HP) p.life = 0;
       M.star.pose(0, -50, 0, 0, 0, 0, 1);
-      for (let i = 0; i < 3; i++) M['coin' + i].pose(0, -50, 0, 0, 0, 0, 0);
+      for (let i = 0; i < NMO; i++) M['coin' + i].pose(0, -50, 0, 0, 0, 0, 0);
       for (let i = 0; i < 6; i++) M['shell' + i].pose(0, -50, 0, 0, 0, 0, 0);
       for (const n of ['bdragon', 'owlet', 'turtle', 'ring', 'dragHappy']) M[n].pose(0, 0, 0, 0, 0, 0, 0);
       M.duck.pose(DUCK0[0], G(DUCK0[0], DUCK0[1]), DUCK0[1], 0, Math.PI / 2, 0, 1);
@@ -3817,7 +3982,11 @@ function buildCreatures(kit) {
         for (let i = 0; i < 3; i++) eyesFor(M['mole' + i], 0, 0.285, 0.13, 0.06, 0.75); // 10-15
         eyesFor(M.foal, 0, 1.06, 0.575, 0.075, 0.9);                                    // 16-17
         eyesFor(M.drag, 0, 0.53, 0.2, 0.066, 0.95); EYE[18].alt = EYE[19].alt = M.dragHappy;   // 18-19 (also while the happy mesh is the one drawn)
+        if (L3) eyesFor(M.mole3, 0, 0.285, 0.13, 0.06, 0.75);                         // 20-21 (level 3: the fourth burrower)
       }
+      if (LV) for (let i = 0; i < NDEC; i++) { M['dhog' + i].pose(0, -50, 0, 0, 0, 0, 0); M['dhen' + i].pose(0, -50, 0, 0, 0, 0, 0); }   // (the level's decoys are posed by the runner)
+      if (L3) { hatch3.fill(0); for (let i = 0; i < 3; i++) M['egg' + i].pose(0, -50, 0, 0, 0, 0, 0);   // (level 3: the patterned eggs instead of the level-1 three)
+        for (let i = 0; i < 8; i++) M['xshell' + i].pose(0, -50, 0, 0, 0, 0, 0); M.bduck.pose(0, 0, 0, 0, 0, 0, 0); }
     },
     tick(M, t, st, K, dt = 0.016) {
       if (!K) return;
@@ -3890,14 +4059,16 @@ function buildCreatures(kit) {
         owlWing(M, 0, up, flap); owlWing(M, 1, owlT > 0.5 && owlT < 4.6 ? up : 0.05 + 0.1 * p, flap);
         if (!sfree && starOn && !starGiven) { attach(M.star.mesh, 0, M.owl, sX, sY + 0.06 * p, sZ, 0, t * 0.6, 0.3, 1, 1, 1); M.star.s = 1; }
         else if (!sfree && starGiven) M.star.pose(0, -50, 0, 0, 0, 0, 0);
-        const o = L && L.done ? 1 : 0.1 + 0.9 * p;
+        let o = L && L.done ? 1 : 0.1 + 0.9 * p;
+        if (L && L.gate && !L.done) o = Math.max(o, 0.1 + 0.9 * L.gateK);   // (level 3: it dozes; its eyes open with its timing gate)
         EYE[8].open = EYE[9].open = o; }
       // ---- 2 the burrowers: peek from their holes, rise as they are stroked; happy, each pops out, hops forward and lays a
       //        gold coin on the grass; all three out: the coins rise and spin together, then fly to the hero ----
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < NMO; i++) {
         const L = LI['mole' + i]; if (!L) continue;
         const m = MO[i], mv = M['mole' + i];
-        if (!L.done) { const a = L.arr, rise = 0.1 * L.p; const lp = mv.mesh; mv.mesh.getMatrixAt(i, m1); m1.decompose(v1, q1, s1); v1.y = a[1] + rise + Math.sin(t * 3 + i) * 0.012; m1.compose(v1, q1, s1); lp.setMatrixAt(i, m1); lp.instanceMatrix.needsUpdate = true; }
+        const shy = L.gate && !L.done ? 1 - (st.sub === 'show' || L.flash > 0 ? 1 : L.gateK) : 0;   // (level 3: the shy one ducks into its hole while its gate is closed)
+        if (!L.done) { const a = L.arr, rise = 0.1 * L.p - 0.26 * shy; const lp = mv.mesh; mv.mesh.getMatrixAt(i, m1); m1.decompose(v1, q1, s1); v1.y = a[1] + rise + Math.sin(t * 3 + i) * 0.012; m1.compose(v1, q1, s1); lp.setMatrixAt(i, m1); lp.instanceMatrix.needsUpdate = true; }
         else {
           mdone[i] += dt; const k = mdone[i];
           let x = m.x, z = m.z, y = m.y + MOLE_PEEK + 0.1;
@@ -3912,8 +4083,8 @@ function buildCreatures(kit) {
           else if (coinT < 2.0) { const u = ease(clamp01(coinT / 0.5)), E = yxz(Math.PI / 2 * u, coinT * 12 * u, 0); c.pose(m.cx, m.cy + 0.005 + 0.5 * u, m.cz, E.x, E.y, E.z, 1 + 0.3 * u); }
           else { const u = ease(clamp01((coinT - 2.0) / 0.8)), ex = hx(), ey = hy() + 1.1, ez = hz(); const E = yxz(Math.PI / 2, coinT * 12, 0); c.pose(m.cx + (ex - m.cx) * u, m.cy + 0.505 + (ey - m.cy - 0.505) * u + Math.sin(u * Math.PI) * 0.4, m.cz + (ez - m.cz) * u, E.x, E.y, E.z, 1.3 * (1 - clamp01((coinT - 2.6) / 0.2))); }
         }
-        const o = L.done ? 1 : (0.45 + 0.15 * Math.sin(t * 2 + i)) + 0.55 * L.p;
-        EYE[10 + i * 2].open = EYE[11 + i * 2].open = (t + i) % 2.9 < 0.1 ? 0.15 : Math.min(1, o);
+        const o = L.done ? 1 : (0.45 + 0.15 * Math.sin(t * 2 + i)) + 0.55 * L.p, ei = i < 3 ? 10 + i * 2 : 20;
+        EYE[ei].open = EYE[ei + 1].open = (t + i) % 2.9 < 0.1 ? 0.15 : Math.min(1, o) * (1 - 0.88 * shy);
       }
       // ---- 3 the foal: proud by the stream bed; happy, it bows and stretches out a wing across the stream; a duckling walks over ----
       { const L = LI.foal, p = L ? (L.done ? 1 : L.p) : 0;
@@ -3952,6 +4123,25 @@ function buildCreatures(kit) {
           const b = M[L.spec.to], kb = babyT - j * 0.22, hop = kb > 0 && kb < 2.0 ? Math.abs(Math.sin(kb * 5.2)) * 0.13 * (1 - kb / 2.0) : 0, sq = kb > 0 && kb < 2.0 ? Math.sin(kb * 10.4) * 0.07 * (1 - kb / 2.0) : 0;
           b.poseS(N[0], N[1] + hop, N[2], 0, N[3] + Math.sin(t * 1.4 + j) * 0.25, Math.sin(t * 2 + j) * 0.05, 1 + sq, 1 - sq, 1 + sq);
         }
+      }
+      if (L3) for (let j = 0; j < 4; j++) {                    // level 3: the four patterned eggs (the pattern stays as it is: a warm glow instead of a colour change)
+        const L = LI['xegg' + j]; if (!L) continue;
+        const N = NS3[j];
+        if (!L.done) { if (L.p > 0.02) quad(N[0], N[1] + 0.22, N[2], 0.5 + 0.5 * L.p, 0.5 + 0.5 * L.p, 0.6 * L.p, 0.35 * L.p, 0.12 * L.p); continue; }
+        hatch3[j] += dt; const k = hatch3[j];
+        M['xshell' + j].pose(N[0], N[1] - 0.06, N[2], 0, N[3], 0, 1);
+        { const u = clamp01(k / 0.6), x = N[0] + Math.sin(N[3] + 1.6) * 0.32 * u, z = N[2] + Math.cos(N[3] + 1.6) * 0.32 * u, y = N[1] + 0.08 + Math.sin(u * Math.PI) * 0.35 + (G(x, z) + 0.12 - N[1] - 0.08) * u;
+          M['xshell' + (4 + j)].pose(x, y, z, Math.PI + 0.6 * u, N[3], 0.5 * u, 1); }
+        if (L.popT >= POP) {
+          const b = M[L.spec.to], kb = babyT - j * 0.22, hop = kb > 0 && kb < 2.0 ? Math.abs(Math.sin(kb * 5.2)) * 0.13 * (1 - kb / 2.0) : 0, sq = kb > 0 && kb < 2.0 ? Math.sin(kb * 10.4) * 0.07 * (1 - kb / 2.0) : 0;
+          b.poseS(N[0], N[1] + hop, N[2], 0, N[3] + Math.sin(t * 1.4 + j) * 0.25, Math.sin(t * 2 + j) * 0.05, 1 + sq, 1 - sq, 1 + sq);
+        }
+      }
+      // levels 2-3: a petted hedgehog puffs up its prickles while it shakes 'no' (on top of the runner's decoy pose)
+      if (LV && st.phase === 'course' && st.decoys) for (const D of st.decoys) {
+        if (D.shake <= 0 || !/^dhog/.test(D.spec.m)) continue;
+        const k = Math.min(1, D.shake / 0.4), a = D.at, pf = 1 + 0.2 * k * (0.75 + 0.25 * Math.sin(t * 18));
+        D.mv.poseS(a[0], a[1], a[2], 0, (D.spec.ry || 0) + Math.sin(t * 22) * 0.38 * k, 0, pf, pf, pf);
       }
       // ---- 5 the baby dragon: grumpy until stroked (a smile at half way); happy, it puffs a heart-shaped smoke ring, hops to
       //        Hagrid's feet and curls up there ----
@@ -3998,6 +4188,9 @@ function buildCreatures(kit) {
           const a = t * 0.35 * (1 + i * 0.13) + i * 0.9, r = 1.4 + (i % 3) * 0.5, fl = 0.6 + 0.4 * Math.sin(t * 7 + i * 2.3);
           quad(C[0] + Math.cos(a) * r, C[1] + 0.6 + 0.9 * (0.5 + 0.5 * Math.sin(t * 0.9 + i * 1.7)), C[2] + Math.sin(a * 1.3) * r * 0.7, 0.14, 0.14, 1.3 * fl * NK, 1.6 * fl * NK, 0.5 * fl * NK);
         }
+        if (LV && st.phase === 'course' && st.decoys) for (const D of st.decoys) quad(D.at[0], D.at[1] + D.spec.aimY + 0.05, D.at[2], 0.75, 0.75, 0.34 * NK, 0.32 * NK, 0.26 * NK);   // (levels 2-3: the decoys carry their own soft glow)
+        if (L3 && step === 3) { const [bx, by, bz] = CR3.board, [kx, kz] = CR3.key;   // (level 3: the two boards read at night)
+          quad(bx, G(bx, bz) + by, bz - 0.12, 3.0, 1.3, 0.3 * NK, 0.28 * NK, 0.2 * NK); quad(kx, G(kx, kz) + 1.04, kz - 0.12, 1.9, 1.35, 0.34 * NK, 0.31 * NK, 0.22 * NK); }
       }
       for (let i = gq; i < NQ; i++) { m1.compose(v1.set(0, -50, 0), q0, s1.set(0, 0, 0)); glow.setMatrixAt(i, m1); }
       glow.instanceMatrix.needsUpdate = true; if (glow.instanceColor) glow.instanceColor.needsUpdate = true; glow.visible = gq > 0;
@@ -4006,11 +4199,12 @@ function buildCreatures(kit) {
       const atHag = les || step >= 4 || (step === 0 && stepT < 2.5);
       vis(M, ['puff0', 'puff1', 'puff2'], atHag); vis(M, ['dog'], atHag); vis(M, ['tail'], atHag);
       vis(M, ['owl'], step <= 1); vis(M, ['owlWing0', 'owlWing1'], step <= 1); vis(M, ['star'], step <= 0);
-      vis(M, ['mole0', 'mole1', 'mole2'], step >= 0 && step <= 2); vis(M, ['coin0', 'coin1', 'coin2'], step >= 0 && step <= 2);
+      vis(M, ['mole0', 'mole1', 'mole2', 'mole3'], step >= 0 && step <= 2); vis(M, ['coin0', 'coin1', 'coin2', 'coin3'], step >= 0 && step <= 2);   // (mole3 / coin3: level 3 only)
       vis(M, ['foal'], step === 2 || left(2)); vis(M, ['fWing0', 'fWing1'], step === 2 || left(2)); vis(M, ['duck'], step === 2 || left(2));
       const eg = step === 3 || left(3);
       vis(M, ['egg0', 'egg1', 'egg2'], eg); vis(M, ['shell0', 'shell1', 'shell2', 'shell3', 'shell4', 'shell5'], eg);
       vis(M, ['bdragon'], eg); vis(M, ['owlet'], eg); vis(M, ['turtle'], eg);
+      if (L3) { for (let j = 0; j < 4; j++) vis(M, ['xegg' + j], eg); vis(M, ['xshell0', 'xshell1', 'xshell2', 'xshell3', 'xshell4', 'xshell5', 'xshell6', 'xshell7'], eg); vis(M, ['bduck'], eg); }
       M.drag.mesh.visible = step >= 4 && !(M.dragHappy.s > 0.001); M.dragHappy.mesh.visible = step >= 4 && M.dragHappy.s > 0.001;
       vis(M, ['ring'], step >= 4);
       eyes.visible = true; hearts.visible = nh > 0;
@@ -4059,7 +4253,8 @@ function buildCreatures(kit) {
         babyT = quiet ? 99 : t;
         if (!quiet) {
           if (babySfx < 1) { babySfx = 1; fun.sfx.tune([523, 659, 784, 1047], 0.11, 'triangle'); }
-          for (let j = 0; j < 3; j++) if (babySfx < 2 + j && t > 0.05 + j * 0.22) { babySfx = 2 + j; fun.sfx.boing(); kit.burst(CR.nests[j][0], 0.5, CR.nests[j][1], 6); }
+          const NN = L3 ? CR3.nests : CR.nests;   // (level 3: four)
+          for (let j = 0; j < NN.length; j++) if (babySfx < 2 + j && t > 0.05 + j * 0.22) { babySfx = 2 + j; fun.sfx.boing(); kit.burst(NN[j][0], 0.5, NN[j][1], 6); }
         }
         return t < 2.8;
       },
@@ -4323,6 +4518,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
           ? { uc: L.hold ?? st.hold, u0: (L.hold ?? st.hold) - RING_HALF, u1: (L.hold ?? st.hold) + RING_HALF, R: L.ringR || st.ringR || 0.4, fill: 0, ok: false, inside: false } : null,
         // levels 2-3 only: a timing gate (see GATE); hex0 = the thing's own glow colour (it glows green while ready)
         gate: (S.level > 1 && (L.gate || (st && st.gate))) ? { ...GATE, ...(L.gate || st.gate), t0: 0, pu: -1, hex0: mv.mat.emissive ? mv.mat.emissive.getHex() : 0 } : null, gateK: 0,
+        // levels 2-3 only: the gentle hold (see CALM) on a pet target
+        calm: (S.level > 1 && pet && (L.calm || (st && st.calm))) ? { ...CALM, ...(L.calm || st.calm), acc: 0, v: 0, fast: false } : null,
         flash: 0, shake: 0, slip: false };
     };
     const lesson = C.lesson.lifts.map(l => mkLift(l, null)).filter(Boolean);
@@ -4351,7 +4548,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         at: [d.at[0], d.at[1] + ground(d.at[0], d.at[2]), d.at[2]] } : null).filter(Boolean));   // (at: on the ground outdoors; a room's floor is 0)
       orders = S.stations.map((st, i) => st.order ? st.order.map(j => stations[i][j]).filter(Boolean) : null);
       for (const set of decoys) for (const D of set) D.mv.mesh.visible = false;   // shown per station (startStation): fewer draw calls
-      if (S.level === 3 || stations.some(set => set.some(L => L.gate))) {   // the ring to hold a lifted thing in (and a timing gate's clock): 16 beads (one draw call)
+      if (S.level === 3 || stations.some(set => set.some(L => L.gate || L.calm))) {   // the ring to hold a lifted thing in (and a timing gate's clock): 16 beads (one draw call)
         const bm = new MeshBasicMaterial({ color: 0xffffff, fog: false }), bg = new SphereGeometry(0.045, 8, 6);
         beads = new InstancedMesh(bg, bm, 16); beads.name = 'spell-ringhold'; beads.frustumCulled = false; beads.raycast = () => {}; beads.renderOrder = 5;
         for (let i = 0; i < 16; i++) { _m4.makeScale(0, 0, 0); beads.setMatrixAt(i, _m4); beads.setColorAt(i, _c.setHex(0xffffff)); }
@@ -4382,6 +4579,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function resetLift(L) { L.p = 0; L.peak = 0; L.hover = 0; L.done = false; L.snap = -1; L.moved = false; L.popT = -1; for (const r of L.rings) r.mv.lit = false;
     L.flash = 0; L.shake = 0; L.slip = false; if (L.ring) { L.ring.fill = 0; L.ring.ok = false; L.ring.inside = false; }
     if (L.gate) { L.gate.t0 = 0; L.gate.pu = -1; L.gateK = 0; }
+    if (L.calm) { L.calm.acc = 0; L.calm.v = 0; L.calm.fast = false; }
     if (L.rec) { L.rec.k = 0; L.rec.got.length = 0; L.rec.done = false; }   // (levels 2-3: the recipe starts again)
     poseLift(L, 0); }
   function resetKit(k, lessonToo) {
@@ -4467,9 +4665,16 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function posePet(L, t) {
     if (L.to && L.done) { poseChange(L, t); return; }
     const a = L.arr, r0 = L.rot0, w = L.done ? 0 : L.p, on = w > 0.01 ? 1 : 0;
+    if (S.level > 1 && !L.done && (L.flash > 0 || L.shake > 0)) {   // levels 2-3 only: shown in the order preview (a pop up) / touched out of turn (a shake 'no')
+      const pop = L.flash > 0 ? 1 + 0.35 * Math.sin(Math.min(1, L.flash / 0.75) * Math.PI) : 1, sh = L.shake > 0 ? Math.sin(t * 30) * 0.3 * Math.min(1, L.shake / 0.4) : 0;
+      L.mv.pose(a[0], a[1] + (pop - 1) * 0.15, a[2], r0[0], r0[1] + sh, r0[2] + sh * 0.25, pop);
+      if (L.to) L.to.pose(a[0], a[1], a[2], 0, 0, 0, 0);
+      return;
+    }
     const touch = !L.done && S.sel === L && (S.hold || (drag && drag.change)) ? 1 : 0;
     const lean = (0.16 + 0.06 * Math.sin(t * 3 + L.ph)) * w * on, wig = Math.sin(t * 15 + L.ph) * (0.04 + 0.08 * touch) * Math.max(w, touch * 0.3) * (on || touch), sq = Math.sin(t * 7 + L.ph) * 0.05 * w * on;
-    _pe.set(r0[0] + lean, r0[1] + Math.sin(t * 2.2 + L.ph) * 0.12 * w * on, r0[2] + wig, 'YXZ'); _pq.setFromEuler(_pe); _pe2.setFromQuaternion(_pq, 'XYZ');
+    const fl = L.calm && L.calm.fast ? Math.sin(t * 26 + L.ph) * 0.07 : 0;   // (levels 2-3: scribbled too fast, it fidgets)
+    _pe.set(r0[0] + lean, r0[1] + Math.sin(t * 2.2 + L.ph) * 0.12 * w * on + fl, r0[2] + wig, 'YXZ'); _pq.setFromEuler(_pe); _pe2.setFromQuaternion(_pq, 'XYZ');
     L.mv.poseS(a[0], a[1] + Math.abs(Math.sin(t * 6 + L.ph)) * 0.025 * w * on, a[2], _pe2.x, _pe2.y, _pe2.z, 1 - sq * 0.5, 1 + sq, 1 - sq * 0.5);
     if (L.to) L.to.pose(a[0], a[1], a[2], 0, 0, 0, 0);
   }
@@ -4533,7 +4738,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     ask: 'לֹא זֶה! מָה מַתְאִים לַצּוּרָה שֶׁעַל הַלּוּחַ?', ask1: 'מָה מַתְאִים לַצּוּרָה הַזּוֹהֶרֶת?',
     recWrong: 'לֹא זֶה. הִסְתַּכֵּל בַּמַּתְכּוֹן.', recOrder: 'לֹא עַכְשָׁו. מָה בָּא קֹדֶם?', recFirst: 'קֹדֶם הַמַּרְכִּיבִים!', recStir: 'עַכְשָׁו בְּחֹשׁ!',
     recDone: 'עַכְשָׁו בְּחֹשׁ!', recIdle: 'גַּע בַּצִּנְצָנוֹת לְפִי הַמַּתְכּוֹן!', recLook: 'הִסְתַּכֵּל טוֹב…', recMemory: 'עַכְשָׁו מֵהַזִּכָּרוֹן!', recMix: 'לֹא זֶה. הִסְתַּכֵּל בַּלּוּחַ.' };
-  const hint = (k) => (S.LV && S.LV.hints && S.LV.hints[k]) || (S.C.hints && S.C.hints[k]) || HINTS[k];
+  const stHint = (k) => { const st = S.LV && S.stations && S.stations[S.step]; return st && st.hints ? st.hints[k] : null; };   // (levels 2-3: a station's own lines win)
+  const hint = (k) => stHint(k) || (S.LV && S.LV.hints && S.LV.hints[k]) || (S.C.hints && S.C.hints[k]) || HINTS[k];
   const hintNeed = () => S.level === 2 ? 1 : 2;           // mistakes at a station before the hints come back
   const hintOK = () => S.level === 1 || S.miss >= hintNeed();
   const nextL = () => { if (S.order) { for (const L of S.order) if (!L.done) return L; return null; } return open(); };
@@ -4715,6 +4921,17 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.slips++;
     if (S.slips > 2) mistake(hint('slipMiss'), null); else { line(hint('slip'), 1.8, null); fun.sfx.soft(); }
   }
+  // levels 2-3, per frame for the calm target in hand (see CALM): the finger's speed (screen units per game second, eased),
+  // slow or resting = the meter fills, fast = it drains a little (no mistake; the teacher's line once per station)
+  function calmStep(L, dt) {
+    const C = L.calm, held = S.hold && !!drag && drag.change && S.sel === L;
+    if (!held) { C.acc = 0; C.v = 0; C.fast = false; return; }
+    const vi = C.acc / Math.max(1, Math.min(innerWidth, innerHeight)) / Math.max(dt, 1e-3); C.acc = 0;
+    C.v += (vi - C.v) * (1 - Math.exp(-dt / 0.25));
+    C.fast = C.v > C.max;
+    if (C.fast) { nudge(L, Math.max(0, L.p - dt * C.drain)); if (!S.calmSaid) { S.calmSaid = true; line(hint('calm'), 2.4, 'talk'); fun.sfx.soft(); } }
+    else { nudge(L, L.p + dt / C.t); if (L.p >= SNAP) snapLift(L); }
+  }
   // level 3, per frame for a ring lift: fill while the finger holds it inside the window; full = it glides home.
   // Returns true when it moved the thing itself (gliding home / slipping back down).
   function ringStep(L, dt) {
@@ -4876,6 +5093,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (drag && drag.change && e.pointerId === drag.id) {
       const d = Math.hypot(e.clientX - drag.x, e.clientY - drag.y); drag.x = e.clientX; drag.y = e.clientY; drag.travel += d;
       const L = S.sel;
+      if (L && L.calm && !L.done) { L.calm.acc += d; return; }   // (levels 2-3: a calm target counts the finger's speed, see calmStep)
       if (L && !L.done && drag.travel > 12) { nudge(L, L.p + d / (range() * CHANGE_STIR)); if (L.p >= SNAP) snapLift(L); }
       return;
     }
@@ -4887,7 +5105,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (!drag || (e && e.pointerId !== drag.id)) return;
     if (drag.change) {
       const L = S.sel;
-      if (drag.onTarget) { S.hold = false; if (L && !L.done && S.holdT < 0.25 && drag.travel < 20) nudge(L, L.p + CHANGE_TAP); }
+      if (drag.onTarget) { S.hold = false; if (L && !L.done && S.holdT < 0.25 && drag.travel < 20) nudge(L, L.p + (L.calm ? L.calm.tap : CHANGE_TAP)); }
       drag = null; return;
     }
     if (drag.light) {
@@ -4990,7 +5208,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     S.walk = { pts: st.walk, i: 0 };
     if (S.level > 1) {
       for (const D of S.decoys) D.mv.pose(0, -50, 0, 0, 0, 0, 0);
-      S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; S.waits = 0; S.gateT = -9;
+      S.order = K.orders[i]; S.decoys = K.decoys[i] || []; S.miss = 0; S.slips = 0; S.showI = -1; S.waits = 0; S.gateT = -9; S.calmSaid = false;
       S.ask = st.ask && S.order && K.board ? st.ask : null; S.askT = 0;
       S.rec = recStation(st);                                 // a recipe station: its jars and card (see REC)   // an `ask` station: the board asks for its things one at a time
       const used = new Set(S.decoys.map(D => D.mv.mesh));   // only this station's decoy meshes are drawn
@@ -5122,7 +5340,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     // level 1: S.stations IS the course's own array (nothing merged, nothing changed)
     S.level = level; S.LV = level > 1 ? C.levels[level] : null;
     S.stations = S.LV ? C.course.stations.map(st => { const o = (S.LV.stations && S.LV.stations[st.id]) || {}; return Object.assign({}, st, o, (innerHeight < 500 && o.phone) || {}); }) : C.course.stations;
-    Object.assign(S, { order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9, ask: null, askT: 0, rec: null });
+    Object.assign(S, { order: null, decoys: [], mistakes: 0, miss: 0, slips: 0, missT: -9, showI: -1, waits: 0, gateT: -9, ask: null, askT: 0, rec: null, calmSaid: false });
     Object.assign(S, { on: true, speed: 1, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0, sel: null, hold: false, idle: 0, walk: null, fx: null, praise: 0, result: null,
       raise: 0, raiseK: 0, dim: 0, dimGoal: C.dim ? 1 : 0, handOn: false });
     S.q.length = 0; pipKey = '';
@@ -5176,6 +5394,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     let L = null, G = null;
     if (S.sub === 'cast' && S.lifts) {
       const nx = nextL(), shown = (x) => x && (hintOK() || (!S.order && S.lifts.length === 1));
+      const cm = S.sel && !S.sel.done && S.sel.calm ? S.sel : nx && nx.calm && shown(nx) ? nx : null;   // (levels 2-3: the gentle hold's meter)
+      if (cm) { tickCalm(B, cm, t); return cm; }
       if (S.sel && !S.sel.done && S.sel.ring) L = S.sel;
       else if (nx && nx.ring && shown(nx)) L = nx;
       else if (S.sel && !S.sel.done && S.sel.gate) G = S.sel;
@@ -5199,6 +5419,21 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     B.instanceMatrix.needsUpdate = true; if (B.instanceColor) B.instanceColor.needsUpdate = true;
   }
 
+  // levels 2-3: the gentle hold's meter, the same 16 beads round the creature: they light up warm pink-gold one by one as it
+  // calms (breathing softly while the finger rests); scribbled too fast, the unlit ones turn a cool blue and tremble
+  function tickCalm(B, L, t) {
+    B.visible = true;
+    const C = L.calm, n = 16, lit = Math.round(Math.min(1, L.p / SNAP) * n), held = S.hold && S.sel === L;
+    liftWorld(L, tmp).sub(worldOff);
+    _rx.set(1, 0, 0).applyQuaternion(camera.quaternion); _ry.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI / 2 - i / n * Math.PI * 2, r = C.R * (C.fast ? 1 + Math.sin(t * 31 + i) * 0.05 : held ? 1 + Math.sin(t * 3) * 0.03 : 1);
+      _v.copy(tmp).addScaledVector(_rx, Math.cos(a) * r).addScaledVector(_ry, Math.sin(a) * r);
+      _m4.compose(_v, camera.quaternion, _s.setScalar(i < lit ? 1.4 : 1.0)); B.setMatrixAt(i, _m4);
+      if (i < lit) B.setColorAt(i, _c.setRGB(1.7, 0.95, 1.15)); else if (C.fast) B.setColorAt(i, _c.setRGB(0.45, 0.7, 1.5)); else B.setColorAt(i, _c.setRGB(0.8, 0.72, 0.85).multiplyScalar(0.75 + 0.2 * Math.sin(t * 2 + i * 0.4)));
+    }
+    B.instanceMatrix.needsUpdate = true; if (B.instanceColor) B.instanceColor.needsUpdate = true;
+  }
   // levels 2-3: a timing gate's clock, the same 16 beads round the thing: while it waits they fill one by one in amber (the
   // last ones as the ticks play); ready = all green and bigger, going out one by one as the window runs out
   function tickClock(B, L, t) {
@@ -5268,7 +5503,8 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
     if (S.sub === 'cast') {
       S.idle += dt;
       if (S.level === 1 && S.hold && (!S.sel || S.sel.done)) { const nx = open(); if (nx) { S.sel = nx; S.holdT = 0.25; setPips(); } }   // finger still down: carry on with the next object
-      if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : S.sel.change ? CHANGE_HOLD : S.sel.grow ? GROW_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
+      if (S.level > 1 && S.sel && S.sel.calm && !S.sel.done) calmStep(S.sel, dt);   // (levels 2-3: the gentle hold)
+      else if (S.hold && S.sel && !S.sel.done && S.holdT >= 0.25) { nudge(S.sel, S.sel.p + dt / (S.sel.light ? LIGHT_HOLD : S.sel.change ? CHANGE_HOLD : S.sel.grow ? GROW_HOLD : HOLD)); if (S.sel.p >= SNAP) snapLift(S.sel); }
     }
     for (let s = -1; s < K.stations.length; s++) {
       const set = s < 0 ? K.lesson : K.stations[s];
@@ -5442,6 +5678,7 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
         ring: S.on && S.lifts ? S.lifts.map(L => L.ring ? { uc: L.ring.uc, fill: Math.round(L.ring.fill * 100) / 100, ok: L.ring.ok, inside: L.ring.inside, slip: L.slip } : null) : null,
         gate: S.on && S.lifts ? S.lifts.map(L => L.gate ? { open: gateOpen(L), u: Math.round(gateU(L) * 100) / 100, k: Math.round(L.gateK * 100) / 100, period: L.gate.period, win: L.gate.open } : null) : null,
         waits: S.waits,
+        calm: S.on && S.lifts ? S.lifts.map(L => L.calm ? { fill: Math.round(Math.min(1, L.p / SNAP) * 100) / 100, v: Math.round(L.calm.v * 100) / 100, fast: L.calm.fast, max: L.calm.max, said: !!S.calmSaid } : null) : null,
         board: S.on && S.ask && K && K.board ? (() => { const sl = S.ask.slots || S.lifts.map((_, i) => i), nx = nextL(); return { slots: sl, lit: nx ? sl.indexOf(S.lifts.indexOf(nx)) : -1,
           shown: K.board.meshes.filter(m => m.visible).length, litShown: K.board.meshes.filter(m => m.visible && m.material === K.board.lit).length }; })() : null,
         recipe: S.on && S.rec ? (() => { const R = S.rec, r = R.L && R.L.rec; return { jars: R.jars.map(J => J.key), pot: S.lifts ? S.lifts.indexOf(R.L) : -1, items: r ? r.items.slice() : null,
