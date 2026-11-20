@@ -2320,11 +2320,11 @@ function buildPotions(kit) {
       return;
     }
     const check = (x, y, s) => { g.beginPath(); g.moveTo(x - s, y); g.lineTo(x - s * 0.3, y + s * 0.7); g.lineTo(x + s, y - s * 0.8); g.lineWidth = s * 0.45; g.strokeStyle = '#40ff70'; g.stroke(); };
-    if (r.mix) {                                           // the colour (right) = ? + ?
+    if (r.mix) {                                           // ? + ? = the colour, read right to left (like the key on the wall)
       const tg = TGT[R.L ? LI.indexOf(R.L) : 9] || TGT[9];
-      g.beginPath(); g.arc(W - 86, 96, 58, 0, Math.PI * 2); g.fillStyle = '#' + tg.getHexString(); g.fill(); g.lineWidth = 7; g.strokeStyle = '#ffe6a0'; g.stroke();
-      g.font = 'bold 54px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffe6a0'; g.fillText('=', W - 178, 100); g.fillText('+', 160, 100);
-      [W - 270, 72].forEach((x, j) => {
+      g.beginPath(); g.arc(86, 96, 58, 0, Math.PI * 2); g.fillStyle = '#' + tg.getHexString(); g.fill(); g.lineWidth = 7; g.strokeStyle = '#ffe6a0'; g.stroke();
+      g.font = 'bold 54px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffe6a0'; g.fillText('=', 176, 100); g.fillText('+', 351, 100);
+      [W - 72, 264].forEach((x, j) => {
         const k = r.got[j];
         if (k) drawIngr(g, k, x, 96, 56);
         else { const mk = R.mark && j === r.got.length; g.beginPath(); g.arc(x, 96, 56, 0, Math.PI * 2); g.fillStyle = '#2e3e3a'; g.fill(); g.lineWidth = mk ? 9 : 5; g.strokeStyle = mk ? '#ffd040' : '#8a9a90'; g.stroke();
@@ -2356,9 +2356,9 @@ function buildPotions(kit) {
     if (sig !== RJ.jarSig) {
       RJ.jarSig = sig;
       for (let j = 0; j < 6; j++) {
-        const k = j < n ? INGR_K.indexOf(R.jars[j].key) : 0, u0 = k / INGR_K.length, u1 = (k + 1) / INGR_K.length;
+        const k = j < n ? INGR_K.indexOf(R.jars[j].key) : 0, u0 = k * 128 / 1024, u1 = (k + 1) * 128 / 1024;   // (the atlas' top row)
         if (j < n) M['rjar' + j].color(c1.setHex(INGR[R.jars[j].key]).lerp(WHITE, 0.3).getHex());
-        for (let c = 0; c < 4; c++) uv.setXY(j * 4 + c, c % 2 ? u1 : u0, c < 2 ? 1 : 0);
+        for (let c = 0; c < 4; c++) uv.setXY(j * 4 + c, c % 2 ? u1 : u0, c < 2 ? 1 : 1 - 128 / 512);
       }
       uv.needsUpdate = true;
     }
