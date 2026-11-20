@@ -2278,8 +2278,8 @@ function buildPotions(kit) {
       });
       kg.restore(); RJ.key = true;
       // the finale's fire: three orange and three yellow flames round the big cauldron's feet (unlit, they bloom), on embers
-      solid(paint(place(new CylinderGeometry(0.62, 0.66, 0.03, 18), PO_BIG[0], 0.015, PO_BIG[2]), 0x3a1408, 0x6a2410));
-      RJ.fire = kit.inst('rfire', new ConeGeometry(0.11, 1, 7).translate(0, 0.5, 0), 6, [0xff7a1a, 0xff7a1a, 0xff7a1a, 0xffd040, 0xffd040, 0xffd040], { basic: true, glow: false });
+      solid(paint(place(new CylinderGeometry(0.78, 0.82, 0.03, 18), PO_BIG[0], 0.015, PO_BIG[2]), 0x3a1408, 0x6a2410));
+      RJ.fire = kit.inst('rfire', new ConeGeometry(0.13, 1, 7).translate(0, 0.5, 0), 6, [0xff7a1a, 0xff7a1a, 0xff7a1a, 0xffd040, 0xffd040, 0xffd040], { basic: true, glow: false });
     }
   }
 
@@ -2656,8 +2656,9 @@ function buildPotions(kit) {
           RJ.fire.visible = show;
           if (show) {
             for (let j = 0; j < 6; j++) {
-              const a = j * 2.094 + (j >= 3 ? 1.05 : 0), rr = j >= 3 ? 0.3 : 0.44, fl = 0.85 + 0.15 * Math.sin(t * 13 + j * 2.3) + 0.1 * Math.sin(t * 7.1 + j);
-              const h = (j >= 3 ? 0.75 : 1) * (0.16 + 0.62 * gk) * fl;
+              const a = j * 2.094 + (j >= 3 ? 1.05 : 0), rr = j >= 3 ? 0.5 : 0.62,   // (outside the bowl, so the flames show)
+                fl = 0.85 + 0.15 * Math.sin(t * 13 + j * 2.3) + 0.1 * Math.sin(t * 7.1 + j);
+              const h = (j >= 3 ? 0.8 : 1) * (0.18 + 0.95 * gk) * fl;
               M['rfire' + j].poseS(BIG[0] + Math.cos(a) * rr, 0.02, BIG[2] + Math.sin(a) * rr, Math.sin(t * 5 + j) * 0.12, 0, Math.cos(t * 4 + j) * 0.12, 1 + 0.4 * gk, h, 1 + 0.4 * gk);
             }
             const k = 0.25 + 0.75 * gk;
