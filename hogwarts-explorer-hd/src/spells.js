@@ -3394,6 +3394,7 @@ function buildHerbology(kit) {
         const C = CEN[les ? 0 : Math.min(5, step + 1)];
         quad(C[0], C[1] + 0.08, C[2], 6, 6, 0.3 * NK, 0.27 * NK, 0.15 * NK, 1);
         if (st.sub === 'cast' && st.lifts) for (const L of st.lifts) { if (L.done) continue; const a = L.arr, pu = 0.8 + 0.2 * Math.sin(t * 5);
+          if (L3 && step === 3) { quad(a[0], a[1] + 0.02, a[2], 0.9, 0.9, 0.3 * NK * pu, 0.45 * NK * pu, 0.15 * NK * pu, 1); continue; }   // (level 3: a pool on the soil, so the leaves' shapes still read)
           quad(a[0], a[1] + 0.15, a[2], 0.9, 0.9, 0.5 * NK * pu, 0.8 * NK * pu, 0.25 * NK * pu); }
         for (let i = 0; i < 6; i++) {
           const a = t * 0.35 * (1 + i * 0.13) + i * 0.9, r = 1.4 + (i % 3) * 0.5, fl = 0.6 + 0.4 * Math.sin(t * 7 + i * 2.3);
