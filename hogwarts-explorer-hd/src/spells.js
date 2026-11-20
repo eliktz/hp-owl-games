@@ -3187,7 +3187,7 @@ function buildHerbology(kit) {
   VEG.forEach((n, j) => kit.mesh(n, vegG[j](), { glow: false }));
   // the vegetable station's plants: [seedling mover, plant mover, bed] (level 3: four beds, each seedling its own leaves)
   const VEGL = L3 ? HB3_VEG.map((n, j) => ({ seed: 'lf' + j, n, at: HB3.veg[j] })) : VEG.map((n, j) => ({ seed: 'seed' + (9 + j), n, at: HB.veg[j] }));
-  if (L3) { kit.mesh('beet', beetGeo(), { glow: false }); HB3_VEG.forEach((n, j) => kit.mesh('lf' + j, sproutGeo(n), { glowHex: 0xfff0a0 }));
+  if (L3) { kit.mesh('beet', beetGeo(), { glow: false }); HB3_VEG.forEach((n, j) => kit.mesh('lf' + j, sproutGeo(n), { glowHex: 0x50701c }));   // (a dim green glow: the leaves' own colours must stay readable, by day and at night)
     for (const n of HB3_VEG) kit.mesh('pic' + n, vegPicGeo(n), { glow: false }).mesh.visible = false; }   // (the ask board's pictures: never drawn themselves)
   const vegOf = { carrot: carrotGeo, pumpkin: pumpkinGeo, berry: berryGeo, beet: beetGeo };
   kit.mesh('vegAll', L3 ? merge(VEGL.map(({ n, at: [x, z] }) => place(vegOf[n](), x, G(x, z) + BED_SOIL, z, 0, -0.3, 0)))
