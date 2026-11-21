@@ -20,7 +20,7 @@ const FONT = "'Rubik','Arial Hebrew','Noto Sans Hebrew','Heebo',Arial,sans-serif
 const KEY = 'hpCards1';
 // Doors: x, z = the host room's inner wall face (room-local), n = the wall's normal into the host room.
 export const SPECS = {
-  broomcupboard: { host: 'entrancehall', door: { x: 7.5, z: 4.8, nx: -1, nz: 0 }, sign: -1, name: 'אֲרוֹן הַמַּטְאֲטֵאִים', icon: '🧹', card: 'dumbledore', W: 4.4, D: 4.4, H: 3.0 },
+  broomcupboard: { host: 'entrancehall', door: { x: 7.5, z: 4.8, nx: -1, nz: 0 }, sign: -1, name: 'אֲרוֹן הַמַּטְאֲטֵאִים', icon: '🧹', card: 'dumbledore', W: 4.4, D: 5.2, H: 3.0 },
   trophyroom: { host: 'staircase', door: { x: 6.6, z: -10.5, nx: 0, nz: 1 }, sign: -1, name: 'חֲדַר הַגְּבִיעִים', icon: '🏆', card: 'merlin', W: 6, D: 5, H: 3.6 },
   forgottenclass: { host: 'classrooms', door: { x: -9, z: 8.5, nx: 0, nz: -1 }, sign: -1, name: 'הַכִּתָּה הַנִּשְׁכַּחַת', icon: '📚', card: 'hedwig', W: 6, D: 6, H: 4.0 },
 };
@@ -59,7 +59,7 @@ function emoji(x, e, cx, cy, size) { x.save(); x.font = `${size}px serif`; x.tex
 // One 256 px canvas pair per door: colour map + emissive map, same layout.
 // leaf [0,0,128,256] oak planks + iron straps | interior [128,0,64,128] warm room glow | keyhole [192,0,64,64]
 // brass [192,64,64,64] | sign [128,128,128,128] dark plate, 🔒 + the room's name
-const DR = { leaf: [0, 0, 128, 256], inside: [128, 0, 64, 128], key: [192, 0, 64, 64], brass: [192, 64, 64, 64], sign: [128, 128, 128, 128] };
+const DR = { leaf: [0, 0, 64, 256], inside: [64, 0, 64, 128], key: [128, 0, 64, 64], brass: [192, 0, 64, 64], sign: [64, 128, 192, 128] };
 const _doorMat = {};
 function doorMat(id) {
   if (_doorMat[id]) return _doorMat[id];
@@ -68,14 +68,14 @@ function doorMat(id) {
   x.fillStyle = '#000'; x.fillRect(0, 0, 256, 256); e.fillStyle = '#000'; e.fillRect(0, 0, 256, 256);
   // leaf: five oak planks, grain, two iron straps with rivets
   for (let k = 0; k < 5; k++) {
-    const v = (r() - 0.5) * 16; x.fillStyle = `rgb(${110 + v | 0},${70 + v | 0},${40 + v * 0.6 | 0})`; x.fillRect(k * 25.6 + 1, 0, 24, 256);
-    for (let j = 0; j < 14; j++) { x.strokeStyle = `rgba(50,28,12,${0.15 + r() * 0.25})`; x.lineWidth = 1; x.beginPath(); const gx = k * 25.6 + 3 + r() * 20; x.moveTo(gx, 0); x.bezierCurveTo(gx + 3, 80, gx - 3, 170, gx + 1, 256); x.stroke(); }
+    const v = (r() - 0.5) * 16; x.fillStyle = `rgb(${110 + v | 0},${70 + v | 0},${40 + v * 0.6 | 0})`; x.fillRect(k * 12.8 + 0.5, 0, 12, 256);
+    for (let j = 0; j < 7; j++) { x.strokeStyle = `rgba(50,28,12,${0.15 + r() * 0.25})`; x.lineWidth = 1; x.beginPath(); const gx = k * 12.8 + 2 + r() * 9; x.moveTo(gx, 0); x.bezierCurveTo(gx + 2, 80, gx - 2, 170, gx + 1, 256); x.stroke(); }
   }
-  for (const y of [40, 200]) { x.fillStyle = '#2a2622'; x.fillRect(0, y, 128, 16); for (let k = 0; k < 6; k++) { x.fillStyle = '#5a544c'; x.beginPath(); x.arc(10 + k * 21.6, y + 8, 3, 0, 7); x.fill(); } }
+  for (const y of [40, 200]) { x.fillStyle = '#2a2622'; x.fillRect(0, y, 64, 14); for (let k = 0; k < 4; k++) { x.fillStyle = '#5a544c'; x.beginPath(); x.arc(8 + k * 16, y + 7, 2.2, 0, 7); x.fill(); } }
   // interior: a warm lit room glimpsed through the doorway (emissive), a shelf silhouette
   { const [ix, iy, iw, ih] = DR.inside, g = e.createRadialGradient(ix + iw / 2, iy + ih * 0.7, 4, ix + iw / 2, iy + ih * 0.6, ih * 0.75);
-    g.addColorStop(0, '#fff0c8'); g.addColorStop(0.5, '#ffb860'); g.addColorStop(1, '#6a3010'); e.fillStyle = g; e.fillRect(ix, iy, iw, ih);
-    e.fillStyle = 'rgba(70,35,10,.55)'; e.fillRect(ix + 6, iy + 40, iw - 12, 4); e.fillRect(ix + 6, iy + 70, iw - 12, 4);
+    g.addColorStop(0, '#ffd890'); g.addColorStop(0.45, '#e88c3a'); g.addColorStop(1, '#4a1e08'); e.fillStyle = g; e.fillRect(ix, iy, iw, ih);
+    e.fillStyle = 'rgba(60,28,8,.7)'; e.fillRect(ix + 6, iy + 40, iw - 12, 4); e.fillRect(ix + 6, iy + 70, iw - 12, 4); e.fillRect(ix + 4, iy + 118, iw - 8, 10);
     emoji(e, s.icon, ix + iw / 2, iy + 100, 20); x.fillStyle = '#100804'; x.fillRect(ix, iy, iw, ih); }
   // keyhole: a soft gold glow round a black keyhole
   { const [kx, ky] = DR.key, g = e.createRadialGradient(kx + 32, ky + 32, 2, kx + 32, ky + 32, 30); g.addColorStop(0, '#fff2b0'); g.addColorStop(0.5, '#ffc040'); g.addColorStop(1, 'rgba(120,60,0,0)');
@@ -88,8 +88,8 @@ function doorMat(id) {
     for (const c of [x, e]) {
       c.fillStyle = '#c9a046'; c.beginPath(); c.roundRect(sx + 3, sy + 3, sw - 6, sh - 6, 14); c.fill();
       c.fillStyle = '#3a2414'; c.beginPath(); c.roundRect(sx + 9, sy + 9, sw - 18, sh - 18, 10); c.fill();
-      emoji(c, '🔒', sx + sw / 2, sy + 46, 46);
-      rtlText(c, s.name, sx + sw / 2, sy + 98, 22, '#ffe9a8', sw - 26);
+      emoji(c, '🔒', sx + sw / 2, sy + 40, 40);
+      rtlText(c, s.name, sx + sw / 2, sy + 92, 30, '#ffe9a8', sw - 24);
     }
     e.fillStyle = 'rgba(0,0,0,.45)'; e.fillRect(sx, sy, sw, sh); }
   const m = new MeshStandardMaterial({ map: tex(C), emissiveMap: tex(E), emissive: 0xffffff, emissiveIntensity: 1, roughness: 0.7, metalness: 0.05 });
@@ -100,9 +100,9 @@ function doorMat(id) {
 // The padlock (big, brass, glowing keyhole), in leaf-local coordinates (face at z 0.1).
 function padlockGeos(px, py, pz) {
   const G = [];
-  G.push(uvTo(new BoxGeometry(0.3, 0.26, 0.09), DR.brass).translate(px, py, pz));
-  const sh = uvTo(new TorusGeometry(0.1, 0.025, 8, 16, Math.PI), DR.brass); sh.translate(px, py + 0.13, pz); G.push(sh);
-  G.push(uvTo(new PlaneGeometry(0.16, 0.16), DR.key).translate(px, py - 0.01, pz + 0.047));
+  G.push(uvTo(new BoxGeometry(0.42, 0.36, 0.1), DR.brass).translate(px, py, pz));
+  const sh = uvTo(new TorusGeometry(0.14, 0.035, 8, 16, Math.PI), DR.brass); sh.translate(px, py + 0.18, pz); G.push(sh);
+  G.push(uvTo(new PlaneGeometry(0.22, 0.22), DR.key).translate(px, py - 0.01, pz + 0.052));
   return G;
 }
 
@@ -117,13 +117,13 @@ export function secretDoor(g, id) {
   for (const sx of [-1, 1]) add(box(0.26, 2.4, 0.26, sx * 0.88, 1.2, 0.12), MAT.stone);
   add(new TorusGeometry(0.88, 0.13, 6, 18, Math.PI).translate(0, 2.4, 0.12), MAT.stone);
   add(box(1.9, 0.08, 0.5, 0, 0.04, 0.25), MAT.stone);
-  add(box(0.9, 0.9, 0.03, s.sign * 1.6, 1.85, 0.015), MAT.gold);
+  add(box(1.26, 0.86, 0.03, s.sign * 1.75, 1.75, 0.015), MAT.gold);
   // live: the glow mesh (interior + fanlight + sign) and the leaf (planks + straps + padlock), one material
   const live = new Group(); live.name = 'secret-door-' + id;
   const mat = doorMat(id), GL = [];
   GL.push(uvTo(new PlaneGeometry(1.5, 2.4), DR.inside).translate(0, 1.2, 0.01));
   GL.push(uvTo(new CircleGeometry(0.75, 18, 0, Math.PI), DR.inside).translate(0, 2.4, 0.01));
-  GL.push(uvTo(new PlaneGeometry(0.8, 0.8), DR.sign).translate(s.sign * 1.6, 1.85, 0.034));
+  GL.push(uvTo(new PlaneGeometry(1.17, 0.78), DR.sign).translate(s.sign * 1.75, 1.75, 0.034));
   const glow = new Mesh(put(mergeGeometries(GL.map(flat), false)), mat); glow.name = 'secret-door-glow'; live.add(glow);
   const pivot = new Group(); pivot.position.set(D.x, 0, D.z); pivot.rotation.y = yaw; live.add(pivot);
   const hinge = new Group(); hinge.position.set(0.75, 0, 0.05); pivot.add(hinge);
@@ -139,7 +139,7 @@ export function secretDoor(g, id) {
   const fly = new Mesh(mergeGeometries(padlockGeos(0, 0, 0).map(flat), false), mat); fly.visible = false; fly.name = 'secret-door-padlock'; live.add(fly);
   const glowSpot = new Object3D(); glowSpot.position.set(D.x + D.nx * 1.2, 0.5, D.z + D.nz * 1.2); glowSpot.userData.light = { k: 'glow', c: 0xffd8a0, r: 1.6, a: open ? 0.22 : 0.1 }; g.add(glowSpot);
   g.userData.secretDoor = { id, live, hinge, leaf, fly, padStart: nBase, padCount: open ? 0 : geo.attributes.position.count - nBase };
-  return { live, portal: { x: D.x + D.nx * 0.85, z: D.z + D.nz * 0.85, r: 1.0, to: id, locked: () => DOORS[id].state !== 'open', at: { x: 0, z: s.D / 2 - 1.5, yaw: Math.PI } } };
+  return { live, portal: { x: D.x + D.nx * 0.85, z: D.z + D.nz * 0.85, r: 1.0, to: id, locked: () => DOORS[id].state !== 'open', at: { x: 0, z: s.D / 2 - 2.4, yaw: Math.PI } } };
 }
 
 // ============================== the rooms ==============================
@@ -316,10 +316,11 @@ export function secretRoom(room, id) {
   const opened = CHESTS[id].state !== 'locked';
   if (CHESTS[id].state === 'opening') CHESTS[id].state = 'open';
   // the way back out: an oak door in the south wall, stone surround, brass knob, a warm fanlight
-  P.push([box(1.2, 2.3, 0.06, 0, 1.15, Z - 0.03), 0x6a4426]);
-  for (const y of [0.6, 1.7]) for (const sx of [-1, 1]) P.push([box(0.42, 0.7, 0.02, sx * 0.27, y, Z - 0.065), 0x5a3a20]);
-  for (const sx of [-1, 1]) P.push([box(0.16, 2.5, 0.1, sx * 0.68, 1.25, Z - 0.05), 0xd9ccb0]);
-  P.push([box(1.52, 0.18, 0.1, 0, 2.5, Z - 0.05), 0xd9ccb0]);
+  const inPlane = (w, h, x, y, dz) => new PlaneGeometry(w, h).rotateY(Math.PI).translate(x, y, Z - dz);
+  P.push([inPlane(1.2, 2.3, 0, 1.15, 0.03), 0x6a4426]);
+  for (const y of [0.6, 1.7]) for (const sx of [-1, 1]) P.push([inPlane(0.42, 0.7, sx * 0.27, y, 0.04), 0x5a3a20]);
+  for (const sx of [-1, 1]) P.push([inPlane(0.16, 2.5, sx * 0.68, 1.25, 0.05), 0xd9ccb0]);
+  P.push([inPlane(1.52, 0.18, 0, 2.5, 0.05), 0xd9ccb0]);
   P.push([new SphereGeometry(0.05, 10, 8).translate(0.42, 1.1, Z - 0.1), 0xd8b04a]);
   { const f = uvTo(new CircleGeometry(0.5, 14, 0, Math.PI), GR.fan); f.rotateY(Math.PI); f.translate(0, 2.6, Z - 0.01); GL.push(f); }
   const doorGlow = new Object3D(); doorGlow.position.set(0, 0.5, Z - 1.1); doorGlow.userData.light = { k: 'glow', c: 0xffd8a0, r: 1.4, a: 0.12 }; g.add(doorGlow);
@@ -456,9 +457,9 @@ export function secretRoom(room, id) {
   const card = new Mesh(new PlaneGeometry(0.42, 0.59), new MeshBasicMaterial({ map: cardTex(s.card), side: DoubleSide, fog: false })); card.visible = false; card.name = 'secret-card'; g.add(card);
   g.userData.secretRoom = { id, group: g, chest: ch, frog, card, mop, snitch, W, D, H };
   const D0 = s.door;
-  return room(g, cols, { x: 0, z: Z - 1.5, yaw: Math.PI }, {
+  return room(g, cols, { x: 0, z: Z - 2.4, yaw: Math.PI }, {
     id,
-    portals: [{ x: 0, z: Z - 0.75, r: 0.95, to: s.host, at: { x: D0.x + D0.nx * 1.9, z: D0.z + D0.nz * 1.9, yaw: doorYaw(s) } }],
+    portals: [{ x: 0, z: Z - 0.6, r: 0.8, to: s.host, at: { x: D0.x + D0.nx * 1.9, z: D0.z + D0.nz * 1.9, yaw: doorYaw(s) } }],
   });
 }
 
@@ -642,7 +643,7 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
       snitch: curRoom && curRoom.snitch ? { visible: curRoom.snitch.visible, t: +snitchT.toFixed(2), x: +curRoom.snitch.position.x.toFixed(2), y: +curRoom.snitch.position.y.toFixed(2), z: +curRoom.snitch.position.z.toFixed(2) } : null,
       frog: curRoom ? { visible: curRoom.frog.visible, t: +(curRoom.frogT || 0).toFixed(2) } : null,
       meshes: curRoom ? roomDraws(curRoom.group) : 0,
-      doorMeshes: g && sd ? roomDraws(sd.live) : 0,
+      doorMeshes: (() => { const gg = interiors.room && interiors.room.group, d = gg && gg.userData.secretDoor; return d ? roomDraws(d.live) : 0; })(),
     }),
     doors: () => IDS.map(id => { const s = SPECS[id], D = s.door; return { id, host: s.host, name: s.name, x: D.x, z: D.z, nx: D.nx, nz: D.nz, portal: { x: D.x + D.nx * 0.85, z: D.z + D.nz * 0.85, r: 1.0 }, card: s.card }; }),
     cardsList: CARDS,
