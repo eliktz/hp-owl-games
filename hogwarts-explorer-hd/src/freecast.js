@@ -288,7 +288,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
       else if (sc < bs) { bs = sc; bestT = t; bd = d; }
     }
     // a real thing wins only when no spell-spot prop is closer; the overhead candle group always gives way to a prop
-    if (realT && (!bestT || (!realT.overhead && rd < bd))) return realT;
+    if (realT && (!bestT || (!realT.overhead && rs + 1 < bs))) return realT;   // by aim score (distance minus facing), with a margin in the prop's favour: a real goblet beside a spot prop must not steal the cast
     return bestT;
   }
   function discover(key) {
