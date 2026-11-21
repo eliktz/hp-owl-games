@@ -100,6 +100,7 @@ export function createInteriors({ scene, env, player, terrainHeightAt, homeSpot,
       // straight into a doorway after spawning (e.g. the exit, ~3.8m away) still triggers.
       // The cooldown only gates the actual fire, which is what stops an instant re-bounce.
       if (d > p.r + 1.2) p.armed = true;
+      else if (p.locked && p.locked()) continue;   // a locked door (secret-rooms.js): nothing until Alohomora opens it
       else if (p.armed && d < p.r && cooldown <= 0) { p.armed = false; if (p.to === 'out') exit(); else enter(p.to, p.at); return; }
     }
   }

@@ -18,6 +18,7 @@ import { bakeLight } from './atmosphere.js';
 import { decorate } from './decor.js';
 import { addDumbledore } from './dumbledore.js';
 import { showerDoor, showerHall } from './showers.js';
+import { secretDoor, secretRoom } from './secret-rooms.js';
 
 export const FLOOR_Y = -200;
 // Gryffindor red, Ravenclaw blue, Hufflepuff gold, Slytherin green.
@@ -135,9 +136,11 @@ function entranceHall() {
   // low torches (3.8 m) with wide washes so the lower walls glow and the tops fall into shadow
   for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 3.8, z, 0xff8a2a, { shared: true, wash: 3.6, glowBall: false });
   const showers = showerDoor(g);                            // west wall, z 7: the oak door + towel sign to the shower hall (showers.js)
+  const broom = secretDoor(g, 'broomcupboard');             // east wall, z 4.8: the locked door to the broom cupboard (secret-rooms.js)
   // Everything static that shares a material merges (walls, steps, arches, doors' stone, torches,
   // carpet); the chandelier keeps swinging on its own.
   mergeStatic(g, g.children.filter(c => c !== ch));
+  g.add(broom.live);                                        // its leaf + padlock + glow move: kept out of the merge
   const stoneHex = [WALL, 0x8f8a80].map(h => new Color(h).getHex());
   heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex()) && m.name !== 'corbels'),
     { y0: 2.2, y1: H - 1, k0: 1.18, k1: 0.3 });
@@ -169,6 +172,7 @@ function entranceHall() {
     { x: W / 2 - 1.2, z: 1, r: 2.3, to: 'library' },
     { x: 0, z: -D / 2 + 3.4, r: 1.7, to: 'staircase' },      // up the steps -> the grand staircase hall
     showers.portal,                                          // west wall door -> the shower hall
+    broom.portal,                                            // east wall locked door -> the broom cupboard (live once Alohomora opens it)
   ];
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'entrancehall',
@@ -500,12 +504,14 @@ function staircase() {
   HOUSE.forEach((c, i) => banner(g, (i < 2 ? -1 : 1) * (W / 2 - 0.58), 10, i % 2 ? 5.5 : -7.6, c, (i < 2 ? 1 : -1) * Math.PI / 2));   // clear of the gallery landings at z -2.2
   // Everything static that shares a material (walls, steps, landings, rails, archways, iron)
   // becomes one mesh per material: same look, ~20 fewer draw calls. The flights keep swaying.
+  const trophy = secretDoor(g, 'trophyroom');               // north wall, x 6.6 (mirrors the common room arch): the locked trophy room door
   const swaying = flights.map(f => f.node);
   mergeStatic(g, g.children.filter(c => !swaying.includes(c)));
+  g.add(trophy.live);
   return room(g, cols, { x: 0, z: D / 2 - 5, yaw: Math.PI }, {
     id: 'staircase',
     portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'entrancehall' }, { x: -W / 2 + 1.2, z: 0, r: 1.5, to: 'classrooms' },
-      { x: W / 2 - 1.2, z: 0, r: 1.5, to: 'tower' }, { x: -6.6, z: -D / 2 + 1.9, r: 1.3, to: 'commonroom' }],
+      { x: W / 2 - 1.2, z: 0, r: 1.5, to: 'tower' }, { x: -6.6, z: -D / 2 + 1.9, r: 1.3, to: 'commonroom' }, trophy.portal],
     update: (dt, t) => {
       for (const fl of flights) fl.node.rotation.y = fl.base + Math.sin(t * 0.4 + fl.base) * fl.amp;
       for (const f of ch.userData.flames) f.material.emissiveIntensity = 2 + Math.sin(t * 8 + f.position.x) * 0.4;
@@ -587,16 +593,18 @@ function classrooms() {
   for (let k = 0; k < 4; k++) { const a = k * 1.7; at(new SphereGeometry(0.05, 6, 5), 0x3f7fe0, 11.2 + Math.cos(a) * 0.15, 1.4 + k * 0.1, -6.4 + Math.sin(a) * 0.15); }   // Cornish pixies
   pile(6.9, -6.7, 6, 1.1);
   propMesh(g, P, 'class-props');
+  const forgotten = secretDoor(g, 'forgottenclass');        // south wall, x -9: the locked door to the forgotten classroom
   // Static pieces that share a material merge (walls, columns, window frames and glass, torches,
   // carpets, the chandelier's iron and its flames); lessons.js adds the boards and desks later.
   mergeStatic(g, g.children.filter(c => !flames.includes(c) && c !== ch));
+  g.add(forgotten.live);
   mergeStatic(ch, [ch], 'chandelier');
   const stoneHex = [WALL, 0x7d7870].map(h => new Color(h).getHex());
   heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex()) && m.name !== 'corbels'),
     { y0: 2, y1: H - 0.5, k0: 1.15, k1: 0.36 });
   const daylight = windowLight(g, sun, { slope: 1.15, strength: 0.8 });
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {
-    id: 'classrooms', flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }],
+    id: 'classrooms', flames, portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }, forgotten.portal],
     update: (dt, t) => { daylight.update(t); ch.userData.flames[0].material.emissiveIntensity = 2 + Math.sin(t * 8) * 0.4; },
   });
 }
@@ -617,4 +625,5 @@ function tower() {
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, { id: 'tower', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'staircase' }] });
 }
 
-export const BUILDERS = { entrancehall: entranceHall, greathall: greatHall, staircase, library, commonroom: commonRoom, dungeon, classrooms, tower, showers: () => showerHall(room) };
+export const BUILDERS = { entrancehall: entranceHall, greathall: greatHall, staircase, library, commonroom: commonRoom, dungeon, classrooms, tower, showers: () => showerHall(room),
+  broomcupboard: () => secretRoom(room, 'broomcupboard'), trophyroom: () => secretRoom(room, 'trophyroom'), forgottenclass: () => secretRoom(room, 'forgottenclass') };
