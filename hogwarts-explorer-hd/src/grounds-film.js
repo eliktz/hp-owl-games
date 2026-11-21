@@ -410,6 +410,7 @@ export function buildHut({ scene, heightAt, colliders, camera, obstacles }) {
     const base = new BoxGeometry(0.2, 0.04, 0.2); xf(base, cx, 1.93, cz, LA); IR.push(base);
     for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const p = new BoxGeometry(0.02, 0.32, 0.02); xf(p, cx + sx * 0.09, 2.08, cz + sz * 0.09); IR.push(p); }
     const flame = new BoxGeometry(0.15, 0.28, 0.15); xf(flame, cx, 2.08, cz, LA); GL.push(flame);
+    root.userData.lantern = { x: cx, y: 2.08, z: cz };   // freecast-real.js: Incendio / Aguamenti / Glacius on the door lantern (its flame in 'hut-glow')
     const hook = new BoxGeometry(0.03, 0.08, 0.03); xf(hook, cx, 2.26, cz); IR.push(hook);
   }
 

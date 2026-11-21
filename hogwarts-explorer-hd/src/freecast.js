@@ -283,7 +283,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
       t.at(tv); const dx = tv.x - pos.x, dz = tv.z - pos.z, d = Math.hypot(dx, dz);
       if (d > maxD || (!t.overhead && Math.abs(tv.y - pos.y) > 4)) continue;
       const dot = d < 0.01 ? 1 : (dx * sx + dz * sz) / d, sc = d - dot * 3;
-      if (t.real) { if (sc < rs) { rs = sc; realT = t; rd = d; } }   // batch 7 (freecast-real.js): the castle's real torches / hearth / candles
+      if (t.real) { const sr = sc + (t.overhead ? 3 : 0); if (sr < rs) { rs = sr; realT = t; rd = d; } }   // (a torch / hearth in front beats the candles overhead)   // batch 7 (freecast-real.js): the castle's real torches / hearth / candles
       else if (sc < bs) { bs = sc; bestT = t; bd = d; }
     }
     // a real thing wins only when no spell-spot prop is closer; the overhead candle group always gives way to a prop

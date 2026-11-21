@@ -60,7 +60,7 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
   // ---------------- flame units ----------------
   // u: { kind: 'inst'|'mesh'|'vis'|'merged', k, kTo, rate, shown, delay, pop, owners: [], world: Vector3 (flame position), ... }
   function applyFlame(u) {
-    const dim = u.candle ? R.dimF : 1;
+    const dim = u.candle && R ? R.dimF : 1;
     const popK = u.pop > 0 ? 1 + 0.45 * Math.sin((1 - u.pop / 0.35) * Math.PI) : 1;
     const s = Math.max(0, u.k) * dim * popK;
     u.shown = Math.max(0, u.k) * dim;
@@ -179,6 +179,7 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
     return out.multiplyScalar(1 / n);
   }
   const live = (S) => R === S && interiors.room === S.room;
+  function anyCandle(S, want) { for (const u of S.candles) if ((u.kTo > 0.5) === (want === 1)) return true; return false; }
   function registerTargets(S) {
     const add = (t) => { t.real = true; t.indoor = S.id; S.targets.push(t); TARGETS.push(t); };
     S.torches.forEach((u, i) => add({
@@ -197,7 +198,7 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
     if (S.candles.length) {
       add({ id: 'real-candles-' + S.id, spells: ['incendio', 'aguamenti', 'glacius'], overhead: true,
         at: (o) => clusterCentre(1, o) || clusterCentre(0, o) || o.set(pos.x, pos.y + 3, pos.z),
-        ok: (k) => live(S) && !S.cPend && (k === 'incendio' ? S.candles.some(u => u.kTo < 0.5) : S.candles.some(u => u.kTo > 0.5)),
+        ok: (k) => live(S) && !S.cPend && anyCandle(S, k === 'incendio' ? 0 : 1),
         cast: (k) => { S.cPend = k === 'incendio' ? 0.4 : 0.6; S.cPendK = k; } });
     }
   }
@@ -306,8 +307,47 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
     if (S.pools && S.pools.dirty) { S.pools.ca.needsUpdate = true; S.pools.dirty = false; }
   }
 
+  // ---------------- outdoors: Hagrid's door lantern (the only real flame near the doors at walking height) ----------------
+  let OUT = null, outTried = false;
+  function buildOut() {
+    outTried = true;
+    const hut = scene.getObjectByName('hagrid-hut'), Lp = hut && hut.userData.lantern;
+    const mesh = hut && hut.getObjectByName('hut-glow');
+    if (!Lp || !mesh) return;
+    hut.updateMatrixWorld(true);
+    const u = newUnit({ rate: 6, lit: true, pend: 0, pendK: null });
+    const c = new Vector3(Lp.x, Lp.y, Lp.z);
+    mergedUnits(mesh, [{ c, pivot: c.clone().setY(c.y - 0.14), u }]);
+    if (!u.idx || !u.idx.length) return;
+    hut.localToWorld(u.world.copy(c));
+    const fx = u.world.x - hut.position.x, fz = u.world.z - hut.position.z, fl = Math.hypot(fx, fz) || 1;
+    const t = { id: 'real-lantern-hut', real: true, spells: ['incendio', 'aguamenti', 'glacius'], unit: u, front: [fx / fl, fz / fl],
+      at: (o) => o.copy(u.world), ok: (k) => !interiors.active && !u.pend && (k === 'incendio' ? !u.lit : u.lit),
+      cast: (k) => { u.pend = k === 'incendio' ? 0.4 : 0.55; u.pendK = k; } };
+    TARGETS.push(t);
+    OUT = { u, t };
+  }
+  function tickOut(dt) {
+    const u = OUT.u;
+    if (u.pend > 0) {
+      u.pend -= dt;
+      if (u.pend <= 0) {
+        u.pend = 0;
+        if (u.pendK === 'incendio') { if (!u.lit) { u.lit = true; u.k = 0.15; u.kTo = 1; u.pop = 0.35; sparks(u.world, 14, 1.6); fun.sfx.whoosh(); fun.sfx.pop(); log.lights++; } }
+        else if (u.lit) { u.lit = false; u.kTo = 0; if (u.pendK === 'glacius') frost(u.world, 12); else steam(u.world, 12, 0.2); log.douses++; }
+      }
+    }
+    if (u.delay > 0) { u.delay -= dt; return; }
+    let ch = false;
+    if (u.k !== u.kTo) { const d = u.kTo - u.k, s = u.rate * dt; u.k = Math.abs(d) <= s ? u.kTo : u.k + Math.sign(d) * s; ch = true; }
+    if (u.pop > 0) { u.pop = Math.max(0, u.pop - dt); ch = true; }
+    if (ch) applyFlame(u);
+  }
+
   function tick(dt, inside) {
     T += dt;
+    if (!outTried && T > 1) { try { buildOut(); } catch (e) { console.warn('[freecast] hut lantern skipped -', e && e.message || e); OUT = null; } }
+    if (OUT && !interiors.active) tickOut(dt);
     const r = interiors.room;
     if (r !== seen) {
       seen = r;
@@ -353,9 +393,10 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
       };
     },
     ids: () => (R ? R.targets.map(t => t.id) : []),
+    lantern: () => (OUT ? { lit: OUT.u.lit, k: +OUT.u.k.toFixed(2), verts: OUT.u.idx.length, x: +OUT.u.world.x.toFixed(2), y: +OUT.u.world.y.toFixed(2), z: +OUT.u.world.z.toFixed(2) } : null),
     // stand Harry d metres in front of a real target, facing it
     aim(id, d = 3) {
-      const t = R && R.targets.find(x => x.id === id); if (!t) return null;
+      const t = (R && R.targets.find(x => x.id === id)) || (OUT && OUT.t.id === id ? OUT.t : null); if (!t) return null;
       t.at(v0); let fx = 0, fz = 1;
       if (t.front) { fx = t.front[0]; fz = t.front[1]; } else { const dx = pos.x - v0.x, dz = pos.z - v0.z, l = Math.hypot(dx, dz) || 1; fx = dx / l; fz = dz / l; }
       const x = v0.x + fx * d, z = v0.z + fz * d;
