@@ -38,7 +38,7 @@ const GHI = { plate: 7.95, platter: 8.62, pudding: 9.38, goblet: 10.02 };   // z
 
 const _m4 = new Matrix4(), _q = new Quaternion(), _e = new Euler(), _s = new Vector3(), _c = new Color();
 const STONE = 0x6a6254, STONE2 = 0x8e8472, IRON = 0x2e2b30, IRON2 = 0x4a4550, GOLD = 0xd8b04a, GOLD2 = 0xf0d070, WOOD = 0x5a3a22, DARK = 0x3a2416;
-const MINT = 0x5cc08a, MINT2 = 0x8ae0b0, CREAM = 0xfff2d0, LAV = 0xb89af0, LAV2 = 0xe0d0ff;
+const MINT = 0x3fa872, MINT2 = 0x74d49c, CREAM = 0xfff2d0, LAV = 0xb89af0, LAV2 = 0xe0d0ff;
 const PAL_YARD = [0xff6a9a, 0xffd040, 0xff8a3a, 0xfff4e0, 0xc87ae8, 0xff5a5a, 0xffe27a];
 
 export function createYard({ scene, camera, player, interiors, fun, emit, burst, stream, tip, tipV, glowTex, best, BYKEY, targets, hearts, heightAt, lib }) {
@@ -224,7 +224,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     const prof = [[0.001, 0], [0.12, 0], [0.16, 0.08], [0.22, 0.24], [0.2, 0.4], [0.13, 0.5], [0.115, 0.56], [0.18, 0.62], [0.17, 0.66], [0.13, 0.64]].map(([r, y]) => new Vector2(r, y));
     for (let i = 0; i < NURN; i++) {
       B(YB.urn0 + i, ...UC);
-      const pp = [paint(new LatheGeometry(prof, 6, i * Math.PI / 2, Math.PI / 2), 0x7a6c5a, 0xa49482)];
+      const pp = [paint(new LatheGeometry(prof, 6, i * Math.PI / 2, Math.PI / 2), 0x665848, 0x8c7c68)];
       const mid = i * Math.PI / 2 + Math.PI / 4;
       pp.push(paint(place(new TorusGeometry(0.205, 0.012, 4, 6, Math.PI / 2), 0, 0.32, 0, Math.PI / 2, 0, -i * Math.PI / 2), 0x6a8a5a));   // a mossy band
       if (i % 2 === 0) pp.push(paint(place(new TorusGeometry(0.06, 0.016, 5, 8, Math.PI), Math.sin(mid) * 0.2, 0.5, Math.cos(mid) * 0.2, 0, mid + Math.PI / 2, 0), 0x7a6c5a, 0x9e907c));
@@ -461,7 +461,15 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     const candles = room.group.getObjectByName('candle-flames');
     const g = Object.assign(k, { room, flames, SC, candles, origin: room.group.position.clone() });
     for (let i = 0; i < NPL; i++) { const b = g.bones[GB.plate0 + i], br = GS.plate.broken[i]; b.position.copy(br.p); b.quaternion.copy(br.q); }
-    if (candles && GS.candles.out) candles.visible = false;
+    // the room's baked light mesh carries a soft halo round every candle: remember those vertices (above 1.2 m,
+    // inside the hall away from the wall torches) so they can fade with the candles
+    const pools = room.group.getObjectByName('lightPools');
+    if (pools && pools.geometry.attributes.color) {
+      const pa = pools.geometry.attributes.position, ca = pools.geometry.attributes.color, idx = [];
+      for (let i = 0; i < pa.count; i++) if (pa.getY(i) > 1.2 && Math.abs(pa.getX(i)) < 8.4 && pa.getZ(i) > -15.5) idx.push(i);
+      g.halo = { ca, idx, orig: Float32Array.from(idx.flatMap(i => [ca.getX(i), ca.getY(i), ca.getZ(i)])) };
+    }
+    if (candles && GS.candles.out) { candles.visible = false; haloSet(g, 0); }
     return g;
   }
   const ghLive = () => !!gh && interiors.room === gh.room && interiors.active === 'greathall';
@@ -479,9 +487,14 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
   gTarget({ id: 'gh-candles', spells: ['incendio', 'aguamenti'], at: (o) => { const f = player.yaw; return o.set(pos.x + Math.sin(f) * 1.5, GO().y + 3.6, pos.z + Math.cos(f) * 1.5); },
     ok: (k) => ghLive() && !!gh.candles && !GS.candles.pend && (k === 'incendio' ? GS.candles.out : !GS.candles.out) && !standOk(k), cast: (k) => { GS.candles.pend = k === 'incendio' ? 0.4 : 1.0; GS.candles.pendK = k; } });
 
+  function haloSet(g, k) {
+    const h = g && g.halo; if (!h) return;
+    h.idx.forEach((i, j) => h.ca.setXYZ(i, h.orig[j * 3] * k, h.orig[j * 3 + 1] * k, h.orig[j * 3 + 2] * k));
+    h.ca.needsUpdate = true;
+  }
   function candlesSet(out, why) {
     const c = GS.candles; if (!gh || !gh.candles || c.out === out) return false;
-    c.out = out; c.since = T; gh.candles.visible = !out;
+    c.out = out; c.since = T; gh.candles.visible = !out; haloSet(gh, out ? 0 : 1);
     const im = gh.candles, n = Math.min(im.count, 120);
     for (let j = 0; j < 14; j++) {
       im.getMatrixAt((Math.random() * n) | 0, _m4); v0.setFromMatrixPosition(_m4).add(gh.origin);
@@ -595,7 +608,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
         platter: { mode: GS.platter.mode, floats: GS.platter.floats, accios: GS.platter.accios, reached: GS.platter.reached, maxRise: +GS.platter.maxRise.toFixed(2) },
         goblet: { mode: GS.goblet.mode, floats: GS.goblet.floats, accios: GS.goblet.accios, reached: GS.goblet.reached },
         plate: { state: GS.plate.state, mends: GS.plate.mends, breaks: GS.plate.breaks },
-        candles: { out: GS.candles.out, outs: GS.candles.outs, lights: GS.candles.lights, byNox: GS.candles.byNox, visible: !!(gh && gh.candles && gh.candles.visible) } },
+        candles: { out: GS.candles.out, outs: GS.candles.outs, lights: GS.candles.lights, byNox: GS.candles.byNox, visible: !!(gh && gh.candles && gh.candles.visible), halos: gh && gh.halo ? gh.halo.idx.length : 0 } },
     }),
     api: { YARD, GH, YL },
   };

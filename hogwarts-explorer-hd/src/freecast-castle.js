@@ -270,11 +270,12 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     }
     {   // the crest: a swept-back fan of red horsehair along the top, rising over the brow and trailing down the back
       const cp = [paint(place(new CylinderGeometry(0.022, 0.03, 0.05, 6), 0, 0.2, 0.06, 0.3, 0, 0), GOLD), paint(place(new BoxGeometry(0.03, 0.025, 0.3), 0, 0.195, -0.08, -0.15, 0, 0), GOLD, 0xb08a30)];
-      const C = [[0.1, 0.2], [0.04, 0.29], [-0.05, 0.345], [-0.15, 0.35], [-0.25, 0.31], [-0.33, 0.23], [-0.38, 0.13]];
-      for (let i = 0; i < C.length; i++) {
-        const [z, y] = C[i], [z2, y2] = C[Math.min(C.length - 1, i + 1)], [z0, y0] = C[Math.max(0, i - 1)];
-        const ang = Math.atan2(y2 - y0, -(z2 - z0)), rr = 0.075 - i * 0.004;
-        cp.push(paint(place(new SphereGeometry(rr, 9, 6), 0, y, z, ang, 0, 0, 0.32, 0.85, 1.25), i % 2 ? 0xb01622 : 0xc81e2a, 0xff5a5a));
+      const C = [[0.1, 0.2], [0.04, 0.29], [-0.05, 0.345], [-0.15, 0.35], [-0.25, 0.31], [-0.33, 0.23], [-0.38, 0.13]], N = 14;
+      const at = (u) => { const f = u * (C.length - 1), i = Math.min(C.length - 2, Math.floor(f)), k = f - i; return [C[i][0] + (C[i + 1][0] - C[i][0]) * k, C[i][1] + (C[i + 1][1] - C[i][1]) * k]; };
+      for (let i = 0; i < N; i++) {   // overlapping ellipsoids along the arc read as one smooth brush of horsehair
+        const u = i / (N - 1), [z, y] = at(u), [z2, y2] = at(Math.min(1, u + 0.05)), [z0, y0] = at(Math.max(0, u - 0.05));
+        const ang = Math.atan2(y2 - y0, -(z2 - z0)), rr = 0.07 - 0.03 * u * u;
+        cp.push(paint(place(new SphereGeometry(rr, 10, 7), 0, y, z, ang, 0, 0, 0.36, 0.95, 1.5), 0xb01622, 0xff5a5a));
       }
       P(M(cp).translate(...HC), HB.plume);
     }
@@ -706,7 +707,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     tick(dt) { tickSwell(dt); tickPumpkins(dt); },
     state: () => ({ swells: SW.n, swelling: SW.t >= 0, teapot: { level: HS.teapot.level, f: +HS.teapot.f.toFixed(2), maxF: +HS.teapot.maxF.toFixed(2), minF: +HS.teapot.minF.toFixed(2) },
       book: { level: LS.bookS.level, f: +LS.bookS.f.toFixed(2) },
-      pumpkins: PK.st.map(s => ({ i: s.i, level: s.sc.level, f: +s.sc.f.toFixed(2), waters: s.waters, floats: s.mv.floats, mode: s.mv.mode, maxRise: +s.mv.maxRise.toFixed(2) })) }),
+      pumpkins: PK.st.map(s => ({ i: s.i, level: s.sc.level, f: +s.sc.f.toFixed(2), dm: +(s.sc.f * PK.base[s.i].s.x * s.S).toFixed(2), waters: s.waters, floats: s.mv.floats, mode: s.mv.mode, maxRise: +s.mv.maxRise.toFixed(2) })) }),
   });
   SP.reducio = Object.assign(sizeSpell('reducio'), { state: () => SP.engorgio.state() });
 
