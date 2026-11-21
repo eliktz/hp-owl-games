@@ -14,6 +14,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MAT } from './interior-kit.js';
+import { liftables } from './liftables.js';
 import * as fun from './fun.js';
 
 const FONT = "'Rubik','Arial Hebrew','Noto Sans Hebrew','Heebo',Arial,sans-serif";
@@ -311,6 +312,7 @@ export function secretRoom(room, id) {
   const s = SPECS[id], { W, D, H } = s, X = W / 2, Z = D / 2;
   const g = new Group(); g.name = 'secret-room-' + id; const cols = [];
   const P = [], GL = [], GO = [], GS = [], DC = [];   // props (vertex colour), glow, gold, glass, decals
+  const GOL = GO;
   const t = 0.4;
   for (const [w, d, x, z] of [[W + 2 * t, t, 0, -Z - t / 2], [W + 2 * t, t, 0, Z + t / 2], [t, D, -X - t / 2, 0], [t, D, X + t / 2, 0]]) cols.push({ type: 'box', x, z, hw: w / 2, hd: d / 2, angle: 0 });
   const opened = CHESTS[id].state !== 'locked';
@@ -327,15 +329,20 @@ export function secretRoom(room, id) {
   // per room furnishings
   let shell, ch, mop = null, snitch = null;
   const light = (x, y, z, c, r, a) => { const o = new Object3D(); o.position.set(x, y, z); o.userData.light = { k: 'glow', c, r, a }; g.add(o); };
+  // batch 8 (freecast-real-objects.js): the brooms on the rack and a bucket are liftable, the big house cup only wobbles (liftables.js)
+  const LF = liftables(g, { ceil: H });
+  const GOLD_M = { color: 0xd8a83a, metalness: 0.85, roughness: 0.28, emissive: 0x2a1800 };
   if (id === 'broomcupboard') {
     shell = shellMesh(W, D, H, { wall: AT.stone, floorR: AT.planks, wallTint: 0xd8c8b0, floorTint: 0xd0b090 });
     // broom rack on the west wall: a rail with pegs and five brooms standing in it
     P.push([box(0.08, 0.1, 3.0, -X + 0.06, 1.75, -0.2), 0x4a2a14], [box(0.08, 0.1, 3.0, -X + 0.06, 0.35, -0.2), 0x4a2a14]);
     for (let k = 0; k < 5; k++) {
       const z = -1.5 + k * 0.65, tilt = (k % 2 ? 0.06 : -0.05);
-      P.push([new CylinderGeometry(0.022, 0.025, 1.7, 6).rotateX(tilt).translate(-X + 0.2, 1.2, z), 0x8a5a2e]);
-      P.push([new ConeGeometry(0.13, 0.5, 9).rotateX(tilt).translate(-X + 0.2, 0.3, z - tilt * 1.4), [0xc8a050, 0xb89040, 0xd0aa5a][k % 3]]);
-      P.push([new CylinderGeometry(0.06, 0.06, 0.05, 9).translate(-X + 0.2, 0.56, z - tilt * 1.2), 0x6a2a1a]);
+      const BR = [];
+      BR.push([new CylinderGeometry(0.022, 0.025, 1.7, 6).rotateX(tilt).translate(-X + 0.2, 1.2, z), 0x8a5a2e]);
+      BR.push([new ConeGeometry(0.13, 0.5, 9).rotateX(tilt).translate(-X + 0.2, 0.3, z - tilt * 1.4), [0xc8a050, 0xb89040, 0xd0aa5a][k % 3]]);
+      BR.push([new CylinderGeometry(0.06, 0.06, 0.05, 9).translate(-X + 0.2, 0.56, z - tilt * 1.2), 0x6a2a1a]);
+      LF.add('broom-' + (k + 1), { kind: 'broom', pivot: [-X + 0.2, 0.05, z], parts: BR, h: 2.0, size: 0.4, loop: [1, 0] });
       P.push([new CylinderGeometry(0.012, 0.012, 0.16, 5).rotateZ(Math.PI / 2).translate(-X + 0.12, 1.75, z), 0x2a1a0c]);
     }
     cols.push({ type: 'box', x: -X + 0.25, z: -0.2, hw: 0.3, hd: 1.6, angle: 0 });
@@ -352,9 +359,11 @@ export function secretRoom(room, id) {
     cols.push({ type: 'box', x: X - 0.22, z: -0.6, hw: 0.24, hd: 1.25, angle: 0 });
     // buckets by the shelves
     for (const [bx, bz, c] of [[X - 0.45, 1.25, 0x8a8f98], [X - 0.95, 1.55, 0x7a6a50]]) {
-      P.push([new CylinderGeometry(0.2, 0.16, 0.34, 14, 1, true).translate(bx, 0.17, bz), c], [new CircleGeometry(0.16, 14).rotateX(-Math.PI / 2).translate(bx, 0.02, bz), 0x3a4a5a]);
-      P.push([new CylinderGeometry(0.17, 0.17, 0.02, 14).translate(bx, 0.25, bz), 0x5a8ab8]);   // soapy water
-      P.push([new TorusGeometry(0.19, 0.008, 4, 14, Math.PI).translate(bx, 0.34, bz), 0x3a3a3a]);
+      const BK = c === 0x8a8f98 ? [] : P;
+      BK.push([new CylinderGeometry(0.2, 0.16, 0.34, 14, 1, true).translate(bx, 0.17, bz), c], [new CircleGeometry(0.16, 14).rotateX(-Math.PI / 2).translate(bx, 0.02, bz), 0x3a4a5a]);
+      BK.push([new CylinderGeometry(0.17, 0.17, 0.02, 14).translate(bx, 0.25, bz), 0x5a8ab8]);   // soapy water
+      BK.push([new TorusGeometry(0.19, 0.008, 4, 14, Math.PI).translate(bx, 0.34, bz), 0x3a3a3a]);
+      if (BK !== P) LF.add('bucket', { kind: 'bucket', pivot: [bx, 0, bz], parts: BK, h: 0.53, size: 0.3 });
       cols.push({ type: 'circle', x: bx, z: bz, r: 0.28 });
     }
     // one lamp: a little wall lantern over the shelves, warm glow
@@ -374,13 +383,14 @@ export function secretRoom(room, id) {
     // the big house cup on a plinth (centre)
     P.push([box(0.9, 0.12, 0.9, 0, 0.06, -0.5), 0x6a6258], [box(0.7, 0.9, 0.7, 0, 0.57, -0.5), 0x8a8274], [box(0.84, 0.08, 0.84, 0, 1.06, -0.5), 0xa89c88]);
     GL.push(uvTo(new PlaneGeometry(0.6, 0.15), GR.plaque).translate(0, 0.62, -0.5 + 0.352));
-    const cup = (x, y, z, k) => {   // k = size
+    const cup = (x, y, z, k, GO = GOL) => {   // k = size
       GO.push(new CylinderGeometry(0.16 * k, 0.2 * k, 0.06 * k, 16).translate(x, y + 0.03 * k, z), new CylinderGeometry(0.04 * k, 0.05 * k, 0.22 * k, 10).translate(x, y + 0.17 * k, z));
       GO.push(new SphereGeometry(0.22 * k, 16, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2).scale(1, 1.25, 1).translate(x, y + 0.56 * k, z));
       GO.push(new CylinderGeometry(0.22 * k, 0.22 * k, 0.28 * k, 16, 1, true).translate(x, y + 0.7 * k, z), new TorusGeometry(0.22 * k, 0.018 * k, 6, 18).rotateX(Math.PI / 2).translate(x, y + 0.84 * k, z));
       for (const sx of [-1, 1]) GO.push(new TorusGeometry(0.1 * k, 0.022 * k, 6, 12, Math.PI * 1.3).rotateZ(sx > 0 ? -Math.PI * 0.65 : Math.PI * 0.35).translate(x + sx * 0.25 * k, y + 0.62 * k, z));
     };
-    cup(0, 1.1, -0.5, 1.5);
+    { const BIG = []; cup(0, 1.1, -0.5, 1.5, BIG);
+      LF.add('house-cup', { kind: 'cup', mat: 'plain', material: new MeshStandardMaterial(GOLD_M), pivot: [0, 1.1, -0.5], parts: BIG.map(flat), h: 1.3, size: 0.5, heavy: true }); }
     cols.push({ type: 'box', x: 0, z: -0.5, hw: 0.5, hd: 0.5, angle: 0 });
     // four glass cases along the side walls: oak base, glass box, two shelves of cups and house shields
     const HOUSE = [[0x9a1622, 0xd8a830], [0x1c3c8a, 0xb88a5a], [0xd8a820, 0x2a2420], [0x1a6a32, 0xb8bcc4]];
@@ -450,7 +460,8 @@ export function secretRoom(room, id) {
   g.add(shell);
   const props = vcMesh(P, 'secret-props'); props.castShadow = true; g.add(props);
   const glow = new Mesh(mergeGeometries(GL.map(flat), false), glowMat()); glow.name = 'secret-glow'; g.add(glow);
-  if (GO.length) { const gold = new Mesh(mergeGeometries(GO.map(flat), false), new MeshStandardMaterial({ color: 0xd8a83a, metalness: 0.85, roughness: 0.28, emissive: 0x2a1800 })); gold.name = 'secret-gold'; g.add(gold); }
+  LF.finish();
+  if (GO.length) { const gold = new Mesh(mergeGeometries(GO.map(flat), false), new MeshStandardMaterial(GOLD_M)); gold.name = 'secret-gold'; g.add(gold); }
   if (GS.length) { const glass = new Mesh(mergeGeometries(GS.map(flat), false), new MeshStandardMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.1, depthWrite: false })); glass.name = 'secret-glass'; glass.renderOrder = 3; glass.raycast = () => {}; g.add(glass); }
   if (DC.length) { const dc = new Mesh(mergeGeometries(DC.map(flat), false), decalMat()); dc.name = 'secret-decals'; dc.renderOrder = 4; dc.raycast = () => {}; g.add(dc); }
   const frog = frogMesh(); g.add(frog);

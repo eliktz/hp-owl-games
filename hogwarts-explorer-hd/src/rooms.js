@@ -19,6 +19,7 @@ import { decorate } from './decor.js';
 import { addDumbledore } from './dumbledore.js';
 import { showerDoor, showerHall } from './showers.js';
 import { secretDoor, secretRoom } from './secret-rooms.js';
+import { liftables } from './liftables.js';
 
 export const FLOOR_Y = -200;
 // Gryffindor red, Ravenclaw blue, Hufflepuff gold, Slytherin green.
@@ -205,8 +206,22 @@ function greatHall() {
   carpet(g, 0, 0, 6, D - 5, 0x6e1420);                     // long crimson aisle runner
   const flames = [];
   // Four house tables framing the central aisle: benches, plates, and low candelabra.
+  // batch 8 (freecast-real-objects.js): three goblets and two platters on the house tables near the doors are liftable:
+  // their instances are hidden (zero scale) and the same gold cylinders stand in their place, drawn by liftables.js
+  const LF = liftables(g, { ceil: H }), LIFT = { '-5,9': { cups: [1, 2], plates: [3] }, '5,9': { cups: [2], plates: [1] } };
+  const zero = new Object3D(); zero.scale.set(0, 0, 0); zero.updateMatrix();
   for (const tx of [-5, 5]) for (const tz of [-6, 9]) {
-    longTable(g, tx, tz, 16);
+    const tg = longTable(g, tx, tz, 16), pick = LIFT[tx + ',' + tz];
+    if (pick) {
+      const ats = tg.userData.tableAt, cups = tg.getObjectByName('table-cups'), plates = tg.getObjectByName('table-plates');
+      for (const i of pick.cups) { const p = ats[i]; cups.setMatrixAt(i, zero.matrix);
+        LF.add('goblet-' + (tx < 0 ? 'w' : 'e') + i, { kind: 'goblet', mat: 'plain', material: MAT.gold, pivot: [tx + 0.5, 0.99, tz + p - 0.4], h: 0.26, size: 0.15,
+          parts: [new CylinderGeometry(0.1, 0.13, 0.26, 10).translate(tx + 0.5, 1.12, tz + p - 0.4)] }); }
+      for (const i of pick.plates) { const p = ats[i]; plates.setMatrixAt(i, zero.matrix);
+        LF.add('platter-' + (tx < 0 ? 'w' : 'e') + i, { kind: 'platter', mat: 'plain', material: MAT.gold, pivot: [tx, 0.995, tz + p], h: 0.05, size: 0.3,
+          parts: [new CylinderGeometry(0.28, 0.24, 0.05, 14).translate(tx, 1.02, tz + p)] }); }
+      cups.instanceMatrix.needsUpdate = true; plates.instanceMatrix.needsUpdate = true;
+    }
     for (let i = -6; i <= 6; i += 4) { const c = candle(tx, 1.45, tz + i); c.userData.light.top = 1.035; g.add(c); flames.push(c); }
   }
   // House banners hang over each table from the roof, two per table (students.js HOUSE seats:
@@ -245,6 +260,7 @@ function greatHall() {
   // Static pieces sharing a material (walls, gables, window surrounds and mullions, stained-glass
   // panes, columns, table tops and benches, torches, iron) merge into one mesh per material.
   // The candles (instanced and bobbing in room()) are left alone.
+  LF.finish();
   mergeStatic(g, g.children.filter(c => !flames.includes(c)));
   // baked height falloff on the merged stone: honey-bright low, shadowed under the roof
   const stoneHex = [WALL, 0x7d7870].map(h => new Color(h).getHex());   // (colour-managed round trip, as the materials store it)
@@ -288,8 +304,17 @@ function library() {
     { x: -6.2, z: -5.6, w: 5, h: 4.4, d: 0.8, a: Math.PI / 2, both: true }, { x: -6.2, z: 5.6, w: 5, h: 4.4, d: 0.8, a: Math.PI / 2, both: true },   // stacks: aisles from the door
   ];
   bookcases(g, cases, cols, { wood: 0x3a2414 });
+  // two shelf books in the south cases (row 2 and row 1, mid-bay): their spines sit 2 cm proud of the shelf's spine row,
+  // and Leviosa / Accio slide them out (-z, into the room) first
+  for (const [bx, by, hex, n] of [[3.35, 0.24 + 2 * 0.5145 + 0.025, 0x6e2418, 1], [7.15, 0.24 + 0.5145 + 0.025, 0x1c2c48, 2]]) {
+    const bz = c - (d / 2 - 0.14) + 0.08;
+    LF.add('book-shelf-' + n, { kind: 'book', pivot: [bx, by, bz], h: 0.32, size: 0.3, slide: [0, -1],
+      parts: [[new BoxGeometry(0.06, 0.32, 0.2).translate(bx, by + 0.16, bz), hex], [new BoxGeometry(0.062, 0.02, 0.202).translate(bx, by + 0.25, bz), 0xb8903e], [new BoxGeometry(0.062, 0.02, 0.202).translate(bx, by + 0.06, bz), 0xb8903e]] });
+  }
   // two long reading tables (oak, the same wood as the cases) with chairs, green lamps and books
-  const P = [], at = (geo, hex, x, y, z, ry = 0) => { if (ry) geo.rotateY(ry); geo.translate(x, y, z); P.push([geo, hex]); };
+  // batch 8 (freecast-real-objects.js): a chair, two table books and two shelf books are liftable (same geometry, drawn by liftables.js)
+  const LF = liftables(g, { ceil: H }); let sink = null;
+  const P = [], at = (geo, hex, x, y, z, ry = 0) => { if (ry) geo.rotateY(ry); geo.translate(x, y, z); (sink || P).push([geo, hex]); };
   const T = [];
   const TOP = 0.86, lampSpots = [];
   for (const tz of [-4.2, 4.2]) {
@@ -298,17 +323,25 @@ function library() {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) T.push(new BoxGeometry(0.12, TOP - 0.1, 0.12).translate(sx * (tw / 2 - 0.15), (TOP - 0.1) / 2, tz + sz * (tl / 2 - 0.2)));
     T.push(new BoxGeometry(0.08, 0.1, tl - 0.6).translate(0, 0.25, tz));                                            // stretcher
     for (const sx of [-1, 1]) for (const k of [-1.6, 0, 1.6]) {                                                     // chairs
-      const cx = sx * 1.15, cz = tz + k;
-      T.push(new BoxGeometry(0.46, 0.06, 0.46).translate(cx, 0.48, cz), new BoxGeometry(0.06, 0.62, 0.42).translate(cx + sx * 0.22, 0.82, cz));
-      for (const lx of [-0.18, 0.18]) for (const lz of [-0.18, 0.18]) T.push(new BoxGeometry(0.05, 0.46, 0.05).translate(cx + lx, 0.23, cz + lz));
+      const cx = sx * 1.15, cz = tz + k, lift = tz > 0 && sx > 0 && k > 0, CT = lift ? [] : T;
+      CT.push(new BoxGeometry(0.46, 0.06, 0.46).translate(cx, 0.48, cz), new BoxGeometry(0.06, 0.62, 0.42).translate(cx + sx * 0.22, 0.82, cz));
+      for (const lx of [-0.18, 0.18]) for (const lz of [-0.18, 0.18]) CT.push(new BoxGeometry(0.05, 0.46, 0.05).translate(cx + lx, 0.23, cz + lz));
+      if (lift) LF.add('chair', { kind: 'chair', mat: 'tex', material: woodMat(1, 3, 0x5a3a22), pivot: [cx, 0, cz], parts: CT, h: 1.13, size: 0.5, furniture: true });
     }
     cols.push({ type: 'box', x: 0, z: tz, hw: 1.45, hd: tl / 2, angle: 0 });
     for (const [lx, lz] of [[0.35, -1.3], [-0.35, 1.3]]) lampSpots.push([lx, tz + lz]);
     // open books, a quill and inkpot, a stack on each table
     for (const [bx, bz, ry] of [[-0.3, tz - 0.4, 0.3], [0.32, tz + 0.5, -0.2], [-0.25, tz + 1.9, 0.1]]) {
+      const lift = tz > 0 && bz > tz + 1, BP = lift ? [] : null; sink = BP;
       at(new BoxGeometry(0.42, 0.03, 0.3), 0xe8dcb6, bx, TOP + 0.015, bz, ry); at(new BoxGeometry(0.02, 0.035, 0.3), 0x5a1e1a, bx, TOP + 0.017, bz, ry);
+      sink = null; if (lift) LF.add('book-open', { kind: 'book', pivot: [bx, TOP, bz], parts: BP, h: 0.04, size: 0.3 });
     }
-    let y = TOP; for (let i = 0; i < 4; i++) { const h = 0.07 + (i % 2) * 0.03; at(new BoxGeometry(0.34, h, 0.25), [0x5a1e1a, 0x1f3b5e, 0x2c4a2a, 0x5a3a1e][i], 0.4, y + h / 2, tz - 2, i * 0.3); y += h; }
+    let y = TOP; for (let i = 0; i < 4; i++) {
+      const h = 0.07 + (i % 2) * 0.03, lift = tz > 0 && i === 3, BP = lift ? [] : null; sink = BP;
+      at(new BoxGeometry(0.34, h, 0.25), [0x5a1e1a, 0x1f3b5e, 0x2c4a2a, 0x5a3a1e][i], 0.4, y + h / 2, tz - 2, i * 0.3);
+      sink = null; if (lift) LF.add('book-stack', { kind: 'book', pivot: [0.4, y, tz - 2], parts: BP, h, size: 0.3 });
+      y += h;
+    }
     at(new CylinderGeometry(0.035, 0.04, 0.06, 8), 0x101014, -0.45, TOP + 0.03, tz + 0.9); const q = new ConeGeometry(0.03, 0.34, 5); q.rotateZ(0.5); at(q, 0xf2ece0, -0.4, TOP + 0.2, tz + 0.9);
   }
   const tables = new Mesh(mergeGeometries(T, false), woodMat(1, 3, 0x5a3a22)); tables.castShadow = true; g.add(tables);   // warmer oak than the cases
@@ -343,6 +376,7 @@ function library() {
   heightShade(g.children.filter(m => m.isMesh && (m.material === oak || m.material.name === 'book-spines')), { y0: 1.2, y1: 6.4, k0: 1.08, k1: 0.5 });
   const daylight = windowLight(g, sun, { slope: 1.15, strength: 0.75 });
   // a few books drifting over the tables and the stacks
+  LF.finish();
   const fly = floatingBooks(g, [[-1.4, 3.1, -5.2], [1.2, 3.6, -3], [0.4, 4.2, 3.4], [-1.1, 3.4, 5.6], [-6.2, 5.6, -3.4], [-6.2, 5.2, 3], [6.4, 5.4, -2.2], [2.8, 4.6, 0.4]].map(([x, y, z]) => ({ x, y, z })));
   return room(g, cols, { x: 4, z: D / 2 - 3.6, yaw: Math.PI }, {      // beside the reading table (the old spawn stood inside it)
     id: 'library',
@@ -389,10 +423,15 @@ function commonRoom() {
   // the rug, the wing chairs and a sofa round the fire (one vertex-coloured mesh for the furniture)
   rug(g, 0, -2.6, 8.4, 5.6);
   const P = [], RED = 0x6e161c, DEEP = 0x4a0e12, LEG = 0x2a1a10, GOLD = 0xb8903e;
-  const piece = (x, z, ry) => (geo, hex, lx, ly, lz) => { geo.translate(lx, ly, lz); geo.rotateY(ry); geo.translate(x, 0, z); P.push([geo, hex]); };
-  const wingChair = (x, z, ry) => {
+  // batch 8 (freecast-real-objects.js): a wing chair's cushion, the chessboard and two books in the case are liftable (liftables.js)
+  const LF = liftables(g, { ceil: H });
+  const piece = (x, z, ry, into = P) => (geo, hex, lx, ly, lz) => { geo.translate(lx, ly, lz); geo.rotateY(ry); geo.translate(x, 0, z); into.push([geo, hex]); };
+  const wingChair = (x, z, ry, cushion = false) => {
     const p = piece(x, z, ry);
-    p(new BoxGeometry(0.86, 0.2, 0.8), RED, 0, 0.5, 0.04); p(new BoxGeometry(0.9, 0.24, 0.86), DEEP, 0, 0.3, 0);               // cushion, base
+    if (cushion) { const CP = []; piece(x, z, ry, CP)(new BoxGeometry(0.86, 0.2, 0.8), RED, 0, 0.5, 0.04);
+      LF.add('cushion', { kind: 'cushion', pivot: [x + Math.sin(ry) * 0.04, 0.4, z + Math.cos(ry) * 0.04], parts: CP, h: 0.2, size: 0.45, furniture: true });
+    } else p(new BoxGeometry(0.86, 0.2, 0.8), RED, 0, 0.5, 0.04);
+    p(new BoxGeometry(0.9, 0.24, 0.86), DEEP, 0, 0.3, 0);               // cushion, base
     const back = new BoxGeometry(0.9, 1.05, 0.2); back.rotateX(-0.12); p(back, RED, 0, 1.08, -0.38);
     for (const s of [-1, 1]) {
       const wing = new BoxGeometry(0.12, 0.62, 0.42); wing.rotateY(s * 0.25); p(wing, RED, s * 0.46, 1.18, -0.2);              // wings
@@ -403,7 +442,7 @@ function commonRoom() {
     p(new BoxGeometry(0.92, 0.03, 0.03), GOLD, 0, 0.42, 0.44);                                                               // brass piping
     cols.push({ type: 'circle', x, z, r: 0.62 });
   };
-  wingChair(-3.4, -5.1, Math.PI - 0.6); wingChair(3.4, -5.1, Math.PI + 0.6); wingChair(-3.9, -1.2, Math.PI - 1.2);
+  wingChair(-3.4, -5.1, Math.PI - 0.6); wingChair(3.4, -5.1, Math.PI + 0.6); wingChair(-3.9, -1.2, Math.PI - 1.2, true);
   { const p = piece(1.2, -1.5, Math.PI + 0.35);                                                                              // the sofa
     p(new BoxGeometry(2.6, 0.26, 0.9), DEEP, 0, 0.3, 0); for (const sx of [-0.64, 0.64]) p(new BoxGeometry(1.24, 0.2, 0.8), RED, sx, 0.52, 0.05);
     const back = new BoxGeometry(2.6, 0.7, 0.22); back.rotateX(-0.1); p(back, RED, 0, 0.88, -0.36);
@@ -412,7 +451,9 @@ function commonRoom() {
     cols.push({ type: 'box', x: 1.2, z: -1.5, hw: 1.3, hd: 0.75, angle: 0 }); }
   { const p = piece(-1.5, -2.9, 0.2);                                                                                       // a low table with a chessboard
     p(new BoxGeometry(1.1, 0.06, 0.7), LEG, 0, 0.45, 0); for (const lx of [-0.48, 0.48]) for (const lz of [-0.28, 0.28]) p(new BoxGeometry(0.06, 0.42, 0.06), LEG, lx, 0.21, lz);
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) p(new BoxGeometry(0.09, 0.012, 0.09), (i + j) % 2 ? 0xd8c8a0 : 0x2a1c14, -0.135 + i * 0.09, 0.485, -0.135 + j * 0.09);
+    const CB = [], pc = piece(-1.5, -2.9, 0.2, CB);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) pc(new BoxGeometry(0.09, 0.012, 0.09), (i + j) % 2 ? 0xd8c8a0 : 0x2a1c14, -0.135 + i * 0.09, 0.485, -0.135 + j * 0.09);
+    LF.add('chessboard', { kind: 'chessboard', pivot: [-1.5, 0.479, -2.9], parts: CB, h: 0.012, size: 0.36, rattle: true });
     cols.push({ type: 'circle', x: -1.5, z: -2.9, r: 0.5 }); }
   // oak panelling round the lower walls (not across the doorway, the fireplace or the bookcase)
   const PAN = [], ph = 1.5, IN = W / 2 - 0.5;
@@ -428,6 +469,11 @@ function commonRoom() {
   const panelling = new Mesh(mergeGeometries(PAN, false), woodMat(1, 1, 0x7a5232)); panelling.name = 'panelling'; g.add(panelling);
   // a bookcase by the door (east wall) and the notice board beside it
   bookcases(g, [{ x: W / 2 - 0.82, z: 4.6, w: 3, h: 4.2, a: -Math.PI / 2 }], cols, { wood: 0x3e2616, seed: 9 });
+  for (const [bz, by, hex, n] of [[3.75, 0.24 + 2 * 0.5229 + 0.025, 0x5e3a1c, 1], [5.45, 0.24 + 0.5229 + 0.025, 0x234030, 2]]) {   // spines 2 cm proud of the row
+    const bx = W / 2 - 0.82 - 0.16 + 0.08;
+    LF.add('book-shelf-' + n, { kind: 'book', pivot: [bx, by, bz], h: 0.32, size: 0.3, slide: [-1, 0],
+      parts: [[new BoxGeometry(0.2, 0.32, 0.06).translate(bx, by + 0.16, bz), hex], [new BoxGeometry(0.202, 0.02, 0.062).translate(bx, by + 0.25, bz), 0xb8903e], [new BoxGeometry(0.202, 0.02, 0.062).translate(bx, by + 0.06, bz), 0xb8903e]] });
+  }
   { const bx = W / 2 - 0.53, bz = 0.6, B = (w, h, d, hex, y, z, ox = 0) => { const geo = new BoxGeometry(d, h, w); geo.translate(bx - ox, y, z); P.push([geo, hex]); };
     B(2.2, 1.4, 0.06, 0x2a1a10, 2.4, bz); B(2.0, 1.2, 0.04, 0x8a6440, 2.4, bz, 0.03);                                       // frame + cork
     let sd = 4; const r = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
@@ -440,6 +486,7 @@ function commonRoom() {
   const flames = [];
   for (const x of [-2.2, -1.5, 1.5, 2.2]) { const cd = candle(x, 3.95, -D / 2 + 1.8); cd.userData.light = { k: 'candle', c: 0xffc070 }; g.add(cd); flames.push(cd); }
   propMesh(g, P, 'common-props');
+  LF.finish();
   // round-headed leaded windows onto the night sky (west wall), a torch each side of the door
   nightWindows(g, [{ x: -IN + 0.06, y: 4.4, z: -2.4, a: Math.PI / 2 }, { x: -IN + 0.06, y: 4.4, z: 3.4, a: Math.PI / 2 }], { w: 1.8, h: 3.4 });
   for (const x of [-3, 3]) torch(g, x, 3.2, IN - 0.05, 0xff8a2a, { shared: true, wash: 2.6, glowBall: false });
@@ -571,7 +618,9 @@ function classrooms() {
   const ch = chandelier(g, 0, H - 1.4, 1.5, 1.6, { shared: true });
   // ---- props: ONE vertex-coloured mesh for all three corners (+ instanced desk candles) ----
   const P = [], flames = [];
-  const at = (geo, hex, x, y, z, ry = 0, rz = 0, rx = 0) => { if (rx) geo.rotateX(rx); if (rz) geo.rotateZ(rz); if (ry) geo.rotateY(ry); geo.translate(x, y, z); P.push([geo, hex]); };
+  // batch 8 (freecast-real-objects.js): two chairs, the Defence stack of tomes and a quill + inkpot are liftable (liftables.js)
+  const LF = liftables(g, { ceil: H }); let sink = null;
+  const at = (geo, hex, x, y, z, ry = 0, rz = 0, rx = 0) => { if (rx) geo.rotateX(rx); if (rz) geo.rotateZ(rz); if (ry) geo.rotateY(ry); geo.translate(x, y, z); (sink || P).push([geo, hex]); };
   const BOOK = [0x6a1e1e, 0x1f3b5e, 0x2c4a2a, 0x5a3a1e, 0x4a2a52, 0x7a5a1e];
   const TOP = 0.85;                                           // desk top (lessons.js desks)
   let seed = 9; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -598,8 +647,22 @@ function classrooms() {
   DESKS.forEach(([dx, dz], k) => { book(9 + dx - 0.25, TOP, -6.2 + dz, -0.15, [0, 3, 0, 3][k], 0.4, 0.3, 0.09); const c = candle(9 + dx + 0.4, TOP + 0.2, -6.2 + dz - 0.1); c.userData.light = { k: 'glow', c: 0xffc070, r: 1.3, a: 0.14 }; g.add(c); flames.push(c); });   // small pools: four full candle pools bleached the green carpet
   stand(11.2, -6.4, 1.2, 0x241b14); cage(11.2, 1.23, -6.4, 0.32, 0.6, 16, 0x2e2b30);
   for (let k = 0; k < 4; k++) { const a = k * 1.7; at(new SphereGeometry(0.05, 6, 5), 0x3f7fe0, 11.2 + Math.cos(a) * 0.15, 1.4 + k * 0.1, -6.4 + Math.sin(a) * 0.15); }   // Cornish pixies
-  pile(6.9, -6.7, 6, 1.1);
+  { const SP = []; sink = SP; pile(6.9, -6.7, 6, 1.1); sink = null;
+    LF.add('book-stack', { kind: 'books', pivot: [6.9, 0, -6.7], parts: SP, h: 0.8, size: 0.45 }); }
+  // (new in batch 8) two plain oak chairs behind desks, facing the boards: one at the back of Transfiguration, one tucked
+  // beside the Charms pupil at the front left desk (that one is never lifted while the pupil stands there)
+  for (const [cx, cz, n] of [[1.6, -0.2, 1], [-10.0, -2.35, 2]]) {
+    const CP = [], W0 = 0x5a3a1e;
+    CP.push([new BoxGeometry(0.44, 0.05, 0.44).translate(cx, 0.47, cz), W0], [new BoxGeometry(0.42, 0.5, 0.05).translate(cx, 0.76, cz + 0.2), W0]);
+    for (const lx of [-0.18, 0.18]) for (const lz of [-0.18, 0.18]) CP.push([new BoxGeometry(0.045, 0.45, 0.045).translate(cx + lx, 0.225, cz + lz), 0x3a2414]);
+    LF.add('chair-' + n, { kind: 'chair', pivot: [cx, 0, cz], parts: CP, h: 1.01, size: 0.5, furniture: true });
+    cols.push({ type: 'circle', x: cx, z: cz, r: 0.3 });
+  }
+  { const QP = [], ix = 10.75, iz = -0.6; sink = QP;   // a quill and inkpot on the Defence back desk
+    at(new CylinderGeometry(0.035, 0.04, 0.06, 8), 0x101014, ix, TOP + 0.03, iz); const q = new ConeGeometry(0.03, 0.34, 5); q.rotateZ(0.5); at(q, 0xf2ece0, ix + 0.05, TOP + 0.2, iz);
+    sink = null; LF.add('quill-ink', { kind: 'quill', pivot: [ix, TOP, iz], parts: QP, h: 0.3, size: 0.2 }); }
   propMesh(g, P, 'class-props');
+  LF.finish();
   const forgotten = secretDoor(g, 'forgottenclass');        // south wall, x -9: the locked door to the forgotten classroom
   // Static pieces that share a material merge (walls, columns, window frames and glass, torches,
   // carpets, the chandelier's iron and its flames); lessons.js adds the boards and desks later.

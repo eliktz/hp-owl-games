@@ -204,6 +204,7 @@ export function longTable(group, x, z, len = 14, runner = 0x7a1020) {
     d.position.set(0.5, 1.12, p - 0.4); d.updateMatrix(); cups.setMatrixAt(i, d.matrix);
   });
   plates.computeBoundingSphere(); cups.computeBoundingSphere(); g.add(plates, cups);
+  plates.name = 'table-plates'; cups.name = 'table-cups'; g.userData.tableAt = at;   // (batch 8: rooms.js lifts a few of them out)
   g.position.set(x, 0, z); group.add(g); return g;
 }
 
