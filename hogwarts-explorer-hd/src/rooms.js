@@ -289,6 +289,7 @@ function library() {
   shell(g, cols, W, D, H, { ceil: false, open: ['w'], wallColor: WALL, wallSegs: 5, floorWood: 0x6a4a30 });   // west doorway -> Entrance Hall
   timberCeiling(g, W - 1, D - 1, H, { along: 'x', at: [-9, -5.4, -1.8, 1.8, 5.4, 9], joist: 1.25, corbel: WALL, brace: 1.3 });
   archway(g, -W / 2 + 0.3, 0, Math.PI / 2);
+  const LF = liftables(g, { ceil: H });   // batch 8 (see below)
   // the Restricted Section: a dark arch in the north wall behind an iron gate, a cold glow beyond
   archway(g, 0, -D / 2 + 0.55, 0, { w: 2.6, h: 4.2 });
   const glowR = new Group(); glowR.position.set(0, 0.5, -D / 2 + 1.6); glowR.userData.light = { k: 'glow', c: 0x4fd0c0, r: 2.6, a: 0.28 }; g.add(glowR);
@@ -313,7 +314,7 @@ function library() {
   }
   // two long reading tables (oak, the same wood as the cases) with chairs, green lamps and books
   // batch 8 (freecast-real-objects.js): a chair, two table books and two shelf books are liftable (same geometry, drawn by liftables.js)
-  const LF = liftables(g, { ceil: H }); let sink = null;
+  let sink = null;
   const P = [], at = (geo, hex, x, y, z, ry = 0) => { if (ry) geo.rotateY(ry); geo.translate(x, y, z); (sink || P).push([geo, hex]); };
   const T = [];
   const TOP = 0.86, lampSpots = [];
