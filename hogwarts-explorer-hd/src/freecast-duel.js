@@ -282,10 +282,18 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     for (const a of d.arms) a.off = new Vector3().copy(rest[a.bi].p).sub(rest[d.bone].p);
     d.handArm = d.arms[0];   // the toy wand is in the -x hand
     d.handFromShoulder = new Vector3().copy(rest[d.wand].p).sub(rest[d.handArm.bi].p);
-    targets.push({ id: 'dummy' + d.i, grp: group, spells: ['expelliarmus', 'stupefy', 'petrificus'],
+    targets.push({ id: 'dummy' + d.i, grp: group, spells: ['expelliarmus', 'stupefy', 'petrificus', 'episkey'],
       at: (o) => o.set(d.x, d.y + 1.34, d.z + 0.27).add(group.position),
-      ok: (k) => d.petT === -1 && (k === 'expelliarmus' ? d.wandSt === 'in' && d.disT === -1 : k === 'stupefy' ? d.stunT === -1 : d.stunT === -1 && d.disT === -1 && d.wandSt === 'in'),
-      cast: (k) => { if (k === 'expelliarmus') { d.disT = -0.3; d.wandSt = 'held'; d.disarms++; } else if (k === 'stupefy') { d.stunT = -0.3; d.stuns++; } else { d.petT = -0.3; d.petrifies++; } } });
+      ok: (k) => (k === 'episkey' ? hurt(d) : d.petT === -1 && (k === 'expelliarmus' ? d.wandSt === 'in' && d.disT === -1 : k === 'stupefy' ? d.stunT === -1 : d.stunT === -1 && d.disT === -1 && d.wandSt === 'in')),
+      cast: (k) => { if (k === 'episkey') heal(d); else if (k === 'expelliarmus') { d.disT = -0.3; d.wandSt = 'held'; d.disarms++; } else if (k === 'stupefy') { d.stunT = -0.3; d.stuns++; } else { d.petT = -0.3; d.petrifies++; } } });
+  }
+  // Episkey (batch 4): a stunned, disarmed or petrified dummy is right again at once (wand back in its hand,
+  // its own colours, upright); freecast-yard.js sprinkles the hearts. tickDummy's idle branch resets the bones.
+  const hurt = (d) => d.petT !== -1 || d.stunT !== -1 || d.disT !== -1 || d.wandSt !== 'in';
+  function heal(d) {
+    d.petT = d.stunT = d.disT = -1; d.wandSt = 'in'; d.leanT = -1;
+    d.petHit = d.tipSnd = d.upDone = d.lying = d.stunHit = false; d.hopN = 0; d.heals = (d.heals || 0) + 1;
+    setTint(d, 0); fun.sfx.chime();
   }
   // Petrificus Totalus timeline (seconds): stiffen 0-0.3, tip over sideways (toward -x, so the whole stiff body
   // lies across the view from the strip) like a plank 0.35-2.1, thud + settle,
@@ -314,7 +322,13 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     const th = Math.PI / 2 * u;   // about z: +y tips toward -x
     const pd = Math.max(0, Math.min(1, u));
     d.maxTip = Math.max(d.maxTip, th); d.maxTint = Math.max(d.maxTint, tint);
-    return { th, py: -0.73 * pd * pd, px: -0.38 * pd, arm, tint, wx, wz };
+    // it topples like a plank over the -x rim of its base (a hinge 0.24 m left of the post centre), so the
+    // base swings up and away from the post top instead of sweeping through it; the hinge drifts a little
+    // further left and drops late (pd^3), landing the body flat on the grass clear of the post. (The springy
+    // overshoot on the way back up, th < 0, stays on the base centre: a few degrees, nothing to clip.)
+    if (th <= 0) return { th, py: 0, px: 0, arm, tint, wx, wz };
+    const hx = -0.24 - 0.14 * pd, hy = -0.97 * pd * pd * pd;
+    return { th, px: hx + 0.24 * Math.cos(th), py: hy + 0.24 * Math.sin(th), arm, tint, wx, wz };
   }
   function tickDummy(d, dt) {
     if (d.petT === -1 && d.disT === -1 && d.stunT === -1 && d.leanT < 0 && d.wandSt === 'in') { if (d.active) { d.active = false; for (const i of [d.bone, d.wand, ...d.arms.map(a => a.bi)]) { bones[i].position.copy(rest[i].p); bones[i].quaternion.copy(rest[i].q); } hideT(d.stars); setTint(d, 0); } return; }
@@ -416,7 +430,7 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
   SPX.stupefy = Object.assign(duelCast('stupefy'), { state: () => SPX.expelliarmus.state() });
   // Petrificus Totalus: the dummy goes stiff, tips over like a plank, lies ~3 s, pops back up with a wobble
   SPX.petrificus = Object.assign(duelCast('petrificus'), {
-    state: () => DUM.map(d => ({ on: d.petT !== -1, t: +Math.max(0, d.petT).toFixed(2), lying: d.lying, petrifies: d.petrifies, fell: d.fell, poppedUp: d.poppedUp, maxTip: +d.maxTip.toFixed(2), maxTint: +d.maxTint.toFixed(2) })),
+    state: () => DUM.map(d => ({ on: d.petT !== -1, t: +Math.max(0, d.petT).toFixed(2), lying: d.lying, petrifies: d.petrifies, fell: d.fell, poppedUp: d.poppedUp, maxTip: +d.maxTip.toFixed(2), maxTint: +d.maxTint.toFixed(2), heals: d.heals || 0, hurt: hurt(d), tint: +d.tintK.toFixed(2) })),
   });
 
   // ---- Protego: a shimmering half-dome in front of Harry; a dummy's slow pink puff bounces off it ----
