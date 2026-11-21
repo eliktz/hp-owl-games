@@ -281,7 +281,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     for (const t of TARGETS) {
       if (!t.spells.includes(key) || (t.corner && !(C && C.group.visible)) || (t.grp && !t.grp.visible) || !t.ok(key)) continue;
       t.at(tv); const dx = tv.x - pos.x, dz = tv.z - pos.z, d = Math.hypot(dx, dz);
-      if (d > maxD || (!t.overhead && Math.abs(tv.y - pos.y) > 4)) continue;
+      if (d > maxD || (!t.overhead && Math.abs(tv.y - pos.y) > (t.real ? 6 : 4))) continue;   // (wall torches hang up to ~4.1 m)
       const dot = d < 0.01 ? 1 : (dx * sx + dz * sz) / d, sc = d - dot * 3;
       if (t.real) { const sr = sc + (t.overhead ? 3 : 0); if (sr < rs) { rs = sr; realT = t; rd = d; } }   // (a torch / hearth in front beats the candles overhead)   // batch 7 (freecast-real.js): the castle's real torches / hearth / candles
       else if (sc < bs) { bs = sc; bestT = t; bd = d; }

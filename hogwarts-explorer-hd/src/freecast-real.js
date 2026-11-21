@@ -293,7 +293,7 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
       if (F.roar > 0) F.roar = Math.max(0, F.roar - dt);
       // targets for the hearth's size and glow (rooms.js multiplies them into its own flicker)
       let sx = 1, sy = 1, gl = 1, li = 1;
-      if (!F.lit) { sx = 0.92; sy = 0.12; gl = 0.32; li = 0.1; }
+      if (!F.lit) { sx = 0.92; sy = 0.3; gl = 0.5; li = 0.12; }   // a low ember bed (sy 0.3 keeps it above the hearth stone)
       else if (F.level > 0) { sx = 1.45; sy = 1.9; gl = 1.55; li = 1.45; }
       else if (F.level < 0) { sx = 0.62; sy = 0.48; gl = 0.7; li = 0.55; }
       if (F.roar > 0) { const r = Math.sin((F.roar / 0.9) * Math.PI); sx += 0.3 * r; sy += 0.7 * r; gl += 0.6 * r; li += 0.3 * r; }
@@ -354,8 +354,9 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
       if (R) { dropTargets(R); R = null; }
       if (r && r.group && interiors.active) { try { scan(r, interiors.active); builds++; } catch (e) { console.warn('[freecast] real fire and light skipped -', e && e.message || e); if (R) dropTargets(R); R = null; } }
     }
-    if (R && live(R)) tickRoom(dt);
+    if (R && live(R)) { const t0 = performance.now(); tickRoom(dt); const ms = performance.now() - t0; perf.n++; perf.ms += ms; if (ms > perf.max) perf.max = ms; }
   }
+  const perf = { n: 0, ms: 0, max: 0 };   // (debug: the cost of the room tick)
 
   // ---------------- hooks for freecast.js ----------------
   const darkRoom = () => { const a = interiors.active; return !!a && (!!DARK_ROOMS[a] || (a === 'library' && !!env && env.time !== 'day')); };
@@ -389,7 +390,7 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
         fire: S && S.fire ? { lit: S.fire.lit, level: S.fire.level, sizeT: +S.fire.sizeT.toFixed(1), sy: +S.fire.ctl.sy.toFixed(2), light: +S.fire.light.toFixed(2) } : null,
         candles: S ? { n: S.candles.length, out: S.candles.filter(u => u.kTo < 0.5).length, shownOut: S.candles.filter(u => u.shown < 0.05).length, dim: +S.dimF.toFixed(2) } : null,
         lumosLift: darkRoom() ? LIFT : 0, dark: darkRoom(), owners: S ? S.owners.length : 0,
-        poolsChanged: !!(S && S.pools && S.pools.orig),
+        poolsChanged: !!(S && S.pools && S.pools.orig), perf: { frames: perf.n, avgMs: +(perf.ms / Math.max(1, perf.n)).toFixed(3), maxMs: +perf.max.toFixed(2) },
       };
     },
     ids: () => (R ? R.targets.map(t => t.id) : []),
