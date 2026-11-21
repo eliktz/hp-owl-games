@@ -6,6 +6,7 @@
 // (Pip loops, the Sorting Hat giggles, Trevor hops...). The four duelling spells (Expelliarmus, Stupefy,
 // Protego, Riddikulus) act only on the dummies and the wardrobe of the duelling spot (freecast-duel.js) and
 // never fall through to the wand's delights: nothing is cast on people or creatures.
+// Batch 3 (freecast-castle.js) and batch 4 (freecast-yard.js: Episkey, the courtyard and Great Hall spots) add more.
 //   hpFreecast1 (localStorage)  { sel, disc: [spell keys cast on a real target], chestPaid }
 // Cost: nothing while idle (the corner hides beyond 70 m / indoors, effects are pooled and hidden when
 // unused, nothing is allocated per frame).
@@ -41,6 +42,7 @@ export const SPELLS = [
   { key: 'protego', icon: '🛡️', name: 'פְּרוֹטֶגוֹ', words: 'פְּרוֹטֶגוֹ!', col: 0x7ac8ff },
   { key: 'riddikulus', icon: '😂', name: 'רִידִיקוּלוּס', words: 'רִידִיקוּלוּס!', col: 0xff9ad8 },
   { key: 'patronum', icon: '🦌', name: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם', words: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם!', col: 0xbfe4ff },
+  { key: 'episkey', icon: '🩹', name: 'אֶפִּיסְקִי', words: 'אֶפִּיסְקִי!', col: 0xff9ac8 },   // batch 4 (freecast-yard.js)
 ];
 const BYKEY = Object.fromEntries(SPELLS.map(s => [s.key, s]));
 const COOL = 0.8;                 // seconds of game time between casts (the wand's own is 0.55)
@@ -108,7 +110,8 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   #fcWheel .hd{display:flex;align-items:center;gap:18px;color:#ffe9a8;font-size:28px;font-weight:bold;text-shadow:0 2px 0 #000}
   #fcWheel .cnt{font-size:20px;padding:2px 12px;border-radius:16px;background:rgba(255,215,106,.18);border:2px solid rgba(255,215,106,.6)}
   #fcWheel .pan{max-height:calc(100vh - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch}
-  #fcWheel .grid{display:grid;grid-template-columns:repeat(6,min(150px,calc((96vw - 92px) / 6)));gap:10px}
+  #fcWheel .grid{display:grid;grid-template-columns:repeat(7,min(146px,calc((96vw - 104px) / 7)));gap:10px}
+  #fcWheel .grid .sp:nth-child(15){grid-column-start:2}
   #fcWheel .sp{position:relative;height:min(132px,calc((100vh - 128px) / 3 - 10px));border-radius:22px;border:4px solid rgba(255,215,106,.55);background:rgba(40,25,95,.85);color:#fff;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 5px;cursor:pointer;touch-action:manipulation;font-family:inherit;box-sizing:border-box}
   #fcWheel .sp .i{font-size:min(52px,calc((100vh - 128px) / 3 - 66px));line-height:1.05}
@@ -116,9 +119,10 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   #fcWheel .sp.on{border-color:#fff3b0;background:radial-gradient(circle at 50% 30%,rgba(140,105,255,.95),rgba(60,35,140,.95));box-shadow:0 0 0 4px rgba(255,215,106,.5),0 0 22px rgba(255,215,106,.8)}
   #fcWheel .sp .st{position:absolute;top:3px;left:7px;font-size:18px}
   @media (max-aspect-ratio:1/1){#fcWheel .pan{padding:12px 10px 12px} #fcWheel .grid{grid-template-columns:repeat(3,min(calc((96vw - 44px) / 3),200px));gap:8px}
-    #fcWheel .sp{height:min(124px,calc((100vh - 132px) / 6 - 8px));padding:3px 2px;border-width:3px} #fcWheel .sp .i{font-size:min(50px,11vw,calc((100vh - 132px) / 6 - 62px))} #fcWheel .sp .n{font-size:max(14px,min(18px,3.6vw))}}
+    #fcWheel .grid .sp:nth-child(15){grid-column-start:auto} #fcWheel .grid .sp:nth-child(19){grid-column-start:2}
+    #fcWheel .sp{height:min(124px,calc((100vh - 132px) / 7 - 8px));padding:3px 2px;border-width:3px} #fcWheel .sp .i{font-size:min(50px,11vw,calc((100vh - 132px) / 7 - 62px))} #fcWheel .sp .n{font-size:max(14px,min(18px,3.6vw))}}
   @media (max-height:520px){#fcWheel .pan{padding:6px 12px 8px;gap:5px} #fcWheel .hd{font-size:20px} #fcWheel .cnt{font-size:16px}
-    #fcWheel .grid{grid-template-columns:repeat(6,min(150px,calc((96vw - 70px) / 6)));gap:6px} #fcWheel .sp{height:min(108px,calc((100vh - 70px) / 3 - 6px));border-radius:16px;gap:1px;border-width:3px}
+    #fcWheel .grid{grid-template-columns:repeat(7,min(150px,calc((96vw - 76px) / 7)));gap:6px} #fcWheel .sp{height:min(108px,calc((100vh - 70px) / 3 - 6px));border-radius:16px;gap:1px;border-width:3px}
     #fcWheel .sp .i{font-size:34px} #fcWheel .sp .n{font-size:14px}}
   body.modalOn #fcBtn,body.inMatch #fcBtn,body.inSpell #fcBtn,body.modalOn #fcWheel,body.inMatch #fcWheel,body.inSpell #fcWheel{display:none !important}`;
   document.head.appendChild(css);
@@ -637,6 +641,8 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   try { K = createCastle({ scene, camera, player, interiors, env, fun, emit, burst, stream, bolt, boltAhead, tip, tipV, glowTex, best, jet, BYKEY }); }
   catch (e) { console.warn('[freecast] castle spots skipped -', e && e.message || e); K = null; }
   if (K) { for (const t of K.targets) TARGETS.push(t); Object.assign(SP, K.SP); }
+  // batch 4: Nox / Lumos also put out / light the Great Hall's floating candles
+  if (K && K.onLumos && SP.lumos) { const c0 = SP.lumos.cast; SP.lumos.cast = function () { const r = c0.call(this); try { K.onLumos(lumOn); } catch { /* ignore */ } return r; }; }
   for (const k of ['expelliarmus', 'stupefy', 'protego', 'riddikulus', 'petrificus']) if (!SP[k]) SP[k] = { noFallback: true, cast() { if (k === 'riddikulus' || k === 'protego') { tip(); burst(tipV.x, tipV.y, tipV.z, BYKEY[k].col, 16, 2, 0.8, 0.22, -1); if (k === 'riddikulus') fun.sfx.giggle(true); else fun.sfx.chime(); } else boltAhead(BYKEY[k].col); return false; } };
 
   // ================= casting =================

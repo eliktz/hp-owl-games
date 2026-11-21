@@ -26,14 +26,19 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { plain, bone, paint, place, rod } from './freecast-corner.js';
+import { createYard } from './freecast-yard.js';
 
 // ---- spot coordinates (room-local x,z; floor y 0) ----
 export const HALL = {
   // both sides keep >= 4 m from the Great Hall / library doorway portals (+-6.8, 1, r 2.3), clear of the stairs
-  // (x -4..4, z < -5) and the hourglasses (z -10.6)
-  brazier: { x: 6.3, z: -4.2 }, chest: { x: 5.6, z: -6.2 }, teapot: { x: 6.8, z: -8.0 },
-  helmet: { x: -6.3, z: -4.4 }, vase: { x: -5.9, z: -6.4 }, books: { x: -6.8, z: -8.2 },
+  // (x -4..4, z < -5) and the hourglasses (z -10.6). Batch 4: every prop is 1.6x and stands on a 0.45 m stone
+  // plinth (HXF below) so it reads from the front doors; the chest turns to face the hall and the doors.
+  brazier: { x: 6.3, z: -4.2 }, chest: { x: 6.3, z: -6.5, yaw: -1.1 }, teapot: { x: 6.5, z: -8.8 },
+  helmet: { x: -6.3, z: -4.3 }, vase: { x: -6.4, z: -6.6 }, books: { x: -6.4, z: -8.9 },
 };
+const HSC = 1.6, PL = 0.45;   // the hall props' scale and plinth height
+const HXF = Object.fromEntries(Object.entries(HALL).map(([k, p]) => [k, new Matrix4().makeTranslation(p.x, PL, p.z)
+  .multiply(new Matrix4().makeRotationY(p.yaw || 0)).multiply(new Matrix4().makeScale(HSC, HSC, HSC)).multiply(new Matrix4().makeTranslation(-p.x, 0, -p.z))]));
 export const LIB = { candles: { x: 9.7, z: -3.6 }, pot: { x: 9.8, z: 3.6 }, lectern: { x: 7.2, z: 0 } };
 
 const _m4 = new Matrix4(), _m5 = new Matrix4(), _q = new Quaternion(), _q2 = new Quaternion(), _e = new Euler(), _v = new Vector3(), _s = new Vector3(), _c = new Color();
@@ -49,7 +54,7 @@ function starGeo(r = 0.2) {
   return paint(new ShapeGeometry(s), 0xffe27a, 0xffb820);
 }
 // a bunch of flowers, stems from the origin up (~0.36 m); wrap: a paper cone round the stems (the wand bouquet)
-function bouquetGeo(pal, wrap = false) {
+export function bouquetGeo(pal, wrap = false) {
   const P = [], N = pal.length;
   if (wrap) { const c = new ConeGeometry(0.075, 0.2, 9, 1, true); c.rotateX(Math.PI); c.translate(0, 0.1, 0); P.push(paint(c, 0xe85a9a, 0xffb0d8)); }
   for (let i = 0; i < N; i++) {
@@ -66,19 +71,31 @@ const PAL_VASE = [0xe8473a, 0xff7ab8, 0xfff4e0, 0xf2c230, 0xff9ad8, 0xe8473a, 0x
 const PAL_POT = [0x7a5ae0, 0x5a8aff, 0xc89aff, 0x9ad0ff, 0x7a5ae0, 0xffe27a, 0xb07ae8];
 
 // ---- a small kit for a spot: static parts merge into one mesh, every moving part is a bone of one skinned mesh ----
-function spotKit(name) {
-  const stat = [], mov = [], bones = [];
+// xf(matrix): every part and bone added until xf(null) is moved by that matrix (batch 4: the Entrance Hall props
+// grow 1.6x and stand on plinths); a bone's rest quaternion takes the matrix's rotation, so hinges turn with it.
+// B(idx, x, y, z, parent): a bone may ride a parent bone (x,y,z stay world-in-the-kit; made local here).
+// P returns the part's vertex range in the skinned mesh (for vertex-colour tints).
+export function spotKit(name) {
+  const stat = [], mov = [], bones = [], bw = []; let X = null, nv = 0;
+  const xq = new Quaternion(), xp = new Vector3(), xs = new Vector3();
   return {
-    S: (g) => stat.push(plain(g)),
-    B: (idx, x, y, z) => { const b = new Bone(); b.name = name + idx; b.position.set(x, y, z); bones[idx] = b; return b; },
-    P: (g, idx) => mov.push(bone(g, idx)),
+    xf: (m) => { X = m || null; },
+    S: (g) => stat.push(plain(X ? g.applyMatrix4(X) : g)),
+    B: (idx, x, y, z, parent = -1) => {
+      const b = new Bone(); b.name = name + idx; const w = new Vector3(x, y, z);
+      if (X) { w.applyMatrix4(X); X.decompose(xp, xq, xs); b.quaternion.copy(xq); }
+      bw[idx] = w.clone();
+      if (parent >= 0) { bones[parent].add(b); w.sub(bw[parent]); }
+      b.position.copy(w); bones[idx] = b; return b;
+    },
+    P: (g, idx) => { const gg = bone(X ? g.applyMatrix4(X) : g, idx), a = nv; nv += gg.attributes.position.count; mov.push(gg); return [a, nv]; },
     finish(parent, extra = []) {
       const group = new Group(); group.name = name;
       const statMesh = new Mesh(mergeGeometries(stat), new MeshStandardMaterial({ vertexColors: true, roughness: 0.75, side: DoubleSide }));
       statMesh.name = name + '-static'; statMesh.castShadow = true; statMesh.receiveShadow = true; group.add(statMesh);
       const skin = new SkinnedMesh(mergeGeometries(mov), new MeshStandardMaterial({ vertexColors: true, roughness: 0.55, side: DoubleSide }));
       skin.name = name + '-props'; skin.castShadow = true; skin.frustumCulled = false;
-      for (const b of bones) skin.add(b);
+      for (const b of bones) if (!b.parent) skin.add(b);
       group.add(skin);
       for (const o of extra) group.add(o);
       parent.add(group); group.updateMatrixWorld(true);
@@ -91,7 +108,7 @@ function spotKit(name) {
   };
 }
 // additive camera-facing flames (n instances), posed by the fire ticks below
-function flameMesh(n, tex, name) {
+export function flameMesh(n, tex, name) {
   const f = new InstancedMesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false }), n);
   f.name = name; f.frustumCulled = false; f.visible = false; f.renderOrder = 3;
   for (let i = 0; i < n; i++) f.setMatrixAt(i, _m4.makeScale(0, 0, 0));
@@ -173,16 +190,26 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   let hall = null;   // the live build: { room, kit..., origin }
   const HCtr = { x: HALL.helmet.x, y: 1.36, z: HALL.helmet.z };
   const helmetBroken = [];
-  for (let i = 0; i < NHP; i++) {
-    const a = i * 1.6 + 0.5, r = 0.55 + (i % 2) * 0.18;
-    helmetBroken.push({ p: new Vector3(HCtr.x + Math.cos(a) * r, i === 3 ? 0.06 : 0.16, HCtr.z + Math.sin(a) * r + 0.25),
+  for (let i = 0; i < NHP; i++) {   // the pieces lie on the plinth top round the stand (kit coordinates, then HXF)
+    const a = i * 1.6 + 0.5, r = 0.3 + (i % 2) * 0.1;
+    helmetBroken.push({ p: new Vector3(HCtr.x + Math.cos(a) * r, i === 3 ? 0.05 : 0.11, HCtr.z + Math.sin(a) * r + 0.08).applyMatrix4(HXF.helmet),
       q: new Quaternion().setFromEuler(new Euler(i === 2 ? -1.45 : 0.25 * i, a * 1.7, i === 0 ? 1.5 : i === 1 ? -1.5 : i === 3 ? 1.57 : 0)) });
   }
   function buildHall(room) {
     const K = spotKit('freecast-hall');
     const { S, B, P } = K;
+    // --- the plinths: a dark base course, the block, a lighter capping slab (static, not scaled) ---
+    const PLS = { brazier: [1.3, 1.3], chest: [1.55, 1.55], teapot: [1.15, 1.15], helmet: [1.55, 1.55], vase: [0.95, 0.95], books: [1.3, 0.95] };
+    for (const [k, [w, d]] of Object.entries(PLS)) {
+      const p = HALL[k];
+      S(paint(place(new BoxGeometry(w + 0.08, 0.08, d + 0.08), p.x, 0.04, p.z), 0x5e564c, 0x6e6458));
+      S(paint(place(new BoxGeometry(w - 0.06, PL - 0.13, d - 0.06), p.x, 0.08 + (PL - 0.13) / 2, p.z), 0x7a7064, 0x9a8e7a));
+      S(paint(place(new BoxGeometry(w, 0.05, d), p.x, PL - 0.025, p.z), 0xa89a84, 0xc2b49a));
+      S(paint(place(new BoxGeometry(w + 0.01, 0.02, d + 0.01), p.x, PL - 0.06, p.z), GOLD, 0xb08a30));
+    }
     // --- east: the brazier ---
     const BZ = HALL.brazier;
+    K.xf(HXF.brazier);
     S(paint(place(new CylinderGeometry(0.3, 0.35, 0.12, 12), BZ.x, 0.06, BZ.z), STONE, STONE2));
     for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3 + 0.3; S(paint(rod([BZ.x + Math.cos(a) * 0.25, 0.1, BZ.z + Math.sin(a) * 0.25], [BZ.x + Math.cos(a) * 0.15, 0.78, BZ.z + Math.sin(a) * 0.15], 0.025, 0.02, 6), IRON, 0x5a5560)); }
     S(paint(place(new LatheGeometry([[0.06, 0], [0.24, 0.08], [0.34, 0.22], [0.37, 0.27]].map(([r, y]) => new Vector2(r, y)), 14), BZ.x, 0.74, BZ.z), IRON, 0x5a5560));
@@ -190,6 +217,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     for (const r of [0.4, -0.7, 1.6]) S(paint(place(new BoxGeometry(0.42, 0.07, 0.08), BZ.x, 0.95, BZ.z, 0, r, 0.1), 0x2a1a10, 0x4a3018));
     // --- east: the locked chest (lid + lock + reward star are bones) ---
     const CH = HALL.chest;
+    K.xf(HXF.chest);
     S(paint(place(new BoxGeometry(0.8, 0.42, 0.5), CH.x, 0.23, CH.z), 0x4a2a5a, 0x6a3e7a));
     for (const dx of [-0.3, 0.3]) S(paint(place(new BoxGeometry(0.07, 0.43, 0.51), CH.x + dx, 0.235, CH.z), GOLD));
     S(paint(place(new BoxGeometry(0.62, 0.04, 0.36), CH.x, 0.43, CH.z), 0xffd23f));
@@ -207,6 +235,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     P(paint(place(new SphereGeometry(0.06, 8, 6), RW[0], RW[1], RW[2]), 0xfff2b0), HB.reward);
     // --- east: the teapot on a little round table (Engorgio / Reducio; the bone sits at the pot's foot) ---
     const TP = HALL.teapot;
+    K.xf(HXF.teapot);
     S(paint(place(new CylinderGeometry(0.33, 0.33, 0.04, 16), TP.x, 0.72, TP.z), WOOD, 0x8a5a2e));
     S(paint(rod([TP.x, 0.04, TP.z], [TP.x, 0.7, TP.z], 0.04, 0.035, 8), DARK, WOOD));
     S(paint(place(new CylinderGeometry(0.2, 0.24, 0.05, 12), TP.x, 0.025, TP.z), DARK, WOOD));
@@ -223,6 +252,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     }
     // --- west: the knight's helmet in four pieces by its stand (Reparo) ---
     const HM = HALL.helmet;
+    K.xf(HXF.helmet);
     for (const r of [0, Math.PI / 2]) S(paint(place(new BoxGeometry(0.6, 0.06, 0.1), HM.x, 0.03, HM.z, 0, r, 0), DARK, WOOD));
     S(paint(rod([HM.x, 0.05, HM.z], [HM.x, 1.18, HM.z], 0.04, 0.035, 8), DARK, WOOD));
     S(paint(place(new CylinderGeometry(0.07, 0.05, 0.05, 10), HM.x, 1.2, HM.z), GOLD));
@@ -238,9 +268,19 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       for (const sx of [-1, 1]) vp.push(paint(place(new SphereGeometry(0.018, 6, 4), sx * 0.15, -0.06, 0.05), GOLD));
       P(M(vp).translate(...HC), HB.visor);
     }
-    P(M([paint(place(new SphereGeometry(0.1, 9, 6), 0, 0.27, -0.03, 0, 0, 0, 0.35, 0.9, 1.8), 0xc81e2a, 0xff5a5a), paint(place(new CylinderGeometry(0.025, 0.03, 0.06, 6), 0, 0.2, 0), GOLD)]).translate(...HC), HB.plume);
+    {   // the crest: a swept-back fan of red horsehair along the top, rising over the brow and trailing down the back
+      const cp = [paint(place(new CylinderGeometry(0.022, 0.03, 0.05, 6), 0, 0.2, 0.06, 0.3, 0, 0), GOLD), paint(place(new BoxGeometry(0.03, 0.025, 0.3), 0, 0.195, -0.08, -0.15, 0, 0), GOLD, 0xb08a30)];
+      const C = [[0.1, 0.2], [0.04, 0.29], [-0.05, 0.345], [-0.15, 0.35], [-0.25, 0.31], [-0.33, 0.23], [-0.38, 0.13]];
+      for (let i = 0; i < C.length; i++) {
+        const [z, y] = C[i], [z2, y2] = C[Math.min(C.length - 1, i + 1)], [z0, y0] = C[Math.max(0, i - 1)];
+        const ang = Math.atan2(y2 - y0, -(z2 - z0)), rr = 0.075 - i * 0.004;
+        cp.push(paint(place(new SphereGeometry(rr, 9, 6), 0, y, z, ang, 0, 0, 0.32, 0.85, 1.25), i % 2 ? 0xb01622 : 0xc81e2a, 0xff5a5a));
+      }
+      P(M(cp).translate(...HC), HB.plume);
+    }
     // --- west: the empty vase on a pedestal (Orchideous: flowers bloom in it and stay) ---
     const VS = HALL.vase;
+    K.xf(HXF.vase);
     S(paint(place(new CylinderGeometry(0.18, 0.24, 0.78, 10), VS.x, 0.39, VS.z), STONE, STONE2));
     S(paint(place(new BoxGeometry(0.46, 0.06, 0.46), VS.x, 0.79, VS.z), STONE2));
     S(paint(place(new BoxGeometry(0.5, 0.08, 0.5), VS.x, 0.04, VS.z), STONE));
@@ -250,6 +290,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     P(bouquetGeo(PAL_VASE).scale(1.35, 1.35, 1.35).translate(VS.x, 1.26, VS.z), HB.flowers);
     // --- west: a stack of books on a stool (Leviosa / Accio) ---
     const BK = HALL.books;
+    K.xf(HXF.books);
     S(paint(place(new BoxGeometry(0.7, 0.06, 0.42), BK.x, 0.45, BK.z), WOOD, 0x8a5a2e));
     for (const dx of [-0.29, 0.29]) for (const dz of [-0.16, 0.16]) S(paint(place(new BoxGeometry(0.06, 0.43, 0.06), BK.x + dx, 0.215, BK.z + dz), DARK));
     const BC = [BK.x, 0.6, BK.z]; B(HB.books, ...BC);
@@ -263,13 +304,14 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       });
       P(M(bp).translate(...BC), HB.books);
     }
+    K.xf(null);
     // --- flames for the brazier: core, glow, a warm pool on the floor ---
     const flames = flameMesh(3, glowTex, 'freecast-hall-flames');
     flames.setColorAt(0, _c.setHex(0xffb040)); flames.setColorAt(1, _c.setHex(0xff7a20)); flames.setColorAt(2, _c.setHex(0x6a3008));
     const k = K.finish(room.group, [flames]);
     // solid bits (room colliders: room-local x,z)
-    for (const [p, r] of [[BZ, 0.38], [CH, 0.46], [TP, 0.34], [HM, 0.28], [VS, 0.3], [BK, 0.4]]) room.colliders.push({ type: 'circle', x: p.x, z: p.z, r, freecast: true });
-    const h = Object.assign(k, { room, flames, origin: room.group.position.clone(), flameY: 1.12 });
+    for (const [p, r] of [[BZ, 0.72], [CH, 0.85], [TP, 0.65], [HM, 0.85], [VS, 0.55], [BK, 0.75]]) room.colliders.push({ type: 'circle', x: p.x, z: p.z, r, freecast: true });
+    const h = Object.assign(k, { room, flames, origin: room.group.position.clone(), flameY: PL + 1.12 * HSC });
     h.bones[HB.reward].scale.setScalar(0.001);
     return h;
   }
@@ -277,13 +319,14 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   const HO = () => (hall ? hall.origin : v0.set(0, -200, 0));   // room origin (rooms sit at FLOOR_Y)
   const hW = (x, y, z, o) => o.set(x, y, z).add(HO());
   const hBoneW = (i, o) => o.copy(hall.bones[i].position).add(hall.origin);
+  const hP = (key, x, y, z, o) => o.set(x, y, z).applyMatrix4(HXF[key]).add(HO());   // a kit point of a scaled prop, in the world
   const hTarget = (t) => { t.indoor = 'entrancehall'; targets.push(t); return t; };
-  hTarget({ id: 'hall-brazier', spells: ['incendio', 'aguamenti'], front: [-1, 0], at: (o) => hW(HALL.brazier.x, 1.1, HALL.brazier.z, o), ok: (k) => hallLive() && fireOk(HS.fire, k), cast: (k) => fireCast(HS.fire, k) });
-  hTarget({ id: 'hall-chest', spells: ['alohomora'], front: [0, 1], at: (o) => hW(HALL.chest.x, 0.38, HALL.chest.z + 0.27, o), ok: () => hallLive() && HS.chest.state === 'locked', cast: () => { const c = HS.chest; c.state = 'opening'; c.t = -0.35; c.opens++; c.rewarded = false; c.popped = false; } });
-  hTarget({ id: 'hall-teapot', spells: ['engorgio', 'reducio'], front: [-1, 0], at: (o) => hW(HALL.teapot.x, 0.74 + 0.12 * HS.teapot.f, HALL.teapot.z, o), ok: (k) => hallLive() && HS.teapot.t >= 1 && (k === 'engorgio' ? HS.teapot.level < 1 : HS.teapot.level > -1), cast: (k) => stepScal(HS.teapot, k === 'engorgio' ? 1 : -1) });
-  hTarget({ id: 'hall-helmet', spells: ['reparo'], front: [1, 0], at: (o) => hW(HCtr.x, 0.5, HCtr.z + 0.2, o), ok: () => hallLive() && HS.helmet.state === 'broken', cast: () => { HS.helmet.state = 'mending'; HS.helmet.t = -0.35; } });
-  hTarget({ id: 'hall-vase', spells: ['orchideous'], front: [1, 0], at: (o) => hW(HALL.vase.x, 1.28, HALL.vase.z, o), ok: () => hallLive() && !HS.vase.bloomed && !HS.vase.pend, cast: () => { HS.vase.pend = 0.75; } });
-  hTarget({ id: 'hall-books', spells: ['leviosa', 'accio'], front: [1, 0], at: (o) => (hall ? hBoneW(HB.books, o) : hW(HALL.books.x, 0.6, HALL.books.z, o)), ok: () => hallLive() && !HS.books.mode, cast: (k) => startMover(HS.books, k) });
+  hTarget({ id: 'hall-brazier', spells: ['incendio', 'aguamenti'], front: [-1, 0], at: (o) => hP('brazier', HALL.brazier.x, 1.1, HALL.brazier.z, o), ok: (k) => hallLive() && fireOk(HS.fire, k), cast: (k) => fireCast(HS.fire, k) });
+  hTarget({ id: 'hall-chest', spells: ['alohomora'], front: [Math.sin(HALL.chest.yaw), Math.cos(HALL.chest.yaw)], at: (o) => hP('chest', HALL.chest.x, 0.38, HALL.chest.z + 0.27, o), ok: () => hallLive() && HS.chest.state === 'locked', cast: () => { const c = HS.chest; c.state = 'opening'; c.t = -0.35; c.opens++; c.rewarded = false; c.popped = false; } });
+  hTarget({ id: 'hall-teapot', spells: ['engorgio', 'reducio'], front: [-1, 0], at: (o) => hP('teapot', HALL.teapot.x, 0.74 + 0.12 * HS.teapot.f, HALL.teapot.z, o), ok: (k) => hallLive() && HS.teapot.t >= 1 && (k === 'engorgio' ? HS.teapot.level < 1 : HS.teapot.level > -1), cast: (k) => stepScal(HS.teapot, k === 'engorgio' ? 1 : -1) });
+  hTarget({ id: 'hall-helmet', spells: ['reparo'], front: [1, 0], at: (o) => hP('helmet', HCtr.x, 0.3, HCtr.z + 0.1, o), ok: () => hallLive() && HS.helmet.state === 'broken', cast: () => { HS.helmet.state = 'mending'; HS.helmet.t = -0.35; } });
+  hTarget({ id: 'hall-vase', spells: ['orchideous'], front: [1, 0], at: (o) => hP('vase', HALL.vase.x, 1.28, HALL.vase.z, o), ok: () => hallLive() && !HS.vase.bloomed && !HS.vase.pend, cast: () => { HS.vase.pend = 0.75; } });
+  hTarget({ id: 'hall-books', spells: ['leviosa', 'accio'], front: [1, 0], at: (o) => (hall ? hBoneW(HB.books, o) : hP('books', HALL.books.x, 0.6, HALL.books.z, o)), ok: () => hallLive() && !HS.books.mode, cast: (k) => startMover(HS.books, k) });
 
   function tickHall(dt) {
     if (!hallLive()) return;
@@ -296,8 +339,8 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       const lk = bones[HB.lock], lr = rest[HB.lock], ld = bones[HB.lid], lrr = rest[HB.lid], rw = bones[HB.reward], rr = rest[HB.reward];
       if (t >= 0 && t < 3.2) {
         const k = Math.min(1, t / 0.7);
-        lk.position.copy(lr.p); lk.position.y += Math.sin(k * Math.PI) * 0.45 + k * 0.1; lk.position.z += k * 0.45;
-        lk.quaternion.copy(_q.setFromEuler(_e.set(k * 9, 0, 0))).multiply(lr.q); lk.scale.setScalar(Math.max(0.001, 1 - ease((k - 0.5) * 2)));
+        lk.position.copy(lr.p).add(v2.set(0, 0, k * 0.6).applyQuaternion(lr.q)); lk.position.y += Math.sin(k * Math.PI) * 0.6 + k * 0.1;
+        lk.quaternion.copy(lr.q).multiply(_q.setFromEuler(_e.set(k * 9, 0, 0))); lk.scale.setScalar(Math.max(0.001, 1 - ease((k - 0.5) * 2)));
         if (!c.popped) { c.popped = true; fun.sfx.clank(); hBoneW(HB.lock, v0); burst(v0.x, v0.y, v0.z, 0xffd76a, 18, 2, 0.7, 0.2, -2); }
         ld.quaternion.copy(lrr.q).multiply(_q.setFromEuler(_e.set(-1.9 * ease((t - 0.25) / 0.6), 0, 0)));
         if (t > 0.8) {
@@ -321,15 +364,15 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       } else if (t >= 11.4) { reset(HB.lid); reset(HB.lock); c.state = 'locked'; fun.sfx.tink(); }
     }
     // brazier
-    hW(HALL.brazier.x, hall.flameY, HALL.brazier.z, v1);
+    hW(HALL.brazier.x, hall.flameY, HALL.brazier.z, v1);   // (the brazier's centre does not move under its HXF)
     tickFireState(HS.fire, dt, [v1]);
     const F = hall.flames, f = HS.fire;
     if (f.k > 0.01) {
       F.visible = true; const fl = 1 + Math.sin(T * 17) * 0.08 + Math.sin(T * 29) * 0.05, kk = f.k;
       const bx = HALL.brazier.x, bz = HALL.brazier.z, y = hall.flameY;
-      F.setMatrixAt(0, _m4.compose(v0.set(bx, y + 0.12 * fl, bz), camera.quaternion, _s.set(0.62 * kk, 0.95 * kk * fl, 1)));
-      F.setMatrixAt(1, _m4.compose(v0.set(bx, y, bz), camera.quaternion, _s.set(2.2 * kk * fl, 2.2 * kk * fl, 1)));
-      F.setMatrixAt(2, _m4.compose(v0.set(bx, 0.03, bz), _q.setFromEuler(_e.set(-Math.PI / 2, 0, 0)), _s.set(4.2 * kk, 4.2 * kk, 1)));
+      F.setMatrixAt(0, _m4.compose(v0.set(bx, y + 0.19 * fl, bz), camera.quaternion, _s.set(0.95 * kk, 1.5 * kk * fl, 1)));
+      F.setMatrixAt(1, _m4.compose(v0.set(bx, y, bz), camera.quaternion, _s.set(3.2 * kk * fl, 3.2 * kk * fl, 1)));
+      F.setMatrixAt(2, _m4.compose(v0.set(bx, 0.03, bz), _q.setFromEuler(_e.set(-Math.PI / 2, 0, 0)), _s.set(5.6 * kk, 5.6 * kk, 1)));
       F.instanceMatrix.needsUpdate = true;
       if (f.lit && Math.random() < dt * 9) emit(v1.x + (Math.random() - 0.5) * 0.3, v1.y + 0.15, v1.z + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0.9 + Math.random() * 0.5, (Math.random() - 0.5) * 0.3, 0.9, 0.09, 0xffa040, 0.4);
     } else if (F.visible) F.visible = false;
@@ -339,7 +382,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     const vs = HS.vase;
     if (vs.pend > 0) {
       vs.pend -= dt;
-      if (vs.pend <= 0) { vs.pend = 0; vs.bloomed = true; vs.blooms++; hW(HALL.vase.x, 1.4, HALL.vase.z, v0); for (const cc of [0xff7ab8, 0xffe27a, 0xffffff]) burst(v0.x, v0.y, v0.z, cc, 12, 1.8, 0.8, 0.2, -1); fun.sfx.sparkle(); fun.sfx.giggle(true); }
+      if (vs.pend <= 0) { vs.pend = 0; vs.bloomed = true; vs.blooms++; hP('vase', HALL.vase.x, 1.4, HALL.vase.z, v0); for (const cc of [0xff7ab8, 0xffe27a, 0xffffff]) burst(v0.x, v0.y, v0.z, cc, 12, 1.8, 0.8, 0.2, -1); fun.sfx.sparkle(); fun.sfx.giggle(true); }
     }
     vs.k = vs.bloomed ? Math.min(1, vs.k + dt / 0.7) : 0;
     bones[HB.flowers].scale.setScalar(Math.max(0.001, vs.bloomed ? backOut(vs.k) : 0));
@@ -368,7 +411,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       if (t < 0) { poseHelmet(0); return; }
       poseHelmet((i) => ease((t - i * 0.12) / 0.9), 0.7);
       if (Math.random() < dt * 20) { const b = hall.bones[HB.domeL + ((Math.random() * NHP) | 0)]; v0.copy(b.position).add(hall.origin); emit(v0.x, v0.y + 0.1, v0.z, 0, 0.4, 0, 0.6, 0.18, 0x9affc8); }
-      if (t >= 1.5) { poseHelmet(1); h.state = 'whole'; h.t = 0; h.mends++; hW(HCtr.x, HCtr.y + 0.2, HCtr.z, v0); burst(v0.x, v0.y, v0.z, 0x9affc8, 22, 2, 0.8, 0.22, -1); fun.sfx.tink(0); fun.sfx.tink(3); fun.sfx.chime(); }
+      if (t >= 1.5) { poseHelmet(1); h.state = 'whole'; h.t = 0; h.mends++; hP('helmet', HCtr.x, HCtr.y + 0.2, HCtr.z, v0); burst(v0.x, v0.y, v0.z, 0x9affc8, 22, 2, 0.8, 0.22, -1); fun.sfx.tink(0); fun.sfx.tink(3); fun.sfx.chime(); }
     } else if (h.state === 'whole') {
       poseHelmet(1);
       if (t > 25) { h.state = 'wobble'; h.t = 0; }
@@ -384,7 +427,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   }
 
   // ======================= the Library spot =======================
-  const LS = { fire: newFire(), pot: { bloomed: false, k: 0, pend: 0, blooms: 0, grow: 1, growTo: 1, waters: 0 }, book: newMover(), bookS: newScal([0.5, 1, 2.2]) };
+  const LS = { fire: newFire(), pot: { bloomed: false, k: 0, pend: 0, blooms: 0, grow: 1, growTo: 1, waters: 0, wilt: 0, wiltTo: 0, last: 0, heals: 0 }, book: newMover(), bookS: newScal([0.5, 1, 2.2]) };
   const LB = { book: 0, flowers: 1 };
   let lib = null;
   const CANDLES = [[-0.2, 1.2], [0, 1.32], [0.2, 1.2]].map(([dz, y]) => ({ x: LIB.candles.x, y: y + 0.22, z: LIB.candles.z + dz }));
@@ -436,8 +479,10 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   const lW = (x, y, z, o) => o.set(x, y, z).add(LO());
   const lTarget = (t) => { t.indoor = 'library'; targets.push(t); return t; };
   lTarget({ id: 'lib-candles', spells: ['incendio', 'aguamenti'], front: [-1, 0], at: (o) => lW(LIB.candles.x, 1.4, LIB.candles.z, o), ok: (k) => libLive() && fireOk(LS.fire, k), cast: (k) => fireCast(LS.fire, k) });
-  lTarget({ id: 'lib-pot', spells: ['orchideous', 'aguamenti'], front: [-1, 0], at: (o) => lW(LIB.pot.x, 0.6, LIB.pot.z, o),
-    ok: (k) => libLive() && (k === 'orchideous' ? !LS.pot.bloomed && !LS.pot.pend : LS.pot.bloomed && LS.pot.growTo < 1.3 && !LS.pot.pend), cast: (k) => { LS.pot.pend = k === 'orchideous' ? 0.75 : 0.9; LS.pot.pendK = k; } });
+  // batch 4: the flowers droop ~40 s after they were planted, watered or healed; Episkey perks them up again
+  lTarget({ id: 'lib-pot', spells: ['orchideous', 'aguamenti', 'episkey'], front: [-1, 0], at: (o) => lW(LIB.pot.x, 0.6, LIB.pot.z, o),
+    ok: (k) => libLive() && !LS.pot.pend && (k === 'orchideous' ? !LS.pot.bloomed : k === 'episkey' ? LS.pot.bloomed && LS.pot.wiltTo > 0.5 : LS.pot.bloomed && LS.pot.growTo < 1.3),
+    cast: (k) => { LS.pot.pend = k === 'orchideous' ? 0.75 : k === 'episkey' ? 0.6 : 0.9; LS.pot.pendK = k; } });
   lTarget({ id: 'lib-book', spells: ['engorgio', 'reducio', 'leviosa', 'accio'], front: [-1, 0], at: (o) => (lib ? o.copy(lib.bones[LB.book].position).add(lib.origin) : lW(LIB.lectern.x, 1.09, LIB.lectern.z, o)),
     ok: (k) => libLive() && !LS.book.mode && LS.bookS.t >= 1 && (k === 'engorgio' ? LS.bookS.level < 1 : k === 'reducio' ? LS.bookS.level > -1 : true),
     cast: (k) => { if (k === 'engorgio' || k === 'reducio') stepScal(LS.bookS, k === 'engorgio' ? 1 : -1); else startMover(LS.book, k); } });
@@ -463,14 +508,18 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       p.pend -= dt;
       if (p.pend <= 0) {
         p.pend = 0; lW(LIB.pot.x, 0.8, LIB.pot.z, v0);
+        p.last = T; p.wiltTo = 0;
         if (p.pendK === 'orchideous') { p.bloomed = true; p.blooms++; for (const cc of [0xa88aff, 0xffe27a, 0x9ad0ff]) burst(v0.x, v0.y, v0.z, cc, 12, 1.8, 0.8, 0.2, -1); fun.sfx.sparkle(); fun.sfx.giggle(true); }
+        else if (p.pendK === 'episkey') { p.heals++; hearts(v0.x, v0.y + 0.2, v0.z, 8); fun.sfx.giggle(true); fun.sfx.chime(); }
         else { p.growTo = 1.4; p.waters++; burst(v0.x, v0.y, v0.z, 0x9aff7a, 18, 1.6, 0.9, 0.22, -0.5); fun.sfx.giggle(true); fun.sfx.sparkle(); }
       }
     }
     p.k = p.bloomed ? Math.min(1, p.k + dt / 0.7) : 0;
     p.grow += (p.growTo - p.grow) * Math.min(1, dt * 2.5);
+    if (p.bloomed && T - p.last > 40) p.wiltTo = 1;
+    p.wilt += (p.wiltTo - p.wilt) * Math.min(1, dt * (p.wiltTo > p.wilt ? 0.5 : 3));
     const fb = bones[LB.flowers];
-    if (p.bloomed) { const s = backOut(p.k); fb.scale.set(s, s * p.grow, s); } else fb.scale.setScalar(0.001);
+    if (p.bloomed) { const s = backOut(p.k), w = p.wilt; fb.scale.set(s * (1 + 0.15 * w), s * p.grow * (1 - 0.3 * w), s * (1 + 0.15 * w)); fb.quaternion.setFromEuler(_e.set(0.5 * w, 0, -0.35 * w)); } else fb.scale.setScalar(0.001);
     // book: float/accio + grow/shrink
     const bk = LS.book, bb = bones[LB.book], br = rest[LB.book];
     tickMover(bk, dt, _rw.copy(br.p).add(lib.origin), 0xd8c8ff);
@@ -489,7 +538,8 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
         im.getMatrixAt(i, _m4); const p = new Vector3(), q = new Quaternion(), s = new Vector3(); _m4.decompose(p, q, s);
         PK.base.push({ p, q, s });
         const d = s.x;   // ~ the diameter in metres (local)
-        const sc = newScal([0.5, 1, Math.min(3.2, Math.max(1.6, 1.7 / d))]);
+        // tiny is never under ~0.35 m across (batch 4: the smallest ones shrank to ~0.2 m and got lost in the grass)
+        const sc = newScal([Math.min(0.85, Math.max(0.5, 0.35 / (d * S))), 1, Math.min(3.2, Math.max(1.6, 1.7 / d))]);
         const st = { i, sc, mv: newMover(), pend: 0, waters: 0, dirty: false };
         PK.st.push(st);
         // a collider that only exists while the pumpkin is huge (parked far away otherwise)
@@ -525,6 +575,61 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     if (any) { im.instanceMatrix.needsUpdate = true; im.boundingSphere = null; }
   }
 
+  // ======================= hearts (Episkey, batch 4): little pooled hearts and plus signs that float up =======================
+  // Two instanced meshes (hearts, pluses), drawn only while any is floating; nothing allocated per frame.
+  function heartShape(r) {
+    const h = new Shape(); h.moveTo(0, -r);
+    h.bezierCurveTo(r * 0.2, -r * 0.55, r * 1.1, -r * 0.25, r * 1.0, r * 0.3); h.bezierCurveTo(r * 0.95, r * 0.85, r * 0.25, r * 0.95, 0, r * 0.5);
+    h.bezierCurveTo(-r * 0.25, r * 0.95, -r * 0.95, r * 0.85, -r * 1.0, r * 0.3); h.bezierCurveTo(-r * 1.1, -r * 0.25, -r * 0.2, -r * 0.55, 0, -r);
+    return new ShapeGeometry(h, 6);
+  }
+  function plusShape(r) {
+    const w = r * 0.36, h = new Shape(), P = [[-w, -r], [w, -r], [w, -w], [r, -w], [r, w], [w, w], [w, r], [-w, r], [-w, w], [-r, w], [-r, -w], [-w, -w]];
+    P.forEach(([x, y], i) => (i ? h.lineTo(x, y) : h.moveTo(x, y))); return new ShapeGeometry(h);
+  }
+  const NHT = [22, 10], HCOL = [[0xff4f8f, 0xff7ab0, 0xffa0c8, 0xff5a6a, 0xff88d0], [0xffd76a, 0xffffff, 0xffe9a0]];
+  const htMesh = [heartShape(0.1), plusShape(0.075)].map((g, j) => {
+    const m = new InstancedMesh(g, new MeshBasicMaterial({ color: 0xffffff, side: DoubleSide, transparent: true, depthWrite: false, fog: false }), NHT[j]);
+    m.name = j ? 'freecast-episkey-plus' : 'freecast-episkey-hearts'; m.frustumCulled = false; m.visible = false; m.raycast = () => {}; m.renderOrder = 6; m.count = 0;
+    for (let i = 0; i < NHT[j]; i++) m.setColorAt(i, _c.setHex(HCOL[j][i % HCOL[j].length]));
+    scene.add(m); return m;
+  });
+  const HT = [0, 1].map(j => Array.from({ length: NHT[j] }, (_, i) => ({ on: false, t: 0, life: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s: 0.1, ph: i * 1.7 })));
+  let htAlive = 0, htN = 0;
+  // n hearts (about a third of them pluses) round a point, rising; spread = the radius they start in
+  function hearts(x, y, z, n = 8, spread = 0.35, rise = 0.8) {
+    htN++;
+    for (let i = 0; i < n; i++) {
+      const j = i % 3 === 2 ? 1 : 0, q = HT[j].find(h => !h.on); if (!q) continue;
+      const a = Math.random() * 6.283, r = spread * (0.3 + Math.random() * 0.7);
+      q.on = true; q.t = -Math.random() * 0.25; q.life = 1.3 + Math.random() * 0.7; q.x = x + Math.cos(a) * r; q.y = y + (Math.random() - 0.3) * spread; q.z = z + Math.sin(a) * r;
+      q.vx = Math.cos(a) * 0.25; q.vz = Math.sin(a) * 0.25; q.vy = rise * (0.7 + Math.random() * 0.6); q.s = (j ? 0.85 : 1) * (0.8 + Math.random() * 0.6);
+      htAlive++;
+    }
+    for (let i = 0; i < 10; i++) emit(x + (Math.random() - 0.5) * spread * 2, y + (Math.random() - 0.3) * spread, z + (Math.random() - 0.5) * spread * 2, (Math.random() - 0.5) * 0.4, 0.4 + Math.random() * 0.5, (Math.random() - 0.5) * 0.4, 0.9, 0.16, i % 2 ? 0xffb0d8 : 0xffe08a, 0, 0.6);
+  }
+  function tickHearts(dt) {
+    if (htAlive <= 0) { for (const m of htMesh) if (m.visible) { m.visible = false; m.count = 0; } return; }
+    let alive = 0;
+    for (let j = 0; j < 2; j++) {
+      const m = htMesh[j]; let n = 0;
+      for (const q of HT[j]) {
+        if (!q.on) continue;
+        q.t += dt; if (q.t >= q.life) { q.on = false; continue; }
+        alive++; if (q.t < 0) continue;
+        const k = Math.exp(-1.5 * dt); q.vx *= k; q.vz *= k;
+        q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
+        const sc = q.s * Math.min(1, backOut(q.t / 0.3)) * (q.t > q.life - 0.45 ? Math.max(0.01, (q.life - q.t) / 0.45) : 1);
+        _q2.setFromEuler(_e.set(0, 0, Math.sin(q.t * 3 + q.ph) * 0.35));
+        m.setMatrixAt(n, _m4.compose(v0.set(q.x + Math.sin(q.t * 4 + q.ph) * 0.06, q.y, q.z), _q.copy(camera.quaternion).multiply(_q2), _s.set(sc, sc, sc)));
+        m.setColorAt(n, _c.setHex(HCOL[j][Math.round(q.ph / 1.7) % HCOL[j].length]));
+        n++;
+      }
+      m.count = n; m.visible = n > 0; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    }
+    htAlive = alive;
+  }
+
   // ======================= Lumos Maxima =======================
   const light = new PointLight(0xfff0d0, 0, 20, 1.6); light.name = 'freecast-maxima-light'; light.castShadow = false;
   scene.add(light);   // always present (intensity 0 when idle) so materials never rebuild for a new light
@@ -535,7 +640,9 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   const MX = { t: -1, dur: 7.6, casts: 0, maxI: 0, maxH: 0, inside: false, p: new Vector3(), from: new Vector3() };
   SP.maxima = {
     noFallback: true, lastId: 'maxima',
-    cast() { MX.t = 0; MX.casts++; tip(); MX.from.copy(tipV); MX.p.copy(tipV); burst(tipV.x, tipV.y, tipV.z, 0xfff6d0, 26, 2.6, 0.8, 0.28, 0); fun.sfx.chime(); fun.sfx.tune([784, 988, 1175, 1568], 0.1, 'sine'); return true; },
+    cast() { MX.t = 0; MX.casts++; tip(); MX.from.copy(tipV); MX.p.copy(tipV); burst(tipV.x, tipV.y, tipV.z, 0xfff6d0, 26, 2.6, 0.8, 0.28, 0); fun.sfx.chime(); fun.sfx.tune([784, 988, 1175, 1568], 0.1, 'sine');
+      if (yard) yard.maxima();   // batch 4: lights the courtyard lantern / the Great Hall candle stand within ~12 m
+      return true; },
     tick(dt, inside, busy) {
       if (MX.t < 0) return;
       MX.t += dt; const t = MX.t;
@@ -604,9 +711,12 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   SP.reducio = Object.assign(sizeSpell('reducio'), { state: () => SP.engorgio.state() });
 
   // ======================= Avis: a little flock =======================
-  const NB = 6, AV = { t: -1, dur: 6.6, casts: 0, maxR: 0, flew: 0, tw: 0 };
+  const NB = 6, AV = { t: -1, dur: 6.6, casts: 0, maxR: 0, flew: 0, tw: 0, perch: null, perches: 0, landed: false };
+  // batch 4: with the courtyard birdbath within ~12 m the flock circles once, flies to the bath, perches on its rim
+  // (pecking at the water when it is full) and then flies off: PCH is that timeline (seconds)
+  const PCH = { go: 2.2, land: 3.5, leave: 7.2, dur: 9.4 };
   let birdBody = null, birdWing = null;
-  const birdP = Array.from({ length: NB }, () => ({ p: new Vector3(), prev: new Vector3(), yaw: 0, pitch: 0 }));
+  const birdP = Array.from({ length: NB }, () => ({ p: new Vector3(), prev: new Vector3(), from: new Vector3(), seat: new Vector3(), yaw: 0, pitch: 0 }));
   function makeBirds() {
     const P = [];
     P.push(paint(place(new SphereGeometry(0.09, 10, 7), 0, 0, 0, 0, 0, 0, 0.8, 0.8, 1.35), 0xf4f4f4, 0x4a8ae8));
@@ -628,6 +738,8 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     cast() {
       if (!birdBody) makeBirds();
       AV.t = 0; AV.casts++; AV.maxR = 0; AV.tw = 0; AV.yaw0 = player.yaw; tip();
+      AV.perch = yard ? yard.perch() : null; AV.dur = AV.perch ? PCH.dur : 6.6; AV.landed = false;
+      if (AV.perch) { const P = AV.perch; birdP.forEach((b, i) => { const a = i * Math.PI / 3 + 0.3; b.seat.set(P.x + Math.cos(a) * P.r, P.y, P.z + Math.sin(a) * P.r); }); }
       for (const b of birdP) { b.p.copy(tipV); b.prev.copy(tipV); }
       burst(tipV.x, tipV.y, tipV.z, 0xbfe0ff, 20, 2.4, 0.7, 0.22, -1); burst(tipV.x, tipV.y, tipV.z, 0xffffff, 10, 1.6, 0.5, 0.14, -2);
       fun.sfx.poof(); fun.sfx.tweet(); return true;
@@ -635,33 +747,47 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     tick(dt, inside, busy) {
       if (AV.t < 0) return;
       AV.t += dt; const t = AV.t;
-      if (t >= AV.dur || busy) { AV.t = -1; birdBody.visible = birdWing.visible = false; AV.flew++; return; }
+      if (t >= AV.dur || busy) { AV.t = -1; birdBody.visible = birdWing.visible = false; AV.flew++; for (const b of birdP) b.going = false; return; }
       AV.tw -= dt; if (AV.tw <= 0) { AV.tw = 0.6 + Math.random() * 0.5; fun.sfx.tweet(); }
       tip();
-      const e0 = ease(Math.min(1, t / 0.9)), away = Math.max(0, t - 4.4);
+      const e0 = ease(Math.min(1, t / 0.9)), PP = AV.perch, away = PP ? 0 : Math.max(0, t - 4.4);
+      const sitting = PP && t >= PCH.land && t < PCH.leave;
+      if (PP && t >= PCH.land && !AV.landed) { AV.landed = true; AV.perches++; fun.sfx.tweet(); if (PP.full) for (const b of birdP) burst(b.seat.x, b.seat.y, b.seat.z, 0x9ad8ff, 4, 0.8, 0.4, 0.1, -3); }
       for (let i = 0; i < NB; i++) {
         const b = birdP[i], R = 2.1 + (i % 3) * 0.45, h = (inside ? 1.6 : 2.0) + (i % 2) * 0.45, w = 2.3 * (0.92 + 0.04 * i);
         const ang = AV.yaw0 + (i - 2.5) * 0.22 + w * t, r = R * e0 + away * away * 2.4;
         const cx = tipV.x + (pos.x - tipV.x) * e0, cz = tipV.z + (pos.z - tipV.z) * e0;
         b.prev.copy(b.p);
-        b.p.set(cx + Math.sin(ang) * r, tipV.y + (pos.y + h - tipV.y) * e0 + away * away * (inside ? 0.5 : 1.6) + Math.sin(t * 3 + i) * 0.15, cz + Math.cos(ang) * r);
+        if (!PP || t < PCH.go) b.p.set(cx + Math.sin(ang) * r, tipV.y + (pos.y + h - tipV.y) * e0 + away * away * (inside ? 0.5 : 1.6) + Math.sin(t * 3 + i) * 0.15, cz + Math.cos(ang) * r);
+        else if (t < PCH.land) {   // swoop down to its place on the rim
+          if (!b.going) { b.going = true; b.from.copy(b.p); }
+          const k = ease((t - PCH.go) / (PCH.land - PCH.go)); b.p.lerpVectors(b.from, b.seat, k); b.p.y += Math.sin(k * Math.PI) * 0.7;
+        } else if (t < PCH.leave) {  // perched: little hops, a peck now and then, facing the water
+          b.going = false; b.p.copy(b.seat); b.p.y += Math.max(0, Math.sin(t * 6 + i * 2.1)) ** 6 * 0.06;
+        } else {                     // off they go, up and outward
+          const u = t - PCH.leave, ox = b.seat.x - PP.x, oz = b.seat.z - PP.z, ol = Math.hypot(ox, oz) || 1;
+          b.p.set(b.seat.x + ox / ol * (u * 1.5 + u * u * 1.8), b.seat.y + u * 1.8 + u * u * 1.4, b.seat.z + oz / ol * (u * 1.5 + u * u * 1.8));
+        }
         const dx = b.p.x - b.prev.x, dy = b.p.y - b.prev.y, dz = b.p.z - b.prev.z, hz = Math.hypot(dx, dz);
-        if (hz > 1e-4) { b.yaw = Math.atan2(dx, dz); b.pitch = -Math.atan2(dy, hz) * 0.6; }
+        if (sitting) { b.yaw = Math.atan2(PP.x - b.p.x, PP.z - b.p.z); b.pitch = (PP.full ? 0.55 : 0.25) * Math.max(0, Math.sin(t * 2.6 + i * 1.7)) ** 8; }
+        else if (hz > 1e-4) { b.yaw = Math.atan2(dx, dz); b.pitch = -Math.atan2(dy, hz) * 0.6; }
         AV.maxR = Math.max(AV.maxR, Math.hypot(b.p.x - pos.x, b.p.z - pos.z));
         const sc = 1.4 * Math.min(1, t / 0.25) * (t > AV.dur - 0.8 ? Math.max(0.01, (AV.dur - t) / 0.8) : 1);
-        _bm.compose(b.p, _q.setFromEuler(_e.set(b.pitch, b.yaw, -0.35, 'YXZ')), _s.set(sc, sc, sc));
+        _bm.compose(b.p, _q.setFromEuler(_e.set(b.pitch, b.yaw, sitting ? 0 : -0.35, 'YXZ')), _s.set(sc, sc, sc));
         birdBody.setMatrixAt(i, _bm);
-        const flap = Math.sin(T * 21 + i * 1.3) * 0.85 + 0.15;
+        const flap = sitting ? -0.35 + Math.max(0, Math.sin(t * 5 + i)) ** 10 * 0.9 : Math.sin(T * 21 + i * 1.3) * 0.85 + 0.15;
         for (const side of [1, -1]) {
           _wm.compose(_v.set(side * 0.05, 0.03, 0.01), _q2.setFromEuler(_e.set(0, 0, side * flap)), _s.set(side, 1, 1));
           birdWing.setMatrixAt(i * 2 + (side > 0 ? 0 : 1), _m5.multiplyMatrices(_bm, _wm));
         }
-        if (Math.random() < dt * 3) emit(b.p.x, b.p.y, b.p.z, 0, -0.3, 0, 0.6, 0.1, 0xdff0ff, -0.5);
+        if (!sitting && Math.random() < dt * 3) emit(b.p.x, b.p.y, b.p.z, 0, -0.3, 0, 0.6, 0.1, 0xdff0ff, -0.5);
+        if (sitting && PP.full && Math.random() < dt * 0.8) emit(b.p.x, b.p.y, b.p.z, (PP.x - b.p.x) * 0.5, 0.6, (PP.z - b.p.z) * 0.5, 0.5, 0.08, 0xbfe6ff, -4);
       }
       birdBody.instanceMatrix.needsUpdate = birdWing.instanceMatrix.needsUpdate = true;
       birdBody.visible = birdWing.visible = true;
     },
-    state: () => ({ on: AV.t >= 0, t: +Math.max(0, AV.t).toFixed(2), casts: AV.casts, flew: AV.flew, visible: !!(birdBody && birdBody.visible), maxR: +AV.maxR.toFixed(2), birds: NB }),
+    state: () => ({ on: AV.t >= 0, t: +Math.max(0, AV.t).toFixed(2), casts: AV.casts, flew: AV.flew, visible: !!(birdBody && birdBody.visible), maxR: +AV.maxR.toFixed(2), birds: NB,
+      perch: !!AV.perch, perches: AV.perches, sitting: !!(AV.perch && AV.t >= PCH.land && AV.t < PCH.leave), birdY: birdP[0] ? +birdP[0].p.y.toFixed(2) : 0, birdD: AV.perch && birdP[0] ? +Math.hypot(birdP[0].p.x - AV.perch.x, birdP[0].p.z - AV.perch.z).toFixed(2) : null }),
   };
 
   // ======================= Orchideous =======================
@@ -698,12 +824,22 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     state: () => ({ on: OR.t >= 0, casts: OR.casts, wand: OR.wand, toVase: OR.toVase, visible: !!(bq && bq.visible), hallVase: HS.vase.bloomed, libPot: LS.pot.bloomed, potGrow: +LS.pot.grow.toFixed(2), potWaters: LS.pot.waters }),
   };
 
+  // ======================= batch 4 (freecast-yard.js): Episkey, the courtyard spot, the Great Hall spot =======================
+  let yard = null;
+  try {
+    yard = createYard({ scene, camera, player, interiors, env, fun, emit, burst, stream, tip, tipV, glowTex, best, BYKEY, targets, hearts, heightAt,
+      lib: { spotKit, flameMesh, bouquetGeo, ease, backOut, bouncy, M, newScal, stepScal, tickScal, newMover, startMover, tickMover, newFire, fireCast, tickFireState, fireOk } });
+    Object.assign(SP, yard.SP);
+  } catch (e) { console.warn('[freecast] batch 4 spots skipped -', e && e.message || e); yard = null; }
+
   // ======================= the rooms: build the spots when their room streams in; per-frame =======================
   let seenRoom = null, builds = 0;
   SP._castle = {
     noFallback: true,
-    tick(dt) {
+    tick(dt, inside) {
       T += dt;
+      tickHearts(dt);
+      if (yard) yard.tick(dt, inside);
       const r = interiors.room;
       if (r !== seenRoom) {
         seenRoom = r; hall = null; lib = null;
@@ -719,7 +855,9 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     state: () => ({ room: interiors.active, hall: hallLive(), lib: libLive(), builds,
       chest: { state: HS.chest.state, opens: HS.chest.opens, paid: HS.chest.paid }, brazier: { lit: HS.fire.lit, lights: HS.fire.lights, douses: HS.fire.douses },
       helmet: { state: HS.helmet.state, mends: HS.helmet.mends, breaks: HS.helmet.breaks }, books: { mode: HS.books.mode, floats: HS.books.floats, accios: HS.books.accios, reached: HS.books.reached, maxRise: +HS.books.maxRise.toFixed(2) },
-      candles: { lit: LS.fire.lit, lights: LS.fire.lights, douses: LS.fire.douses }, libBook: { mode: LS.book.mode, floats: LS.book.floats, accios: LS.book.accios, level: LS.bookS.level } }),
+      candles: { lit: LS.fire.lit, lights: LS.fire.lights, douses: LS.fire.douses }, libBook: { mode: LS.book.mode, floats: LS.book.floats, accios: LS.book.accios, level: LS.bookS.level },
+      libPot: { bloomed: LS.pot.bloomed, wilt: +LS.pot.wilt.toFixed(2), heals: LS.pot.heals }, hearts: { bursts: htN, alive: htAlive },
+      ...(yard ? yard.state() : {}) }),
   };
 
   // ======================= debug API (window.__game.freecast.castle) =======================
@@ -729,6 +867,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       hall: { room: 'entrancehall', ...Object.fromEntries(Object.entries(HALL).map(([k, p]) => [k, { x: p.x, z: p.z }])), meshes: hall ? meshCount(hall.group) : null },
       library: { room: 'library', ...Object.fromEntries(Object.entries(LIB).map(([k, p]) => [k, { x: p.x, z: p.z }])), meshes: lib ? meshCount(lib.group) : null },
       pumpkins: PK.im ? { n: PK.st.length, x: +PK.im.parent.position.x.toFixed(2), z: +PK.im.parent.position.z.toFixed(2), meshes: 0 } : null,
+      ...(yard ? yard.spots() : {}),
     }),
     ids: () => targets.map(t => t.id),
     // stand Harry d metres in front of a target, facing it (indoor targets: be in that room first)
@@ -744,6 +883,9 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     },
     state: () => SP._castle.state(),
     light: () => ({ intensity: light.intensity, distance: light.distance }),
+    // batch 4 test helpers: make the library flowers / the courtyard plant droop now
+    wilt() { LS.pot.last = -1e9; if (yard) yard.wilt(); },
+    yard: () => (yard ? yard.api : null),
   };
-  return { targets, SP, api };
+  return { targets, SP, api, onLumos: (on) => { if (yard) yard.onLumos(on); } };
 }
