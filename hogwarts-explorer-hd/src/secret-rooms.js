@@ -406,7 +406,7 @@ export function secretRoom(room, id) {
       light(lx, 0.5, -Z + 0.9, 0xffc878, 2.2, 0.26);
     }
     light(0, 0.5, -0.5, 0xffe0a0, 2.6, 0.18);
-    ch = chest(g, P, cols, 0, -Z + 0.45, 0, opened);
+    ch = chest(g, P, cols, 1.3, -Z + 0.45, 0, opened);
   } else {
     shell = shellMesh(W, D, H, { wall: AT.stone, floorR: AT.planks, wallTint: 0xc0b8b8, floorTint: 0xb8a898, ceilTint: 0xb0a8b0 });
     // the blackboard with chalk stars (north wall), a chalk ledge, the teacher's desk under a sheet
@@ -504,7 +504,7 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
     const id = sd.id, d = DOORS[id], s = SPECS[id], D = s.door;
     const px = D.x + D.nx * 0.85, pz = D.z + D.nz * 0.85, dist = Math.hypot(pos.x - px, pos.z - pz);
     if (d.state === 'locked') {
-      if (dist < 2.4 && !d.shown) { d.shown = true; d.bubbles++; fun.say(doorPoint(id, 0, 3.0, 0.4, _v), '🔒 נָעוּל! נַסּוּ אָלוֹהוֹמוֹרָה', 2.8, 'srlock'); fun.sfx.tink(); }
+      if (dist < 2.4 && !d.shown) { d.shown = true; d.bubbles++; d.text = '🔒 נָעוּל! נַסּוּ אָלוֹהוֹמוֹרָה'; fun.say(doorPoint(id, 0, 3.0, 0.4, _v), '🔒 נָעוּל! נַסּוּ אָלוֹהוֹמוֹרָה', 2.8, 'srlock'); fun.sfx.tink(); }
       else if (dist > 4.5) d.shown = false;
       return;
     }
@@ -532,13 +532,17 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
   }
   // ---- the room: ambient, chest, frog, card, mop, snitch ----
   function enterRoom(r) {
-    curRoom = r; base = { amb: env.amb.intensity, hemi: env.hemi.intensity };
+    curRoom = r; base = { amb: env.amb.intensity, hemi: env.hemi.intensity, camDist: player.cam.dist };
+    // small rooms: the 2.2 m minimum camera arm would sit in a wall and fade Harry out. The walls are single-sided
+    // (a camera behind one sees straight through it), so the arm ignores this room and keeps a fixed 4.4 m: a cutaway view.
+    player.cam.obstacles = []; player.cam.dist = 4.4;
     env.amb.intensity = base.amb * 1.35; env.hemi.intensity = base.hemi * 1.25;
     r.frogT = -1; r.cardT = -1; snitchT = 0;
     if (r.snitch && CHESTS[r.id].state !== 'locked') r.snitch.visible = true;
   }
   function leaveRoom() {
     if (base && interiors.active) { env.amb.intensity = base.amb; env.hemi.intensity = base.hemi; }
+    if (base) player.cam.dist = interiors.active ? base.camDist : 9;   // (interiors.enter/exit already reset the arm's obstacles)
     base = null; curRoom = null;
   }
   function openChest(id) {
@@ -638,7 +642,7 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
     state: () => ({
       T: +T.toFixed(2), room: interiors.active, inSecret: curRoom ? curRoom.id : null, unlocks, cards: cards.slice(), overlays: overlayN, lastCard,
       overlay: !!(ovEl && ovEl.classList.contains('on')),
-      doors: Object.fromEntries(IDS.map(id => [id, { state: DOORS[id].state, locked: DOORS[id].state !== 'open', opens: DOORS[id].opens, bubbles: DOORS[id].bubbles }])),
+      doors: Object.fromEntries(IDS.map(id => [id, { state: DOORS[id].state, locked: DOORS[id].state !== 'open', opens: DOORS[id].opens, bubbles: DOORS[id].bubbles, text: DOORS[id].text || null }])),
       chests: Object.fromEntries(IDS.map(id => [id, { state: CHESTS[id].state, opened: CHESTS[id].state !== 'locked', opens: CHESTS[id].opens, paid: CHESTS[id].paid, frogs: CHESTS[id].frogs }])),
       snitch: curRoom && curRoom.snitch ? { visible: curRoom.snitch.visible, t: +snitchT.toFixed(2), x: +curRoom.snitch.position.x.toFixed(2), y: +curRoom.snitch.position.y.toFixed(2), z: +curRoom.snitch.position.z.toFixed(2) } : null,
       frog: curRoom ? { visible: curRoom.frog.visible, t: +(curRoom.frogT || 0).toFixed(2) } : null,
