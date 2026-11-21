@@ -65,6 +65,7 @@ export function bakeLight(group, colliders) {
   let high = 0, hx = 0, hz = 0; const highs = [];
   group.traverse(o => {
     const L = o.userData && o.userData.light; if (!L) return;
+    const n0 = pos.length / 3;   // (freecast-real.js: this light's vertex range, so one torch / candle / fire can be dimmed)
     o.getWorldPosition(v); group.worldToLocal(v);
     const x = v.x, y = v.y, z = v.z, c = L.c || 0xffa848;
     if (L.k === 'torch') {
@@ -95,13 +96,15 @@ export function bakeLight(group, colliders) {
     else if (L.k === 'fire') { floorPool(x, z + (L.dz || 0), 7, 0xff8030, 0.7, x, z + (L.dz || 1.5)); halo(x, y + 0.8, z + (L.dz ? 0.6 : 0), 1.8, 0xff8a3a, 0.45); }
     else if (L.k === 'window') { const fx = Math.sin(o.rotation.y), fz = Math.cos(o.rotation.y); floorPool(x + fx * 4.2, z + fz * 4.2, 3.4, c, 0.34); }
     else if (L.k === 'glow') { floorPool(x, z, L.r || 3, c, L.a || 0.3); }
+    if (pos.length / 3 > n0) o.userData.lightVerts = [n0, pos.length / 3];
   });
   if (high > 40) {
     // a big drift of floating candles (the Great Hall): warm the floor cell by cell (4 m cells),
     // brighter where the candles crowd, so the light pools follow the candles instead of one disc
     const cells = new Map();
     for (const [x, z] of highs) { const k = Math.floor(x / 4) + ',' + Math.floor(z / 4); cells.set(k, (cells.get(k) || 0) + 1); }
-    for (const [k, n] of cells) { const [i, j] = k.split(',').map(Number); floorPool(i * 4 + 2, j * 4 + 2, 2.7, 0xffc070, Math.min(0.14, 0.025 * n)); }   // gentle: stacked pools washed the crimson carpet out to salmon
+    const rec = group.userData.candleCells = [];   // (freecast-real.js dims a cell with its candles)
+    for (const [k, n] of cells) { const [i, j] = k.split(',').map(Number); const n0 = pos.length / 3; floorPool(i * 4 + 2, j * 4 + 2, 2.7, 0xffc070, Math.min(0.14, 0.025 * n)); rec.push({ i, j, v: [n0, pos.length / 3] }); }   // gentle: stacked pools washed the crimson carpet out to salmon
   } else if (high > 6) floorPool(hx / high, hz / high, 11, 0xffc878, 0.2);      // the drift of floating candles warms the aisle
   if (!pos.length) return { mesh: null, update() {} };
   const geo = new BufferGeometry();

@@ -73,13 +73,17 @@ function room(g, cols, spawn, { flames = [], portals = [], update, id } = {}) {
     const wax = new InstancedMesh(new CylinderGeometry(0.04, 0.05, 0.4, 6), new MeshStandardMaterial({ color: 0xf3e6c0, roughness: 0.7 }), n);
     const fl = new InstancedMesh(new SphereGeometry(0.08, 6, 4), emissive(0xffb34d, 2.2), n);   // low-poly flames: ~120 of them in the hall
     wax.frustumCulled = fl.frustumCulled = false; wax.name = 'candles'; fl.name = 'candle-flames';
-    const spots = flames.map((c) => { g.remove(c); const o = new Object3D(); o.position.copy(c.position); o.userData.light = c.userData.light; g.add(o); return { x: c.position.x, y: c.position.y, z: c.position.z }; });
+    const markers = [];
+    const spots = flames.map((c) => { g.remove(c); const o = new Object3D(); o.position.copy(c.position); o.userData.light = c.userData.light; g.add(o); markers.push(o); return { x: c.position.x, y: c.position.y, z: c.position.z }; });
     g.add(wax, fl);
+    // freecast-real.js (spells on the real candles): a per-candle flame size (1 lit, 0 out) + each candle's light marker
+    const flameK = new Float32Array(n).fill(1);
+    fl.userData.real = { flameK, spots, markers };
     candleTick = (t) => {
       for (let i = 0; i < n; i++) {
         const p = spots[i], y = p.y + (p.y > 3 ? Math.sin(t * 3 + p.x) * 0.15 : 0);   // only the floating ones bob
         d.position.set(p.x, y, p.z); d.scale.set(1, 1, 1); d.updateMatrix(); wax.setMatrixAt(i, d.matrix);
-        d.position.y = y + 0.3; d.scale.set(1, 1.6, 1); d.updateMatrix(); fl.setMatrixAt(i, d.matrix);
+        const fk = flameK[i]; d.position.y = y + 0.3; d.scale.set(fk, 1.6 * fk, fk); d.updateMatrix(); fl.setMatrixAt(i, d.matrix);
       }
       wax.instanceMatrix.needsUpdate = true; fl.instanceMatrix.needsUpdate = true;
       fl.material.emissiveIntensity = 2 + Math.sin(t * 9) * 0.4;
@@ -371,10 +375,13 @@ function commonRoom() {
   // firelight: the big floor pool comes from the fireplace's own 'fire' marker; add a warm wash on
   // the chimney wall and the side walls nearest the fire, and a glow on the hearth stone
   for (const [x, z, wr, wa] of [[0, -D / 2 + 1.6, 4.6, 0.3], [-W / 2 + 0.6, -5.6, 4.2, 0.3], [W / 2 - 0.6, -5.6, 4.2, 0.3]]) {
-    const o = new Group(); o.position.set(x, 2.0, z); o.userData.light = { k: 'torch', c: 0xff9440, wr, noHalo: true, wa, fr: 4.2, fa: 0.22 }; g.add(o);
+    const o = new Group(); o.position.set(x, 2.0, z); o.userData.light = { k: 'torch', c: 0xff9440, wr, noHalo: true, wa, fr: 4.2, fa: 0.22 }; o.userData.hearthLight = true; g.add(o);
   }
   const ember = new Group(); ember.position.set(0, 0.2, -D / 2 + 2.4); ember.userData.light = { k: 'glow', c: 0xff7a2a, r: 3.4, a: 0.4 }; g.add(ember);
   const spill = new Group(); spill.position.set(0, 0.2, -1); spill.userData.light = { k: 'glow', c: 0xff9a50, r: 7.5, a: 0.13 }; g.add(spill);   // the fire's glow reaches the whole room
+  ember.userData.hearthLight = spill.userData.hearthLight = true;   // (freecast-real.js dims these with the fire)
+  // freecast-real.js (Aguamenti / Incendio / Engorgio / Reducio on the real hearth): multipliers on the fire's size and glow
+  const fc = hp.fire.userData.ctl = { sx: 1, sy: 1, glow: 1 };
   // wave the wand at the hearth: the flames roar up emerald green (Floo powder!), then settle back to orange
   let green = 0, mix = 0; const fireFrom = hp.fire.material.emissive.clone(), fireTo = new Color(0x2fe070);
   (g.userData.enchant = g.userData.enchant || []).push({ id: 'fire', obj: hp.fire, cast() { green = 5; try { window.HPFun.sfx.noise(1.4, 0.22, 0, 600, 0.5); window.HPFun.sfx.poof(); } catch { /* no audio yet */ } return '🔥'; } });
@@ -454,9 +461,9 @@ function commonRoom() {
       if (green > 0) green -= dt;
       mix = Math.max(0, Math.min(1, mix + (green > 0 ? dt * 4 : -dt * 1.2)));
       const m = hp.fire.material;
-      m.emissiveIntensity = 1.9 + Math.sin(t * 7) * 0.3 + Math.sin(t * 17.3) * 0.15 + mix * 1.2;
+      m.emissiveIntensity = (1.9 + Math.sin(t * 7) * 0.3 + Math.sin(t * 17.3) * 0.15 + mix * 1.2) * fc.glow;
       m.emissive.copy(fireFrom).lerp(fireTo, mix); m.color.copy(m.emissive);
-      hp.fire.scale.set(1 + Math.sin(t * 5.1) * 0.03, 1 + Math.sin(t * 6.3) * 0.07 + mix * (0.7 + 0.2 * Math.sin(t * 11)), 1); hp.fire.position.y = 0.55 + (hp.fire.scale.y - 1) * 0.6;
+      hp.fire.scale.set((1 + Math.sin(t * 5.1) * 0.03) * fc.sx, (1 + Math.sin(t * 6.3) * 0.07 + mix * (0.7 + 0.2 * Math.sin(t * 11))) * fc.sy, fc.sx); hp.fire.position.y = 0.55 + (hp.fire.scale.y - 1) * 0.6;
     },
   });
 }

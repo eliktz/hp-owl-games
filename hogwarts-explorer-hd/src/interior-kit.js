@@ -168,7 +168,9 @@ export function torch(group, x, y, z, color = 0xff8a2a, { shared = false, wash, 
   } else { fm = emissive(color, 2.4); gm = emissive(color, 0.18); }
   const stick = new Mesh(new CylinderGeometry(0.03, 0.03, 0.4, 5), MAT.dark); stick.rotation.z = 0.5; g.add(stick);
   const flame = new Mesh(new ConeGeometry(0.11, 0.34, 8), fm); flame.position.set(0.12, 0.28, 0); g.add(flame);
-  if (glowBall) { const glow = new Mesh(new SphereGeometry(0.5, 8, 8), gm); glow.position.set(0.12, 0.28, 0.1); g.add(glow); }
+  let glow = null;
+  if (glowBall) { glow = new Mesh(new SphereGeometry(0.5, 8, 8), gm); glow.position.set(0.12, 0.28, 0.1); g.add(glow); }
+  g.userData.torch = { flame, glow };   // freecast-real.js finds the room's torches by this (the group stays as a marker after mergeStatic)
   g.position.set(x, y, z); g.userData.flame = flame; g.userData.light = { k: 'torch', c: color === 0xff8a2a ? 0xffa040 : color, wr: wash }; group.add(g); return g;
 }
 

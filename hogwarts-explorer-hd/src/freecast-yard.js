@@ -15,9 +15,8 @@
 //               with a wobbly pudding (Engorgio / Reducio, three sizes), a fruit platter and a goblet (Leviosa /
 //               Accio), a cracked plate (Reparo, breaks again after ~25 s), and a tall candle stand beside it
 //               (Incendio / Aguamenti; Lumos Maxima lights it).   3 draw calls.
-//               The hall's own floating candles (its one 'candle-flames' instanced mesh, the table candles with
-//               them) go out with Aguamenti or Nox and light again with Incendio or Lumos, or by themselves after
-//               ~30 s: a visibility switch only, no new draw call.
+//               (batch 7: the hall's own floating candles are now handled with every room's real candles in
+//               freecast-real.js: clusters of ~12 go out and relight, Nox dims them.)
 // Nothing is allocated per frame; the courtyard is built once, the hall spot once per visit.
 import {
   Group, InstancedMesh, BoxGeometry, CylinderGeometry, SphereGeometry, ConeGeometry, TorusGeometry, LatheGeometry,
@@ -386,7 +385,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
   const NPL = 4;
   const GS = {
     pudding: newScal([0.5, 1, 2.4]), wob: 0, platter: newMover(), goblet: newMover(), fire: newFire(),
-    plate: null, candles: { out: false, pend: 0, pendK: null, outs: 0, lights: 0, since: 0, byNox: 0 },
+    plate: null,   // (batch 7: the hall's floating candles moved to freecast-real.js)
   };
   const TOP = 0.86, TX = 8.95;
   {
@@ -473,52 +472,22 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     for (let i = 0; i < 6; i++) flames.setColorAt(i, _c.setHex(i < 3 ? 0xffb040 : 0xff8a30));
     const k = K.finish(room.group, [flames]);
     for (const [x, z, r] of [[gx, gz - 0.7, 0.55], [gx, gz + 0.7, 0.55], [sx0, sz0, 0.32]]) room.colliders.push({ type: 'circle', x, z, r, freecast: true });
-    const candles = room.group.getObjectByName('candle-flames');
-    const g = Object.assign(k, { room, flames, SC, candles, origin: room.group.position.clone() });
+    const g = Object.assign(k, { room, flames, SC, origin: room.group.position.clone() });
     for (let i = 0; i < NPL; i++) { const b = g.bones[GB.plate0 + i], br = GS.plate.broken[i]; b.position.copy(br.p); b.quaternion.copy(br.q); }
-    // the room's baked light mesh carries a soft halo round every candle: remember those vertices (above 1.2 m,
-    // inside the hall away from the wall torches) so they can fade with the candles
-    const pools = room.group.getObjectByName('lightPools');
-    if (pools && pools.geometry.attributes.color) {
-      const pa = pools.geometry.attributes.position, ca = pools.geometry.attributes.color, idx = [];
-      for (let i = 0; i < pa.count; i++) if (pa.getY(i) > 1.2 && Math.abs(pa.getX(i)) < 8.4 && pa.getZ(i) > -15.5) idx.push(i);
-      g.halo = { ca, idx, orig: Float32Array.from(idx.flatMap(i => [ca.getX(i), ca.getY(i), ca.getZ(i)])) };
-    }
-    if (candles && GS.candles.out) { candles.visible = false; haloSet(g, 0); }
     return g;
   }
   const ghLive = () => !!gh && interiors.room === gh.room && interiors.active === 'greathall';
   const GO = () => (gh ? gh.origin : v0.set(0, -200, 0));
   const gW = (x, y, z, o) => o.set(x, y, z).add(GO());
   const gTarget = (t) => { t.indoor = 'greathall'; targets.push(t); return t; };
-  const standOk = (k) => ghLive() && fireOk(GS.fire, k) && Math.hypot(pos.x - GO().x - GH.stand.x, pos.z - GO().z - GH.stand.z) < 8;
   gTarget({ id: 'gh-stand', spells: ['incendio', 'aguamenti'], front: [-1, 0], at: (o) => gW(GH.stand.x, 1.95, GH.stand.z, o), ok: (k) => ghLive() && fireOk(GS.fire, k), cast: (k) => fireCast(GS.fire, k) });
   gTarget({ id: 'gh-pudding', spells: ['engorgio', 'reducio'], front: [-1, 0], at: (o) => gW(TX, TOP + 0.14 + 0.14 * GS.pudding.f, GHI.pudding, o),
     ok: (k) => ghLive() && GS.pudding.t >= 1 && (k === 'engorgio' ? GS.pudding.level < 1 : GS.pudding.level > -1), cast: (k) => { stepScal(GS.pudding, k === 'engorgio' ? 1 : -1); GS.wob = 1; } });
   gTarget({ id: 'gh-platter', spells: ['leviosa', 'accio'], front: [-1, 0], at: (o) => (gh ? o.copy(gh.bones[GB.platter].position).add(gh.origin) : gW(TX, TOP + 0.05, GHI.platter, o)), ok: () => ghLive() && !GS.platter.mode, cast: (k) => startMover(GS.platter, k) });
   gTarget({ id: 'gh-goblet', spells: ['leviosa', 'accio'], front: [-1, 0], at: (o) => { if (gh) o.copy(gh.bones[GB.goblet].position).add(gh.origin); else gW(TX, TOP, GHI.goblet, o); o.y += 0.12; return o; }, ok: () => ghLive() && !GS.goblet.mode, cast: (k) => startMover(GS.goblet, k) });
   gTarget({ id: 'gh-plate', spells: ['reparo'], front: [-1, 0], at: (o) => gW(TX, TOP + 0.08, GHI.plate, o), ok: () => ghLive() && GS.plate.state === 'broken', cast: () => mendCast(GS.plate) });
-  // the floating candles as one group: a point overhead (it never beats the candle stand when that is near and ready)
-  gTarget({ id: 'gh-candles', spells: ['incendio', 'aguamenti'], at: (o) => { const f = player.yaw; return o.set(pos.x + Math.sin(f) * 1.5, GO().y + 3.6, pos.z + Math.cos(f) * 1.5); },
-    ok: (k) => ghLive() && !!gh.candles && !GS.candles.pend && (k === 'incendio' ? GS.candles.out : !GS.candles.out) && !standOk(k), cast: (k) => { GS.candles.pend = k === 'incendio' ? 0.4 : 1.0; GS.candles.pendK = k; } });
+  // (batch 7: the floating candles as a target, Nox on them and their baked halos live in freecast-real.js)
 
-  function haloSet(g, k) {
-    const h = g && g.halo; if (!h) return;
-    h.idx.forEach((i, j) => h.ca.setXYZ(i, h.orig[j * 3] * k, h.orig[j * 3 + 1] * k, h.orig[j * 3 + 2] * k));
-    h.ca.needsUpdate = true;
-  }
-  function candlesSet(out, why) {
-    const c = GS.candles; if (!gh || !gh.candles || c.out === out) return false;
-    c.out = out; c.since = T; gh.candles.visible = !out; haloSet(gh, out ? 0 : 1);
-    const im = gh.candles, n = Math.min(im.count, 120);
-    for (let j = 0; j < 14; j++) {
-      im.getMatrixAt((Math.random() * n) | 0, _m4); v0.setFromMatrixPosition(_m4).add(gh.origin);
-      if (out) emit(v0.x, v0.y, v0.z, (Math.random() - 0.5) * 0.2, 0.5 + Math.random() * 0.4, (Math.random() - 0.5) * 0.2, 1.4, 0.3, 0x8a929c, 0.1, 0.5);
-      else burst(v0.x, v0.y, v0.z, 0xffb040, 4, 1, 0.5, 0.16, 0);
-    }
-    if (out) { c.outs++; if (why === 'nox') c.byNox++; fun.sfx.soft(); } else { c.lights++; fun.sfx.whoosh(); fun.sfx.chime(); }
-    return true;
-  }
   function tickGH(dt) {
     if (!ghLive()) return;
     const B = gh.bones, R = gh.rest;
@@ -547,10 +516,6 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     }
     // plate
     tickMend(GS.plate, gh, GB.plate0, dt, (p, o) => o.copy(p).add(gh.origin), v2.set(TX, TOP + 0.3, GHI.plate));
-    // floating candles
-    const c = GS.candles;
-    if (c.pend > 0) { c.pend -= dt; if (c.pend <= 0) { c.pend = 0; candlesSet(c.pendK === 'aguamenti', c.pendK); } }
-    if (c.out && T - c.since > 30) candlesSet(false, 'auto');
   }
 
   // ======================= Episkey =======================
@@ -603,7 +568,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     L('bath', 0, v0); if (!near12(v0.x, v0.z)) return null;
     return { x: v0.x, y: v0.y + 1.03, z: v0.z, r: 0.49, full: YS.bath.full };
   }
-  function onLumos(on) { if (ghLive()) candlesSet(!on, on ? 'lumos' : 'nox'); }
+  function onLumos() { /* batch 7: Nox on the Great Hall candles moved to freecast-real.js */ }
   const meshCount = (g) => { let n = 0; if (g) g.traverse(o => { if (o.isMesh) n++; }); return n; };
   return {
     SP, tick, maxima, perch, onLumos,
@@ -611,7 +576,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     spots: () => ({
       courtyard: { x: YARD.x, z: YARD.z, yaw: YARD.yaw, y: +Y0.toFixed(2), visible: yardRoot.visible, meshes: meshCount(yardRoot),
         ...Object.fromEntries(Object.keys(YL).map(k => { yW(YL[k][0], 0, YL[k][1], v0); return [k, { x: +v0.x.toFixed(2), z: +v0.z.toFixed(2) }]; })) },
-      greathall: { room: 'greathall', table: GH.table, stand: GH.stand, meshes: gh ? meshCount(gh.group) : null, candles: !!(gh && gh.candles) },
+      greathall: { room: 'greathall', table: GH.table, stand: GH.stand, meshes: gh ? meshCount(gh.group) : null },
     }),
     state: () => ({
       toy: { state: YS.toy.state, heals: YS.toy.heals, hops: YS.toy.hops, perk: +YS.toy.k.toFixed(2) },
@@ -622,8 +587,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
       gh: { live: ghLive(), builds: ghBuilds, stand: { lit: GS.fire.lit, lights: GS.fire.lights, douses: GS.fire.douses }, pudding: { level: GS.pudding.level, f: +GS.pudding.f.toFixed(2), maxF: +GS.pudding.maxF.toFixed(2), minF: +GS.pudding.minF.toFixed(2) },
         platter: { mode: GS.platter.mode, floats: GS.platter.floats, accios: GS.platter.accios, reached: GS.platter.reached, maxRise: +GS.platter.maxRise.toFixed(2) },
         goblet: { mode: GS.goblet.mode, floats: GS.goblet.floats, accios: GS.goblet.accios, reached: GS.goblet.reached },
-        plate: { state: GS.plate.state, mends: GS.plate.mends, breaks: GS.plate.breaks },
-        candles: { out: GS.candles.out, outs: GS.candles.outs, lights: GS.candles.lights, byNox: GS.candles.byNox, visible: !!(gh && gh.candles && gh.candles.visible), halos: gh && gh.halo ? gh.halo.idx.length : 0 } },
+        plate: { state: GS.plate.state, mends: GS.plate.mends, breaks: GS.plate.breaks } },
     }),
     api: { YARD, GH, YL },
   };

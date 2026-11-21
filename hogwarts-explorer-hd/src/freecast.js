@@ -23,6 +23,7 @@ import { buildCorner, CORNER, B } from './freecast-corner.js';
 import { createDuel, DUEL } from './freecast-duel.js';
 import { createCastle } from './freecast-castle.js';
 import { createGlyphs, createFun } from './freecast-fun.js';
+import { createReal } from './freecast-real.js';
 
 const KEY = 'hpFreecast1';
 export const SPELLS = [
@@ -276,14 +277,17 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   const tv = new Vector3();
   function best(key, maxD = REACH) {
     const f = player.yaw, sx = Math.sin(f), sz = Math.cos(f);
-    let bestT = null, bs = 1e9;
+    let bestT = null, bs = 1e9, bd = 1e9, realT = null, rs = 1e9, rd = 1e9;
     for (const t of TARGETS) {
       if (!t.spells.includes(key) || (t.corner && !(C && C.group.visible)) || (t.grp && !t.grp.visible) || !t.ok(key)) continue;
       t.at(tv); const dx = tv.x - pos.x, dz = tv.z - pos.z, d = Math.hypot(dx, dz);
-      if (d > maxD || Math.abs(tv.y - pos.y) > 4) continue;
+      if (d > maxD || (!t.overhead && Math.abs(tv.y - pos.y) > 4)) continue;
       const dot = d < 0.01 ? 1 : (dx * sx + dz * sz) / d, sc = d - dot * 3;
-      if (sc < bs) { bs = sc; bestT = t; }
+      if (t.real) { if (sc < rs) { rs = sc; realT = t; rd = d; } }   // batch 7 (freecast-real.js): the castle's real torches / hearth / candles
+      else if (sc < bs) { bs = sc; bestT = t; bd = d; }
     }
+    // a real thing wins only when no spell-spot prop is closer; the overhead candle group always gives way to a prop
+    if (realT && (!bestT || (!realT.overhead && rd < bd))) return realT;
     return bestT;
   }
   function discover(key) {
@@ -338,6 +342,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   const lumPool = new Mesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), addMat(0xffd690, 0.4));
   for (const m of [lumGlow, lumPool]) { m.visible = false; m.frustumCulled = false; m.raycast = () => {}; m.renderOrder = 5; scene.add(m); }
   let lumOn = false, lumK = 0, boost = 0, rDepth = 0, rSaved = null;
+  let RL = null;   // batch 7 (freecast-real.js, created below): the dark-room lift
   // the lift exists only while a frame renders (scene before/after render), so nothing that saves or
   // restores the ambient (the interiors, a spell course's dimming) ever sees or keeps our boosted value
   const prevB = scene.onBeforeRender, prevA = scene.onAfterRender;
@@ -350,13 +355,14 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
       if (rSaved !== null) { env.amb.intensity = rSaved; rSaved = null; rDepth = 0; }   // a render that never closed: put it back
       lumK += ((lumOn && !busy ? 1 : 0) - lumK) * Math.min(1, dt * 6);
       const vis = lumK > 0.01; lumGlow.visible = lumPool.visible = vis;
-      if (!vis) { boost = 0; return; }
+      const mx = RL ? RL.maximaLift() : 0, ex = RL ? RL.darkLift() : 0;   // batch 7: dark rooms lift more (Lumos Maxima more still)
+      if (!vis) { boost = mx; return; }
       const dark = inside || (env && env.time !== 'day');
       tip(); lumGlow.position.copy(tipV); lumGlow.quaternion.copy(camera.quaternion);
       lumGlow.scale.setScalar((dark ? 1.1 : 0.8) * lumK * (1 + Math.sin(T * 13) * 0.05));
-      lumPool.position.set(pos.x, pos.y + 0.06, pos.z); lumPool.scale.setScalar((dark ? 8 : 5) * lumK);
-      lumPool.material.opacity = (dark ? 0.5 : 0.22) * lumK;
-      boost = (dark ? 0.38 : 0.12) * lumK;
+      lumPool.position.set(pos.x, pos.y + 0.06, pos.z); lumPool.scale.setScalar((ex ? 10 : dark ? 8 : 5) * lumK);
+      lumPool.material.opacity = (ex ? 0.62 : dark ? 0.5 : 0.22) * lumK;
+      boost = ((dark ? 0.38 : 0.12) + ex) * lumK + mx;
     },
     state: () => ({ on: lumOn, k: +lumK.toFixed(2), boost: +boost.toFixed(2), toggles: SP.lumos.toggles }),
   };
@@ -659,6 +665,13 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     try { FN = createFun({ scene, camera, player, interiors, env, fun, emit, burst, stream, tip, tipV, best, BYKEY, glyphs: GL, SP, isBusy: () => isModal() || isTakeover() }); Object.assign(SP, FN.SP); }
     catch (e) { console.warn('[freecast] batch 5 skipped -', e && e.message || e); FN = null; }
   }
+  // ================= batch 7 (freecast-real.js): the castle's real torches, hearth and candles =================
+  try {
+    RL = createReal({ player, interiors, env, fun, emit, burst, tip, tipV, TARGETS, SP, scene });
+    SP._real = { noFallback: true, tick: (dt, inside) => RL.tick(dt, inside) };
+    if (SP.lumos) { const c1 = SP.lumos.cast; SP.lumos.cast = function () { const r = c1.call(this); try { RL.onLumos(lumOn); } catch { /* ignore */ } return r; }; }
+    if (SP.maxima) { const c2 = SP.maxima.cast; SP.maxima.cast = function () { const r = c2.call(this); try { RL.onMaxima(); } catch { /* ignore */ } return r; }; }
+  } catch (e) { console.warn('[freecast] real fire and light skipped -', e && e.message || e); RL = null; }
   for (const k of ['expelliarmus', 'stupefy', 'protego', 'riddikulus', 'petrificus']) if (!SP[k]) SP[k] = { noFallback: true, cast() { if (k === 'riddikulus' || k === 'protego') { tip(); burst(tipV.x, tipV.y, tipV.z, BYKEY[k].col, 16, 2, 0.8, 0.22, -1); if (k === 'riddikulus') fun.sfx.giggle(true); else fun.sfx.chime(); } else boltAhead(BYKEY[k].col); return false; } };
 
   // ================= casting =================
@@ -724,6 +737,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     duel: () => (D ? { x: DUEL.x, z: DUEL.z, y: D.Y0, visible: D.group.visible, show: { x: +(D.SHOW.x + DUEL.x).toFixed(2), z: +(D.SHOW.z + DUEL.z).toFixed(2) } } : null),
     _cool() { cool = 0; },
     castle: K ? K.api : null,
+    real: RL ? RL.api : null,
   };
   api._internal = { scene, emit, burst, stream, tip, tipBurst, TARGETS, SP, st, persist, glowTex, log, D, K };
   return api;
