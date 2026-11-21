@@ -46,7 +46,7 @@ export const SPELLS = [
   { key: 'patronum', icon: '🦌', name: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם', words: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם!', col: 0xbfe4ff },
   { key: 'episkey', icon: '🩹', name: 'אֶפִּיסְקִי', words: 'אֶפִּיסְקִי!', col: 0xff9ac8 },   // batch 4 (freecast-yard.js)
   { key: 'tarantallegra', icon: '💃', name: 'טָרַנְטָלֵגְרָה', words: 'טָרַנְטָלֵגְרָה!', col: 0xff7ad0 },   // batch 5 (freecast-fun.js)
-  { key: 'rictusempra', icon: '🪶', name: 'רִיקְטוּסֶמְפְּרָה', words: 'רִיקְטוּסֶמְפְּרָה!', col: 0xe8eef8 },
+  { key: 'rictusempra', icon: '🤣', name: 'רִיקְטוּסֶמְפְּרָה', words: 'רִיקְטוּסֶמְפְּרָה!', col: 0xe8eef8 },
   { key: 'glacius', icon: '❄️', name: 'גְּלַצְיוּס', words: 'גְּלַצְיוּס!', col: 0x8ad8ff },
   { key: 'periculum', icon: '🎆', name: 'פֶּרִיקוּלוּם', words: 'פֶּרִיקוּלוּם!', col: 0xff4a3a },
   { key: 'ascendio', icon: '🚀', name: 'אַסְצֶנְדִיוֹ', words: 'אַסְצֶנְדִיוֹ!', col: 0xffe27a },

@@ -1,6 +1,6 @@
 // Free-play spells batch 5 (freecast.js): Tarantallegra, Rictusempra, Glacius, Periculum, Ascendio.
 //   Tarantallegra 💃  anywhere: musical notes fly from the wand; at a duelling dummy: a silly ~5 s jig (freecast-duel.js).
-//   Rictusempra   🪶  anywhere: a puff of silver feathers; at a dummy: it shakes with giggles ~4 s, "חה" bubbles pop;
+//   Rictusempra   🤣  anywhere: a puff of silver feathers; at a dummy: it shakes with giggles ~4 s, "חה" bubbles pop;
 //                     the old wardrobe shakes and giggles too (freecast-duel.js).
 //   Glacius       ❄️  an icy-blue jet with snowflakes; freezes the full courtyard birdbath (Incendio melts it), puts out
 //                     the Entrance Hall brazier and the courtyard lantern with a frost puff, frosts Hagrid's pumpkins ~20 s
@@ -171,25 +171,26 @@ export function createFun({ scene, camera, player, interiors, env, fun, emit, bu
       fun.sfx.whoosh();
       return;
     }
-    // aim: up and ahead of the camera, so the bursts are always in the upper part of the view
-    camera.getWorldDirection(camDir); camDir.y = 0; if (camDir.lengthSq() < 1e-4) camDir.set(Math.sin(player.yaw), 0, Math.cos(player.yaw)); camDir.normalize();
+    // aim: through the upper part of the camera's own view (the third-person camera looks down a little, so a
+    // burst "straight up" would be off screen), 20-25 m out, and never lower than 3.5 m above Harry
     const n = 4, order = [0, 1, 2, 3, 4].sort(() => Math.random() - 0.5);
-    tip();
+    tip(); camera.updateMatrixWorld();
     for (let i = 0; i < n; i++) {
-      const side = (i - (n - 1) / 2) * 3.4 + (Math.random() - 0.5) * 1.2, dist = 13 + Math.random() * 4;
-      const tx = pos.x + camDir.x * dist + camDir.z * side, tz = pos.z + camDir.z * dist - camDir.x * side;
-      const ty = Math.max(camera.position.y, pos.y) + 7.5 + Math.random() * 3.5;
+      const nx = (i - (n - 1) / 2) * 0.36 + (Math.random() - 0.5) * 0.12, ny = 0.42 + Math.random() * 0.28, dist = 20 + Math.random() * 5;
+      camDir.set(nx, ny, 0.5).unproject(camera).sub(camera.position).normalize();
+      const tx = camera.position.x + camDir.x * dist, tz = camera.position.z + camDir.z * dist;
+      const ty = Math.max(camera.position.y + camDir.y * dist, pos.y + 3.5);
       rockets.push({ t: -i * 0.85, rise: 0.85, fx: tipV.x, fy: tipV.y, fz: tipV.z, x: tx, y: ty, z: tz, cols: HOUSES[order[i]], done: false, acc: 0 });
     }
     fun.sfx.whoosh();
   }
   function bang(r) {
     st.per.bursts++; st.per.maxY = Math.max(st.per.maxY, r.y - pos.y);
-    const N = 34;
+    const N = 40;
     for (let i = 0; i < N; i++) {
       const a = Math.random() * 6.283, u = Math.random() * 2 - 1, h = Math.sqrt(1 - u * u), s = 6.5 + Math.random() * 1.5, col = i % 3 ? r.cols[0] : r.cols[1];
-      glyph('spark', r.x, r.y, r.z, Math.cos(a) * h * s, u * s + 0.6, Math.sin(a) * h * s, 1.5 + Math.random() * 0.5, 0.75 + Math.random() * 0.3, col, false, -2.2, 1.7);
-      if (i % 2 === 0) emit(r.x, r.y, r.z, Math.cos(a) * h * s, u * s + 0.6, Math.sin(a) * h * s, 1.3 + Math.random() * 0.4, 1.0, col, -2.2, 1.7);
+      glyph('spark', r.x, r.y, r.z, Math.cos(a) * h * s, u * s + 0.6, Math.sin(a) * h * s, 1.5 + Math.random() * 0.5, 1.0 + Math.random() * 0.4, col, false, -2.2, 1.7);
+      if (i % 2 === 0) emit(r.x, r.y, r.z, Math.cos(a) * h * s, u * s + 0.6, Math.sin(a) * h * s, 1.3 + Math.random() * 0.4, 1.3, col, -2.2, 1.7);
     }
     emit(r.x, r.y, r.z, 0, 0, 0, 0.35, 5.0, 0xffffff);   // the flash
     fun.sfx.boom(); fun.sfx.sparkle();
