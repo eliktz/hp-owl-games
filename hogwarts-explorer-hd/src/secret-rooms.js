@@ -321,7 +321,7 @@ export function secretRoom(room, id) {
   for (const y of [0.6, 1.7]) for (const sx of [-1, 1]) P.push([inPlane(0.42, 0.7, sx * 0.27, y, 0.04), 0x5a3a20]);
   for (const sx of [-1, 1]) P.push([inPlane(0.16, 2.5, sx * 0.68, 1.25, 0.05), 0xd9ccb0]);
   P.push([inPlane(1.52, 0.18, 0, 2.5, 0.05), 0xd9ccb0]);
-  P.push([new SphereGeometry(0.05, 10, 8).translate(0.42, 1.1, Z - 0.1), 0xd8b04a]);
+  P.push([new CircleGeometry(0.05, 10).rotateY(Math.PI).translate(-0.42, 1.1, Z - 0.045), 0xd8b04a]);   // a flat brass knob (a sphere floated in view of the cutaway camera)
   { const f = uvTo(new CircleGeometry(0.5, 14, 0, Math.PI), GR.fan); f.rotateY(Math.PI); f.translate(0, 2.6, Z - 0.01); GL.push(f); }
   const doorGlow = new Object3D(); doorGlow.position.set(0, 0.5, Z - 1.1); doorGlow.userData.light = { k: 'glow', c: 0xffd8a0, r: 1.4, a: 0.12 }; g.add(doorGlow);
   // per room furnishings
