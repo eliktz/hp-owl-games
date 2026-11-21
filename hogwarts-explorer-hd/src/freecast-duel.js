@@ -257,7 +257,7 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     d.tintK = k; const A = colA.array;
     d.ranges.forEach(([a], r) => { const o = d.orig[r];
       for (let i = 0; i < o.length; i += 3) { const l = o[i] * 0.3 + o[i + 1] * 0.59 + o[i + 2] * 0.11;
-        A[a * 3 + i] = o[i] + (l * 0.7 + 0.12 - o[i]) * k; A[a * 3 + i + 1] = o[i + 1] + (l * 0.82 + 0.16 - o[i + 1]) * k; A[a * 3 + i + 2] = o[i + 2] + (l * 1.05 + 0.26 - o[i + 2]) * k; } });
+        A[a * 3 + i] = o[i] + (l * 0.5 + 0.06 - o[i]) * k; A[a * 3 + i + 1] = o[i + 1] + (l * 0.66 + 0.1 - o[i + 1]) * k; A[a * 3 + i + 2] = o[i + 2] + (l * 0.95 + 0.2 - o[i + 2]) * k; } });
     colA.needsUpdate = true;
   }
   // solid bits
@@ -287,19 +287,20 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
       ok: (k) => d.petT === -1 && (k === 'expelliarmus' ? d.wandSt === 'in' && d.disT === -1 : k === 'stupefy' ? d.stunT === -1 : d.stunT === -1 && d.disT === -1 && d.wandSt === 'in'),
       cast: (k) => { if (k === 'expelliarmus') { d.disT = -0.3; d.wandSt = 'held'; d.disarms++; } else if (k === 'stupefy') { d.stunT = -0.3; d.stuns++; } else { d.petT = -0.3; d.petrifies++; } } });
   }
-  // Petrificus Totalus timeline (seconds): stiffen 0-0.3, tip back like a plank 0.35-2.1, thud + settle,
+  // Petrificus Totalus timeline (seconds): stiffen 0-0.3, tip over sideways (toward -x, so the whole stiff body
+  // lies across the view from the strip) like a plank 0.35-2.1, thud + settle,
   // lie still to 5.3, pop back up on the post 5.3-5.9 (springy), wobble and soften 5.9-7.0
   const PET = { tip0: 0.35, tip1: 2.1, up0: 5.3, up1: 5.9, end: 7.0 };
   function petPose(d, dt) {
     d.petT += dt; const t = d.petT;
-    if (t < 0) return { th: 0, py: 0, pz: 0, arm: 0, tint: 0, wx: 0, wz: 0 };
+    if (t < 0) return { th: 0, py: 0, px: 0, arm: 0, tint: 0, wx: 0, wz: 0 };
     if (!d.petHit) { d.petHit = true; v0.set(d.x, d.y + 1.34, d.z + 0.27).add(group.position); burst(v0.x, v0.y, v0.z, 0xbfd8ff, 24, 2, 0.6, 0.24, -1); fun.sfx.tone(392, 0.35, 'square', 0.08, 0, 196); fun.sfx.tink(2); }
     let u = 0, arm = Math.min(1, backOut(t / 0.22)), tint = Math.min(1, t / 0.3), wx = 0, wz = 0;
     if (t >= PET.tip0 && t < PET.tip1) { const k = (t - PET.tip0) / (PET.tip1 - PET.tip0); u = k * k; if (!d.tipSnd) { d.tipSnd = true; fun.sfx.tone(300, 1.4, 'sine', 0.06, 0, 140); } }
     else if (t >= PET.tip1 && t < PET.up0) {
-      u = 1; if (!d.lying) { d.lying = true; d.fell++; v0.set(d.x, d.y + 0.15, d.z - 0.9).add(group.position); burst(v0.x, v0.y, v0.z, 0xc8b08a, 22, 1.8, 0.7, 0.3, -2); fun.sfx.boom(); fun.sfx.boing(); }
+      u = 1; if (!d.lying) { d.lying = true; d.fell++; v0.set(d.x - 0.9, d.y + 0.15, d.z).add(group.position); burst(v0.x, v0.y, v0.z, 0xc8b08a, 22, 1.8, 0.7, 0.3, -2); fun.sfx.boom(); fun.sfx.boing(); }
       const s = t - PET.tip1; if (s < 0.45) u = 1 - 0.07 * Math.sin(s / 0.45 * Math.PI) * (1 - s / 0.45);   // a little bounce
-      if (Math.random() < dt * 4) { v0.set(d.x + (Math.random() - 0.5) * 0.4, d.y + 0.5, d.z - 0.4 - Math.random() * 1.0).add(group.position); emit(v0.x, v0.y, v0.z, 0, 0.3, 0, 0.8, 0.16, 0xbfd8ff); }
+      if (Math.random() < dt * 4) { v0.set(d.x - 0.4 - Math.random() * 1.0, d.y + 0.5, d.z + (Math.random() - 0.5) * 0.4).add(group.position); emit(v0.x, v0.y, v0.z, 0, 0.3, 0, 0.8, 0.16, 0xbfd8ff); }
     } else if (t >= PET.up0 && t < PET.up1) {
       if (d.lying) { d.lying = false; fun.sfx.boing(); fun.sfx.pop(); }
       u = 1 - backOut((t - PET.up0) / (PET.up1 - PET.up0));
@@ -310,10 +311,10 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
       if (!d.upDone) { d.upDone = true; d.poppedUp++; v0.set(d.x, d.y + 2.0, d.z).add(group.position); burst(v0.x, v0.y, v0.z, 0xffe27a, 18, 1.8, 0.6, 0.2, -1); fun.sfx.giggle(true); }
       if (t >= PET.end) { d.petT = -1; d.petHit = d.tipSnd = d.upDone = false; arm = 0; tint = 0; wx = wz = 0; }
     }
-    const th = -Math.PI / 2 * u;
+    const th = Math.PI / 2 * u;   // about z: +y tips toward -x
     const pd = Math.max(0, Math.min(1, u));
-    d.maxTip = Math.max(d.maxTip, -th); d.maxTint = Math.max(d.maxTint, tint);
-    return { th, py: -0.73 * pd * pd, pz: -0.38 * pd, arm, tint, wx, wz };
+    d.maxTip = Math.max(d.maxTip, th); d.maxTint = Math.max(d.maxTint, tint);
+    return { th, py: -0.73 * pd * pd, px: -0.38 * pd, arm, tint, wx, wz };
   }
   function tickDummy(d, dt) {
     if (d.petT === -1 && d.disT === -1 && d.stunT === -1 && d.leanT < 0 && d.wandSt === 'in') { if (d.active) { d.active = false; for (const i of [d.bone, d.wand, ...d.arms.map(a => a.bi)]) { bones[i].position.copy(rest[i].p); bones[i].quaternion.copy(rest[i].q); } hideT(d.stars); setTint(d, 0); } return; }
@@ -349,9 +350,9 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     // pose the body
     const b = bones[d.bone];
     if (pet) { wx += pet.wx; wz += pet.wz; }
-    qa.setFromEuler(e1.set(0, spin, 0)); qb.setFromEuler(e1.set(wx - recoil + lean + (pet ? pet.th : 0), 0, wz)); b.quaternion.copy(qa).multiply(qb);
+    qa.setFromEuler(e1.set(0, spin, 0)); qb.setFromEuler(e1.set(wx - recoil + lean, 0, wz + (pet ? pet.th : 0))); b.quaternion.copy(qa).multiply(qb);
     b.position.copy(rest[d.bone].p);
-    if (pet) { b.position.y += pet.py; b.position.z += pet.pz; setTint(d, pet.tint); }
+    if (pet) { b.position.y += pet.py; b.position.x += pet.px; setTint(d, pet.tint); }
     // the arms follow the body; Petrificus snaps them flat to its sides
     const armK = pet ? pet.arm : 0;
     for (const a of d.arms) {
