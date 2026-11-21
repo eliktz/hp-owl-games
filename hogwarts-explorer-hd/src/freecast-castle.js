@@ -737,8 +737,9 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       t.at(tv); let fx = t.front ? t.front[0] : 0, fz = t.front ? t.front[1] : 1;
       if (!t.front) { const dx = pos.x - tv.x, dz = pos.z - tv.z, l = Math.hypot(dx, dz) || 1; fx = dx / l; fz = dz / l; }
       const x = tv.x + fx * d, z = tv.z + fz * d;
-      try { player.teleport(x, z); } catch { pos.x = x; pos.z = z; }
-      pos.x = x; pos.z = z; player.yaw = Math.atan2(tv.x - x, tv.z - z);
+      player.yaw = Math.atan2(tv.x - x, tv.z - z);   // before the teleport: it snaps the camera behind this yaw
+      try { player.teleport(x, z); } catch { /* fall back to a plain move */ }
+      pos.x = x; pos.z = z;
       return { x: +x.toFixed(2), z: +z.toFixed(2), tx: +tv.x.toFixed(2), tz: +tv.z.toFixed(2) };
     },
     state: () => SP._castle.state(),
