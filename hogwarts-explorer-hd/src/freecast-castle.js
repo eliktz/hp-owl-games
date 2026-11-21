@@ -168,13 +168,13 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   }
   // fires (a brazier, a candelabra): Incendio lights after the sparks land, Aguamenti puts out
   function newFire() { return { lit: false, k: 0, pend: 0, out: 0, lights: 0, douses: 0 }; }
-  function fireCast(f, k) { if (k === 'incendio') f.pend = 0.4; else f.out = 1.0; }
+  function fireCast(f, k) { if (k === 'incendio') f.pend = 0.4; else { f.out = 1.0; f.frost = k === 'glacius'; } }   // batch 5: Glacius puts it out with a frost puff
   function tickFireState(f, dt, spotsW) {
     if (f.pend > 0) { f.pend -= dt; if (f.pend <= 0) { f.pend = 0; f.lit = true; f.lights++; for (const p of spotsW) burst(p.x, p.y, p.z, 0xff9a30, 14, 2, 0.7, 0.22, 1); fun.sfx.whoosh(); fun.sfx.boom(); } }
-    if (f.out > 0) { f.out -= dt; if (f.out <= 0.45 && f.lit) { f.lit = false; f.douses++; for (const p of spotsW) for (let n = 0; n < 8; n++) emit(p.x + (Math.random() - 0.5) * 0.3, p.y, p.z + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0.6 + Math.random() * 0.6, (Math.random() - 0.5) * 0.3, 1.4, 0.4, 0x707a84, 0.2, 0.5); fun.sfx.noise(0.7, 0.14, 0, 3000, 0.8, 'highpass'); } if (f.out < 0) f.out = 0; }
+    if (f.out > 0) { f.out -= dt; if (f.out <= 0.45 && f.lit) { f.lit = false; f.douses++; if (f.frost) { f.frosts = (f.frosts || 0) + 1; for (const p of spotsW) { burst(p.x, p.y, p.z, 0xdff4ff, 22, 1.8, 0.9, 0.26, -0.4); burst(p.x, p.y, p.z, 0x8ad0ff, 10, 1.0, 1.1, 0.34, 0.1); } } else for (const p of spotsW) for (let n = 0; n < 8; n++) emit(p.x + (Math.random() - 0.5) * 0.3, p.y, p.z + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0.6 + Math.random() * 0.6, (Math.random() - 0.5) * 0.3, 1.4, 0.4, 0x707a84, 0.2, 0.5); fun.sfx.noise(0.7, 0.14, 0, 3000, 0.8, 'highpass'); } if (f.out < 0) f.out = 0; }
     f.k += ((f.lit ? 1 : 0) - f.k) * Math.min(1, dt * (f.lit ? 5 : 8));
   }
-  const fireOk = (f, k) => (k === 'incendio' ? !f.lit && !f.pend : f.lit && !f.out);
+  const fireOk = (f, k) => (k === 'incendio' ? !f.lit && !f.pend : f.lit && !f.out);   // aguamenti and glacius put out
 
   // ======================= the Entrance Hall spot =======================
   const HS = {   // session state (survives leaving and re-entering the hall; not saved)
@@ -322,7 +322,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   const hBoneW = (i, o) => o.copy(hall.bones[i].position).add(hall.origin);
   const hP = (key, x, y, z, o) => o.set(x, y, z).applyMatrix4(HXF[key]).add(HO());   // a kit point of a scaled prop, in the world
   const hTarget = (t) => { t.indoor = 'entrancehall'; targets.push(t); return t; };
-  hTarget({ id: 'hall-brazier', spells: ['incendio', 'aguamenti'], front: [-1, 0], at: (o) => hP('brazier', HALL.brazier.x, 1.1, HALL.brazier.z, o), ok: (k) => hallLive() && fireOk(HS.fire, k), cast: (k) => fireCast(HS.fire, k) });
+  hTarget({ id: 'hall-brazier', spells: ['incendio', 'aguamenti', 'glacius'], front: [-1, 0], at: (o) => hP('brazier', HALL.brazier.x, 1.1, HALL.brazier.z, o), ok: (k) => hallLive() && fireOk(HS.fire, k), cast: (k) => fireCast(HS.fire, k) });
   hTarget({ id: 'hall-chest', spells: ['alohomora'], front: [Math.sin(HALL.chest.yaw), Math.cos(HALL.chest.yaw)], at: (o) => hP('chest', HALL.chest.x, 0.38, HALL.chest.z + 0.27, o), ok: () => hallLive() && HS.chest.state === 'locked', cast: () => { const c = HS.chest; c.state = 'opening'; c.t = -0.35; c.opens++; c.rewarded = false; c.popped = false; } });
   hTarget({ id: 'hall-teapot', spells: ['engorgio', 'reducio'], front: [-1, 0], at: (o) => hP('teapot', HALL.teapot.x, 0.74 + 0.12 * HS.teapot.f, HALL.teapot.z, o), ok: (k) => hallLive() && HS.teapot.t >= 1 && (k === 'engorgio' ? HS.teapot.level < 1 : HS.teapot.level > -1), cast: (k) => stepScal(HS.teapot, k === 'engorgio' ? 1 : -1) });
   hTarget({ id: 'hall-helmet', spells: ['reparo'], front: [1, 0], at: (o) => hP('helmet', HCtr.x, 0.3, HCtr.z + 0.1, o), ok: () => hallLive() && HS.helmet.state === 'broken', cast: () => { HS.helmet.state = 'mending'; HS.helmet.t = -0.35; } });
@@ -541,24 +541,40 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
         const d = s.x;   // ~ the diameter in metres (local)
         // tiny is never under ~0.35 m across (batch 4: the smallest ones shrank to ~0.2 m and got lost in the grass)
         const sc = newScal([Math.min(0.85, Math.max(0.5, 0.35 / (d * S))), 1, Math.min(3.2, Math.max(1.6, 1.7 / d))]);
-        const st = { i, sc, mv: newMover(), pend: 0, waters: 0, dirty: false };
+        const st = { i, sc, mv: newMover(), pend: 0, waters: 0, dirty: false, frost: 0, frosts: 0, melts: 0, tintK: 0 };
         PK.st.push(st);
         // a collider that only exists while the pumpkin is huge (parked far away otherwise)
         const c = { type: 'circle', x: 1e5, z: 1e5, r: 0.01, freecast: true }; player.colliders.push(c); PK.cols.push(c);
         const centre = (o) => o.set(p.x, p.y + 0.32 * s.y * sc.f, p.z).applyMatrix4(im.matrixWorld).add(st.mv.off);
-        targets.push({ id: 'pumpkin' + i, grp: im.parent, spells: ['engorgio', 'reducio', 'aguamenti', 'leviosa'], at: centre,
-          ok: (k) => !st.mv.mode && sc.t >= 1 && !st.pend && (k === 'engorgio' || k === 'aguamenti' ? sc.level < 1 : k === 'reducio' ? sc.level > -1 : true),
-          cast: (k) => { if (k === 'leviosa') startMover(st.mv, k); else if (k === 'aguamenti') st.pend = 0.9; else stepScal(sc, k === 'engorgio' ? 1 : -1); } });
+        targets.push({ id: 'pumpkin' + i, grp: im.parent, spells: ['engorgio', 'reducio', 'aguamenti', 'leviosa', 'glacius', 'incendio'], at: centre,
+          ok: (k) => (k === 'glacius' ? !st.frost && !st.mv.mode : k === 'incendio' ? st.frost > 0 : !st.mv.mode && sc.t >= 1 && !st.pend && (k === 'engorgio' || k === 'aguamenti' ? sc.level < 1 : k === 'reducio' ? sc.level > -1 : true)),
+          cast: (k) => { if (k === 'glacius') { st.frost = 20; st.frosts++; frostFx(st, 0xdff4ff); } else if (k === 'incendio') { st.frost = 0; st.melts++; frostFx(st, 0xffb060); } else if (k === 'leviosa') startMover(st.mv, k); else if (k === 'aguamenti') st.pend = 0.9; else stepScal(sc, k === 'engorgio' ? 1 : -1); } });
         st.S = S;
       }
     }
   } catch (e) { console.warn('[freecast] pumpkins skipped -', e && e.message || e); PK.im = null; }
   const _pp = new Vector3(), _ps = new Vector3();
+  // batch 5: Glacius frosts a pumpkin for ~20 s (a cold blue-white tint through the instance colour, made on the
+  // first frost; a few drifting frost sparkles); Incendio melts it at once
+  function frostFx(st, hex) { const b = PK.base[st.i]; v0.set(b.p.x, b.p.y + 0.35 * b.s.y, b.p.z).applyMatrix4(PK.im.matrixWorld); burst(v0.x, v0.y, v0.z, hex, 18, 1.4, 0.7, 0.2, -0.4); if (hex === 0xffb060) fun.sfx.whoosh(); else fun.sfx.sparkle(); }
+  const _fc = new Color();
+  function tickFrost(st, dt) {
+    const im = PK.im;
+    if (st.frost > 0) { st.frost -= dt; if (st.frost <= 0) st.frost = 0; }
+    const want = st.frost > 0 ? 1 : 0;
+    if (want && Math.random() < dt * 2.5) { const b = PK.base[st.i]; v0.set(b.p.x, b.p.y + 0.5 * b.s.y, b.p.z).applyMatrix4(im.matrixWorld); emit(v0.x + (Math.random() - 0.5) * 0.5, v0.y, v0.z + (Math.random() - 0.5) * 0.5, 0, 0.25, 0, 1.0, 0.16, 0xe8f6ff); }
+    if (st.tintK === want) return;
+    st.tintK += (want - st.tintK) * Math.min(1, dt * (want ? 4 : 1.5)); if (Math.abs(want - st.tintK) < 0.02) st.tintK = want;
+    if (!im.instanceColor) { for (let i = 0; i < im.count; i++) im.setColorAt(i, _fc.setRGB(1, 1, 1)); }
+    const k = st.tintK; im.setColorAt(st.i, _fc.setRGB(1 - 0.32 * k, 1 + 0.25 * k, 1 + 1.6 * k));
+    im.instanceColor.needsUpdate = true;
+  }
   function tickPumpkins(dt) {
     const im = PK.im; if (!im) return;
     let any = false;
     for (const st of PK.st) {
       const b = PK.base[st.i];
+      if (st.frost > 0 || st.tintK > 0) tickFrost(st, dt);
       if (st.pend > 0) { st.pend -= dt; if (st.pend <= 0) { st.pend = 0; st.waters++; stepScal(st.sc, 1); st.sc.t = 0; v0.set(b.p.x, b.p.y + 0.3 * b.s.y, b.p.z).applyMatrix4(im.matrixWorld); burst(v0.x, v0.y, v0.z, 0x9aff7a, 16, 1.6, 0.9, 0.22, -0.5); fun.sfx.giggle(true); } }
       const a = tickScal(st.sc, dt);
       v1.copy(b.p).applyMatrix4(im.matrixWorld);
@@ -707,7 +723,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     tick(dt) { tickSwell(dt); tickPumpkins(dt); },
     state: () => ({ swells: SW.n, swelling: SW.t >= 0, teapot: { level: HS.teapot.level, f: +HS.teapot.f.toFixed(2), maxF: +HS.teapot.maxF.toFixed(2), minF: +HS.teapot.minF.toFixed(2) },
       book: { level: LS.bookS.level, f: +LS.bookS.f.toFixed(2) },
-      pumpkins: PK.st.map(s => ({ i: s.i, level: s.sc.level, f: +s.sc.f.toFixed(2), dm: +(s.sc.f * PK.base[s.i].s.x * s.S).toFixed(2), waters: s.waters, floats: s.mv.floats, mode: s.mv.mode, maxRise: +s.mv.maxRise.toFixed(2) })) }),
+      pumpkins: PK.st.map(s => ({ i: s.i, level: s.sc.level, f: +s.sc.f.toFixed(2), dm: +(s.sc.f * PK.base[s.i].s.x * s.S).toFixed(2), waters: s.waters, floats: s.mv.floats, mode: s.mv.mode, maxRise: +s.mv.maxRise.toFixed(2), frost: +s.frost.toFixed(1), frosts: s.frosts, melts: s.melts, tint: +s.tintK.toFixed(2) })) }),
   });
   SP.reducio = Object.assign(sizeSpell('reducio'), { state: () => SP.engorgio.state() });
 
@@ -854,7 +870,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       tickHall(dt); tickLib(dt);
     },
     state: () => ({ room: interiors.active, hall: hallLive(), lib: libLive(), builds,
-      chest: { state: HS.chest.state, opens: HS.chest.opens, paid: HS.chest.paid }, brazier: { lit: HS.fire.lit, lights: HS.fire.lights, douses: HS.fire.douses },
+      chest: { state: HS.chest.state, opens: HS.chest.opens, paid: HS.chest.paid }, brazier: { lit: HS.fire.lit, lights: HS.fire.lights, douses: HS.fire.douses, frosts: HS.fire.frosts || 0 },
       helmet: { state: HS.helmet.state, mends: HS.helmet.mends, breaks: HS.helmet.breaks }, books: { mode: HS.books.mode, floats: HS.books.floats, accios: HS.books.accios, reached: HS.books.reached, maxRise: +HS.books.maxRise.toFixed(2) },
       candles: { lit: LS.fire.lit, lights: LS.fire.lights, douses: LS.fire.douses }, libBook: { mode: LS.book.mode, floats: LS.book.floats, accios: LS.book.accios, level: LS.bookS.level },
       libPot: { bloomed: LS.pot.bloomed, wilt: +LS.pot.wilt.toFixed(2), heals: LS.pot.heals }, hearts: { bursts: htN, alive: htAlive },

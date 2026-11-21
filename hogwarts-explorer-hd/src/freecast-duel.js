@@ -121,7 +121,7 @@ function jackHeadGeo() {     // base (the collar) at 0
   return mergeGeometries(P.map(plain));
 }
 
-export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, bolt, boltAhead, tip, tipV, best }) {
+export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, bolt, boltAhead, tip, tipV, best, glyph = null }) {
   const pos = player.pos;
   const Y0 = heightAt(DUEL.x, DUEL.z);
   const gy = (lx, lz) => heightAt(DUEL.x + lx, DUEL.z + lz) - Y0;
@@ -276,22 +276,24 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
   for (const d of DUM) {
     Object.assign(d, { wandSt: 'in', disT: -1, stunT: -1, leanT: -1, wt: 0, land: new Vector3(), landYaw: 0, from: new Vector3(),
       disarms: 0, wandBacks: 0, maxWandD: 0, stuns: 0, righted: 0, maxSpin: 0, starsMax: 0, hopN: 0, active: false,
-      petT: -1, petrifies: 0, fell: 0, poppedUp: 0, maxTip: 0, maxTint: 0, armK: 0, lying: false });
+      petT: -1, petrifies: 0, fell: 0, poppedUp: 0, maxTip: 0, maxTint: 0, armK: 0, lying: false,
+      danceT: -1, dances: 0, maxSway: 0, maxHop: 0, maxWave: 0, gigT: -1, giggles: 0, maxShake: 0, glyphAcc: 0 });
     d.land.set(d.x + (d.i ? 0.95 : -1.35), 0, d.z + (d.i ? 1.55 : 1.0)); d.land.y = gy(d.land.x, d.land.z) + 0.035;
     d.starOff = new Vector3().copy(rest[d.stars].p).sub(rest[d.bone].p);
     for (const a of d.arms) a.off = new Vector3().copy(rest[a.bi].p).sub(rest[d.bone].p);
     d.handArm = d.arms[0];   // the toy wand is in the -x hand
     d.handFromShoulder = new Vector3().copy(rest[d.wand].p).sub(rest[d.handArm.bi].p);
-    targets.push({ id: 'dummy' + d.i, grp: group, spells: ['expelliarmus', 'stupefy', 'petrificus', 'episkey'],
+    targets.push({ id: 'dummy' + d.i, grp: group, spells: ['expelliarmus', 'stupefy', 'petrificus', 'episkey', 'tarantallegra', 'rictusempra'],
       at: (o) => o.set(d.x, d.y + 1.34, d.z + 0.27).add(group.position),
-      ok: (k) => (k === 'episkey' ? hurt(d) : d.petT === -1 && (k === 'expelliarmus' ? d.wandSt === 'in' && d.disT === -1 : k === 'stupefy' ? d.stunT === -1 : d.stunT === -1 && d.disT === -1 && d.wandSt === 'in')),
-      cast: (k) => { if (k === 'episkey') heal(d); else if (k === 'expelliarmus') { d.disT = -0.3; d.wandSt = 'held'; d.disarms++; } else if (k === 'stupefy') { d.stunT = -0.3; d.stuns++; } else { d.petT = -0.3; d.petrifies++; } } });
+      ok: (k) => (k === 'episkey' ? hurt(d) : d.danceT !== -1 || d.gigT !== -1 ? false : k === 'tarantallegra' || k === 'rictusempra' ? !hurt(d) : d.petT === -1 && (k === 'expelliarmus' ? d.wandSt === 'in' && d.disT === -1 : k === 'stupefy' ? d.stunT === -1 : d.stunT === -1 && d.disT === -1 && d.wandSt === 'in')),
+      cast: (k) => { if (k === 'episkey') heal(d); else if (k === 'tarantallegra') { d.danceT = -0.3; d.dances++; d.jigSnd = false; } else if (k === 'rictusempra') { d.gigT = -0.3; d.giggles++; d.gigSnd = 0; } else if (k === 'expelliarmus') { d.disT = -0.3; d.wandSt = 'held'; d.disarms++; } else if (k === 'stupefy') { d.stunT = -0.3; d.stuns++; } else { d.petT = -0.3; d.petrifies++; } } });
   }
   // Episkey (batch 4): a stunned, disarmed or petrified dummy is right again at once (wand back in its hand,
   // its own colours, upright); freecast-yard.js sprinkles the hearts. tickDummy's idle branch resets the bones.
-  const hurt = (d) => d.petT !== -1 || d.stunT !== -1 || d.disT !== -1 || d.wandSt !== 'in';
+  // (batch 5: a dancing or giggling dummy counts too, so Episkey ends the jig / the giggles early)
+  const hurt = (d) => d.petT !== -1 || d.stunT !== -1 || d.disT !== -1 || d.wandSt !== 'in' || d.danceT !== -1 || d.gigT !== -1;
   function heal(d) {
-    d.petT = d.stunT = d.disT = -1; d.wandSt = 'in'; d.leanT = -1;
+    d.petT = d.stunT = d.disT = d.danceT = d.gigT = -1; d.wandSt = 'in'; d.leanT = -1;
     d.petHit = d.tipSnd = d.upDone = d.lying = d.stunHit = false; d.hopN = 0; d.heals = (d.heals || 0) + 1;
     setTint(d, 0); fun.sfx.chime();
   }
@@ -331,7 +333,7 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     return { th, px: hx + 0.24 * Math.cos(th), py: hy + 0.24 * Math.sin(th), arm, tint, wx, wz };
   }
   function tickDummy(d, dt) {
-    if (d.petT === -1 && d.disT === -1 && d.stunT === -1 && d.leanT < 0 && d.wandSt === 'in') { if (d.active) { d.active = false; for (const i of [d.bone, d.wand, ...d.arms.map(a => a.bi)]) { bones[i].position.copy(rest[i].p); bones[i].quaternion.copy(rest[i].q); } hideT(d.stars); setTint(d, 0); } return; }
+    if (d.petT === -1 && d.disT === -1 && d.stunT === -1 && d.leanT < 0 && d.wandSt === 'in' && d.danceT === -1 && d.gigT === -1) { if (d.active) { d.active = false; for (const i of [d.bone, d.wand, ...d.arms.map(a => a.bi)]) { bones[i].position.copy(rest[i].p); bones[i].quaternion.copy(rest[i].q); } hideT(d.stars); setTint(d, 0); } return; }
     d.active = true;
     let spin = 0, wx = 0, wz = 0, recoil = 0, lean = 0, starK = 0;
     let pet = null;
@@ -361,17 +363,49 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
       if (t >= 0) recoil += 0.35 * Math.sin(Math.min(1, t / 0.5) * Math.PI);
     }
     if (d.leanT >= 0) { d.leanT += dt; lean = 0.3 * Math.sin(Math.min(1, d.leanT / 0.7) * Math.PI); if (d.leanT > 0.7) d.leanT = -1; }
+    // Tarantallegra (batch 5): a silly jig on the post for ~5 s (sway, waving arms, little hops, notes floating up)
+    let hop = 0, wave = 0, waveL = 0;
+    if (d.danceT !== -1) {
+      d.danceT += dt; const t = d.danceT;
+      if (t >= 0) {
+        if (!d.jigSnd) { d.jigSnd = true; v0.set(d.x, d.y + 1.6, d.z).add(group.position); burst(v0.x, v0.y, v0.z, 0xff8ad8, 18, 2, 0.6, 0.22, -1); fun.sfx.tune([659, 784, 880, 784, 659, 523, 587, 659, 784, 659, 587, 523], 0.2, 'triangle'); d.jigN = 0; }
+        const env = Math.min(1, t / 0.4) * Math.max(0, Math.min(1, (DANCE5 - t) / 0.5));
+        wz += Math.sin(t * 6.3) * 0.26 * env; spin += Math.sin(t * 3.15) * 0.55 * env;
+        hop = Math.abs(Math.sin(t * 6.3)) * 0.14 * env;
+        wave = (0.75 + 0.6 * Math.sin(t * 9)) * env; waveL = (0.75 + 0.6 * Math.sin(t * 9 + Math.PI)) * env;
+        d.maxSway = Math.max(d.maxSway, Math.abs(Math.sin(t * 6.3) * 0.26 * env)); d.maxHop = Math.max(d.maxHop, hop); d.maxWave = Math.max(d.maxWave, wave, waveL);
+        d.glyphAcc += dt; if (d.glyphAcc > 0.32) { d.glyphAcc = 0; v0.set(d.x + (Math.random() - 0.5) * 0.5, d.y + 1.9 + hop, d.z + 0.1).add(group.position); if (glyph) glyph('note', v0.x, v0.y, v0.z, (Math.random() - 0.5) * 0.5, 0.8, (Math.random() - 0.5) * 0.3, 1.6, 0.26, [0xff7ad0, 0xffe27a, 0x9ad8ff, 0x9aff9a][(d.jigN++) % 4]); }
+        if (t >= DANCE5) { d.danceT = -1; d.jigSnd = false; fun.sfx.pop(); v0.set(d.x, d.y + 2.0, d.z).add(group.position); burst(v0.x, v0.y, v0.z, 0xffe27a, 12, 1.4, 0.5, 0.18, -1); }
+      }
+    }
+    // Rictusempra (batch 5): it wobbles and shakes as if giggling for ~4 s, "חה חה" popping out
+    if (d.gigT !== -1) {
+      d.gigT += dt; const t = d.gigT;
+      if (t >= 0) {
+        if (d.gigSnd === 0) { d.gigSnd = 1; v0.set(d.x, d.y + 1.5, d.z + 0.2).add(group.position); burst(v0.x, v0.y, v0.z, 0xe8eef8, 16, 1.6, 0.6, 0.2, -0.5); fun.sfx.giggle(true); }
+        if (d.gigSnd === 1 && t > 1.4) { d.gigSnd = 2; fun.sfx.giggle(false); }
+        if (d.gigSnd === 2 && t > 2.7) { d.gigSnd = 3; fun.sfx.giggle(true); }
+        const env = Math.min(1, t / 0.25) * Math.max(0, Math.min(1, (GIG5 - t) / 0.5));
+        const sh = Math.sin(t * 31) * 0.07 * env;
+        wz += sh; wx += Math.sin(t * 23) * 0.05 * env - 0.12 * env * (0.6 + 0.4 * Math.sin(t * 4));   // shaking, rocking back with laughter
+        hop = Math.abs(Math.sin(t * 15)) * 0.035 * env;
+        wave = waveL = (0.35 + 0.25 * Math.sin(t * 27)) * env;
+        d.maxShake = Math.max(d.maxShake, Math.abs(sh));
+        d.glyphAcc += dt; if (d.glyphAcc > 0.45) { d.glyphAcc = 0; v0.set(d.x + (Math.random() - 0.5) * 0.7, d.y + 1.95, d.z + 0.2).add(group.position); if (glyph) glyph('haha', v0.x, v0.y, v0.z, (Math.random() - 0.5) * 0.6, 0.7, 0.1, 1.1, 0.42, 0xffe27a, true); }
+        if (t >= GIG5) { d.gigT = -1; d.gigSnd = 0; fun.sfx.pop(); }
+      }
+    }
     // pose the body
     const b = bones[d.bone];
     if (pet) { wx += pet.wx; wz += pet.wz; }
     qa.setFromEuler(e1.set(0, spin, 0)); qb.setFromEuler(e1.set(wx - recoil + lean, 0, wz + (pet ? pet.th : 0))); b.quaternion.copy(qa).multiply(qb);
-    b.position.copy(rest[d.bone].p);
+    b.position.copy(rest[d.bone].p); b.position.y += hop;
     if (pet) { b.position.y += pet.py; b.position.x += pet.px; setTint(d, pet.tint); }
     // the arms follow the body; Petrificus snaps them flat to its sides
     const armK = pet ? pet.arm : 0;
     for (const a of d.arms) {
       const ab = bones[a.bi]; ab.position.copy(a.off).applyQuaternion(b.quaternion).add(b.position);
-      qc.setFromEuler(e1.set(0, 0, -a.sx * 0.92 * armK)); ab.quaternion.copy(b.quaternion).multiply(qc);
+      qc.setFromEuler(e1.set(0, 0, -a.sx * 0.92 * armK + a.sx * (a.sx < 0 ? waveL : wave))); ab.quaternion.copy(b.quaternion).multiply(qc);
     }
     // the stars ride round the head
     const sb = bones[d.stars];
@@ -421,13 +455,20 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
       },
     };
   }
-  const BYKEY_COL = { expelliarmus: 0xff3a3a, stupefy: 0xff6a2a, riddikulus: 0xff9ad8, petrificus: 0x9ab8e8 };
+  const BYKEY_COL = { expelliarmus: 0xff3a3a, stupefy: 0xff6a2a, riddikulus: 0xff9ad8, petrificus: 0x9ab8e8, tarantallegra: 0xff7ad0, rictusempra: 0xe8eef8 };
   const SPX = {};
   SPX.expelliarmus = Object.assign(duelCast('expelliarmus'), {
     tick(dt) { for (const d of DUM) tickDummy(d, dt); },
     state: () => DUM.map(d => ({ wand: d.wandSt, disarms: d.disarms, wandBacks: d.wandBacks, maxWandD: +d.maxWandD.toFixed(2), stuns: d.stuns, righted: d.righted, maxSpin: +d.maxSpin.toFixed(2), starsMax: +d.starsMax.toFixed(2), stunned: d.stunT !== -1 })),
   });
   SPX.stupefy = Object.assign(duelCast('stupefy'), { state: () => SPX.expelliarmus.state() });
+  // batch 5: Tarantallegra (the jig) and Rictusempra (the giggles); freecast-fun.js wraps the cast for "anywhere"
+  SPX.tarantallegra = Object.assign(duelCast('tarantallegra'), {
+    state: () => DUM.map(d => ({ dancing: d.danceT !== -1, t: +Math.max(0, d.danceT).toFixed(2), dances: d.dances, maxSway: +d.maxSway.toFixed(2), maxHop: +d.maxHop.toFixed(2), maxWave: +d.maxWave.toFixed(2) })),
+  });
+  SPX.rictusempra = Object.assign(duelCast('rictusempra'), {
+    state: () => ({ dummies: DUM.map(d => ({ giggling: d.gigT !== -1, t: +Math.max(0, d.gigT).toFixed(2), giggles: d.giggles, maxShake: +d.maxShake.toFixed(3) })), wardrobe: { giggling: wr.gigT >= 0, giggles: wr.giggles } }),
+  });
   // Petrificus Totalus: the dummy goes stiff, tips over like a plank, lies ~3 s, pops back up with a wobble
   SPX.petrificus = Object.assign(duelCast('petrificus'), {
     state: () => DUM.map(d => ({ on: d.petT !== -1, t: +Math.max(0, d.petT).toFixed(2), lying: d.lying, petrifies: d.petrifies, fell: d.fell, poppedUp: d.poppedUp, maxTip: +d.maxTip.toFixed(2), maxTint: +d.maxTint.toFixed(2), heals: d.heals || 0, hurt: hurt(d), tint: +d.tintK.toFixed(2) })),
@@ -517,9 +558,10 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
   };
 
   // ---- Riddikulus: the wardrobe ----
-  const wr = { state: 'idle', t: 0, rat: -1, rattleIn: 6, rattles: 0, opens: 0, outs: 0, backs: 0, kind: null, shown: [], last: null, say: false, sfxN: 0, from: new Vector3(), maxOut: 0 };
-  targets.push({ id: 'wardrobe', grp: group, spells: ['riddikulus'], at: (o) => wLocal(0, 1.1, 0.35, o).add(group.position), ok: () => wr.state === 'idle',
-    cast: () => {
+  const wr = { gigT: -1, giggles: 0, gigAcc: 0, state: 'idle', t: 0, rat: -1, rattleIn: 6, rattles: 0, opens: 0, outs: 0, backs: 0, kind: null, shown: [], last: null, say: false, sfxN: 0, from: new Vector3(), maxOut: 0 };
+  targets.push({ id: 'wardrobe', grp: group, spells: ['riddikulus', 'rictusempra'], at: (o) => wLocal(0, 1.1, 0.35, o).add(group.position), ok: () => wr.state === 'idle' && wr.gigT < 0,
+    cast: (key) => {
+      if (key === 'rictusempra') { wr.gigT = 0; wr.giggles++; wr.rat = -1; fun.sfx.giggle(false); return; }   // batch 5: the tickled wardrobe shakes and giggles
       let k; do { k = KINDS[(Math.random() * KINDS.length) | 0]; } while (k === wr.last);
       wr.kind = k; wr.last = k; wr.state = 'open'; wr.t = -0.3; wr.say = false; wr.sfxN = 0; wr.shown.push(k); if (wr.shown.length > 12) wr.shown.shift();
     } });
@@ -536,6 +578,7 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     hd.position.copy(v1.set(0, (0.5 + 0.5 * spring) * sc, 0).applyQuaternion(qa).add(p)); qb.setFromEuler(e1.set(0, 0, Math.sin(T * 5) * 0.3 * (spring > 0.5 ? 1 : 0))); hd.quaternion.copy(qa).multiply(qb); hd.scale.setScalar(sc);
   }
   const DANCE = 4.2;
+  const DANCE5 = 5.0, GIG5 = 4.0;   // batch 5: the jig and the giggles (seconds)
   function dance(k, u, out) {   // where the thing is during the show, u seconds in; returns base point + sets pose
     let yaw = 0, roll = 0, squash = 1, spring = 1;
     out.copy(SHOW);
@@ -567,7 +610,13 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     let shake = 0, door = 0;
     if (wr.state === 'idle') {
       if (group.visible) { wr.rattleIn -= dt; if (wr.rattleIn <= 0) { wr.rattleIn = 7 + Math.random() * 5; wr.rat = 0; wr.rattles++; if (near(12)) for (let i = 0; i < 4; i++) fun.sfx.noise(0.07, 0.1, i * 0.11, 170, 1, 'lowpass'); } }
-      if (wr.rat >= 0) { wr.rat += dt; const r = wr.rat; shake = 0.022 * Math.sin(r * 42) * Math.sin(Math.min(1, r / 0.8) * Math.PI); door = 0.07 * Math.abs(Math.sin(r * 26)) * Math.sin(Math.min(1, r / 0.8) * Math.PI); if (r > 0.8) wr.rat = -1; }
+      if (wr.gigT >= 0) {
+        wr.gigT += dt; const r = wr.gigT, env = Math.min(1, r / 0.3) * Math.max(0, Math.min(1, (3.4 - r) / 0.5));
+        shake = 0.035 * Math.sin(r * 34) * env; door = 0.14 * Math.abs(Math.sin(r * 19)) * env;
+        wr.gigAcc += dt; if (wr.gigAcc > 0.5) { wr.gigAcc = 0; wLocal((Math.random() - 0.5) * 0.8, 2.0 + Math.random() * 0.3, 0.4, v0).add(group.position); if (glyph) glyph('haha', v0.x, v0.y, v0.z, (Math.random() - 0.5) * 0.6, 0.7, 0.2, 1.1, 0.5, 0xffe27a, true); }
+        if (r > 1.6 && !wr.g5) { wr.g5 = true; fun.sfx.giggle(true); }
+        if (r > 3.4) { wr.gigT = -1; wr.g5 = false; }
+      } else if (wr.rat >= 0) { wr.rat += dt; const r = wr.rat; shake = 0.022 * Math.sin(r * 42) * Math.sin(Math.min(1, r / 0.8) * Math.PI); door = 0.07 * Math.abs(Math.sin(r * 26)) * Math.sin(Math.min(1, r / 0.8) * Math.PI); if (r > 0.8) wr.rat = -1; }
       else if (wr.posed) { wr.posed = false; wbn.position.copy(rest[DB.ward].p); wbn.quaternion.copy(rest[DB.ward].q); doorAng(0); return; }
       else return;
     } else {
@@ -606,7 +655,7 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
   }
   SPX.riddikulus = Object.assign(duelCast('riddikulus'), {
     tick: tickWardrobe,
-    state: () => ({ state: wr.state, t: +wr.t.toFixed(2), kind: wr.kind, shown: wr.shown.slice(), opens: wr.opens, outs: wr.outs, backs: wr.backs, rattles: wr.rattles, maxOut: +wr.maxOut.toFixed(2) }),
+    state: () => ({ giggling: wr.gigT >= 0, giggles: wr.giggles, state: wr.state, t: +wr.t.toFixed(2), kind: wr.kind, shown: wr.shown.slice(), opens: wr.opens, outs: wr.outs, backs: wr.backs, rattles: wr.rattles, maxOut: +wr.maxOut.toFixed(2) }),
   });
   // the riddikulus duelCast fizzles a bolt ahead when no wardrobe is near: make that a giggly pink sparkle instead
   { const c0 = SPX.riddikulus.cast; SPX.riddikulus.cast = function () { if (best('riddikulus')) return c0.call(this); tip(); burst(tipV.x, tipV.y, tipV.z, 0xff9ad8, 18, 2, 0.8, 0.22, -1); fun.sfx.giggle(true); this.lastId = null; return false; }; }

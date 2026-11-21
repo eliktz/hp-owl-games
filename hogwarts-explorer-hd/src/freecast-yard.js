@@ -97,7 +97,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
   const yard = { kit: null, flames: null, sproutRange: null, sproutOrig: null, tintK: -1 };
   const YS = {   // session state
     toy: { state: 'poorly', t: 0, heals: 0, hops: 0, hopN: 0, k: 0, since: 0 },
-    bath: { full: false, k: 0, pend: 0, fills: 0, since: 0 },
+    bath: { full: false, k: 0, pend: 0, fills: 0, since: 0, frozen: false, freezePend: 0, meltPend: 0, freezes: 0, melts: 0, iceK: 0 },
     fire: newFire(),
     plant: { wilt: 1, wiltTo: 1, last: -1e9, pend: 0, pendK: null, heals: 0, bloomed: false, bk: 0, blooms: 0, grow: 1, growTo: 1, waters: 0, sc: newScal([0.6, 1, 1.8]) },
     urn: null,
@@ -196,7 +196,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     S(paint(place(new LatheGeometry([[0.15, 0.08], [0.11, 0.3], [0.095, 0.5], [0.12, 0.68], [0.17, 0.75]].map(([r, y]) => new Vector2(r, y)), 14), wx, wy, wz), STONE, STONE2));
     S(paint(place(new LatheGeometry([[0.16, 0.73], [0.36, 0.8], [0.5, 0.9], [0.53, 0.94], [0.47, 0.955], [0.39, 0.89], [0.2, 0.855], [0.001, 0.85]].map(([r, y]) => new Vector2(r, y)), 20), wx, wy, wz), 0x6e675a, 0x9a8f7c));
     B(YB.water, wx, wy + 0.85, wz);
-    P(paint(place(new CylinderGeometry(0.44, 0.36, 0.07, 20), wx, wy + 0.885, wz), 0x2a7ad0, 0x8ad0ff), YB.water);
+    yard.waterRange = P(paint(place(new CylinderGeometry(0.44, 0.36, 0.07, 20), wx, wy + 0.885, wz), 0x2a7ad0, 0x8ad0ff), YB.water);
     // --- the planter: a stone trough, a drooping plant (a bone that flops and stands), flowers that bloom ---
     const [px, pz] = YL.planter, py = gy(px, pz);
     S(paint(place(new BoxGeometry(1.0, 0.4, 0.56), px, py + 0.22, pz), 0x655b4f, 0x83786a));
@@ -240,6 +240,7 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     // the sprout's own vertex colours (fresh) for the droop tint
     const ca = k.skin.geometry.attributes.color, [a0, a1] = yard.sproutRange;
     yard.sproutOrig = ca.array.slice(a0 * 3, a1 * 3);
+    yard.waterOrig = ca.array.slice(yard.waterRange[0] * 3, yard.waterRange[1] * 3);
     // solid bits (world circles)
     for (const [key, r] of [['bench', 0.8], ['bath', 0.42], ['lantern', 0.2], ['planter', 0.62], ['urn', 0.32]]) { yW(YL[key][0], 0, YL[key][1], v0); player.colliders.push({ type: 'circle', x: v0.x, z: v0.z, r, freecast: true }); }
     scene.add(yardRoot);
@@ -258,8 +259,11 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
   const yTarget = (t) => { t.grp = yardRoot; targets.push(t); return t; };
   const L = (key, y, o) => yW(YL[key][0], gy(YL[key][0], YL[key][1]) + y, YL[key][1], o);
   yTarget({ id: 'yard-toy', spells: ['episkey'], front: yFront(0, 1), selfHearts: true, at: (o) => L('toy', SEAT + 0.55, o), ok: () => YS.toy.state === 'poorly', cast: () => { const s = YS.toy; s.state = 'healing'; s.t = -0.4; } });
-  yTarget({ id: 'yard-birdbath', spells: ['aguamenti'], front: yFront(0, 1), at: (o) => L('bath', 0.95, o), ok: () => !YS.bath.full && !YS.bath.pend, cast: () => { YS.bath.pend = 1.0; } });
-  yTarget({ id: 'yard-lantern', spells: ['incendio', 'aguamenti'], front: yFront(0.3, 1), at: (o) => L('lantern', 2.2, o), ok: (k) => fireOk(YS.fire, k), cast: (k) => fireCast(YS.fire, k) });
+  // batch 5: Glacius freezes a full birdbath (white-blue ice); Incendio melts it back to water
+  const bathOk = (k) => { const b = YS.bath; if (b.pend || b.freezePend || b.meltPend) return false; return k === 'glacius' ? b.full && !b.frozen : k === 'incendio' ? b.frozen : !b.full; };
+  yTarget({ id: 'yard-birdbath', spells: ['aguamenti', 'glacius', 'incendio'], front: yFront(0, 1), at: (o) => L('bath', 0.95, o), ok: bathOk,
+    cast: (k) => { if (k === 'glacius') YS.bath.freezePend = 0.6; else if (k === 'incendio') YS.bath.meltPend = 0.5; else YS.bath.pend = 1.0; } });
+  yTarget({ id: 'yard-lantern', spells: ['incendio', 'aguamenti', 'glacius'], front: yFront(0.3, 1), at: (o) => L('lantern', 2.2, o), ok: (k) => fireOk(YS.fire, k), cast: (k) => fireCast(YS.fire, k) });
   const PLs = YS.plant;
   yTarget({ id: 'yard-planter', spells: ['episkey', 'aguamenti', 'orchideous', 'engorgio', 'reducio'], front: yFront(0, 1), selfHearts: true, at: (o) => L('planter', 0.75, o),
     ok: (k) => !PLs.pend && PLs.sc.t >= 1 && (k === 'episkey' ? PLs.wiltTo > 0.5 : k === 'aguamenti' ? PLs.wiltTo > 0.5 || (PLs.bloomed && PLs.growTo < 1.3) : k === 'orchideous' ? !PLs.bloomed : k === 'engorgio' ? PLs.sc.level < 1 : PLs.sc.level > -1),
@@ -315,11 +319,22 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
   function tickBath(dt) {
     const b = YS.bath;
     if (b.pend > 0) { b.pend -= dt; if (b.pend <= 0) { b.pend = 0; b.full = true; b.fills++; b.since = T; L('bath', 0.95, v0); burst(v0.x, v0.y, v0.z, 0x9ad8ff, 18, 1.6, 0.7, 0.18, -4); fun.sfx.sparkle(); } }
-    if (b.full && T - b.since > 60) b.full = false;   // it dries up after a while (so it can be filled again)
+    if (b.freezePend > 0) { b.freezePend -= dt; if (b.freezePend <= 0) { b.freezePend = 0; b.frozen = true; b.freezes++; b.since = T; L('bath', 0.95, v0); burst(v0.x, v0.y, v0.z, 0xe8f6ff, 22, 1.4, 0.8, 0.22, -0.5); burst(v0.x, v0.y, v0.z, 0x8ad0ff, 10, 0.8, 1.0, 0.3, 0); fun.sfx.tink(2); fun.sfx.tink(5); fun.sfx.sparkle(); } }
+    if (b.meltPend > 0) { b.meltPend -= dt; if (b.meltPend <= 0) { b.meltPend = 0; b.frozen = false; b.melts++; b.since = T; L('bath', 0.95, v0); for (let n = 0; n < 12; n++) emit(v0.x + (Math.random() - 0.5) * 0.6, v0.y, v0.z + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.2, 0.5 + Math.random() * 0.5, (Math.random() - 0.5) * 0.2, 1.3, 0.36, 0xc8d0d8, 0.1, 0.5); fun.sfx.noise(0.6, 0.1, 0, 2500, 0.8, 'highpass'); } }
+    if (b.frozen && T - b.since > 45) { b.frozen = false; b.since = T; }   // it thaws by itself after a while (water again)
+    if (b.full && !b.frozen && T - b.since > 60) b.full = false;   // it dries up after a while (so it can be filled again)
+    b.iceK += ((b.frozen ? 1 : 0) - b.iceK) * Math.min(1, dt * (b.frozen ? 5 : 1.5)); if (Math.abs(b.iceK - (b.frozen ? 1 : 0)) < 0.02) b.iceK = b.frozen ? 1 : 0;
+    tintWater(b.iceK);
     b.k += ((b.full ? 1 : 0) - b.k) * Math.min(1, dt * (b.full ? 3 : 0.4));
     const w = yard.kit.bones[YB.water];
     if (b.k < 0.01) w.scale.setScalar(0.001);
-    else { const ripple = 1 + Math.sin(T * 3) * 0.01; w.scale.set(Math.max(0.3, b.k) * ripple, b.k, Math.max(0.3, b.k) * ripple); }
+    else { const ripple = 1 + Math.sin(T * 3) * 0.01 * (1 - b.iceK); w.scale.set(Math.max(0.3, b.k) * ripple, b.k * (1 + 0.5 * b.iceK), Math.max(0.3, b.k) * ripple); }
+  }
+  function tintWater(k) {   // 0 blue water .. 1 white-blue ice
+    if (k === yard.waterK) return; yard.waterK = k;
+    const ca = yard.kit.skin.geometry.attributes.color, A = ca.array, o = yard.waterOrig, a0 = yard.waterRange[0] * 3;
+    for (let i = 0; i < o.length; i += 3) { const hi = (i / 3) % 2 ? 0.1 : 0; A[a0 + i] = o[i] + (0.72 + hi - o[i]) * k; A[a0 + i + 1] = o[i + 1] + (0.84 + hi - o[i + 1]) * k; A[a0 + i + 2] = o[i + 2] + (0.92 - o[i + 2]) * k; }
+    ca.needsUpdate = true;
   }
   // ---- the lantern ----
   function tickLantern(dt) {
@@ -600,8 +615,8 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
     }),
     state: () => ({
       toy: { state: YS.toy.state, heals: YS.toy.heals, hops: YS.toy.hops, perk: +YS.toy.k.toFixed(2) },
-      bath: { full: YS.bath.full, fills: YS.bath.fills, k: +YS.bath.k.toFixed(2) },
-      lantern: { lit: YS.fire.lit, lights: YS.fire.lights, douses: YS.fire.douses }, maximaLit: YS.maximaLit,
+      bath: { full: YS.bath.full, fills: YS.bath.fills, k: +YS.bath.k.toFixed(2), frozen: YS.bath.frozen, freezes: YS.bath.freezes, melts: YS.bath.melts, ice: +YS.bath.iceK.toFixed(2) },
+      lantern: { lit: YS.fire.lit, lights: YS.fire.lights, douses: YS.fire.douses, frosts: YS.fire.frosts || 0 }, maximaLit: YS.maximaLit,
       plant: { wilt: +PLs.wilt.toFixed(2), heals: PLs.heals, bloomed: PLs.bloomed, grow: +PLs.grow.toFixed(2), waters: PLs.waters, level: PLs.sc.level, f: +PLs.sc.f.toFixed(2) },
       urn: { state: YS.urn.state, mends: YS.urn.mends, breaks: YS.urn.breaks },
       gh: { live: ghLive(), builds: ghBuilds, stand: { lit: GS.fire.lit, lights: GS.fire.lights, douses: GS.fire.douses }, pudding: { level: GS.pudding.level, f: +GS.pudding.f.toFixed(2), maxF: +GS.pudding.maxF.toFixed(2), minF: +GS.pudding.minF.toFixed(2) },

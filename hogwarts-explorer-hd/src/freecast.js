@@ -6,7 +6,8 @@
 // (Pip loops, the Sorting Hat giggles, Trevor hops...). The four duelling spells (Expelliarmus, Stupefy,
 // Protego, Riddikulus) act only on the dummies and the wardrobe of the duelling spot (freecast-duel.js) and
 // never fall through to the wand's delights: nothing is cast on people or creatures.
-// Batch 3 (freecast-castle.js) and batch 4 (freecast-yard.js: Episkey, the courtyard and Great Hall spots) add more.
+// Batch 3 (freecast-castle.js) and batch 4 (freecast-yard.js: Episkey, the courtyard and Great Hall spots) add more;
+// batch 5 (freecast-fun.js: Tarantallegra, Rictusempra, Glacius, Periculum, Ascendio) brings the wheel to 24.
 //   hpFreecast1 (localStorage)  { sel, disc: [spell keys cast on a real target], chestPaid }
 // Cost: nothing while idle (the corner hides beyond 70 m / indoors, effects are pooled and hidden when
 // unused, nothing is allocated per frame).
@@ -21,6 +22,7 @@ import * as fun from './fun.js';
 import { buildCorner, CORNER, B } from './freecast-corner.js';
 import { createDuel, DUEL } from './freecast-duel.js';
 import { createCastle } from './freecast-castle.js';
+import { createGlyphs, createFun } from './freecast-fun.js';
 
 const KEY = 'hpFreecast1';
 export const SPELLS = [
@@ -43,6 +45,11 @@ export const SPELLS = [
   { key: 'riddikulus', icon: '😂', name: 'רִידִיקוּלוּס', words: 'רִידִיקוּלוּס!', col: 0xff9ad8 },
   { key: 'patronum', icon: '🦌', name: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם', words: 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם!', col: 0xbfe4ff },
   { key: 'episkey', icon: '🩹', name: 'אֶפִּיסְקִי', words: 'אֶפִּיסְקִי!', col: 0xff9ac8 },   // batch 4 (freecast-yard.js)
+  { key: 'tarantallegra', icon: '💃', name: 'טָרַנְטָלֵגְרָה', words: 'טָרַנְטָלֵגְרָה!', col: 0xff7ad0 },   // batch 5 (freecast-fun.js)
+  { key: 'rictusempra', icon: '🪶', name: 'רִיקְטוּסֶמְפְּרָה', words: 'רִיקְטוּסֶמְפְּרָה!', col: 0xe8eef8 },
+  { key: 'glacius', icon: '❄️', name: 'גְּלַצְיוּס', words: 'גְּלַצְיוּס!', col: 0x8ad8ff },
+  { key: 'periculum', icon: '🎆', name: 'פֶּרִיקוּלוּם', words: 'פֶּרִיקוּלוּם!', col: 0xff4a3a },
+  { key: 'ascendio', icon: '🚀', name: 'אַסְצֶנְדִיוֹ', words: 'אַסְצֶנְדִיוֹ!', col: 0xffe27a },
 ];
 const BYKEY = Object.fromEntries(SPELLS.map(s => [s.key, s]));
 const COOL = 0.8;                 // seconds of game time between casts (the wand's own is 0.55)
@@ -92,7 +99,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   const st = { sel: BYKEY[saved.sel] ? saved.sel : 'lumos', disc: Array.isArray(saved.disc) ? saved.disc.filter(k => BYKEY[k]) : [], chestPaid: !!saved.chestPaid, opened: !!saved.opened };
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ sel: st.sel, disc: st.disc, chestPaid: st.chestPaid, opened: st.opened })); } catch { /* private mode */ } };
   let speed = 1, cool = 0, T = 0;
-  const log = { casts: 0, tipBursts: 0, spoken: [], lastWords: null, fallback: 0, lastTarget: null };
+  const log = { ignored: 0, casts: 0, tipBursts: 0, spoken: [], lastWords: null, fallback: 0, lastTarget: null };
   const glowTex = glowTexture();
 
   // ================= HUD: the spell-choice button + the wheel =================
@@ -110,20 +117,19 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   #fcWheel .hd{display:flex;align-items:center;gap:18px;color:#ffe9a8;font-size:28px;font-weight:bold;text-shadow:0 2px 0 #000}
   #fcWheel .cnt{font-size:20px;padding:2px 12px;border-radius:16px;background:rgba(255,215,106,.18);border:2px solid rgba(255,215,106,.6)}
   #fcWheel .pan{max-height:calc(100vh - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch}
-  #fcWheel .grid{display:grid;grid-template-columns:repeat(7,min(146px,calc((96vw - 104px) / 7)));gap:10px}
-  #fcWheel .grid .sp:nth-child(15){grid-column-start:2}
+  #fcWheel .grid{display:grid;grid-template-columns:repeat(8,min(140px,calc((96vw - 112px) / 8)));gap:10px}
   #fcWheel .sp{position:relative;height:min(132px,calc((100vh - 128px) / 3 - 10px));border-radius:22px;border:4px solid rgba(255,215,106,.55);background:rgba(40,25,95,.85);color:#fff;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 5px;cursor:pointer;touch-action:manipulation;font-family:inherit;box-sizing:border-box}
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 3px;cursor:pointer;touch-action:manipulation;font-family:inherit;box-sizing:border-box}
   #fcWheel .sp .i{font-size:min(52px,calc((100vh - 128px) / 3 - 66px));line-height:1.05}
-  #fcWheel .sp .n{font-size:17px;font-weight:bold;line-height:1.12;text-align:center;color:#ffe9a8}
+  #fcWheel .sp .n{font-size:max(13px,min(17px,1.42vw));font-weight:bold;line-height:1.12;text-align:center;color:#ffe9a8;overflow-wrap:anywhere}
   #fcWheel .sp.on{border-color:#fff3b0;background:radial-gradient(circle at 50% 30%,rgba(140,105,255,.95),rgba(60,35,140,.95));box-shadow:0 0 0 4px rgba(255,215,106,.5),0 0 22px rgba(255,215,106,.8)}
   #fcWheel .sp .st{position:absolute;top:3px;left:7px;font-size:18px}
   @media (max-aspect-ratio:1/1){#fcWheel .pan{padding:12px 10px 12px} #fcWheel .grid{grid-template-columns:repeat(3,min(calc((96vw - 44px) / 3),200px));gap:8px}
-    #fcWheel .grid .sp:nth-child(15){grid-column-start:auto} #fcWheel .grid .sp:nth-child(19){grid-column-start:2}
-    #fcWheel .sp{height:min(124px,calc((100vh - 132px) / 7 - 8px));padding:3px 2px;border-width:3px} #fcWheel .sp .i{font-size:min(50px,11vw,calc((100vh - 132px) / 7 - 62px))} #fcWheel .sp .n{font-size:max(14px,min(18px,3.6vw))}}
+    #fcWheel .sp{height:min(124px,calc((100vh - 132px) / 8 - 8px));padding:3px 2px;border-width:3px;gap:2px} #fcWheel .sp .i{font-size:min(46px,11vw,calc((100vh - 132px) / 8 - 62px))} #fcWheel .sp .n{font-size:max(14px,min(18px,3.6vw))}
+    #fcWheel .sp .st{font-size:15px;top:2px;left:5px}}
   @media (max-height:520px){#fcWheel .pan{padding:6px 12px 8px;gap:5px} #fcWheel .hd{font-size:20px} #fcWheel .cnt{font-size:16px}
-    #fcWheel .grid{grid-template-columns:repeat(7,min(150px,calc((96vw - 76px) / 7)));gap:6px} #fcWheel .sp{height:min(108px,calc((100vh - 70px) / 3 - 6px));border-radius:16px;gap:1px;border-width:3px}
-    #fcWheel .sp .i{font-size:34px} #fcWheel .sp .n{font-size:14px}}
+    #fcWheel .grid{grid-template-columns:repeat(8,min(150px,calc((96vw - 70px) / 8)));gap:5px} #fcWheel .sp{height:min(108px,calc((100vh - 70px) / 3 - 6px));border-radius:16px;gap:1px;border-width:3px;padding:3px 2px}
+    #fcWheel .sp .i{font-size:32px} #fcWheel .sp .n{font-size:13px} #fcWheel .sp .st{font-size:14px;top:2px;left:4px}}
   body.modalOn #fcBtn,body.inMatch #fcBtn,body.inSpell #fcBtn,body.modalOn #fcWheel,body.inMatch #fcWheel,body.inSpell #fcWheel{display:none !important}`;
   document.head.appendChild(css);
   const btn = document.createElement('button'); btn.id = 'fcBtn'; btn.className = 'gamebtn'; btn.setAttribute('aria-label', 'בְּחַר לַחַשׁ');
@@ -181,7 +187,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   }
 
   // ================= pooled particles (one InstancedMesh, additive, camera-facing) =================
-  const NP = 220;
+  const NP = 300;   // (batch 5: the fireworks need a few more)
   const pMesh = new InstancedMesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: AdditiveBlending }), NP);
   pMesh.frustumCulled = false; pMesh.visible = false; pMesh.raycast = () => {}; pMesh.renderOrder = 4; pMesh.name = 'freecast-fx';
   const P = []; for (let i = 0; i < NP; i++) { P.push({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, max: 1, size: 0.2, r: 1, g: 1, b: 1, grav: 0, drag: 0 }); pMesh.setColorAt(i, _c.setRGB(0, 0, 0)); }
@@ -632,8 +638,12 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   };
 
   // ================= the duelling spot (freecast-duel.js): Expelliarmus, Stupefy, Protego, Riddikulus =================
+  // batch 5: the pooled glyph sprites (notes, feathers, snowflakes, "חה", firework sparks), shared with the duel module
+  let GL = null;
+  try { GL = createGlyphs({ scene, camera, glowTex }); } catch (e) { console.warn('[freecast] glyphs skipped -', e && e.message || e); GL = null; }
+  const glyph = (...a) => { if (GL) GL.glyph(...a); };
   let D = null;
-  try { D = createDuel({ scene, camera, player, heightAt, fun, emit, burst, bolt, boltAhead, tip, tipV, glowTex, best }); }
+  try { D = createDuel({ scene, camera, player, heightAt, fun, emit, burst, bolt, boltAhead, tip, tipV, glowTex, best, glyph }); }
   catch (e) { console.warn('[freecast] duelling spot skipped -', e && e.message || e); D = null; }
   if (D) { for (const t of D.targets) TARGETS.push(t); Object.assign(SP, D.SP); }
   // ================= batch 3 (freecast-castle.js): Lumos Maxima, Engorgio, Reducio, Avis, Orchideous + the castle spots =================
@@ -643,12 +653,19 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   if (K) { for (const t of K.targets) TARGETS.push(t); Object.assign(SP, K.SP); }
   // batch 4: Nox / Lumos also put out / light the Great Hall's floating candles
   if (K && K.onLumos && SP.lumos) { const c0 = SP.lumos.cast; SP.lumos.cast = function () { const r = c0.call(this); try { K.onLumos(lumOn); } catch { /* ignore */ } return r; }; }
+  // ================= batch 5 (freecast-fun.js): Tarantallegra, Rictusempra, Glacius, Periculum, Ascendio =================
+  let FN = null;
+  if (GL) {
+    try { FN = createFun({ scene, camera, player, interiors, env, fun, emit, burst, stream, tip, tipV, best, BYKEY, glyphs: GL, SP, isBusy: () => isModal() || isTakeover() }); Object.assign(SP, FN.SP); }
+    catch (e) { console.warn('[freecast] batch 5 skipped -', e && e.message || e); FN = null; }
+  }
   for (const k of ['expelliarmus', 'stupefy', 'protego', 'riddikulus', 'petrificus']) if (!SP[k]) SP[k] = { noFallback: true, cast() { if (k === 'riddikulus' || k === 'protego') { tip(); burst(tipV.x, tipV.y, tipV.z, BYKEY[k].col, 16, 2, 0.8, 0.22, -1); if (k === 'riddikulus') fun.sfx.giggle(true); else fun.sfx.chime(); } else boltAhead(BYKEY[k].col); return false; } };
 
   // ================= casting =================
   function castSelected() {
     if (isModal() || isTakeover() || cool > 0) return false;
     const key = st.sel, s = BYKEY[key];
+    if (SP[key] && SP[key].blocked && SP[key].blocked()) { log.ignored = (log.ignored || 0) + 1; return false; }   // e.g. Ascendio while already in the air
     cool = COOL; log.casts++;
     try { if (!fun.store.wandUsed) { fun.store.wandUsed = true; fun.save(); } const w = document.getElementById('wandBtn'); if (w) { w.classList.remove('try'); w.classList.add('cool'); } } catch { /* ignore */ }
     fun.sfx.zap();
