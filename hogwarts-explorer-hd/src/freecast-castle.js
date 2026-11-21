@@ -29,8 +29,10 @@ import { plain, bone, paint, place, rod } from './freecast-corner.js';
 
 // ---- spot coordinates (room-local x,z; floor y 0) ----
 export const HALL = {
-  brazier: { x: 6.3, z: -3.6 }, chest: { x: 5.6, z: -5.6 }, teapot: { x: 6.8, z: -7.4 },
-  helmet: { x: -6.3, z: -3.8 }, vase: { x: -5.6, z: -5.8 }, books: { x: -6.8, z: -7.6 },
+  // both sides keep >= 4 m from the Great Hall / library doorway portals (+-6.8, 1, r 2.3), clear of the stairs
+  // (x -4..4, z < -5) and the hourglasses (z -10.6)
+  brazier: { x: 6.3, z: -4.2 }, chest: { x: 5.6, z: -6.2 }, teapot: { x: 6.8, z: -8.0 },
+  helmet: { x: -6.3, z: -4.4 }, vase: { x: -5.9, z: -6.4 }, books: { x: -6.8, z: -8.2 },
 };
 export const LIB = { candles: { x: 9.7, z: -3.6 }, pot: { x: 9.8, z: 3.6 }, lectern: { x: 7.2, z: 0 } };
 
@@ -276,10 +278,10 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   const hW = (x, y, z, o) => o.set(x, y, z).add(HO());
   const hBoneW = (i, o) => o.copy(hall.bones[i].position).add(hall.origin);
   const hTarget = (t) => { t.indoor = 'entrancehall'; targets.push(t); return t; };
-  hTarget({ id: 'hall-brazier', spells: ['incendio', 'aguamenti'], front: [0, 1], at: (o) => hW(HALL.brazier.x, 1.1, HALL.brazier.z, o), ok: (k) => hallLive() && fireOk(HS.fire, k), cast: (k) => fireCast(HS.fire, k) });
+  hTarget({ id: 'hall-brazier', spells: ['incendio', 'aguamenti'], front: [-1, 0], at: (o) => hW(HALL.brazier.x, 1.1, HALL.brazier.z, o), ok: (k) => hallLive() && fireOk(HS.fire, k), cast: (k) => fireCast(HS.fire, k) });
   hTarget({ id: 'hall-chest', spells: ['alohomora'], front: [0, 1], at: (o) => hW(HALL.chest.x, 0.38, HALL.chest.z + 0.27, o), ok: () => hallLive() && HS.chest.state === 'locked', cast: () => { const c = HS.chest; c.state = 'opening'; c.t = -0.35; c.opens++; c.rewarded = false; c.popped = false; } });
   hTarget({ id: 'hall-teapot', spells: ['engorgio', 'reducio'], front: [-1, 0], at: (o) => hW(HALL.teapot.x, 0.74 + 0.12 * HS.teapot.f, HALL.teapot.z, o), ok: (k) => hallLive() && HS.teapot.t >= 1 && (k === 'engorgio' ? HS.teapot.level < 1 : HS.teapot.level > -1), cast: (k) => stepScal(HS.teapot, k === 'engorgio' ? 1 : -1) });
-  hTarget({ id: 'hall-helmet', spells: ['reparo'], front: [0, 1], at: (o) => hW(HCtr.x, 0.5, HCtr.z + 0.2, o), ok: () => hallLive() && HS.helmet.state === 'broken', cast: () => { HS.helmet.state = 'mending'; HS.helmet.t = -0.35; } });
+  hTarget({ id: 'hall-helmet', spells: ['reparo'], front: [1, 0], at: (o) => hW(HCtr.x, 0.5, HCtr.z + 0.2, o), ok: () => hallLive() && HS.helmet.state === 'broken', cast: () => { HS.helmet.state = 'mending'; HS.helmet.t = -0.35; } });
   hTarget({ id: 'hall-vase', spells: ['orchideous'], front: [1, 0], at: (o) => hW(HALL.vase.x, 1.28, HALL.vase.z, o), ok: () => hallLive() && !HS.vase.bloomed && !HS.vase.pend, cast: () => { HS.vase.pend = 0.75; } });
   hTarget({ id: 'hall-books', spells: ['leviosa', 'accio'], front: [1, 0], at: (o) => (hall ? hBoneW(HB.books, o) : hW(HALL.books.x, 0.6, HALL.books.z, o)), ok: () => hallLive() && !HS.books.mode, cast: (k) => startMover(HS.books, k) });
 
@@ -546,7 +548,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
       else MX.p.lerp(v0, Math.min(1, dt * 2.5));
       const grow = Math.min(1, t / 0.8), fade = Math.min(1, (MX.dur - t) / 1.2), k = grow * fade;
       ball.position.copy(MX.p); ball.quaternion.copy(camera.quaternion);
-      ball.scale.setScalar((0.6 + 1.6 * grow) * (1 + Math.sin(t * 11) * 0.04) * (0.5 + 0.5 * fade));
+      ball.scale.setScalar((0.5 + 1.2 * grow) * (1 + Math.sin(t * 11) * 0.04) * (0.5 + 0.5 * fade));
       ball.material.opacity = Math.min(1, 0.4 + 0.6 * k);
       pool.position.set(MX.p.x, (inside ? pos.y : heightAt(MX.p.x, MX.p.z)) + 0.07, MX.p.z);
       pool.scale.setScalar(11 * k + 0.01); pool.material.opacity = (dark ? 0.42 : 0.18) * k;

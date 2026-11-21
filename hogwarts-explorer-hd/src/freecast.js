@@ -115,8 +115,8 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   #fcWheel .sp .n{font-size:17px;font-weight:bold;line-height:1.12;text-align:center;color:#ffe9a8}
   #fcWheel .sp.on{border-color:#fff3b0;background:radial-gradient(circle at 50% 30%,rgba(140,105,255,.95),rgba(60,35,140,.95));box-shadow:0 0 0 4px rgba(255,215,106,.5),0 0 22px rgba(255,215,106,.8)}
   #fcWheel .sp .st{position:absolute;top:3px;left:7px;font-size:18px}
-  @media (max-aspect-ratio:1/1){#fcWheel .grid{grid-template-columns:repeat(3,min(28vw,200px));gap:8px}
-    #fcWheel .sp{height:min(124px,calc((100vh - 132px) / 6 - 8px))} #fcWheel .sp .i{font-size:min(50px,11vw,calc((100vh - 132px) / 6 - 62px))} #fcWheel .sp .n{font-size:max(14px,min(18px,3.9vw))}}
+  @media (max-aspect-ratio:1/1){#fcWheel .pan{padding:12px 10px 12px} #fcWheel .grid{grid-template-columns:repeat(3,min(calc((96vw - 44px) / 3),200px));gap:8px}
+    #fcWheel .sp{height:min(124px,calc((100vh - 132px) / 6 - 8px));padding:3px 2px;border-width:3px} #fcWheel .sp .i{font-size:min(50px,11vw,calc((100vh - 132px) / 6 - 62px))} #fcWheel .sp .n{font-size:max(14px,min(18px,3.6vw))}}
   @media (max-height:520px){#fcWheel .pan{padding:6px 12px 8px;gap:5px} #fcWheel .hd{font-size:20px} #fcWheel .cnt{font-size:16px}
     #fcWheel .grid{grid-template-columns:repeat(6,min(150px,calc((96vw - 70px) / 6)));gap:6px} #fcWheel .sp{height:min(108px,calc((100vh - 70px) / 3 - 6px));border-radius:16px;gap:1px;border-width:3px}
     #fcWheel .sp .i{font-size:34px} #fcWheel .sp .n{font-size:14px}}
