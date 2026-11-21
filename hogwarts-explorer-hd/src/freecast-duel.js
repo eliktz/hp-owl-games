@@ -20,7 +20,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { plain, bone, paint, place, rod } from './freecast-corner.js';
 
 export const DUEL = { x: 14.5, z: 55.5 };   // world x,z of the spot's centre (the corner is at 7,53)
-const DB = { body0: 0, body1: 1, wand0: 2, wand1: 3, stars0: 4, stars1: 5, ward: 6, doorL: 7, doorR: 8, duck: 9, spider: 10, jelly: 11, jackBox: 12, jackSpring: 13, jackHead: 14 };
+const DB = { body0: 0, body1: 1, wand0: 2, wand1: 3, stars0: 4, stars1: 5, ward: 6, doorL: 7, doorR: 8, duck: 9, spider: 10, jelly: 11, jackBox: 12, jackSpring: 13, jackHead: 14,
+  arm0L: 15, arm0R: 16, arm1L: 17, arm1R: 18 };   // the arms ride the body (posed every frame) so Petrificus can snap them to its sides
 const KINDS = ['duck', 'spider', 'jelly', 'jack'];
 const SAY = { duck: 'קְוָואק! 🦆', spider: 'וִוּיי! 🛼', jelly: 'בּוֹינְג! 🍮', jack: 'הוֹפְּ-הוֹפְּ! 🎁' };
 const WY = -0.6;   // the wardrobe turns to face the strip
@@ -127,7 +128,8 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
   const group = new Group(); group.name = 'freecast-duel'; group.position.set(DUEL.x, Y0, DUEL.z);
   const stat = [], mov = [], bones = [];
   const S = (g) => stat.push(plain(g));
-  const M = (g, i) => mov.push(bone(g, i));
+  let vCum = 0;   // running vertex count of the skinned mesh (merge order = push order) for per-dummy tints
+  const M = (g, i) => { const gg = bone(g, i), s = vCum; vCum += gg.attributes.position.count; mov.push(gg); return [s, vCum]; };
   const mkBone = (idx, x, y, z) => { const b = new Bone(); b.name = 'fd' + idx; b.position.set(x, y, z); bones[idx] = b; return b; };
   const WOOD = 0x6a4424, DARK = 0x3e2816, IRON = 0x34303a, GOLD = 0xd8b04a, OAK = 0x4a2e1c, OAK2 = 0x6e4a2e;
 
@@ -163,11 +165,16 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     parts.push(paint(place(new SphereGeometry(0.17, 14, 10), 0, 0.88, 0), 0xa07c4c, 0xb8946a));
     face(parts, 0.89, 0.165, 1);
     for (let k = 0; k < 6; k++) { const a = k * 1.05; const c = new ConeGeometry(0.03, 0.14, 5); c.translate(0, 0.07, 0); parts.push(paint(place(c, Math.cos(a) * 0.06, 1.02, Math.sin(a) * 0.06, Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5), 0xe8c860, 0xfff0a0)); }
+    d.ranges = [M(mergeGeometries(parts.map(plain)).translate(P[0], P[1], P[2]), bi)];
+    // the two arms: one bone each, pivot at the shoulder (posed with the body every frame)
+    d.arms = [];
     for (const sx of [-1, 1]) {
-      parts.push(paint(rod([sx * 0.2, 0.55, 0], [sx * 0.42, 0.38, 0.08], 0.045, 0.04, 6), 0x8a6a40, 0xa07c4c));
-      parts.push(paint(place(new SphereGeometry(0.055, 8, 6), sx * 0.42, 0.38, 0.08), 0xa07c4c));
+      const ai = d.i ? (sx < 0 ? DB.arm1L : DB.arm1R) : (sx < 0 ? DB.arm0L : DB.arm0R);
+      mkBone(ai, P[0] + sx * 0.2, P[1] + 0.55, P[2]);
+      const ap = [paint(rod([sx * 0.2, 0.55, 0], [sx * 0.42, 0.38, 0.08], 0.045, 0.04, 6), 0x8a6a40, 0xa07c4c), paint(place(new SphereGeometry(0.055, 8, 6), sx * 0.42, 0.38, 0.08), 0xa07c4c)];
+      d.ranges.push(M(mergeGeometries(ap.map(plain)).translate(P[0], P[1], P[2]), ai));
+      d.arms.push({ bi: ai, sx });
     }
-    M(mergeGeometries(parts.map(plain)).translate(P[0], P[1], P[2]), bi);
     // the toy wand in its right hand (one bone, pivot at the hand)
     const wi = d.i ? DB.wand1 : DB.wand0, H = [x - 0.42, y + 1.38, z + 0.1];
     mkBone(wi, ...H); d.wand = wi;
@@ -241,6 +248,18 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
   for (const o of [statMesh, skin]) o.raycast = () => {};
   const hideT = (i) => bones[i].scale.setScalar(0.001);
   for (const i of [DB.stars0, DB.stars1, DB.duck, DB.spider, DB.jelly, DB.jackBox, DB.jackSpring, DB.jackHead]) hideT(i);
+  // Petrificus tint: lerp a dummy's body + arm vertex colours toward a stony grey-blue (only while it changes)
+  const colA = skin.geometry.attributes.color;
+  for (const d of DUM) { d.orig = d.ranges.map(([a, b]) => colA.array.slice(a * 3, b * 3)); d.tintK = 0; }
+  function setTint(d, k) {
+    if (Math.abs(k - d.tintK) < 0.04 && k !== 0 && k !== 1) return;
+    if (k === d.tintK) return;
+    d.tintK = k; const A = colA.array;
+    d.ranges.forEach(([a], r) => { const o = d.orig[r];
+      for (let i = 0; i < o.length; i += 3) { const l = o[i] * 0.3 + o[i + 1] * 0.59 + o[i + 2] * 0.11;
+        A[a * 3 + i] = o[i] + (l * 0.7 + 0.12 - o[i]) * k; A[a * 3 + i + 1] = o[i + 1] + (l * 0.82 + 0.16 - o[i + 1]) * k; A[a * 3 + i + 2] = o[i + 2] + (l * 1.05 + 0.26 - o[i + 2]) * k; } });
+    colA.needsUpdate = true;
+  }
   // solid bits
   for (const d of DUM) player.colliders.push({ type: 'circle', x: DUEL.x + d.x, z: DUEL.z + d.z, r: 0.3, freecast: true });
   for (const o of [-0.35, 0.35]) { wLocal(o, 0, 0, _v); player.colliders.push({ type: 'circle', x: DUEL.x + _v.x, z: DUEL.z + _v.z, r: 0.42, freecast: true }); }
@@ -256,19 +275,52 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
   // ---- dummies ----
   for (const d of DUM) {
     Object.assign(d, { wandSt: 'in', disT: -1, stunT: -1, leanT: -1, wt: 0, land: new Vector3(), landYaw: 0, from: new Vector3(),
-      disarms: 0, wandBacks: 0, maxWandD: 0, stuns: 0, righted: 0, maxSpin: 0, starsMax: 0, hopN: 0, active: false });
+      disarms: 0, wandBacks: 0, maxWandD: 0, stuns: 0, righted: 0, maxSpin: 0, starsMax: 0, hopN: 0, active: false,
+      petT: -1, petrifies: 0, fell: 0, poppedUp: 0, maxTip: 0, maxTint: 0, armK: 0, lying: false });
     d.land.set(d.x + (d.i ? 0.95 : -1.35), 0, d.z + (d.i ? 1.55 : 1.0)); d.land.y = gy(d.land.x, d.land.z) + 0.035;
-    d.handOff = new Vector3().copy(rest[d.wand].p).sub(rest[d.bone].p);
     d.starOff = new Vector3().copy(rest[d.stars].p).sub(rest[d.bone].p);
-    targets.push({ id: 'dummy' + d.i, grp: group, spells: ['expelliarmus', 'stupefy'],
+    for (const a of d.arms) a.off = new Vector3().copy(rest[a.bi].p).sub(rest[d.bone].p);
+    d.handArm = d.arms[0];   // the toy wand is in the -x hand
+    d.handFromShoulder = new Vector3().copy(rest[d.wand].p).sub(rest[d.handArm.bi].p);
+    targets.push({ id: 'dummy' + d.i, grp: group, spells: ['expelliarmus', 'stupefy', 'petrificus'],
       at: (o) => o.set(d.x, d.y + 1.34, d.z + 0.27).add(group.position),
-      ok: (k) => (k === 'expelliarmus' ? d.wandSt === 'in' && d.disT === -1 : d.stunT === -1),
-      cast: (k) => { if (k === 'expelliarmus') { d.disT = -0.3; d.wandSt = 'held'; d.disarms++; } else { d.stunT = -0.3; d.stuns++; } } });
+      ok: (k) => d.petT === -1 && (k === 'expelliarmus' ? d.wandSt === 'in' && d.disT === -1 : k === 'stupefy' ? d.stunT === -1 : d.stunT === -1 && d.disT === -1 && d.wandSt === 'in'),
+      cast: (k) => { if (k === 'expelliarmus') { d.disT = -0.3; d.wandSt = 'held'; d.disarms++; } else if (k === 'stupefy') { d.stunT = -0.3; d.stuns++; } else { d.petT = -0.3; d.petrifies++; } } });
+  }
+  // Petrificus Totalus timeline (seconds): stiffen 0-0.3, tip back like a plank 0.35-2.1, thud + settle,
+  // lie still to 5.3, pop back up on the post 5.3-5.9 (springy), wobble and soften 5.9-7.0
+  const PET = { tip0: 0.35, tip1: 2.1, up0: 5.3, up1: 5.9, end: 7.0 };
+  function petPose(d, dt) {
+    d.petT += dt; const t = d.petT;
+    if (t < 0) return { th: 0, py: 0, pz: 0, arm: 0, tint: 0, wx: 0, wz: 0 };
+    if (!d.petHit) { d.petHit = true; v0.set(d.x, d.y + 1.34, d.z + 0.27).add(group.position); burst(v0.x, v0.y, v0.z, 0xbfd8ff, 24, 2, 0.6, 0.24, -1); fun.sfx.tone(392, 0.35, 'square', 0.08, 0, 196); fun.sfx.tink(2); }
+    let u = 0, arm = Math.min(1, backOut(t / 0.22)), tint = Math.min(1, t / 0.3), wx = 0, wz = 0;
+    if (t >= PET.tip0 && t < PET.tip1) { const k = (t - PET.tip0) / (PET.tip1 - PET.tip0); u = k * k; if (!d.tipSnd) { d.tipSnd = true; fun.sfx.tone(300, 1.4, 'sine', 0.06, 0, 140); } }
+    else if (t >= PET.tip1 && t < PET.up0) {
+      u = 1; if (!d.lying) { d.lying = true; d.fell++; v0.set(d.x, d.y + 0.15, d.z - 0.9).add(group.position); burst(v0.x, v0.y, v0.z, 0xc8b08a, 22, 1.8, 0.7, 0.3, -2); fun.sfx.boom(); fun.sfx.boing(); }
+      const s = t - PET.tip1; if (s < 0.45) u = 1 - 0.07 * Math.sin(s / 0.45 * Math.PI) * (1 - s / 0.45);   // a little bounce
+      if (Math.random() < dt * 4) { v0.set(d.x + (Math.random() - 0.5) * 0.4, d.y + 0.5, d.z - 0.4 - Math.random() * 1.0).add(group.position); emit(v0.x, v0.y, v0.z, 0, 0.3, 0, 0.8, 0.16, 0xbfd8ff); }
+    } else if (t >= PET.up0 && t < PET.up1) {
+      if (d.lying) { d.lying = false; fun.sfx.boing(); fun.sfx.pop(); }
+      u = 1 - backOut((t - PET.up0) / (PET.up1 - PET.up0));
+    } else if (t >= PET.up1) {
+      const s = t - PET.up1, a = 0.22 * Math.exp(-3 * s);
+      wx = Math.sin(s * 13) * a; wz = Math.cos(s * 11) * a * 0.7;
+      arm = Math.max(0, 1 - s / 0.3); tint = Math.max(0, 1 - s / 0.5);
+      if (!d.upDone) { d.upDone = true; d.poppedUp++; v0.set(d.x, d.y + 2.0, d.z).add(group.position); burst(v0.x, v0.y, v0.z, 0xffe27a, 18, 1.8, 0.6, 0.2, -1); fun.sfx.giggle(true); }
+      if (t >= PET.end) { d.petT = -1; d.petHit = d.tipSnd = d.upDone = false; arm = 0; tint = 0; wx = wz = 0; }
+    }
+    const th = -Math.PI / 2 * u;
+    const pd = Math.max(0, Math.min(1, u));
+    d.maxTip = Math.max(d.maxTip, -th); d.maxTint = Math.max(d.maxTint, tint);
+    return { th, py: -0.73 * pd * pd, pz: -0.38 * pd, arm, tint, wx, wz };
   }
   function tickDummy(d, dt) {
-    if (d.disT === -1 && d.stunT === -1 && d.leanT < 0 && d.wandSt === 'in') { if (d.active) { d.active = false; for (const i of [d.bone, d.wand]) { bones[i].position.copy(rest[i].p); bones[i].quaternion.copy(rest[i].q); } hideT(d.stars); } return; }
+    if (d.petT === -1 && d.disT === -1 && d.stunT === -1 && d.leanT < 0 && d.wandSt === 'in') { if (d.active) { d.active = false; for (const i of [d.bone, d.wand, ...d.arms.map(a => a.bi)]) { bones[i].position.copy(rest[i].p); bones[i].quaternion.copy(rest[i].q); } hideT(d.stars); setTint(d, 0); } return; }
     d.active = true;
     let spin = 0, wx = 0, wz = 0, recoil = 0, lean = 0, starK = 0;
+    let pet = null;
+    if (d.petT !== -1) pet = petPose(d, dt);
     // Stupefy: spin round on the post, dizzy wobble with stars, right itself
     if (d.stunT !== -1) {
       d.stunT += dt; const t = d.stunT;
@@ -296,16 +348,25 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
     if (d.leanT >= 0) { d.leanT += dt; lean = 0.3 * Math.sin(Math.min(1, d.leanT / 0.7) * Math.PI); if (d.leanT > 0.7) d.leanT = -1; }
     // pose the body
     const b = bones[d.bone];
-    qa.setFromEuler(e1.set(0, spin, 0)); qb.setFromEuler(e1.set(wx - recoil + lean, 0, wz)); b.quaternion.copy(qa).multiply(qb);
+    if (pet) { wx += pet.wx; wz += pet.wz; }
+    qa.setFromEuler(e1.set(0, spin, 0)); qb.setFromEuler(e1.set(wx - recoil + lean + (pet ? pet.th : 0), 0, wz)); b.quaternion.copy(qa).multiply(qb);
     b.position.copy(rest[d.bone].p);
+    if (pet) { b.position.y += pet.py; b.position.z += pet.pz; setTint(d, pet.tint); }
+    // the arms follow the body; Petrificus snaps them flat to its sides
+    const armK = pet ? pet.arm : 0;
+    for (const a of d.arms) {
+      const ab = bones[a.bi]; ab.position.copy(a.off).applyQuaternion(b.quaternion).add(b.position);
+      qc.setFromEuler(e1.set(0, 0, -a.sx * 0.92 * armK)); ab.quaternion.copy(b.quaternion).multiply(qc);
+    }
     // the stars ride round the head
     const sb = bones[d.stars];
     if (starK > 0.001) { sb.position.copy(d.starOff).applyQuaternion(b.quaternion).add(b.position); sb.quaternion.setFromEuler(e1.set(0, T * 4, 0)); sb.scale.setScalar(starK); }
     else hideT(d.stars);
     // the wand
     const wbn = bones[d.wand];
-    const handW = (out) => out.copy(d.handOff).applyQuaternion(b.quaternion).add(b.position);
-    if (d.wandSt === 'in' || (d.wandSt === 'held' && d.disT < 0)) { handW(wbn.position); wbn.quaternion.copy(b.quaternion); }
+    const hb = bones[d.handArm.bi];
+    const handW = (out) => out.copy(d.handFromShoulder).applyQuaternion(hb.quaternion).add(hb.position);
+    if (d.wandSt === 'in' || (d.wandSt === 'held' && d.disT < 0)) { handW(wbn.position); wbn.quaternion.copy(hb.quaternion); }
     else {
       const t = d.disT, FLY = 1.1;
       if (d.wandSt === 'held') { d.wandSt = 'fly'; handW(d.from); v0.copy(d.from).add(group.position); burst(v0.x, v0.y, v0.z, 0xff4040, 22, 2.6, 0.6, 0.24, -1.5); fun.sfx.clank(); fun.sfx.whoosh(); d.landYaw = (d.i ? 1 : -1) * 0.9 + Math.random() * 0.6; }
@@ -345,13 +406,17 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
       },
     };
   }
-  const BYKEY_COL = { expelliarmus: 0xff3a3a, stupefy: 0xff6a2a, riddikulus: 0xff9ad8 };
+  const BYKEY_COL = { expelliarmus: 0xff3a3a, stupefy: 0xff6a2a, riddikulus: 0xff9ad8, petrificus: 0x9ab8e8 };
   const SPX = {};
   SPX.expelliarmus = Object.assign(duelCast('expelliarmus'), {
     tick(dt) { for (const d of DUM) tickDummy(d, dt); },
     state: () => DUM.map(d => ({ wand: d.wandSt, disarms: d.disarms, wandBacks: d.wandBacks, maxWandD: +d.maxWandD.toFixed(2), stuns: d.stuns, righted: d.righted, maxSpin: +d.maxSpin.toFixed(2), starsMax: +d.starsMax.toFixed(2), stunned: d.stunT !== -1 })),
   });
   SPX.stupefy = Object.assign(duelCast('stupefy'), { state: () => SPX.expelliarmus.state() });
+  // Petrificus Totalus: the dummy goes stiff, tips over like a plank, lies ~3 s, pops back up with a wobble
+  SPX.petrificus = Object.assign(duelCast('petrificus'), {
+    state: () => DUM.map(d => ({ on: d.petT !== -1, t: +Math.max(0, d.petT).toFixed(2), lying: d.lying, petrifies: d.petrifies, fell: d.fell, poppedUp: d.poppedUp, maxTip: +d.maxTip.toFixed(2), maxTint: +d.maxTint.toFixed(2) })),
+  });
 
   // ---- Protego: a shimmering half-dome in front of Harry; a dummy's slow pink puff bounces off it ----
   function hexTexture() {
@@ -381,7 +446,7 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
       // the nearest dummy in sight of the spot (none stunned) will "cast" its puff
       if (group.visible) {
         let bd = 1e9;
-        for (const d of DUM) { const dd = Math.hypot(DUEL.x + d.x - pos.x, DUEL.z + d.z - pos.z); if (dd < 14 && dd > 2 && d.stunT === -1 && dd < bd) { bd = dd; sh.dummy = d; } }
+        for (const d of DUM) { const dd = Math.hypot(DUEL.x + d.x - pos.x, DUEL.z + d.z - pos.z); if (dd < 14 && dd > 2 && d.stunT === -1 && d.petT === -1 && dd < bd) { bd = dd; sh.dummy = d; } }
       }
       this.lastId = sh.dummy ? 'shield+dummy' + sh.dummy.i : 'shield';
       return true;
