@@ -52,7 +52,7 @@ export function liftables(g, { ceil = 9 } = {}) {
       const geo = mergeGeometries(G.geos, false); if (!geo) continue;
       const material = G.mat === 'vc' ? new MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }) : G.material.clone();
       const skin = new SkinnedMesh(geo, material);
-      skin.name = 'liftables'; skin.castShadow = false;   // (no shadow pass: keeps the idle cost at +1 draw call per material) skin.frustumCulled = false;
+      skin.name = 'liftables'; skin.castShadow = false; skin.frustumCulled = false;   // (no shadow pass: idle cost +1 draw call per material)
       const bones = G.items.map(it => { const b = new Bone(); b.position.set(it.pivot[0], it.pivot[1], it.pivot[2]); it.bone = b; skin.add(b); return b; });
       g.add(skin);
       skin.updateMatrixWorld(true);
