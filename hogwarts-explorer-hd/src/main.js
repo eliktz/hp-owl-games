@@ -14,6 +14,7 @@ import { Input } from './input.js';
 import { loadTexture } from './assets.js';
 import { loadScenery } from './scenery.js';
 import { initGrounds, buildHut, groundsTime } from './grounds-film.js';
+import { buildNature } from './grounds-nature.js';
 import { createCharacters, hagridAtPaddock } from './characters.js';
 import { createQuests } from './quests.js';
 import { createMap } from './map.js';
@@ -65,7 +66,8 @@ async function boot() {
   await env.setTime('day');
   const terrain = buildTerrain(scene, { texture: grass });
   const lake = buildLake(scene);
-  env.onTime = (k, p, sky) => { lake.userData.setTime(p, sky); groundsTime(p, k); }; lake.userData.setTime(TIMES[env.time] || TIMES.day, scene.environment);
+  let nature = null;   // grounds film look 2 (grounds-nature.js), built below once the colliders exist
+  env.onTime = (k, p, sky) => { lake.userData.setTime(p, sky); groundsTime(p, k); if (nature) nature.setTime(p, k); }; lake.userData.setTime(TIMES[env.time] || TIMES.day, scene.environment);
   groundsTime(TIMES[env.time] || TIMES.day, env.time);
   const { group: castleGroup, colliders } = buildCastle(scene, mats);
 
@@ -82,6 +84,12 @@ async function boot() {
   let hut = null;
   try { await initGrounds({ wood }); hut = buildHut({ scene, heightAt, colliders, camera, obstacles: player.cam.obstacles }); }
   catch (e) { console.warn('[grounds] hut disabled -', e && e.message || e); hut = null; }
+  // Grounds film look 2 (grounds-nature.js): footpaths, trees (instanced, blob shadows), the lake shore, reeds,
+  // boulders, a walkable jetty + moored boat. Never fatal: on any failure the grounds are simply bare.
+  // groundAt = terrain height + the jetty deck; the player (and interiors, on exit) walk on it.
+  try { nature = buildNature({ scene, heightAt, colliders }); player.heightAt = nature.groundAt; nature.setTime(TIMES[env.time] || TIMES.day, env.time); }
+  catch (e) { console.warn('[nature] disabled -', e && e.message || e); nature = null; }
+  const groundAt = nature ? nature.groundAt : heightAt;
   const audio = createAudio();
 
   // Friendly characters (Ron/Hermione/Hedwig models + code-drawn Harry/Hagrid).
@@ -101,7 +109,7 @@ async function boot() {
 
   // Interiors (streamed) + the Hebrew map / fast-travel screen.
   const interiors = createInteriors({
-    scene, env, player, terrainHeightAt: heightAt, homeSpot: SPOTS.courtyard,
+    scene, env, player, terrainHeightAt: groundAt, homeSpot: SPOTS.courtyard,
     onEnter: (id) => { setExit(true); toast(id === 'showers' ? '🚿 ' + labelOf(id) + ' ✨' : SECRET[id] ? SECRET[id].icon + ' ' + labelOf(id) + ' ✨' : '✨ נכנסת ל' + labelOf(id)); if (lessons) lessons.roomEntered(id, interiors.room.group); if (students) students.roomEntered(id, interiors.room.group); if (delight) delight.roomEntered(id, interiors.room.group); },
     onExit: () => setExit(false),
   });
@@ -147,6 +155,7 @@ async function boot() {
       if (t === TIER.LOW && post) dropPost();          // free the bloom render targets on struggling devices
       usePost = !!post && t !== TIER.LOW;
       lake.userData.mist?.setEnabled(t !== TIER.LOW);
+      if (nature) { try { nature.setTier(t); } catch (e) { console.warn('[nature] tier -', e && e.message || e); } }   // LOW: half the trees, no reeds
       hud.set('tier', { high: 'איכות גבוהה', medium: 'איכות בינונית', low: 'איכות חסכונית' }[t] || t);
     },
   });
@@ -206,7 +215,7 @@ async function boot() {
   // is fragile — the Great Hall has no solid ceiling, so on WebGPU the real castle bled
   // through as a pale pixelated "tower" behind the tables. Toggling visibility is the robust
   // fix (and reclaims the exterior's draw calls / shadow pass while you're inside).
-  const outdoorRoots = [castleGroup, terrain, lake, ...(quests.roots || [])];
+  const outdoorRoots = [castleGroup, terrain, lake, ...(quests.roots || []), ...(nature ? [nature.group] : [])];
   lessons = createLessons({ scene, player, interiors, heightAt, registerOutdoor: (o) => outdoorRoots.push(o), setModal, colliders });
   // A mini-game may take over the hero + camera for a while (the Quidditch match).
   let takeover = null;
@@ -248,6 +257,7 @@ async function boot() {
   if (students) hooks.push((dt, inside) => students.update(dt, inside));
   if (spells) hooks.push(() => spells.idle());
   if (hut) hooks.push((dt, inside) => hut.update(dt, player.pos, inside));
+  if (nature) hooks.push((dt, inside) => nature.update(dt, player.pos, inside));
   let freecast = null;   // free-play spell wheel (freecast.js); any failure -> simply the plain wand
   try { freecast = createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal: () => modal, isTakeover: () => !!takeover, registerOutdoor: (o) => outdoorRoots.push(o) }); hooks.push((dt, inside) => freecast.update(dt, inside)); } catch (e) { console.warn('[freecast] disabled -', e && e.message || e); freecast = null; }
   let showers = null;   // the shower hall's play (showers.js): idle unless the hall is the room
@@ -334,6 +344,7 @@ async function boot() {
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
     music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; }, get freecast() { return freecast; }, get showers() { return showers; }, get secretRooms() { return secretRooms; },
+    get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
     // Steer toward a world point (x,z): sets the joystick to head there given the camera's
