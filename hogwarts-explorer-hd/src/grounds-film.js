@@ -133,7 +133,7 @@ function greyWood() {
   } catch (e) { _greyWood = false; }
   return _greyWood;
 }
-function woodMaterial(color, name) {
+export function woodMaterial(color, name) {
   const t = greyWood() || MAPS?.wood || woodTexture(1);
   const m = new MeshStandardMaterial({ map: t, color, roughness: 0.86 }); m.name = name;
   m.userData.rep = t.repeat?.x || 1; return m;
