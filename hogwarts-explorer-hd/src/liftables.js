@@ -73,10 +73,30 @@ export function liftables(g, { ceil = 9 } = {}) {
 export function frameShot(player, interiors, at) {
   const cam = player.cam; if (!cam || !cam.frame) return null;
   const roots = interiors.active && interiors.room && interiors.room.group ? [interiors.room.group] : (cam.obstacles || []);
-  let r = null;
+  let r = null, moved = 0;
   try {
+    // Harry must not stand inside a small prop (the library globe sits where aim() puts him for a shelf book): the lens
+    // would see only the prop. Step sideways (across the line to the target) until his head and shoulders are clear.
+    const props = [];
+    for (const g of roots) if (g) g.traverseVisible(o => {
+      if (!o.isMesh || o.isSkinnedMesh || !o.geometry) return;
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      const bs = o.geometry.boundingSphere.clone().applyMatrix4(o.matrixWorld);
+      if (bs.radius < 1.5) props.push(bs);
+    });
+    const P = player.pos, fx = at.x - P.x, fz = at.z - P.z, L = Math.hypot(fx, fz) || 1, sx = -fz / L, sz = fx / L;
+    const inside = (x, z) => props.some(b => { for (const hy of [1.25, 1.6]) if (Math.hypot(b.center.x - x, b.center.y - (P.y + hy), b.center.z - z) < b.radius + 0.25) return true; return false; });
+    if (inside(P.x, P.z)) {
+      const x0 = P.x, z0 = P.z;
+      for (const k of [0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.4, -2.4]) {
+        const x = x0 + sx * k, z = z0 + sz * k; if (inside(x, z)) continue;
+        player.yaw = Math.atan2(at.x - x, at.z - z);
+        try { player.teleport(x, z); } catch { /* plain move */ }
+        P.x = x; P.z = z; moved = k; break;
+      }
+    }
     r = cam.frame(player.pos, player.yaw, at, roots, [player.model].filter(Boolean));
     cam.update(0.016, player.pos, player.yaw, false); player.camera.updateMatrixWorld(true);
   } catch (e) { return { err: String(e && e.message || e) }; }
-  return r && { off: +r.off.toFixed(2), dist: r.dist, clear: r.clear };
+  return r && { off: +r.off.toFixed(2), dist: r.dist, clear: r.clear, moved };
 }
