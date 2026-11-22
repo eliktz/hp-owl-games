@@ -349,7 +349,7 @@ function boulderGeo() {
   const g = new IcosahedronGeometry(1, 1), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const k = 1 + 0.16 * Math.sin(x * 3.1 + 0.5) * Math.cos(z * 2.7) + 0.1 * Math.sin(y * 4.3 + x * 2); p.setXYZ(i, x * k, y * k, z * k); }
   g.computeVertexNormals();                                     // faceted: rock planes catch the light
-  return prim(g, 'rock', (x, y, z) => [0.5 + (x + z * 0.5) * 0.3, 0.5 + (y + z * 0.4) * 0.3],
+  return prim(g, 'rock', (x, y, z) => [0.5 + (x + z * 0.5) * 0.2, 0.5 + (y + z * 0.4) * 0.2],   // stays off the cell edges (mip bleed from the needle cell's alpha)
     (x, y, z, nx, ny) => { const top = clamp(ny, 0, 1), base = clamp(0.5 + y, 0, 1); return [0.55 + 0.35 * base - 0.06 * top, 0.55 + 0.35 * base + 0.05 * top, 0.55 + 0.32 * base - 0.1 * top]; });
 }
 // Reed clump: 3 crossed vertical cards, 1.5 m wide, 1.9 m tall (alpha-cut blades).
