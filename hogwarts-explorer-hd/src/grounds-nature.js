@@ -110,7 +110,7 @@ const KINDS = {
   fir:       { trunk: 0.32, blob: 3.6, greens: [0x9aa88c, 0x8a9a82, 0xa4ac90] },
   far:       { trunk: 0.28, blob: 3.2, greens: [0x7e8c78, 0x707e6c, 0x86907a] },
 };
-const CAP = { broadleaf: 100, fir: 120, far: 480 };
+const CAP = { broadleaf: 100, fir: 120, far: 350 };
 
 // ---------------------------------------------------------------------------------------------
 // The plan: pure data (no canvas, no materials). Deterministic.
@@ -170,22 +170,22 @@ export function planNature(heightAt) {
   }
   const okSite = (x, z, pad = 0) => kept(x, z, pad) && lakeClear(x, z, 5) && pathDist(x, z) >= TREE_PATH_CLEAR && Math.abs(x) < 208 && Math.abs(z) < 208;
 
-  // parkland clumps (mostly broadleaf, the odd fir)
+  // parkland clumps (broadleaf only, trunks >= 6 m apart)
   let r = rng(4242);
   for (const [cx, cz, n, rad] of CLUMPS) {
     let placed = 0;
     for (let a = 0; a < 60 && placed < n; a++) {
       const ang = r() * Math.PI * 2, d = Math.sqrt(r()) * rad, x = cx + Math.cos(ang) * d, z = cz + Math.sin(ang) * d;
-      if (!okSite(x, z) || near(x, z, 5.2)) continue;
-      if (addTree(r() < 0.82 ? 'broadleaf' : 'fir', x, z, 0.95 + r() * 0.45, 1, 'park')) placed++;
+      if (!okSite(x, z) || near(x, z, 6.0)) continue;
+      if (addTree('broadleaf', x, z, 0.95 + r() * 0.45, 1, 'park')) placed++;
     }
   }
   // the forest: edge band (fir + broadleaf), mid band (far firs, close), deep (far firs, sparse)
   r = rng(777);
   const zones = [
-    { d0: 0, d1: 20, gap: 7.2, tries: 9000, kind: () => (r() < 0.7 ? 'fir' : 'broadleaf') },
-    { d0: 20, d1: 44, gap: 5.6, tries: 14000, max: 230, kind: () => 'far' },
-    { d0: 44, d1: 400, gap: 12, tries: 9000, max: 105, kind: () => 'far' },   // the rest of the far budget is the world ring
+    { d0: 0, d1: 20, gap: 7.2, tries: 9000, kind: () => (r() < 0.78 ? 'fir' : 'broadleaf') },
+    { d0: 20, d1: 44, gap: 5.6, tries: 14000, max: 150, kind: () => 'far' },
+    { d0: 44, d1: 400, gap: 13, tries: 9000, max: 55, kind: () => 'far' },   // the rest of the far budget is the world ring
   ];
   for (const zn of zones) for (let a = 0, got = 0; a < zn.tries && got < (zn.max || 1e9); a++) {
     const z = -206 + r() * 412, e = forestEdge(z), x = e + zn.d0 + r() * Math.min(zn.d1 - zn.d0, 206 - e - zn.d0);
@@ -281,7 +281,7 @@ function mergeC(list) {
 }
 const grey = (k) => [k, k, k];
 
-// Broadleaf: a clear 7 m trunk (crown from ~4.7 m), two branch stubs, a crown of 3 lumpy merged blobs.
+// Broadleaf: a clear 7 m trunk (crown from ~5 m), two branch stubs, a crown of 4 overlapping soft blobs.
 // Blob normals point out from each blob's centre (tilted up): a soft rounded canopy, darker underneath.
 function broadleafGeo() {
   const parts = [], bark = (x, y, z, u, v) => [u, y / 7.5], barkC = (x, y) => grey(0.62 + 0.3 * Math.min(1, y / 5));
@@ -292,15 +292,15 @@ function broadleafGeo() {
     const b = new CylinderGeometry(0.09, 0.19, 3.0, 5, 1, true); b.translate(0, 1.5, 0); b.rotateZ(rz); b.rotateY(ry); b.translate(0.1, y, 0);
     parts.push(prim(b, 'bark', bark, () => grey(0.8)));
   }
-  const BLOBS = [[0, 9.2, 0, 3.9], [2.2, 7.5, 0.9, 2.8], [-1.9, 7.8, -1.2, 2.9]];   // 3 x 80 tris: the main dome + two side lumps
+  const BLOBS = [[0.2, 9.9, 0.1, 2.9], [2.0, 7.9, 0.9, 2.5], [-1.8, 8.1, -1.0, 2.6], [-0.4, 7.4, 2.0, 2.3]];   // 4 x 80 tris: smaller overlapping masses, a lumpy silhouette
   for (const [bx, by, bz, br] of BLOBS) {
     const g = new IcosahedronGeometry(1, 1), p = g.attributes.position, n = g.attributes.normal;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      const lump = 1 + 0.13 * Math.sin(x * 4.1 + bx) * Math.sin(y * 3.7 + 1.3) + 0.08 * Math.sin(z * 5.3 + by) - (y < -0.35 ? 0.18 * (-0.35 - y) : 0);
-      const sy = y < 0 ? 0.78 : 1;                                     // flatter underside
+      const lump = 1 + 0.06 * Math.sin(x * 3.1 + bx) * Math.sin(y * 2.9 + 1.3) + 0.04 * Math.sin(z * 3.7 + by) - (y < -0.4 ? 0.12 * (-0.4 - y) : 0);
+      const sy = y < 0 ? 0.82 : 1;                                     // a little flatter underneath
       p.setXYZ(i, bx + x * br * lump, by + y * br * lump * sy, bz + z * br * lump);
-      const [nx, ny, nz] = nrm(x, y + 0.35, z); n.setXYZ(i, nx, ny, nz);
+      const [nx, ny, nz] = nrm(x * 0.8 + (bx - 0) * 0.08, y + 0.45, z * 0.8 + bz * 0.08); n.setXYZ(i, nx, ny, nz);   // soft: blob-centre normals, tilted up and out from the trunk
     }
     parts.push(prim(g, 'leaf',
       (x, y, z) => [0.5 + ((x - bx) * 0.8 + (z - bz) * 0.6) / (2.6 * br), 0.5 + ((y - by) + (z - bz) * 0.3) / (2.6 * br)],
@@ -530,14 +530,14 @@ function shoreTexture() {
   const vy = (o) => H * (1 - (o - SHORE_O[0]) / (SHORE_O[SHORE_O.length - 1] - SHORE_O[0]));   // canvas y of a shore offset
   const yWet = vy(0.35), yDry = vy(1.7), yFade0 = vy(2.4), yFade1 = vy(3.9);
   const grd = g.createLinearGradient(0, H, 0, 0);
-  grd.addColorStop(0, '#221e18'); grd.addColorStop(1 - yWet / H, '#2c271f'); grd.addColorStop(1 - yDry / H, '#5a5244'); grd.addColorStop(1, '#5e5546');
+  grd.addColorStop(0, '#1e1a15'); grd.addColorStop(1 - yWet / H, '#2a251e'); grd.addColorStop(1 - yDry / H, '#3e372d'); grd.addColorStop(1, '#463e32');
   g.fillStyle = grd; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 2600; i++) {
     const x = r() * W, y = yFade0 - 30 + r() * (H - yFade0 + 30), wet = y > yWet, s = 1 + r() * (r() < 0.15 ? 5 : 2.4), v = r();
     if (y < yDry && r() < 0.5) continue;                                             // sparser up the bank
-    g.fillStyle = wet ? (v < 0.5 ? '#3a352c' : v < 0.85 ? '#4a443a' : '#5e574a') : (v < 0.4 ? '#7a7264' : v < 0.8 ? '#8e8676' : '#655d50');
+    g.fillStyle = wet ? (v < 0.5 ? '#2e2a24' : v < 0.85 ? '#38332b' : '#443e35') : (v < 0.4 ? '#4c463c' : v < 0.8 ? '#575045' : '#3e3830');
     for (const off of [-W, 0, W]) { g.beginPath(); g.ellipse(x + off, y, s * 1.3, s, r() * 3, 0, 7); g.fill(); }
-    if (wet && s > 2.2) { g.fillStyle = 'rgba(200,210,220,0.18)'; g.beginPath(); g.ellipse(x - s * 0.3, y - s * 0.3, s * 0.4, s * 0.25, 0, 0, 7); g.fill(); }   // wet glint
+    if (wet && s > 3.2 && r() < 0.25) { g.fillStyle = 'rgba(150,156,160,0.12)'; g.beginPath(); g.ellipse(x - s * 0.3, y - s * 0.3, s * 0.4, s * 0.25, 0, 0, 7); g.fill(); }   // wet glint
   }
   const img = g.getImageData(0, 0, W, H), d = img.data;
   for (let x = 0; x < W; x++) {
@@ -574,7 +574,7 @@ function blobTexture() {
 const trisOf = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
 export function natureGeometries(plan, heightAt, WT = 1.6) {
   return {
-    broadleaf: broadleafGeo(), fir: firGeo(6, 9, 16, 3.4, 2.9, 1), far: farGeo(), boulder: boulderGeo(), reed: reedGeo(),
+    broadleaf: broadleafGeo(), fir: firGeo(6, 7, 16, 3.4, 2.9, 1), far: farGeo(), boulder: boulderGeo(), reed: reedGeo(),
     blob: new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), path: pathGeo(plan, heightAt), shore: shoreGeo(plan, heightAt),
     jetty: jettyGeo(plan, heightAt, WT), boat: boatGeo(plan, WT),
   };
@@ -607,7 +607,7 @@ export function buildNature({ scene, heightAt, colliders }) {
   const atlas = atlasTexture();
   const treeMat = new MeshStandardMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5, side: DoubleSide, roughness: 0.92 }); treeMat.name = 'nature-trees';
   const pathMat = new MeshStandardMaterial({ map: pathTexture(), transparent: true, depthWrite: false, roughness: 0.97, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); pathMat.name = 'nature-path';
-  const shoreMat = new MeshStandardMaterial({ map: shoreTexture(), transparent: true, depthWrite: false, roughness: 0.62, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); shoreMat.name = 'nature-shore';
+  const shoreMat = new MeshStandardMaterial({ map: shoreTexture(), transparent: true, depthWrite: false, roughness: 0.8, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); shoreMat.name = 'nature-shore';
   const reedMat = new MeshStandardMaterial({ map: reedTexture(), alphaTest: 0.5, side: DoubleSide, roughness: 0.9 }); reedMat.name = 'nature-reeds';
   const blobMat = new MeshBasicMaterial({ map: blobTexture(), color: 0x0c140a, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }); blobMat.name = 'nature-blob';
   const boatMat = woodMaterial(0xc4b4a0, 'nature-boat'); boatMat.side = DoubleSide;
