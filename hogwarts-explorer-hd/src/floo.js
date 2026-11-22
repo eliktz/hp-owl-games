@@ -457,7 +457,8 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
         const grp = new Object3D(); grp.name = 'floo-soot';
         const m = new InstancedMesh(geo, mat, 3); m.frustumCulled = false;
         // cheeks + a smear on the brow (head bone: +z forward, measured)
-        const d = new Object3D(); [[0.052, 0.035, 0.088], [-0.05, 0.03, 0.088], [0.02, 0.165, 0.092]].forEach(([x, y, z], i) => { d.position.set(x, y, z); d.scale.setScalar(i === 2 ? 0.06 : 0.05); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
+        const Z = window.__flooSootZ || 0.125;
+        const d = new Object3D(); [[0.056, 0.05, Z], [-0.054, 0.045, Z], [0.02, 0.165, Z - 0.01]].forEach(([x, y, z], i) => { d.position.set(x, y, z); d.scale.setScalar(i === 2 ? 0.065 : 0.075); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
         grp.add(m); head.add(grp);
         // the bone may be in centimetres (Mixamo): undo its world scale so the smudges are real-size
         head.updateMatrixWorld(true); const ws = new Vector3(); head.getWorldScale(ws); const mk = player.model.scale.x || 1;
@@ -465,7 +466,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
         soot = { grp, mat };
       }
       if (soot.none) return;
-      soot.mat.opacity = 0.75 * k; soot.grp.visible = k > 0.01;
+      soot.mat.opacity = 0.92 * k; soot.grp.visible = k > 0.01;
     } catch { soot = { none: true }; }
   }
 
@@ -486,6 +487,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
       arrivedAt: S.arrivedAt || null, tunnel: tc.style.display === 'block', errors: log.errors,
       green: (() => { const f = hereInfo(); return f && f.k ? +f.k.green.toFixed(2) : null; })(),
     }),
+    soot: (sec = T_SOOT) => { S.soot = sec; S.sootPuff = 9; return true; },   // debug: a sooty face without a trip
     hutInfo: () => (hut ? { x: hut.info.x, z: hut.info.z, rotY: hut.info.rotY, collider: hut.info.collider } : null),
   };
   return { update, api };
