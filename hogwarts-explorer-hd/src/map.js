@@ -14,6 +14,7 @@ export const DESTS = [
   { id: 'classrooms',kind: 'interior', ico: '🪄', label: 'הכיתות' },
   { id: 'dungeon',   kind: 'interior', ico: '⚗️', label: 'מרתף השיקויים' },
   { id: 'tower',     kind: 'interior', ico: '🔭', label: 'מגדל הכוכבים' },
+  { id: 'showers',   kind: 'interior', ico: '🚿', label: 'המקלחות' },
   { id: 'greenhouse',kind: 'spot',     ico: '🌿', label: 'החממה' },
   { id: 'paddock',   kind: 'spot',     ico: '🐉', label: 'יצורי הפלא' },
   { id: 'pitch',     kind: 'spot',     ico: '🧹', label: 'מגרש הקווידיץ׳' },
