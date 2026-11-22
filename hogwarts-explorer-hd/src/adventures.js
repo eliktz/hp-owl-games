@@ -185,7 +185,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   body.modalOn #advTogether,body.modalOn #advEdge,body.modalOn #advHint,body.inMatch #advEdge,body.inSpell #advEdge{display:none !important}
   @media (max-width:700px){#advTrack{left:calc(96px + env(safe-area-inset-left));right:calc(8px + env(safe-area-inset-right));width:auto;transform:none;padding:6px 10px 6px 56px}
     #advTrack .ln{font-size:19px} #advTrack .dots{font-size:13px;margin-top:2px} #advTrack .pz{width:42px;height:42px;font-size:19px;left:6px}
-    #advTogether{top:calc(196px + env(safe-area-inset-top));font-size:26px;padding:10px 26px} #advHint{font-size:19px;bottom:calc(240px + env(safe-area-inset-bottom));max-width:72vw}}`;
+    #advTogether{top:calc(196px + env(safe-area-inset-top));font-size:26px;padding:10px 26px} #advHint{font-size:19px;bottom:auto;top:calc(270px + env(safe-area-inset-top));max-width:76vw}}`;
   document.head.appendChild(css);
   const el = (tag, id, cls, parent = document.body) => { const e = document.createElement(tag); if (id) e.id = id; if (cls) e.className = cls; parent.appendChild(e); return e; };
   const stop = (e) => e.stopPropagation();
