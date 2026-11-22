@@ -33,6 +33,7 @@ const HOUSES = [
   { key: 'huff', crest: '🦡', name: 'הַפְלְפַּאף', field: 0xb8902a, gem: 0xffd23f },
 ];
 const HAT = { room: 'entrancehall', x: 5.2, z: 6.2 };
+const BROOM_DOOR = { x: 7.5, z: 4.8 };   // the secret broom cupboard door in the same hall (secret-rooms.js SPECS.broomcupboard.door)
 const PERCH = { room: 'tower', x: -5, z: 2.4 };
 const BOWL = { room: 'commonroom', x: 0, z: 1.2 };
 const TREVOR = [['entrancehall', 5.6, 8.6], ['greathall', -8, 13], ['greathall', 8, -12], ['library', 8.6, 8.8], ['commonroom', -6.5, -6.5], ['staircase', 7.5, 7.5],
@@ -391,7 +392,10 @@ export function createDelight({ scene, camera, player, interiors, heightAt, setM
       if (H.talk > 0) { H.talk -= dt; H.mouth.scale.y = 1 + Math.abs(Math.sin(t * 16)) * 2.6; } else H.mouth.scale.y = 1;
       const d = Math.hypot(pos.x - HAT.x, pos.z - HAT.z);
       if (d < 8 && !modal) { H.quip -= dt; if (H.quip <= 0) { H.quip = 7 + Math.random() * 5; H.talk = 1.6; const h = HOUSES.find(x => x.key === st.house); fun.say(tmp.set(HAT.x, FLOOR_Y + 3.2, HAT.z), h ? h.crest + ' ' + h.name + '!' : 'פְּסְסְט... בּוֹא נְמַיֵּן אוֹתְךָ! 🎩', 2.6, 'hat'); } }
-      if (d < 3.2 && !modal) fun.offer('sort', '🎩', d, openSort);
+      // not while Harry stands at the broom cupboard door (east wall, 2.7 m from the hat) facing it: that door is his business
+      const bdx = BROOM_DOOR.x - pos.x, bdz = BROOM_DOOR.z - pos.z, bd = Math.hypot(bdx, bdz);
+      const atDoor = bd < 1.5 && (Math.sin(player.yaw) * bdx + Math.cos(player.yaw) * bdz) > 0.5 * bd;
+      if (d < 3.2 && !modal && !atDoor) fun.offer('sort', '🎩', d, openSort);
       // by the hourglasses when YOUR house is in the lead: a little house-cup moment (once a day)
       if (!modal && st.house && st.cupDay !== fun.today() && pos.z < -5) {
         const mine = housePts(st.house);
