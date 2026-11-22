@@ -141,7 +141,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   #advBook .card .star{position:absolute;top:2px;left:6px;font-size:28px;filter:drop-shadow(0 0 6px rgba(255,200,60,.9))}
   #advBook .close{padding:10px 30px;border-radius:22px;border:3px solid #ffd76a;background:rgba(90,50,20,.85);color:#ffe9a8;font-size:22px;font-weight:bold;cursor:pointer;font-family:inherit}
   @media (max-aspect-ratio:1/1){#advBook .pages{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px;max-height:72vh;width:94vw;background:linear-gradient(#f8ecd0,#efe0bc)}
-    #advBook .card .t{font-size:17px} #advBook .card .s{font-size:15px} #advBook h2{font-size:26px}}
+    #advBook .card canvas{height:min(17vw,96px);object-fit:cover} #advBook .card{gap:3px;padding:6px 5px 8px} #advBook .card .t{font-size:17px} #advBook .card .s{font-size:15px} #advBook h2{font-size:26px}}
   #advIntro{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:38;display:none;width:min(680px,92vw);box-sizing:border-box;
     padding:16px 22px 14px;border-radius:22px;border:4px solid #b8862e;background:linear-gradient(#fbf1d6,#ecd9ae);color:#3a2410;direction:rtl;font-family:${FONT};
     box-shadow:0 10px 36px rgba(0,0,0,.55);text-align:center;touch-action:manipulation;cursor:pointer}
