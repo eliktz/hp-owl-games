@@ -40,6 +40,9 @@
   .cambtn{width:62px;height:62px;border-radius:50%;border:3px solid #ffd76a;
     background:rgba(40,25,90,.6);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;
     box-shadow:0 3px 10px rgba(0,0,0,.35);touch-action:none;-webkit-user-select:none;user-select:none}
+  /* narrow portrait phones: the row would cover the time, wand and map buttons, so it stands as a small column on the left */
+  @media (max-width:560px){#camctl{left:calc(18px + env(safe-area-inset-left));transform:none;flex-direction:column;gap:8px;
+    bottom:calc(128px + env(safe-area-inset-bottom))} .cambtn{width:50px;height:50px;font-size:22px}}
   .cambtn:active{transform:scale(.9);background:rgba(60,40,120,.8)}
   #joy{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;
     border:4px solid rgba(255,215,106,.75);background:radial-gradient(circle,rgba(60,40,120,.35),rgba(40,25,90,.15));
