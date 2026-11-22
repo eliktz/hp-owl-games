@@ -30,6 +30,7 @@ const DARK_ROOMS = { dungeon: 1, staircase: 1 };
 const LIFT = 0.75, MAX_LIFT = 0.55;     // extra ambient: Lumos on in a dark room / Lumos Maxima at full strength
 const CLUSTER = 12, RELIGHT = 30, NOX_T = 10;
 
+import { frameShot } from './liftables.js';
 export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV, TARGETS, SP, scene }) {
   const pos = player.pos;
   let T = 0, R = null, seen = null, builds = 0;
@@ -404,7 +405,8 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
       player.yaw = Math.atan2(v0.x - x, v0.z - z);
       try { player.teleport(x, z); } catch { /* plain move */ }
       pos.x = x; pos.z = z;
-      return { x: +x.toFixed(2), z: +z.toFixed(2), tx: +v0.x.toFixed(2), ty: +v0.y.toFixed(2), tz: +v0.z.toFixed(2) };
+      const cam = frameShot(player, interiors, v0);
+      return { cam, x: +x.toFixed(2), z: +z.toFixed(2), tx: +v0.x.toFixed(2), ty: +v0.y.toFixed(2), tz: +v0.z.toFixed(2) };
     },
     // the light-pool colour of one target's light (for tests): mean of its first owner's range, 0..1 of baked
     poolK: (id) => { const t = R && R.targets.find(x => x.id === id); if (!t) return null; if (t.unit && t.unit.owners[0]) return +t.unit.owners[0].k.toFixed(2); if (/fire/.test(id) && R.fire) return +R.fire.light.toFixed(2); return null; },

@@ -21,6 +21,7 @@ const TAU = Math.PI * 2;
 const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
 const PERSON = /^(prof-|char-|dumbledore|student)/;
 
+import { frameShot } from './liftables.js';
 export function createRealObjects({ player, interiors, fun, emit, burst, TARGETS, getSel, isBusy }) {
   const pos = player.pos;
   let R = null, seen = null, T = 0, builds = 0, twT = 0, peopleT = 0;
@@ -264,7 +265,8 @@ export function createRealObjects({ player, interiors, fun, emit, burst, TARGETS
       player.yaw = Math.atan2(v0.x - x, v0.z - z);
       try { player.teleport(x, z); } catch { /* plain move */ }
       pos.x = x; pos.z = z;
-      return { x: +x.toFixed(2), z: +z.toFixed(2), tx: +v0.x.toFixed(2), ty: +v0.y.toFixed(2), tz: +v0.z.toFixed(2) };
+      const cam = frameShot(player, interiors, v0);
+      return { cam, x: +x.toFixed(2), z: +z.toFixed(2), tx: +v0.x.toFixed(2), ty: +v0.y.toFixed(2), tz: +v0.z.toFixed(2) };
     },
     world: (id) => { const o = find(id); if (!o) return null; worldOf(o, v0); return { x: +v0.x.toFixed(3), y: +v0.y.toFixed(3), z: +v0.z.toFixed(3) }; },
     people: () => { const out = []; for (let i = 0; i < nPeople; i++) out.push({ x: +people[i].x.toFixed(2), z: +people[i].z.toFixed(2) }); return out; },

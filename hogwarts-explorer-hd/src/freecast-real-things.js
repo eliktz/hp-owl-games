@@ -23,6 +23,7 @@ const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
 const bouncy = (k) => (k >= 1 ? 1 : 1 - Math.exp(-5 * k) * Math.cos(k * 11));
 const backOut = (k) => { k = Math.min(1, Math.max(0, k)); const c = 2.2; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
 
+import { frameShot } from './liftables.js';
 export function createRealThings({ scene, player, interiors, fun, emit, burst, TARGETS, getSel, isBusy }) {
   const pos = player.pos;
   let R = null, seen = null, T = 0, builds = 0, twT = 0, OUT = null, outTried = 0;
@@ -256,7 +257,8 @@ export function createRealThings({ scene, player, interiors, fun, emit, burst, T
       player.yaw = Math.atan2(v0.x - x, v0.z - z);
       try { player.teleport(x, z); } catch { /* plain move */ }
       pos.x = x; pos.z = z;
-      return { id: t.id, x: +x.toFixed(2), z: +z.toFixed(2), tx: +v0.x.toFixed(2), ty: +v0.y.toFixed(2), tz: +v0.z.toFixed(2) };
+      const cam = frameShot(player, interiors, v0);
+      return { cam, id: t.id, x: +x.toFixed(2), z: +z.toFixed(2), tx: +v0.x.toFixed(2), ty: +v0.y.toFixed(2), tz: +v0.z.toFixed(2) };
     },
     world: (id) => { const t = findT(id); if (!t) return null; t.at(v0); return { x: +v0.x.toFixed(3), y: +v0.y.toFixed(3), z: +v0.z.toFixed(3) }; },
     // test helper: make every mended thing break again now

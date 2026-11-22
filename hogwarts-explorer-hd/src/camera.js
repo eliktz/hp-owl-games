@@ -103,6 +103,39 @@ export class SpringCamera {
     if (Math.abs(want - this._fade) > 0.01) { this._fade = want; this.onFade && this.onFade(want); }
   }
 
+  // DEBUG / TEST ONLY (the aim() helpers of freecast-real*.js, ?debug=1): swing the parked lens round the player until a
+  // target point is in clear view (no room mesh between the lens and it), so a screenshot shows the aimed thing and not a
+  // globe or shelf between the camera and Harry. Never called by gameplay. `skip` holds objects to ignore (Harry, the target).
+  frame(playerPos, playerYaw, at, roots, skip = []) {
+    const head = this._target.set(playerPos.x, playerPos.y + this.headY, playerPos.z), base = this._behind(playerYaw);
+    const meshes = [];
+    const ignore = (o) => { for (let p = o; p; p = p.parent) if (skip.includes(p)) return true; return false; };
+    for (const r of roots) if (r) r.traverseVisible(o => {
+      if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh && o.count > 64) return;
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m || (m.transparent && (m.opacity < 0.7 || !m.depthWrite)) || ignore(o)) return;
+      meshes.push(o);
+    });
+    const cam = new Vector3(), d = new Vector3(), atV = new Vector3(at.x, at.y, at.z);
+    const blocked = (from, to) => { d.subVectors(to, from); const L = d.length(); this.ray.set(from, d.normalize()); this.ray.far = L - 0.25; return this.ray.intersectObjects(meshes, false).length > 0; };
+    let best = null;
+    for (const dist of [this.indoor ? 5 : 8, 3.6, 2.6]) {
+      for (const off of [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]) {
+        this.yaw = base + off; this.dist = dist;
+        const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+        this._dir.set(Math.sin(this.yaw) * cp, sp + this.eyeLift / Math.max(dist, 1), Math.cos(this.yaw) * cp).normalize();
+        const L = Math.min(dist, this._castArm(head, this._dir, dist));
+        cam.copy(head).addScaledVector(this._dir, L);
+        if (!blocked(cam, atV)) { const c = { yaw: this.yaw, dist, off, clear: !blocked(cam, head) }; if (!best || c.clear) best = c; if (c.clear) break; }
+      }
+      if (best && best.clear) break;
+    }
+    if (!best) best = { yaw: base, dist: this.dist, off: 0, clear: false, none: true };
+    this.yaw = best.yaw; this.dist = best.dist; this.curDist = best.dist;
+    this.userControlled = false; this.idle = 0;   // (auto-recentre only runs while the player moves)
+    return best;
+  }
+
   // Sphere-ish cast of the arm: raycast from target outward and keep a padding so the
   // near plane never pokes through the surface. Returns a safe distance.
   _castArm(origin, dir, maxLen) {

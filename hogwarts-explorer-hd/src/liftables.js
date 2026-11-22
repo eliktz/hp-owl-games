@@ -67,3 +67,16 @@ export function liftables(g, { ceil = 9 } = {}) {
   }
   return { add, finish };
 }
+
+// DEBUG / TEST ONLY: after an aim() helper parks Harry facing a target, swing the camera so the target is in clear view
+// (SpringCamera.frame) and place the lens now. Indoors the room's meshes are checked; outdoors the arm's obstacles.
+export function frameShot(player, interiors, at) {
+  const cam = player.cam; if (!cam || !cam.frame) return null;
+  const roots = interiors.active && interiors.room && interiors.room.group ? [interiors.room.group] : (cam.obstacles || []);
+  let r = null;
+  try {
+    r = cam.frame(player.pos, player.yaw, at, roots, [player.model].filter(Boolean));
+    cam.update(0.016, player.pos, player.yaw, false); player.camera.updateMatrixWorld(true);
+  } catch (e) { return { err: String(e && e.message || e) }; }
+  return r && { off: +r.off.toFixed(2), dist: r.dist, clear: r.clear };
+}
