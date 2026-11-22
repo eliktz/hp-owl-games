@@ -61,7 +61,15 @@ function emoji(x, e, cx, cy, size) { x.save(); x.font = `${size}px serif`; x.tex
 // One 256 px canvas pair per door: colour map + emissive map, same layout.
 // leaf [0,0,128,256] oak planks + iron straps | interior [128,0,64,128] warm room glow | keyhole [192,0,64,64]
 // brass [192,64,64,64] | sign [128,128,128,128] dark plate, 🔒 + the room's name
-const DR = { leaf: [0, 0, 64, 256], inside: [64, 0, 64, 128], key: [128, 0, 64, 64], brass: [192, 0, 64, 64], sign: [64, 128, 192, 128] };
+const DR = { leaf: [0, 0, 64, 256], inside: [64, 0, 64, 128], key: [128, 0, 64, 64], brass: [192, 0, 64, 64], sign: [64, 128, 192, 128],
+  lockC: [128, 64, 64, 64], lockO: [192, 64, 64, 64] };   // the sign's lock icon: closed 🔒 / open 🔓 (centre 56 px of each cell shown)
+const lockUV = (open) => { const [x, y] = open ? DR.lockO : DR.lockC; return [x + 4, y + 4, 56, 56]; };
+// point the sign's lock quad (the last 6 vertices of the glow mesh) at the closed or open icon: no extra draw call
+function setSignLock(glow, open) {
+  const u = glow.geometry.attributes.uv, q = uvTo(new PlaneGeometry(1, 1), lockUV(open)).toNonIndexed().attributes.uv, n0 = u.count - 6;
+  for (let i = 0; i < 6; i++) u.setXY(n0 + i, q.getX(i), q.getY(i));
+  u.needsUpdate = true;
+}
 const _doorMat = {};
 function doorMat(id) {
   if (_doorMat[id]) return _doorMat[id];
@@ -90,10 +98,11 @@ function doorMat(id) {
     for (const c of [x, e]) {
       c.fillStyle = '#c9a046'; c.beginPath(); c.roundRect(sx + 3, sy + 3, sw - 6, sh - 6, 14); c.fill();
       c.fillStyle = '#3a2414'; c.beginPath(); c.roundRect(sx + 9, sy + 9, sw - 18, sh - 18, 10); c.fill();
-      emoji(c, '🔒', sx + sw / 2, sy + 40, 40);
       rtlText(c, s.name, sx + sw / 2, sy + 92, 30, '#ffe9a8', sw - 24);
+      // the lock icon lives in two spare cells (closed / open) on the same dark plate; a small quad on the sign shows one
+      for (const [lk, [lx, ly]] of [['🔒', DR.lockC], ['🔓', DR.lockO]]) { c.fillStyle = '#3a2414'; c.fillRect(lx, ly, 64, 64); emoji(c, lk, lx + 32, ly + 34, 40); }
     }
-    e.fillStyle = 'rgba(0,0,0,.45)'; e.fillRect(sx, sy, sw, sh); }
+    e.fillStyle = 'rgba(0,0,0,.45)'; e.fillRect(sx, sy, sw, sh); e.fillRect(DR.lockC[0], DR.lockC[1], 128, 64); }
   const m = new MeshStandardMaterial({ map: tex(C), emissiveMap: tex(E), emissive: 0xffffff, emissiveIntensity: 1, roughness: 0.7, metalness: 0.05 });
   m.name = 'secret-door-' + id;
   return (_doorMat[id] = m);
@@ -126,6 +135,7 @@ export function secretDoor(g, id) {
   GL.push(uvTo(new PlaneGeometry(1.5, 2.4), DR.inside).translate(0, 1.2, 0.01));
   GL.push(uvTo(new CircleGeometry(0.75, 18, 0, Math.PI), DR.inside).translate(0, 2.4, 0.01));
   GL.push(uvTo(new PlaneGeometry(1.17, 0.78), DR.sign).translate(s.sign * 1.75, 1.75, 0.034));
+  GL.push(uvTo(new PlaneGeometry(0.34, 0.34), lockUV(open)).translate(s.sign * 1.75, 1.896, 0.037));   // the lock icon (kept last: setSignLock)
   const glow = new Mesh(put(mergeGeometries(GL.map(flat), false)), mat); glow.name = 'secret-door-glow'; live.add(glow);
   const pivot = new Group(); pivot.position.set(D.x, 0, D.z); pivot.rotation.y = yaw; live.add(pivot);
   const hinge = new Group(); hinge.position.set(0.75, 0, 0.05); pivot.add(hinge);
@@ -140,7 +150,7 @@ export function secretDoor(g, id) {
   // the flying padlock (shown only while it pops off: 1 extra call for under a second)
   const fly = new Mesh(mergeGeometries(padlockGeos(0, 0, 0).map(flat), false), mat); fly.visible = false; fly.name = 'secret-door-padlock'; live.add(fly);
   const glowSpot = new Object3D(); glowSpot.position.set(D.x + D.nx * 1.2, 0.5, D.z + D.nz * 1.2); glowSpot.userData.light = { k: 'glow', c: 0xffd8a0, r: 1.6, a: open ? 0.22 : 0.1 }; g.add(glowSpot);
-  g.userData.secretDoor = { id, live, hinge, leaf, fly, padStart: nBase, padCount: open ? 0 : geo.attributes.position.count - nBase };
+  g.userData.secretDoor = { id, live, glow, signOpen: open, hinge, leaf, fly, padStart: nBase, padCount: open ? 0 : geo.attributes.position.count - nBase };
   return { live, portal: { x: D.x + D.nx * 0.85, z: D.z + D.nz * 0.85, r: 1.0, to: id, locked: () => DOORS[id].state !== 'open', at: { x: 0, z: s.D / 2 - 2.4, yaw: Math.PI } } };
 }
 
@@ -304,6 +314,14 @@ export function cardCanvas(cid) {
   x.fillStyle = 'rgba(0,0,0,.28)'; x.beginPath(); x.roundRect(28, 310, 244, 84, 14); x.fill();
   rtlText(x, c.name, 150, 342, 40, '#fff2c0', 230);
   rtlText(x, 'קְלַף צְפַרְדֵּעַ שׁוֹקוֹלָד 🐸', 150, 378, 18, '#ffe08a', 230, false);
+  return C;
+}
+// an unowned card in the collection viewer: grey, a big "?"
+function cardBackCanvas() {
+  const C = canvas(300, 420), x = C.getContext('2d');
+  x.fillStyle = '#8a8a90'; x.beginPath(); x.roundRect(0, 0, 300, 420, 26); x.fill();
+  x.fillStyle = '#5c5c64'; x.beginPath(); x.roundRect(14, 14, 272, 392, 16); x.fill();
+  x.save(); x.font = `bold 200px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#b8b8c0'; x.fillText('?', 150, 220); x.restore();
   return C;
 }
 function cardTex(cid) { return _cardTex[cid] || (_cardTex[cid] = tex(cardCanvas(cid))); }
@@ -483,7 +501,7 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
   const pos = player.pos, debug = /[?&]debug=1/.test(location.search);
   let cards = [];
   try { const a = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(a)) cards = a.filter(c => CARDS[c]); } catch { /* private mode */ }
-  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch { /* private mode */ } };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch { /* private mode */ } refreshCardsBtn(); };
   const FI = freecast && freecast._internal;
   const burst = (...a) => { try { FI && FI.burst(...a); } catch { /* fx are optional */ } };
   const _v = new Vector3(), _w = new Vector3();
@@ -529,6 +547,7 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
       const p = sd.leaf.geometry.attributes.position, hole = new Vector3(-1.2, 1.2, 0.09);
       for (let i = sd.padStart; i < sd.padStart + sd.padCount; i++) p.setXYZ(i, hole.x, hole.y, hole.z);
       p.needsUpdate = true; sd.leaf.geometry.computeBoundingSphere();
+      setSignLock(sd.glow, true); sd.signOpen = true;   // the sign's 🔒 becomes 🔓 as the padlock pops
       sd.fly.visible = true; padW(id, _v); burst(_v.x, _v.y, _v.z, 0xffd76a, 26, 2.4, 0.8, 0.22, -2); burst(_v.x, _v.y, _v.z, 0xffffff, 10, 1.4, 0.6, 0.16, -1);
       fun.sfx.clank(); fun.sfx.sparkle();
     }
@@ -642,6 +661,42 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
   }
   function hideCard() { if (ovEl) ovEl.classList.remove('on'); clearTimeout(ovT); }
 
+  // ---- the card collection: a "🐸 n/3" button in the spell wheel's header (once a card is owned) + a viewer ----
+  let cbEl = null, cvEl = null, viewerN = 0;
+  function refreshCardsBtn() {
+    if (!cbEl) {
+      const hd = document.querySelector('#fcWheel .hd'); if (!hd) return;
+      const css = document.createElement('style');
+      css.textContent = `#srCardsBtn{display:none;min-width:56px;height:56px;margin:-12px 0;padding:0 12px;border-radius:28px;border:2px solid rgba(255,215,106,.75);background:rgba(34,104,90,.55);
+          color:#ffe9a8;font:bold 20px 'Rubik',sans-serif;text-shadow:0 2px 0 #000;cursor:pointer;touch-action:manipulation;white-space:nowrap;direction:ltr}
+        #srCardsBtn.on{display:inline-flex;align-items:center;justify-content:center;gap:4px}
+        @media (max-height:520px){#srCardsBtn{font-size:16px}}
+        #srCards{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;flex-direction:column;gap:min(3vh,16px);background:rgba(10,6,24,.82);direction:rtl;font-family:'Rubik',sans-serif;touch-action:manipulation}
+        #srCards.on{display:flex} #srCards .row{display:flex;flex-direction:row-reverse;gap:min(3vw,18px);align-items:center;justify-content:center}
+        #srCards canvas{width:min(28vw,calc((100vh - 110px) * 0.714),230px);height:auto;border-radius:14px}
+        #srCards canvas.own{box-shadow:0 0 26px rgba(255,215,106,.8)} #srCards canvas.no{opacity:.75}
+        #srCards .t{font-size:min(5vh,6vw,30px);font-weight:bold;color:#ffe9a8;text-shadow:0 2px 0 #000;white-space:nowrap}`;
+      document.head.appendChild(css);
+      cbEl = document.createElement('button'); cbEl.id = 'srCardsBtn'; cbEl.setAttribute('aria-label', 'הַקְּלָפִים שֶׁלִּי'); hd.appendChild(cbEl);
+      cbEl.addEventListener('click', (e) => { e.stopPropagation(); showCards(); });
+    }
+    cbEl.textContent = '🐸 ' + cards.length + '/' + Object.keys(CARDS).length;
+    cbEl.classList.toggle('on', cards.length > 0);
+  }
+  function showCards() {
+    if (!cvEl) {
+      cvEl = document.createElement('div'); cvEl.id = 'srCards'; document.body.appendChild(cvEl);
+      for (const ev of ['pointerdown', 'touchstart', 'mousedown']) cvEl.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      cvEl.addEventListener('click', (e) => { e.stopPropagation(); cvEl.classList.remove('on'); });   // close on the click (not pointerdown): the tap never reaches the wheel under it
+    }
+    cvEl.innerHTML = '';
+    const tt = document.createElement('div'); tt.className = 't'; tt.textContent = '🐸 הַקְּלָפִים שֶׁלִּי ' + cards.length + '/' + Object.keys(CARDS).length; cvEl.appendChild(tt);
+    const row = document.createElement('div'); row.className = 'row'; cvEl.appendChild(row);
+    for (const cid of Object.keys(CARDS)) { const own = cards.includes(cid), cv = own ? cardCanvas(cid) : cardBackCanvas(); cv.className = own ? 'own' : 'no'; cv.dataset.card = own ? cid : ''; row.appendChild(cv); }
+    cvEl.classList.add('on'); viewerN++; try { fun.sfx.flip(); } catch { /* sfx optional */ }
+  }
+  refreshCardsBtn();
+
   function update(dtRaw) {
     const dt = dtRaw; T += dt;
     const r = interiors.room, g = r && r.group;
@@ -656,11 +711,13 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
     state: () => ({
       T: +T.toFixed(2), room: interiors.active, inSecret: curRoom ? curRoom.id : null, unlocks, cards: cards.slice(), overlays: overlayN, lastCard,
       overlay: !!(ovEl && ovEl.classList.contains('on')),
+      viewer: { btn: !!(cbEl && cbEl.classList.contains('on')), open: !!(cvEl && cvEl.classList.contains('on')), opens: viewerN },
       doors: Object.fromEntries(IDS.map(id => [id, { state: DOORS[id].state, locked: DOORS[id].state !== 'open', opens: DOORS[id].opens, bubbles: DOORS[id].bubbles, text: DOORS[id].text || null }])),
       chests: Object.fromEntries(IDS.map(id => [id, { state: CHESTS[id].state, opened: CHESTS[id].state !== 'locked', opens: CHESTS[id].opens, paid: CHESTS[id].paid, frogs: CHESTS[id].frogs }])),
       snitch: curRoom && curRoom.snitch ? { visible: curRoom.snitch.visible, t: +snitchT.toFixed(2), x: +curRoom.snitch.position.x.toFixed(2), y: +curRoom.snitch.position.y.toFixed(2), z: +curRoom.snitch.position.z.toFixed(2) } : null,
       frog: curRoom ? { visible: curRoom.frog.visible, t: +(curRoom.frogT || 0).toFixed(2) } : null,
       meshes: curRoom ? roomDraws(curRoom.group) : 0,
+      sign: (() => { const gg = interiors.room && interiors.room.group, d = gg && gg.userData.secretDoor; return d ? { id: d.id, open: !!d.signOpen } : null; })(),
       doorMeshes: (() => { const gg = interiors.room && interiors.room.group, d = gg && gg.userData.secretDoor; return d ? roomDraws(d.live) : 0; })(),
     }),
     doors: () => IDS.map(id => { const s = SPECS[id], D = s.door; return { id, host: s.host, name: s.name, x: D.x, z: D.z, nx: D.nx, nz: D.nz, portal: { x: D.x + D.nx * 0.85, z: D.z + D.nz * 0.85, r: 1.0 }, card: s.card }; }),
