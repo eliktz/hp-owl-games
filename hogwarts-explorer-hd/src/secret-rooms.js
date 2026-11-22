@@ -674,7 +674,7 @@ export function createSecretRooms({ camera, player, interiors, freecast, env }) 
         #srCards{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;flex-direction:column;gap:min(3vh,16px);background:rgba(10,6,24,.82);direction:rtl;font-family:'Rubik',sans-serif;touch-action:manipulation}
         #srCards.on{display:flex} #srCards .row{display:flex;flex-direction:row-reverse;gap:min(3vw,18px);align-items:center;justify-content:center}
         #srCards canvas{width:min(28vw,calc((100vh - 110px) * 0.714),230px);height:auto;border-radius:14px}
-        #srCards canvas.own{box-shadow:0 0 26px rgba(255,215,106,.8)} #srCards canvas.no{opacity:.75}
+        #srCards canvas.own{box-shadow:0 0 26px rgba(255,215,106,.8)} #srCards canvas.no{box-shadow:0 0 0 2px rgba(255,255,255,.18)}
         #srCards .t{font-size:min(5vh,6vw,30px);font-weight:bold;color:#ffe9a8;text-shadow:0 2px 0 #000;white-space:nowrap}`;
       document.head.appendChild(css);
       cbEl = document.createElement('button'); cbEl.id = 'srCardsBtn'; cbEl.setAttribute('aria-label', 'הַקְּלָפִים שֶׁלִּי'); hd.appendChild(cbEl);
