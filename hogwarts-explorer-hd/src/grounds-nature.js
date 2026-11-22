@@ -19,7 +19,7 @@
 import {
   Group, Mesh, InstancedMesh, Object3D, BufferGeometry, Float32BufferAttribute, CylinderGeometry, IcosahedronGeometry,
   PlaneGeometry, BoxGeometry, LatheGeometry, Vector2, Vector3, Color, Matrix4, Quaternion, Euler, CatmullRomCurve3,
-  MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, RepeatWrapping, ClampToEdgeWrapping, DoubleSide,
+  MeshStandardMaterial, MeshBasicMaterial, MeshLambertMaterial, CanvasTexture, SRGBColorSpace, RepeatWrapping, ClampToEdgeWrapping, DoubleSide,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WORLD, SPOTS, PLACES } from './config.js';
@@ -297,7 +297,8 @@ function broadleafGeo() {
     const g = new IcosahedronGeometry(1, 1), p = g.attributes.position, n = g.attributes.normal;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      const lump = 1 + 0.06 * Math.sin(x * 3.1 + bx) * Math.sin(y * 2.9 + 1.3) + 0.04 * Math.sin(z * 3.7 + by) - (y < -0.4 ? 0.12 * (-0.4 - y) : 0);
+      const lump = 1 + 0.06 * Math.sin(x * 3.1 + bx) * Math.sin(y * 2.9 + 1.3) + 0.04 * Math.sin(z * 3.7 + by) + 0.05 * Math.sin(x * 9.1 + y * 7.3 + z * 5.7 + bx * 3)   // per-vertex jitter: breaks the regular polyhedron outline
+        - (y < -0.4 ? 0.12 * (-0.4 - y) : 0);
       const sy = y < 0 ? 0.82 : 1;                                     // a little flatter underneath
       p.setXYZ(i, bx + x * br * lump, by + y * br * lump * sy, bz + z * br * lump);
       const [nx, ny, nz] = nrm(x * 0.8 + (bx - 0) * 0.08, y + 0.45, z * 0.8 + bz * 0.08); n.setXYZ(i, nx, ny, nz);   // soft: blob-centre normals, tilted up and out from the trunk
@@ -607,7 +608,9 @@ export function buildNature({ scene, heightAt, colliders }) {
   const atlas = atlasTexture();
   const treeMat = new MeshStandardMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5, side: DoubleSide, roughness: 0.92 }); treeMat.name = 'nature-trees';
   const pathMat = new MeshStandardMaterial({ map: pathTexture(), transparent: true, depthWrite: false, roughness: 0.97, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); pathMat.name = 'nature-path';
-  const shoreMat = new MeshStandardMaterial({ map: shoreTexture(), transparent: true, depthWrite: false, roughness: 0.8, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); shoreMat.name = 'nature-shore';
+  // Lambert (no specular): at the grazing angles a child sees the shore from, a standard material's Fresnel sky
+  // reflection turned the dark mud pale grey-white.
+  const shoreMat = new MeshLambertMaterial({ map: shoreTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); shoreMat.name = 'nature-shore';
   const reedMat = new MeshStandardMaterial({ map: reedTexture(), alphaTest: 0.5, side: DoubleSide, roughness: 0.9 }); reedMat.name = 'nature-reeds';
   const blobMat = new MeshBasicMaterial({ map: blobTexture(), color: 0x0c140a, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }); blobMat.name = 'nature-blob';
   const boatMat = woodMaterial(0xc4b4a0, 'nature-boat'); boatMat.side = DoubleSide;
