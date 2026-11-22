@@ -568,7 +568,7 @@ function commonRoom() {
       const m = hp.fire.material, mg = Math.max(mix, FK.green);   // (FK: the Floo's green and roar, floo.js)
       m.emissiveIntensity = (1.9 + Math.sin(t * 7) * 0.3 + Math.sin(t * 17.3) * 0.15 + mg * 1.2 + FK.roar) * fc.glow;
       m.emissive.copy(fireFrom).lerp(fireTo, mg); m.color.copy(m.emissive);
-      hp.fire.scale.set((1 + Math.sin(t * 5.1) * 0.03 + FK.roar * 0.2) * fc.sx, (1 + Math.sin(t * 6.3) * 0.07 + mix * (0.7 + 0.2 * Math.sin(t * 11)) + FK.roar * (1.4 + 0.25 * Math.sin(t * 11))) * fc.sy, fc.sx); hp.fire.position.y = 0.55 + (hp.fire.scale.y - 1) * 0.6;
+      hp.fire.scale.set((1 + Math.sin(t * 5.1) * 0.03 + FK.roar * 0.2) * fc.sx, (1 + Math.sin(t * 6.3) * 0.07 + mix * (0.7 + 0.2 * Math.sin(t * 11)) + FK.roar * (1.9 + 0.3 * Math.sin(t * 11))) * fc.sy, fc.sx); hp.fire.position.y = 0.55 + (hp.fire.scale.y - 1) * 0.6;
       powder.material.emissiveIntensity = 1.3 + Math.sin(t * 3.1) * 0.5;
     },
   });

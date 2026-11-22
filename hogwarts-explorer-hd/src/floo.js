@@ -63,7 +63,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
     const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
     g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.85)'); g.addColorStop(0.6, 'rgba(255,255,255,0.25)'); g.addColorStop(1, 'rgba(255,255,255,0)');
     x.fillStyle = g; x.fillRect(0, 0, 64, 64);
-    x.globalCompositeOperation = 'lighter'; x.fillStyle = 'rgba(255,255,255,0.35)';
+    x.globalCompositeOperation = 'lighter'; x.fillStyle = 'rgba(255,255,255,0.16)';
     x.fillRect(30, 4, 4, 56); x.fillRect(4, 30, 56, 4);            // a faint four-point glint
     const t = new CanvasTexture(c); t.colorSpace = 'srgb'; return t;
   })();
@@ -76,7 +76,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
   const A = (n) => new Float32Array(NP * n);
   const pp = A(3), pv = A(3), pl = A(2), ps = A(2), pc = A(3), po = A(5), pm = new Uint8Array(NP);   // pos, vel, life/max, size/grow, colour, orbit (cx, cz, ang, rad, w), mode
   let alive = 0;
-  // mode 0 spark (ballistic, drag), 1 orbit (spirals round cx,cz, rising), 2 smoke (grows, slows)
+  // mode 0 spark (ballistic, drag), 1 orbit (spirals round cx,cz, rising), 2 smoke (grows, slows), 3 flame tongue (rises, drawn tall)
   function emit(mode, x, y, z, vx, vy, vz, life, size, r, g, b, grow = 0) {
     let i = -1; for (let k = 0; k < NP; k++) if (pl[k * 2] <= 0) { i = k; break; }
     if (i < 0) return -1;
@@ -102,13 +102,13 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
         pp[i3] = po[i * 5] + Math.cos(po[i * 5 + 2]) * po[i * 5 + 3]; pp[i3 + 2] = po[i * 5 + 1] + Math.sin(po[i * 5 + 2]) * po[i * 5 + 3]; pp[i3 + 1] += pv[i3 + 1] * dt;
       } else {
         const drag = m === 2 ? 1.6 : 0.9, k = Math.max(0, 1 - drag * dt);
-        pv[i3] *= k; pv[i3 + 2] *= k; pv[i3 + 1] = pv[i3 + 1] * k + (m === 0 ? -1.2 : 0.25) * dt;
+        pv[i3] *= k; pv[i3 + 2] *= k; pv[i3 + 1] = pv[i3 + 1] * k + (m === 0 ? -1.2 : m === 3 ? 1.5 : 0.25) * dt;
         pp[i3] += pv[i3] * dt; pp[i3 + 1] += pv[i3 + 1] * dt; pp[i3 + 2] += pv[i3 + 2] * dt;
       }
       let sz = ps[i * 2];
       if (m === 2) sz *= (0.45 + (1 - l) * (1 + ps[i * 2 + 1])) * Math.min(1, l * 3);
       else sz *= Math.min(1, l * 2.5) * (0.85 + 0.15 * Math.sin(l * 40 + i));
-      _p.set(pp[i3], pp[i3 + 1], pp[i3 + 2]); _s.set(sz, sz, sz);
+      _p.set(pp[i3], pp[i3 + 1], pp[i3 + 2]); _s.set(m === 3 ? sz * 0.55 : sz, m === 3 ? sz * (1.6 + (1 - l) * 1.4) : sz, sz);
       _m.compose(_p, _q, _s); pMesh.setMatrixAt(n, _m);
       pMesh.setColorAt(n, _c.setRGB(pc[i3], pc[i3 + 1], pc[i3 + 2]));
       n++;
@@ -176,7 +176,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
   let CW = 360, CH = 250, bgGrad = null, vigGrad = null;
   const STREAK = Array.from({ length: 72 }, (_, i) => ({ a: (i / 72) * Math.PI * 2 + Math.sin(i * 12.9) * 0.2, ph: (i * 0.618) % 1, sp: 0.55 + ((i * 7) % 10) / 14, c: i % 5 }));
   const SPARK = Array.from({ length: 46 }, (_, i) => ({ a: i * 2.399, ph: (i * 0.377) % 1, sp: 0.4 + ((i * 3) % 7) / 9 }));
-  const GRATES = [0, 1, 2, 3].map(i => ({ a: i * 1.7 + 0.6, ph: i / 4 }));
+  const GRATES = [0, 1, 2, 3, 4].map(i => ({ a: i * 2.6 + 0.6, ph: i / 5 }));
   const COLS = ['rgba(120,255,160,', 'rgba(60,230,120,', 'rgba(200,255,140,', 'rgba(255,220,110,', 'rgba(40,200,110,'];
   const grateImg = (() => {   // one brick fireplace opening with a warm glimpse inside (drawn once)
     const c = document.createElement('canvas'); c.width = 96; c.height = 104; const x = c.getContext('2d');
@@ -206,12 +206,17 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
     tx.translate(cx, cy); tx.rotate(roll);
     // fireplace openings rushing past, from the centre outwards
     for (const G of GRATES) {
-      const u = (G.ph + t * 0.42) % 1, z = 1 - u * 0.93, r = R * 0.1 / z, s = CH * 0.16 / z, a = G.a + t * 0.9;
-      tx.globalAlpha = Math.min(1, u * 4) * (u > 0.82 ? Math.max(0, (1 - u) / 0.18) : 1) * 0.95;
+      const u = (G.ph + t * 0.38) % 1, z = 1 - u * 0.92, r = R * 0.16 / z, s = CH * 0.045 / z, a = G.a + t * 0.9;
+      tx.globalAlpha = Math.min(1, u * 2.5) * (u > 0.85 ? Math.max(0, (1 - u) / 0.15) : 1) * 0.95;
       tx.save(); tx.rotate(a); tx.translate(r, 0); tx.rotate(Math.PI / 2); tx.drawImage(grateImg, -s / 2, -s * 0.54, s, s * 1.08); tx.restore();
     }
-    // spinning streaks of green fire
+    // spinning streaks of green fire, and glowing rings rushing outward (the tunnel's depth)
     tx.globalCompositeOperation = 'lighter'; tx.lineCap = 'round';
+    for (let i = 0; i < 7; i++) {
+      const u = (i / 7 + t * 0.5) % 1, z = 1 - u * 0.95, r = R * 0.05 / z;
+      tx.strokeStyle = COLS[i % 3] + (0.08 + u * 0.22).toFixed(2) + ')'; tx.lineWidth = 2 + u * 16;
+      tx.beginPath(); tx.ellipse(0, 0, r * 1.15, r, 0, 0, Math.PI * 2); tx.stroke();
+    }
     for (const L of STREAK) {
       const u = (L.ph + t * L.sp * 0.6) % 1, z = 1 - u * 0.95, r0 = R * 0.07 / z, r1 = r0 * (1.25 + u * 0.5), a = L.a + t * 1.7 + u * 0.9;
       const ca = Math.cos(a), sa = Math.sin(a), a2 = a - 0.12 - u * 0.1, ca2 = Math.cos(a2), sa2 = Math.sin(a2);
@@ -287,15 +292,16 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
   function flameBurst(info, y0, n) {   // tall emerald tongues of light roaring up out of the grate
     for (let i = 0; i < n; i++) {
       const s = (Math.random() - 0.5) * info.ow * 0.7, fx = info.front[0], fz = info.front[1], rx = fz, rz = -fx;
-      emit(0, info.grate.x + rx * s - fx * 0.15, y0 + 0.2, info.grate.z + rz * s - fz * 0.15, (Math.random() - 0.5) * 0.4 + fx * 0.3, 2.6 + Math.random() * 2.2, (Math.random() - 0.5) * 0.4 + fz * 0.3,
-        0.7 + Math.random() * 0.4, 0.45 + Math.random() * 0.35, 0.25, 1.35, 0.55);
+      const hot = Math.random() < 0.3;
+      emit(3, info.grate.x + rx * s - fx * 0.1, y0 + 0.3, info.grate.z + rz * s - fz * 0.1, (Math.random() - 0.5) * 0.3 + fx * 0.15, 2.4 + Math.random() * 1.8, (Math.random() - 0.5) * 0.3 + fz * 0.15,
+        0.55 + Math.random() * 0.35, 0.55 + Math.random() * 0.45, hot ? 0.75 : 0.18, hot ? 1.6 : 1.25, hot ? 0.8 : 0.45);
     }
   }
   function sootPuff(info, y0) {
     const fx = info.front[0], fz = info.front[1];
     for (let i = 0; i < 18; i++) {
       const a = Math.random() * 6.283, s = 0.6 + Math.random() * 1.2;
-      emit(2, info.grate.x + fx * 0.4, y0 + 0.3 + Math.random() * 0.8, info.grate.z + fz * 0.4, Math.cos(a) * s + fx * 1.6, 0.3 + Math.random() * 0.9, Math.sin(a) * s + fz * 1.6, 1.4 + Math.random() * 0.8, 0.5 + Math.random() * 0.4, 0.34, 0.33, 0.32, 1.4);
+      emit(2, info.grate.x + fx * 0.4, y0 + 0.3 + Math.random() * 0.8, info.grate.z + fz * 0.4, Math.cos(a) * s + fx * 1.6, 0.3 + Math.random() * 0.9, Math.sin(a) * s + fz * 1.6, 1.6 + Math.random() * 0.9, 0.7 + Math.random() * 0.5, 0.3, 0.29, 0.28, 1.6);
     }
     for (let i = 0; i < 14; i++) emit(0, info.grate.x + fx * 0.3, y0 + 0.4, info.grate.z + fz * 0.3, (Math.random() - 0.5) * 2 + fx * 1.2, 1.5 + Math.random() * 1.5, (Math.random() - 0.5) * 2 + fz * 1.2, 0.8 + Math.random() * 0.5, 0.07 + Math.random() * 0.06, 1.5, 0.75, 0.25);
   }
@@ -344,7 +350,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
         const fx = src.front[0], fz = src.front[1], hx = src.grate.x + fx * 0.35 + fz * 0.25, hz = src.grate.z + fz * 0.35 - fx * 0.25;
         for (let i = 0; i < 16; i++) emit(0, hx, src.y + 1.25, hz, -fx * (0.6 + Math.random() * 0.6) + (Math.random() - 0.5) * 0.5, 0.9 + Math.random() * 0.8, -fz * (0.6 + Math.random() * 0.6) + (Math.random() - 0.5) * 0.5, 0.8 + Math.random() * 0.4, 0.07 + Math.random() * 0.05, 0.6, 1.5, 0.8);
         // a dead hearth lights first: the powder relights it (no dead ends)
-        if (S.from === 'commonroom') { try { const R = freecast && freecast.real; if (R && R.fireLit && R.fireLit() === false && R.relight && R.relight()) { log.relights++; log.lastTrip.relit = true; } } catch { /* ok */ } }
+        if (S.from === 'commonroom') { try { const R = freecast; if (R && R.fireLit && R.fireLit() === false && R.relight && R.relight()) { log.relights++; log.lastTrip.relit = true; } } catch { /* ok */ } }
       }
       if (t >= T_THROW) { setPhase('burst'); S.thrown = false; sfx('noise', 1.4, 0.22, 0, 600, 0.5); sfx('poof'); }
     } else if (S.phase === 'burst') {
@@ -353,8 +359,8 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
       S.spun += dt * (4 + 26 * k * k);
       placeHarry(src.grate.x, src.y + lift * 1.6, src.grate.z, src.rotY + S.spun, S.scale0 * (1 - lift * 0.85));
       camOn(src, dt, 5.4 - k * 0.6);
-      if (Math.random() < dt * 30) sparkleRing(src, src.y + 0.1 + k * 1.2, 3);
-      if (Math.random() < dt * 22) flameBurst(src, src.y, 2);
+      if (Math.random() < dt * 24) sparkleRing(src, src.y + 0.1 + k * 1.2, 2);
+      flameBurst(src, src.y, k < 0.15 ? 5 : 2);
       tunnel(ease((k - 0.75) / 0.25), S.vt, 0);
       if (t >= T_BURST) { setPhase('transit'); S.ready = false; travel(); sfx('noise', 2.2, 0.12, 0, 900, 0.4); }
     } else if (S.phase === 'transit') {
@@ -377,6 +383,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
       placeHarry(x, y, z, yaw, sc);
       dst.k.green = t < 0.4 ? 1 : Math.max(0, 1 - (t - 0.4) / 1.5); dst.k.roar = Math.max(0, 0.8 - t * 0.6);
       if (Math.random() < dt * 20 * spinK) sparkleRing(dst, dst.y + 0.2, 2, 0.7);
+      if (t < 0.5) flameBurst(dst, dst.y, 2);
       camOn(dst, dt, 5.6, 0.45, 0.12);
       if (t >= T_ARRIVE) finish(false);
     }
@@ -391,7 +398,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
     document.body.classList.remove('inFloo'); setTakeover(null);
     if (log.lastTrip) log.lastTrip.ms = Math.round(performance.now() - log.lastTrip.t0);
     S.phase = 'idle'; S.pt = 0; S.from = null;
-    if (!failed) { S.soot = T_SOOT; S.cough = 0.9; S.sootPuff = 0; S.arrivedAt = S.to; } else S.arrivedAt = null;
+    if (!failed) { S.quiet = true; S.soot = T_SOOT; S.cough = 0.9; S.sootPuff = 0; S.arrivedAt = S.to; } else S.arrivedAt = null;
     S.dstKeep = d;   // keep fading its green after control returns
   }
 
@@ -403,7 +410,8 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
     const fx = f.front[0], fz = f.front[1], cx = f.x + fx * (f.depth + 0.6), cz = f.z + fz * (f.depth + 0.6);
     const dx = player.pos.x - cx, dz = player.pos.z - cz, d = Math.hypot(dx, dz);
     if (d > 3.2) return offerNear;
-    const facing = Math.sin(player.yaw) * -dx + Math.cos(player.yaw) * -dz;   // > 0: Harry looks toward the hearth
+    const facing = (Math.sin(player.yaw) * -dx + Math.cos(player.yaw) * -dz) / Math.max(d, 1e-3);   // > 0: Harry looks toward the hearth
+    if (S.quiet) { if (d > 2.6 || facing > 0.5) S.quiet = false; else return offerNear; }   // just arrived: no prompt until he turns round or steps away
     if (facing < 0 && d > 1.6) return offerNear;
     offerNear.id = hereId(); offerNear.d = d; return offerNear;
   }
@@ -448,7 +456,8 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
         const geo = new PlaneGeometry(1, 1), mat = new MeshBasicMaterial({ color: 0x2a2624, transparent: true, opacity: 0.0, depthWrite: false, map: tex });
         const grp = new Object3D(); grp.name = 'floo-soot';
         const m = new InstancedMesh(geo, mat, 3); m.frustumCulled = false;
-        const d = new Object3D(); [[0.045, 0.06, 0.095], [-0.045, 0.06, 0.095], [0.0, 0.12, 0.1]].forEach(([x, y, z], i) => { d.position.set(x, y, z); d.scale.setScalar(i === 2 ? 0.07 : 0.055); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
+        // cheeks + a smear on the brow (head bone: +z forward, measured)
+        const d = new Object3D(); [[0.052, 0.035, 0.088], [-0.05, 0.03, 0.088], [0.02, 0.165, 0.092]].forEach(([x, y, z], i) => { d.position.set(x, y, z); d.scale.setScalar(i === 2 ? 0.06 : 0.05); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
         grp.add(m); head.add(grp);
         // the bone may be in centimetres (Mixamo): undo its world scale so the smudges are real-size
         head.updateMatrixWorld(true); const ws = new Vector3(); head.getWorldScale(ws); const mk = player.model.scale.x || 1;
