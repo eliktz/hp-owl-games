@@ -33,6 +33,7 @@ import { createFreecast } from './freecast.js';
 import { createShowers } from './showers.js';
 import { createSecretRooms, LABELS as SECRET_LABELS, SPECS as SECRET } from './secret-rooms.js';
 import { createFloo } from './floo.js';
+import { createAdventures } from './adventures.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -283,6 +284,11 @@ async function boot() {
       isModal: () => modal, isTakeover: () => !!takeover, freecast: freecast ? freecast.real : null, map });
     hooks.push((dt, inside) => floo.update(dt, inside));
   } catch (e) { console.warn('[floo] disabled -', e && e.message || e); floo = null; }
+  let adventures = null;   // book adventures (adventures.js + adventure-stone.js): opt-in quests; any failure -> simply no 📖 button
+  try {
+    adventures = createAdventures({ scene, camera, player, interiors, fun, freecast, setModal, isModal: () => modal, isTakeover: () => !!takeover, setTakeover });
+    hooks.push((dt, inside) => adventures.update(dt, inside));
+  } catch (e) { console.warn('[adventures] disabled -', e && e.message || e); adventures = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -364,6 +370,7 @@ async function boot() {
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
     music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; }, get freecast() { return freecast; }, get showers() { return showers; }, get secretRooms() { return secretRooms; },
     get floo() { return floo ? floo.api : null; },   // floo.js: list() near() open() go(to) state() hold(phase) release()
+    get adventures() { return adventures ? adventures.api : null; },   // adventures.js: list() state() start(id) skipStep() hint(n) clock(s) hold() leave() reset()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
@@ -434,7 +441,7 @@ async function boot() {
 
 function labelOf(id) {
   return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות הנעות', library: 'הספרייה', commonroom: 'חדר הטרקלין',
-    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', ...SECRET_LABELS }[id] || id;
+    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', ...SECRET_LABELS }[id] || id;
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 
