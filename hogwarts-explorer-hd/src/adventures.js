@@ -550,7 +550,13 @@ function drawCard(x, q) {
   x.fillStyle = g; x.beginPath(); x.roundRect(14, 14, 272, 392, 16); x.fill();
   x.save(); x.beginPath(); x.ellipse(150, 165, 104, 124, 0, 0, 7); x.fillStyle = '#f6ecd0'; x.fill(); x.lineWidth = 8; x.strokeStyle = '#e8c060'; x.stroke(); x.clip();
   const rg = x.createRadialGradient(150, 150, 10, 150, 165, 130); rg.addColorStop(0, '#fff8e4'); rg.addColorStop(1, '#e6d2a4'); x.fillStyle = rg; x.fillRect(40, 30, 220, 270);
-  emo(x, q.ico || '📖', 150, 172, 120); x.restore();
+  if (q.gem) {   // a red stone drawn in canvas (the emoji gem is blue)
+    const gg = x.createRadialGradient(150, 160, 4, 150, 172, 70); gg.addColorStop(0, 'rgba(255,140,140,.95)'); gg.addColorStop(1, 'rgba(255,60,60,0)'); x.fillStyle = gg; x.fillRect(60, 80, 180, 190);
+    const P = [[150, 102], [204, 150], [180, 236], [120, 236], [96, 150]]; x.fillStyle = q.gem; x.beginPath(); P.forEach(([a, b], i) => i ? x.lineTo(a, b) : x.moveTo(a, b)); x.closePath(); x.fill();
+    x.fillStyle = 'rgba(255,255,255,.35)'; x.beginPath(); x.moveTo(150, 102); x.lineTo(204, 150); x.lineTo(150, 160); x.lineTo(96, 150); x.closePath(); x.fill();
+    x.strokeStyle = 'rgba(120,0,10,.6)'; x.lineWidth = 3; x.beginPath(); x.moveTo(150, 160); x.lineTo(180, 236); x.moveTo(150, 160); x.lineTo(120, 236); x.stroke();
+  } else emo(x, q.ico || '📖', 150, 172, 120);
+  x.restore();
   for (const [sx, sy] of [[34, 34], [266, 34], [34, 300], [266, 300]]) { x.fillStyle = '#ffe9a0'; x.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? 4 : 10; x.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); } x.fill(); }
   x.fillStyle = 'rgba(0,0,0,.28)'; x.beginPath(); x.roundRect(28, 310, 244, 84, 14); x.fill();
   rtl(x, q.title, 150, 342, 36, '#fff2c0', 230);

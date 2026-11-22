@@ -13,7 +13,7 @@ import { buildChambers, drawMirror, SPOTS, DOOR_Z, zc, sq, BOARD, COLOURS, FLOOR
 const HERM = { ico: '👧', name: 'הרמיוני' };
 export const QUESTS = [
   {
-    id: 'stone', title: 'אבן החכמים', ico: '💎', col: '#5a1a2a', col2: '#c0503a', helper: HERM,
+    id: 'stone', title: 'אבן החכמים', ico: '💎', gem: '#d8202a', col: '#5a1a2a', col2: '#c0503a', helper: HERM,
     pic: [['🐶', 0.22, 0.62, 46], ['🔑', 0.5, 0.3, 34], ['♟️', 0.78, 0.62, 40], ['💎', 0.5, 0.66, 52]],
     intro: [
       'מישהו רוצה לגנוב את אבן החכמים!',
