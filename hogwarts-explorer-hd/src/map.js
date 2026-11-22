@@ -24,7 +24,7 @@ export const DESTS = [
 // with the chosen destination; the overlay then hides itself.
 export function createMap({ onTravel }) {
   const root = document.getElementById('map');
-  if (!root) return { toggle() {}, open() {}, close() {} };
+  if (!root) return { toggle() {}, open() {}, close() {}, setBadges() {} };
   root.innerHTML = '';
 
   const h = document.createElement('h2');
@@ -34,7 +34,7 @@ export function createMap({ onTravel }) {
   const grid = document.createElement('div'); grid.className = 'grid';
   for (const d of DESTS) {
     const card = document.createElement('button');
-    card.className = 'dest';
+    card.className = 'dest'; card.dataset.id = d.id;
     card.innerHTML = `<span class="ico">${d.ico}</span><span>${d.label}</span>`;
     card.addEventListener('click', () => { close(); onTravel(d.id, d.kind); });
     grid.appendChild(card);
@@ -46,8 +46,16 @@ export function createMap({ onTravel }) {
   back.addEventListener('click', () => close());
   root.appendChild(back);
 
+  // a small badge on some cards (floo.js: 🔥 on the places with a Floo fireplace; the Floo itself is not map travel)
+  function setBadges(ids, mark) {
+    for (const c of grid.children) {
+      const id = c.dataset.id; let b = c.querySelector('.badge');
+      if (ids.includes(id)) { if (!b) { b = document.createElement('span'); b.className = 'badge'; c.appendChild(b); } b.textContent = mark; }
+      else if (b) b.remove();
+    }
+  }
   function open() { root.classList.add('on'); }
   function close() { root.classList.remove('on'); }
   function toggle() { root.classList.toggle('on'); }
-  return { toggle, open, close, isOpen: () => root.classList.contains('on') };
+  return { toggle, open, close, setBadges, isOpen: () => root.classList.contains('on') };
 }

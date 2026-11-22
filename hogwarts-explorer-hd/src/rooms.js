@@ -19,6 +19,7 @@ import { decorate } from './decor.js';
 import { addDumbledore } from './dumbledore.js';
 import { showerDoor, showerHall } from './showers.js';
 import { secretDoor, secretRoom } from './secret-rooms.js';
+import { flooHearth } from './floo-hearth.js';
 import { liftables } from './liftables.js';
 import { brokenBooks, brokenSideTable, brokenJar, brokenHourglass, dish, emptyVase } from './real-things-kit.js';
 
@@ -143,10 +144,14 @@ function entranceHall() {
   for (const sx of [-W / 2 + 0.4, W / 2 - 0.4]) for (const z of [-5, 3, 9]) torch(g, sx, 3.8, z, 0xff8a2a, { shared: true, wash: 3.6, glowBall: false });
   const showers = showerDoor(g);                            // west wall, z 7: the oak door + towel sign to the shower hall (showers.js)
   const broom = secretDoor(g, 'broomcupboard');             // east wall, z 4.8: the locked door to the broom cupboard (secret-rooms.js)
+  // Floo fireplace (floo.js): south wall west of the front doors, clear of the door torches (x -3.9), the shower door
+  // (west wall z 7), the armour (-3.4, 9.4) and the spell-spot plinths (north half)
+  const floo = flooHearth(g, cols, { id: 'entrancehall', x: -5.95, z: D / 2 - 0.5, rotY: Math.PI, ow: 2.0, jw: 0.4, oh: 2.4, breast: 4.2 });
   // Everything static that shares a material merges (walls, steps, arches, doors' stone, torches,
   // carpet); the chandelier keeps swinging on its own.
   mergeStatic(g, g.children.filter(c => c !== ch));
   g.add(broom.live);                                        // its leaf + padlock + glow move: kept out of the merge
+  g.add(floo.live); g.userData.floo = floo.info;
   const stoneHex = [WALL, 0x8f8a80].map(h => new Color(h).getHex());
   heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex()) && m.name !== 'corbels'),
     { y0: 2.2, y1: H - 1, k0: 1.18, k1: 0.3 });
@@ -285,11 +290,16 @@ function greatHall() {
   // materials let all eight merge into a couple of draw calls
   for (const sx of [-1, 1]) for (const z of [-15.6, -7, 7, 11.8]) torch(g, sx * (W / 2 - 0.5), 3.6, z, 0xff8a2a, { shared: true, wash: 3.6, glowBall: false });
   archway(g, -W / 2 + 0.55, 3.5, Math.PI / 2, { w: 2.6, h: 4.2 });   // a low arch in the west wall: down to the dungeon
+  // Floo fireplace (floo.js): the free bay of the west wall between the last column (z 13.5) and the south wall, clear
+  // of the windows (z 10), the torches, the tables (they end at z 17) and the spell spot (east wall, z 9 to 11)
+  const floo = flooHearth(g, cols, { id: 'greathall', x: -W / 2 + 0.5, z: 15.9, rotY: Math.PI / 2, ow: 2.0, jw: 0.42, oh: 2.5, breast: 4.6 });
+  floo.info.arrive.x -= 0.5;   // 1.1 m out: the west tables' wall bench is at x -6.4
   // Static pieces sharing a material (walls, gables, window surrounds and mullions, stained-glass
   // panes, columns, table tops and benches, torches, iron) merge into one mesh per material.
   // The candles (instanced and bobbing in room()) are left alone.
   LF.finish();
   mergeStatic(g, g.children.filter(c => !flames.includes(c)));
+  g.add(floo.live); g.userData.floo = floo.info;
   // baked height falloff on the merged stone: honey-bright low, shadowed under the roof
   const stoneHex = [WALL, 0x7d7870].map(h => new Color(h).getHex());   // (colour-managed round trip, as the materials store it)
   heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex())),
@@ -453,6 +463,16 @@ function commonRoom() {
   let green = 0, mix = 0; const fireFrom = hp.fire.material.emissive.clone(), fireTo = new Color(0x2fe070);
   (g.userData.enchant = g.userData.enchant || []).push({ id: 'fire', obj: hp.fire, cast() { green = 5; try { window.HPFun.sfx.noise(1.4, 0.22, 0, 600, 0.5); window.HPFun.sfx.poof(); } catch { /* no audio yet */ } return '🔥'; } });
   g.userData.greenFire = () => green;
+  // Floo Network (floo.js): this hearth is the common-room Floo fireplace. floo.js sets FK.green / FK.roar (0..1);
+  // the update below folds them into the flicker. A pot of glittering powder stands in the middle of the mantel.
+  const FK = { green: 0, roar: 0 };
+  { const pot = new Mesh(new CylinderGeometry(0.15, 0.11, 0.2, 10), MAT.dark); pot.position.set(0, 3.85, 1.0); hp.group.add(pot);
+    const rim = new Mesh(new TorusGeometry(0.15, 0.025, 5, 12), MAT.dark); rim.rotation.x = Math.PI / 2; rim.position.set(0, 3.95, 1.0); hp.group.add(rim); }
+  const powderGeo = new SphereGeometry(0.13, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2); powderGeo.scale(1, 0.55, 1);
+  const powder = new Mesh(powderGeo, new MeshStandardMaterial({ color: 0x9ff0c0, emissive: new Color(0x2fe070), emissiveIntensity: 1.6, roughness: 0.3 }));
+  powder.position.set(0, 3.94, -D / 2 + 1.8); powder.name = 'floo-powder';   // (in front of the chimney breast, between the candles)
+  g.userData.floo = { id: 'commonroom', x: 0, z: -D / 2 + 0.8, rotY: 0, front: [0, 1], ow: 3, oh: 3.25, W: 5, depth: 1.1, selfDriven: true, k: FK,
+    grate: { x: 0, z: -D / 2 + 1.45 }, arrive: { x: 0, z: -D / 2 + 3.0, yaw: 0 }, pot: { x: 0, y: 4.2, z: -D / 2 + 1.8 }, fire: hp.fire, powder };
   // the rug, the wing chairs and a sofa round the fire (one vertex-coloured mesh for the furniture)
   rug(g, 0, -2.6, 8.4, 5.6);
   const P = [], RED = 0x6e161c, DEEP = 0x4a0e12, LEG = 0x2a1a10, GOLD = 0xb8903e;
@@ -529,6 +549,7 @@ function commonRoom() {
   for (const x of [-3, 3]) torch(g, x, 3.2, IN - 0.05, 0xff8a2a, { shared: true, wash: 2.6, glowBall: false });
   mergeStatic(g, g.children.filter(c => c !== hp.group && !flames.includes(c)));
   mergeStatic(hp.group, hp.group.children.filter(c => c !== hp.fire), 'hearth');
+  g.add(powder);
   const stoneHex = [WALL, 0x8f8a80].map(h => new Color(h).getHex());
   heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex()) && m.name !== 'corbels'),
     { y0: 1.6, y1: H - 0.5, k0: 1.12, k1: 0.3 });
@@ -544,10 +565,11 @@ function commonRoom() {
       banners.update(t);
       if (green > 0) green -= dt;
       mix = Math.max(0, Math.min(1, mix + (green > 0 ? dt * 4 : -dt * 1.2)));
-      const m = hp.fire.material;
-      m.emissiveIntensity = (1.9 + Math.sin(t * 7) * 0.3 + Math.sin(t * 17.3) * 0.15 + mix * 1.2) * fc.glow;
-      m.emissive.copy(fireFrom).lerp(fireTo, mix); m.color.copy(m.emissive);
-      hp.fire.scale.set((1 + Math.sin(t * 5.1) * 0.03) * fc.sx, (1 + Math.sin(t * 6.3) * 0.07 + mix * (0.7 + 0.2 * Math.sin(t * 11))) * fc.sy, fc.sx); hp.fire.position.y = 0.55 + (hp.fire.scale.y - 1) * 0.6;
+      const m = hp.fire.material, mg = Math.max(mix, FK.green);   // (FK: the Floo's green and roar, floo.js)
+      m.emissiveIntensity = (1.9 + Math.sin(t * 7) * 0.3 + Math.sin(t * 17.3) * 0.15 + mg * 1.2 + FK.roar) * fc.glow;
+      m.emissive.copy(fireFrom).lerp(fireTo, mg); m.color.copy(m.emissive);
+      hp.fire.scale.set((1 + Math.sin(t * 5.1) * 0.03 + FK.roar * 0.2) * fc.sx, (1 + Math.sin(t * 6.3) * 0.07 + mix * (0.7 + 0.2 * Math.sin(t * 11)) + FK.roar * (1.4 + 0.25 * Math.sin(t * 11))) * fc.sy, fc.sx); hp.fire.position.y = 0.55 + (hp.fire.scale.y - 1) * 0.6;
+      powder.material.emissiveIntensity = 1.3 + Math.sin(t * 3.1) * 0.5;
     },
   });
 }
@@ -629,6 +651,10 @@ function dungeon() {
   for (const [x, z] of [[-W / 2 + 0.4, 5], [-W / 2 + 0.4, -6], [W / 2 - 0.4, 5], [W / 2 - 0.4, -6]]) torch(g, x, 3.2, z, 0x6affb0);
   // batch 9 (freecast-real-things.js): a knocked-over jar with a little spilled glow on a side table (Reparo)
   { const LF = liftables(g, { ceil: H }); brokenJar(LF, 7.0, 7.4); cols.push({ type: 'box', x: 7.0, z: 7.4, hw: 0.5, hd: 0.33, angle: 0 }); LF.finish(); }
+  // Floo fireplace (floo.js): a low arched grate in the west wall between the jar shelves (z -3) and the torch (z 5)
+  { const floo = flooHearth(g, cols, { id: 'dungeon', x: -W / 2 + 0.5, z: 1.8, rotY: Math.PI / 2, ow: 1.9, jw: 0.45, oh: 2.2, arch: true, breast: 4.8 });
+    floo.info.arrive.x -= 0.3;   // clear of the cauldrons at x -5
+    mergeStatic(floo.group, floo.group.children.slice(), 'floo-hearth'); g.add(floo.live); g.userData.floo = floo.info; }
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {
     id: 'dungeon', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'greathall' }],
     update: (dt, t) => { for (const p of pots) { if (p.burp > 0) p.burp -= dt; p.brew.material.emissiveIntensity = 1.4 + Math.sin(t * 4 + p.x) * 0.4 + (p.burp > 0 ? 2.5 : 0); p.brew.scale.setScalar(p.burp > 0 ? 1 + Math.sin(p.burp * 14) * 0.25 : 1); } },

@@ -395,6 +395,10 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
       };
     },
     ids: () => (R ? R.targets.map(t => t.id) : []),
+    // Floo Network (floo.js) + its test: is the room's hearth lit, put it out (as Aguamenti would), light it again
+    fireLit: () => (R && live(R) && R.fire ? R.fire.lit : null),
+    douse: () => { const F = R && live(R) ? R.fire : null; if (!F || !F.lit) return false; F.lit = false; F.level = 0; F.sizeT = 0; F.roar = 0; F.pend = 0; log.fireOuts++; return true; },
+    relight: () => flooRelight(),
     lantern: () => (OUT ? { lit: OUT.u.lit, k: +OUT.u.k.toFixed(2), verts: OUT.u.idx.length, x: +OUT.u.world.x.toFixed(2), y: +OUT.u.world.y.toFixed(2), z: +OUT.u.world.z.toFixed(2) } : null),
     // stand Harry d metres in front of a real target, facing it
     aim(id, d = 3) {
@@ -411,5 +415,7 @@ export function createReal({ player, interiors, env, fun, emit, burst, tip, tipV
     // the light-pool colour of one target's light (for tests): mean of its first owner's range, 0..1 of baked
     poolK: (id) => { const t = R && R.targets.find(x => x.id === id); if (!t) return null; if (t.unit && t.unit.owners[0]) return +t.unit.owners[0].k.toFixed(2); if (/fire/.test(id) && R.fire) return +R.fire.light.toFixed(2); return null; },
   };
-  return { tick, darkLift, maximaLift, onLumos, onMaxima, api, REACH };
+  // Floo powder thrown into a dead hearth lights it (no dead ends): lit again, a short roar; floo.js adds the green
+  function flooRelight() { const F = R && live(R) ? R.fire : null; if (!F || F.lit) return false; F.lit = true; F.level = 0; F.pend = 0; F.roar = 0.9; log.flooLights = (log.flooLights || 0) + 1; return true; }
+  return { tick, darkLift, maximaLift, onLumos, onMaxima, api, REACH, flooRelight };
 }

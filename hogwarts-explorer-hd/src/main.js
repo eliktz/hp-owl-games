@@ -32,6 +32,7 @@ import { createSpells } from './spells.js';
 import { createFreecast } from './freecast.js';
 import { createShowers } from './showers.js';
 import { createSecretRooms, LABELS as SECRET_LABELS, SPECS as SECRET } from './secret-rooms.js';
+import { createFloo } from './floo.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -276,6 +277,12 @@ async function boot() {
   try { showers = createShowers({ scene, camera, player, interiors, delight, freecast, env }); hooks.push((dt) => showers.update(dt)); } catch (e) { console.warn('[showers] disabled -', e && e.message || e); showers = null; }
   let secretRooms = null;   // the locked doors + reward rooms (secret-rooms.js): Alohomora opens them
   try { secretRooms = createSecretRooms({ camera, player, interiors, freecast, env }); hooks.push((dt) => secretRooms.update(dt)); } catch (e) { console.warn('[secret-rooms] disabled -', e && e.message || e); secretRooms = null; }
+  let floo = null;   // the Floo Network (floo.js): fireplace travel between five hearths; any failure -> simply no Floo
+  try {
+    floo = createFloo({ scene, camera, player, interiors, fun, groundAt, colliders, registerOutdoor: (o) => outdoorRoots.push(o), setTakeover, setModal,
+      isModal: () => modal, isTakeover: () => !!takeover, freecast: freecast ? freecast.real : null, map });
+    hooks.push((dt, inside) => floo.update(dt, inside));
+  } catch (e) { console.warn('[floo] disabled -', e && e.message || e); floo = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -356,6 +363,7 @@ async function boot() {
     walk(x, y) { input.target.x = x; input.target.y = y; },   // drive movement from tests
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
     music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; }, get freecast() { return freecast; }, get showers() { return showers; }, get secretRooms() { return secretRooms; },
+    get floo() { return floo ? floo.api : null; },   // floo.js: list() near() open() go(to) state() hold(phase) release()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
