@@ -50,7 +50,7 @@ export function readSave() {
 export function createAdventures({ scene, camera, player, interiors, fun, freecast, setModal, isModal, isTakeover, setTakeover }) {
   const save = readSave();
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch { /* private mode */ } };
-  const log = { starts: 0, steps: 0, hints: [], oops: 0, together: 0, finishes: 0, spoken: [], taps: 0, rewards: 0, cards: 0, errors: 0 };
+  const log = { starts: 0, steps: 0, hints: [], oops: 0, togethers: 0, finishes: 0, spoken: [], taps: 0, rewards: 0, cards: 0, errors: 0 };
   const sfx = (k, ...a) => { try { const s = fun.sfx; if (s && s[k]) s[k](...a); } catch { /* no audio */ } };
   const debug = /[?&]debug=1/.test(location.search);
 
@@ -406,7 +406,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   }
   function doTogether() {
     if (!run) return;
-    together.classList.remove('on'); log.together++;
+    together.classList.remove('on'); log.togethers++;
     helperSay('ביחד! 🤝', false, null, 2.5);
     try { run.scene.together(run.step); } catch (e) { console.warn('[adventures] together failed -', e && e.message || e); completeStep(run.step); }
   }
