@@ -81,12 +81,13 @@ export function buildChambers(progress) {
   const WALL = 0xc0a47c, wallM = stoneMat(3.3, 1.5, WALL), LINT = stoneMat(1.2, 0.5, WALL);
   const add = (geo, mat, parent = g) => { const m = new Mesh(geo, mat); parent.add(m); return m; };
   const box = (x, z, w, d, h = H, y = h / 2, mat = wallM) => add(new BoxGeometry(w, h, d).translate(x, y, z), mat);
-  const fl = floor(g, 11, 61, 0xb0a288, 2.5, 0.8); fl.position.z = -25;
-  const cl = ceiling(g, 11, 61, H, 0x6a5a48); cl.position.z = -25;
+  const fl = floor(g, 11, 65, 0xb0a288, 2.5, 0.8); fl.position.z = -23;
+  const cl = ceiling(g, 11, 65, H, 0x6a5a48); cl.position.z = -23;
   for (let i = 0; i < N; i++) for (const sx of [-1, 1]) { box(sx * 5, zc(i), 1, 11); cols.push({ type: 'box', x: sx * 5, z: zc(i), hw: 0.5, hd: 5.5, angle: 0 }); }
+  for (const sx of [-1, 1]) { box(sx * 5, 7, 1, 3.5); cols.push({ type: 'box', x: sx * 5, z: 7, hw: 0.5, hd: 1.75, angle: 0 }); }   // room 0 is 3.5 m deeper (room for the camera)
   // south wall (a doorway back to the staircase hall), north wall
-  for (const sx of [-1, 1]) { box(sx * 3.35, 5, 3.3, 1); cols.push({ type: 'box', x: sx * 3.35, z: 5, hw: 1.65, hd: 0.5, angle: 0 }); }
-  box(0, 5, 3.4, 1, H - 3.2, 3.2 + (H - 3.2) / 2, LINT);
+  for (const sx of [-1, 1]) { box(sx * 3.35, 8.5, 3.3, 1); cols.push({ type: 'box', x: sx * 3.35, z: 8.5, hw: 1.65, hd: 0.5, angle: 0 }); }
+  box(0, 8.5, 3.4, 1, H - 3.2, 3.2 + (H - 3.2) / 2, LINT);
   box(0, -55, 11, 1); cols.push({ type: 'box', x: 0, z: -55, hw: 5.5, hd: 0.5, angle: 0 });
   // dividers: room 0|1 is solid (the trapdoor goes down), the rest have a 2.4 m doorway with a barrier until the step is done
   const barriers = [];
@@ -102,7 +103,7 @@ export function buildChambers(progress) {
   // a warm floor pool in every room (bakeLight 'glow')
   for (let i = 0; i < N; i++) { const o = new Object3D(); o.position.set(0, 0.1, zc(i)); o.userData.light = { k: 'glow', c: 0xffd8a0, r: 4.2, a: 0.22 }; g.add(o); }
   // the doorway back to the staircase: warm glow beyond
-  const back = add(new PlaneGeometry(2.4, 3.2).rotateY(Math.PI).translate(0, 1.6, 5.4), new MeshBasicMaterial({ map: canvasTex(64, 128, (x, w, h) => { const gr = x.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, '#ffcf8a'); gr.addColorStop(1, '#8a4a1a'); x.fillStyle = gr; x.fillRect(0, 0, w, h); }) }));
+  const back = add(new PlaneGeometry(2.4, 3.2).rotateY(Math.PI).translate(0, 1.6, 8.9), new MeshBasicMaterial({ map: canvasTex(64, 128, (x, w, h) => { const gr = x.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, '#ffcf8a'); gr.addColorStop(1, '#8a4a1a'); x.fillStyle = gr; x.fillRect(0, 0, w, h); }) }));
   back.name = 'adv-back-glow';
   mergeStatic(g, g.children.filter(c => c !== back));
 

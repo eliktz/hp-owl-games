@@ -41,10 +41,10 @@ let PROGRESS = 0;
 BUILDERS.chambers = () => {
   const B = buildChambers(PROGRESS);
   const g = B.g; g.position.y = FLOOR_Y;
-  const portals = [{ x: 0, z: 4.2, r: 0.9, to: 'staircase', at: { x: -6, z: 7.8, yaw: Math.PI } }];
+  const portals = [{ x: 0, z: 7.7, r: 0.9, to: 'staircase', at: { x: -6, z: 7.8, yaw: Math.PI } }];
   for (const p of portals) p.armed = false;
   g.userData.adv = B;
-  return { group: g, colliders: B.cols, portals, spawn: { x: 0, z: 2.6, y: FLOOR_Y, yaw: Math.PI }, update(dt, t) { B.light.update(t); } };
+  return { group: g, colliders: B.cols, portals, spawn: { x: 0, z: 4.6, y: FLOOR_Y, yaw: Math.PI }, update(dt, t) { B.light.update(t); } };
 };
 const STAIR_DOOR = { x: -6, z: 10.5 };
 
@@ -90,7 +90,7 @@ function stoneScene(ctx) {
     const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace;
     const m = new Mesh(new PlaneGeometry(2.0, 3.6).rotateY(Math.PI).translate(D.x, 1.8 + 0.25, z - 0.26), new MeshBasicMaterial({ map: t })); g.add(m);
     r.group.add(g); r.group.userData.advDoor = g;
-    const p = { x: D.x, z: D.z - 0.95, r: 0.95, to: 'chambers', at: { x: 0, z: 2.6, yaw: Math.PI }, locked: () => !S.active, armed: false };
+    const p = { x: D.x, z: D.z - 0.95, r: 0.95, to: 'chambers', at: { x: 0, z: 4.6, yaw: Math.PI }, locked: () => !S.active, armed: false };
     r.portals.push(p); S.stair = { g, p };
   }
 
@@ -110,7 +110,7 @@ function stoneScene(ctx) {
       t += dt; const tp = SPOTS.trap;
       if (t < 0.8) { const k = t / 0.8; place(start.x + (tp.x - start.x) * k, 0, start.z + (tp.z + 0.1 - start.z) * k, Math.atan2(tp.x - start.x, tp.z - start.z), true); }
       else if (t < 1.3) { const k = (t - 0.8) / 0.5; place(tp.x, -k * 1.8 + Math.sin(k * Math.PI) * 0.6, tp.z, player.yaw, false); }
-      else if (!landed) { landed = true; player.yaw = Math.PI; player.teleport(SPOTS.land.x, SPOTS.land.z); burst(player.pos.x, Y() + 0.5, player.pos.z, 0x6ac850, 22, 2.2, 1.0, 0.24, -1.5); sfx('boing'); ctx.say('!וואו, נחיתה רכה על העלים 🌿', null, 2.6); }
+      else if (!landed) { landed = true; player.yaw = Math.PI; player.teleport(SPOTS.land.x, SPOTS.land.z); burst(player.pos.x, Y() + 0.5, player.pos.z, 0x6ac850, 22, 2.2, 1.0, 0.24, -1.5); sfx('boing'); ctx.say('וואו, נחיתה רכה על העלים! 🌿', null, 2.6); }
       else if (t > 1.6) { S.hop = 0; ctx.setTakeover(null); }
       player.animate(dt, { moving: t < 0.8 }, 1.4);
       player.cam.update(dt, player.pos, player.yaw, false);
@@ -124,9 +124,9 @@ function stoneScene(ctx) {
     sfx('sparkle'); ctx.say('הצמח בורח מהאור! הדרך פתוחה ✨', null, 3);
     ctx.done(1);
   }
-  function catchKey() { if (S.key) return; S.key = 0.001; sfx('chime'); ctx.say('!תפסת אותו! המפתח עף אל המנעול 🔑', null, 3); }
+  function catchKey() { if (S.key) return; S.key = 0.001; sfx('chime'); ctx.say('תפסת אותו! המפתח עף אל המנעול! 🔑', null, 3); }
   function chessMove() { if (S.chess) return; S.chess = 0.001; sfx('drum'); }
-  function pickBottle() { if (S.potion) return; S.potion = 0.001; sfx('sparkle'); ctx.say('!גלוּם... הלהבות נפתחות 💜', null, 3); }
+  function pickBottle() { if (S.potion) return; S.potion = 0.001; sfx('sparkle'); ctx.say('גלוּם... הלהבות נפתחות! 💜', null, 3); }
   function lookMirror() {
     if (S.look) return; S.look = 0.001;
     let t = 0, flew = false;
@@ -145,7 +145,7 @@ function stoneScene(ctx) {
         st.rotation.y += dt * 4; if (Math.random() < dt * 20) { st.getWorldPosition(v1); emit(v1.x, v1.y, v1.z, 0, 0.3, 0, 0.6, 0.18, 0xff6070, 0); }
         if (k >= 1 && st.visible) { st.visible = false; burst(player.pos.x, Y() + 1.1, player.pos.z, 0xff4050, 24, 2, 1.0, 0.24, -1); sfx('tada'); }
       }
-      if (t > 4.2 && !S.mirror) { S.mirror = 1; ctx.say('!כל הכבוד, הארי. האבן בטוחה איתך 💎', '🧙‍♂️ דמבלדור', 5); ctx.setTakeover(null); ctx.done(5); }
+      if (t > 4.2 && !S.mirror) { S.mirror = 1; ctx.say('כל הכבוד, הארי. האבן בטוחה איתך! 💎', '🧙‍♂️ דמבלדור', 5); ctx.setTakeover(null); ctx.done(5); }
     } });
   }
   const v1 = new Vector3(), v2 = new Vector3();
