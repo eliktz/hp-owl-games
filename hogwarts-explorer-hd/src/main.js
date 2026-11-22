@@ -258,6 +258,18 @@ async function boot() {
   if (spells) hooks.push(() => spells.idle());
   if (hut) hooks.push((dt, inside) => hut.update(dt, player.pos, inside));
   if (nature) hooks.push((dt, inside) => nature.update(dt, player.pos, inside));
+  // The library after dark: when it is dusk or night outside, the library's ambient drops so the candle pools carry
+  // the room and Lumos has something to light (freecast-real.js already lifts it). Never during a lesson or a course.
+  { let k = 0; const AMB = 0.78, HEMI = 0.62, N = { dusk: [0.56, 0.46], night: [0.4, 0.32] };
+    hooks.push((dt, inside) => {
+      if (!inside) { k = 0; return; }
+      const t = N[env.time], want = interiors.active === 'library' && t && !modal && !takeover && !document.body.classList.contains('inSpell') ? 1 : 0;
+      if (k === 0 && !want) return;
+      if (interiors.active !== 'library') { k = 0; env.amb.intensity = AMB; env.hemi.intensity = HEMI; return; }   // left for another room: back at once, before that room reads the base
+      k += (want - k) * Math.min(1, dt * 2.5); if (!want && k < 0.02) k = 0;
+      const [a, h] = t || N.night;
+      env.amb.intensity = AMB + (a - AMB) * k; env.hemi.intensity = HEMI + (h - HEMI) * k;
+    }); }
   let freecast = null;   // free-play spell wheel (freecast.js); any failure -> simply the plain wand
   try { freecast = createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal: () => modal, isTakeover: () => !!takeover, registerOutdoor: (o) => outdoorRoots.push(o) }); hooks.push((dt, inside) => freecast.update(dt, inside)); } catch (e) { console.warn('[freecast] disabled -', e && e.message || e); freecast = null; }
   let showers = null;   // the shower hall's play (showers.js): idle unless the hall is the room
