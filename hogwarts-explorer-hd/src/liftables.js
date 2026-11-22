@@ -10,6 +10,7 @@
 //     mat 'tex'   parts [geometry]          (keeps its uv: a textured material such as woodMat, passed as `material`)
 //     mat 'plain' parts [geometry]          (no uv / colours: e.g. the gold of the goblets, passed as `material`)
 //     geometry is in ROOM coordinates (where the object stands now); pivot is its base centre.
+//     noLift, b9   batch 9: a broken piece / a dish to grow / flowers to bloom (freecast-real-things.js), not lifted
 //   L.finish()  builds the meshes and leaves g.userData.lift = { items, meshes, ceil }
 import { SkinnedMesh, Skeleton, Bone, MeshStandardMaterial, Float32BufferAttribute, BufferAttribute, Uint16BufferAttribute, Color } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -41,7 +42,8 @@ export function liftables(g, { ceil = 9 } = {}) {
       G.geos.push(n);
     }
     const it = { id, kind: o.kind || 'thing', pivot: o.pivot, h: o.h || 0.3, slide: o.slide || null, heavy: !!o.heavy, furniture: !!o.furniture,
-      rattle: !!o.rattle, loop: o.loop || null, size: o.size || 0.3, bone: null };
+      rattle: !!o.rattle, loop: o.loop || null, size: o.size || 0.3, bone: null,
+      noLift: !!o.noLift, b9: o.b9 || null };   // batch 9 (freecast-real-things.js): noLift = not a Leviosa / Accio target; b9 = { fix | grow | bloom }
     G.items.push(it); items.push(it);
     return it;
   }

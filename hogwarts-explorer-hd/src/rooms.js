@@ -20,6 +20,7 @@ import { addDumbledore } from './dumbledore.js';
 import { showerDoor, showerHall } from './showers.js';
 import { secretDoor, secretRoom } from './secret-rooms.js';
 import { liftables } from './liftables.js';
+import { brokenBooks, brokenSideTable, brokenJar, brokenHourglass, dish, emptyVase } from './real-things-kit.js';
 
 export const FLOOR_Y = -200;
 // Gryffindor red, Ravenclaw blue, Hufflepuff gold, Slytherin green.
@@ -224,6 +225,33 @@ function greatHall() {
     }
     for (let i = -6; i <= 6; i += 4) { const c = candle(tx, 1.45, tz + i); c.userData.light.top = 1.035; g.add(c); flames.push(c); }
   }
+  // batch 9 (freecast-real-things.js): six real dishes on the two house tables by the doors (Engorgio / Reducio).
+  // decor.js lays the feast as instanced blobs; these six feast instances are hidden (zero scale, g.userData.feastHide)
+  // and a roast, a pie, a jelly, a fruit bowl, a pudding and a cake stand in their places (drawn by liftables.js).
+  // The same walk computes where the feast's big dishes sit, so Avis' birds perch on table edges clear of food.
+  { const DISH = { 24: 'roast', 29: 'jelly', 34: 'fruit', 67: 'pie', 72: 'pudding', 77: 'cake' }, hide = [], food = [];
+    let n = 0;
+    for (const tx of [-5, 5]) for (const tz of [-6, 9]) for (let z = tz - 7.2; z <= tz + 7.2 && n < 88; z += 0.72) {
+      const big = n % 5 === 0, s = big ? 1.5 : 0.7 + ((n * 7) % 5) * 0.1, x = tx + (((n * 5) % 7) - 3) * 0.09;
+      if (DISH[n]) { hide.push(n); dish(LF, 'dish-' + DISH[n], DISH[n], x, 0.99, z); food.push({ tx, x, z, r: 0.34 }); }
+      else food.push({ tx, x, z, r: 0.2 * s * (big ? 1.25 : 1) });
+      n++;
+    }
+    g.userData.feastHide = hide;
+    emptyVase(LF, 'vase-hall', -5.25, 0.99, 1.35, 0x3a5a9a);   // an empty vase at the north end of the Ravenclaw table (Orchideous)
+    // perches: seats 0.3 m apart along each long table edge (top 0.99), skipping cups, big dishes, the vase and the ends
+    const rows = [];
+    for (const tx of [-5, 5]) for (const tz of [-6, 9]) for (const sd of [-1, 1]) {
+      const ex = tx + sd * 0.7, seats = [];
+      for (let z = tz - 7.4; z <= tz + 7.4; z += 0.3) {
+        if (food.some(f => f.tx === tx && Math.abs(f.z - z) < f.r + 0.12 && (f.x - tx) * sd + f.r > 0.44)) continue;
+        if (sd > 0 && [-6, -2.5, 1, 4.5].some(p => Math.abs(tz + p - 0.4 - z) < 0.3)) continue;   // the gold cups (x tx + 0.5)
+        if (tx === -5 && tz === 9 && Math.abs(z - 1.35) < 0.4) continue;
+        seats.push([+ex.toFixed(3), 0.99, +z.toFixed(3)]);
+      }
+      rows.push({ tx, tz, side: sd, seats });
+    }
+    g.userData.perchRows = rows; }
   // House banners hang over each table from the roof, two per table (students.js HOUSE seats:
   // Gryffindor x -5 / z -6, Ravenclaw x -5 / z 9, Hufflepuff x 5 / z -6, Slytherin x 5 / z 9),
   // in the middle of the roof bays; they face the doors.
@@ -364,6 +392,10 @@ function library() {
   at(new BoxGeometry(0.16, 0.22, 0.08), 0x6a5a3a, 0.2, 1.3, -D / 2 + 1.0);                                                // padlock
   cols.push({ type: 'box', x: 0, z: -D / 2 + 0.95, hw: 1.4, hd: 0.2, angle: 0 });
   propMesh(g, P, 'library-props');
+  // batch 9 (freecast-real-things.js): a toppled stack of books with loose pages by the north cases (Reparo), an empty
+  // vase on the north reading table (Orchideous)
+  brokenBooks(LF, 3.6, -9.0);
+  emptyVase(LF, 'vase-lib', -0.42, TOP, -6.3, 0x2a6a4a);
   // east windows (daylight shafts across the floor toward the tables)
   const WS = 0.75, WY = 5.6, sun = [];
   for (const z of [-3.6, 3.6]) { window2(g, W / 2 - 0.54, WY, z, -Math.PI / 2, 0xffc98a, 1.2, 'class').scale.setScalar(WS); sun.push({ x: W / 2 - 0.6, y: WY, z, nx: -1, nz: 0, w: 2.2 * WS, h: 6.1 * WS }); }
@@ -430,7 +462,7 @@ function commonRoom() {
   const wingChair = (x, z, ry, cushion = false) => {
     const p = piece(x, z, ry);
     if (cushion) { const CP = []; piece(x, z, ry, CP)(new BoxGeometry(0.86, 0.2, 0.8), RED, 0, 0.5, 0.04);
-      LF.add('cushion', { kind: 'cushion', pivot: [x + Math.sin(ry) * 0.04, 0.4, z + Math.cos(ry) * 0.04], parts: CP, h: 0.2, size: 0.45, furniture: true });
+      LF.add('cushion', { kind: 'cushion', pivot: [x + Math.sin(ry) * 0.04, 0.4, z + Math.cos(ry) * 0.04], parts: CP, h: 0.2, size: 0.45, furniture: true, b9: { grow: true, label: 'cushion' } });
     } else p(new BoxGeometry(0.86, 0.2, 0.8), RED, 0, 0.5, 0.04);
     p(new BoxGeometry(0.9, 0.24, 0.86), DEEP, 0, 0.3, 0);               // cushion, base
     const back = new BoxGeometry(0.9, 1.05, 0.2); back.rotateX(-0.12); p(back, RED, 0, 1.08, -0.38);
@@ -454,7 +486,7 @@ function commonRoom() {
     p(new BoxGeometry(1.1, 0.06, 0.7), LEG, 0, 0.45, 0); for (const lx of [-0.48, 0.48]) for (const lz of [-0.28, 0.28]) p(new BoxGeometry(0.06, 0.42, 0.06), LEG, lx, 0.21, lz);
     const CB = [], pc = piece(-1.5, -2.9, 0.2, CB);
     for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) pc(new BoxGeometry(0.09, 0.012, 0.09), (i + j) % 2 ? 0xd8c8a0 : 0x2a1c14, -0.135 + i * 0.09, 0.485, -0.135 + j * 0.09);
-    LF.add('chessboard', { kind: 'chessboard', pivot: [-1.5, 0.479, -2.9], parts: CB, h: 0.012, size: 0.36, rattle: true });
+    LF.add('chessboard', { kind: 'chessboard', pivot: [-1.5, 0.479, -2.9], parts: CB, h: 0.012, size: 0.36, rattle: true, b9: { grow: true, label: 'chessboard' } });
     cols.push({ type: 'circle', x: -1.5, z: -2.9, r: 0.5 }); }
   // oak panelling round the lower walls (not across the doorway, the fireplace or the bookcase)
   const PAN = [], ph = 1.5, IN = W / 2 - 0.5;
@@ -487,6 +519,10 @@ function commonRoom() {
   const flames = [];
   for (const x of [-2.2, -1.5, 1.5, 2.2]) { const cd = candle(x, 3.95, -D / 2 + 1.8); cd.userData.light = { k: 'candle', c: 0xffc070 }; g.add(cd); flames.push(cd); }
   propMesh(g, P, 'common-props');
+  // batch 9 (freecast-real-things.js): a side table with a snapped leg in the north-east corner (Reparo), an empty vase
+  // on the chess table's corner (Orchideous); the chessboard and the cushion also grow / shrink (b9.grow above)
+  brokenSideTable(LF, 6.6, -6.9);
+  emptyVase(LF, 'vase-common', -1.05, 0.48, -2.77, 0xb8903e);
   LF.finish();
   // round-headed leaded windows onto the night sky (west wall), a torch each side of the door
   nightWindows(g, [{ x: -IN + 0.06, y: 4.4, z: -2.4, a: Math.PI / 2 }, { x: -IN + 0.06, y: 4.4, z: 3.4, a: Math.PI / 2 }], { w: 1.8, h: 3.4 });
@@ -591,6 +627,8 @@ function dungeon() {
   g.userData.enchant = pots.map(p => ({ id: 'cauldron', obj: p.brew, cast() { p.burp = 2.2; return '🫧'; } }));
   for (const sx of [-W / 2 + 0.8, W / 2 - 0.8]) bookshelf(g, sx, -3, sx > 0 ? 1 : -1, 4);       // shelves of ingredient jars
   for (const [x, z] of [[-W / 2 + 0.4, 5], [-W / 2 + 0.4, -6], [W / 2 - 0.4, 5], [W / 2 - 0.4, -6]]) torch(g, x, 3.2, z, 0x6affb0);
+  // batch 9 (freecast-real-things.js): a knocked-over jar with a little spilled glow on a side table (Reparo)
+  { const LF = liftables(g, { ceil: H }); brokenJar(LF, 7.0, 7.4); cols.push({ type: 'box', x: 7.0, z: 7.4, hw: 0.5, hd: 0.33, angle: 0 }); LF.finish(); }
   return room(g, cols, { x: 0, z: D / 2 - 4.5, yaw: Math.PI }, {
     id: 'dungeon', portals: [{ x: 0, z: D / 2 - 1.2, r: 1.6, to: 'greathall' }],
     update: (dt, t) => { for (const p of pots) { if (p.burp > 0) p.burp -= dt; p.brew.material.emissiveIntensity = 1.4 + Math.sin(t * 4 + p.x) * 0.4 + (p.burp > 0 ? 2.5 : 0); p.brew.scale.setScalar(p.burp > 0 ? 1 + Math.sin(p.burp * 14) * 0.25 : 1); } },
@@ -663,6 +701,8 @@ function classrooms() {
     at(new CylinderGeometry(0.035, 0.04, 0.06, 8), 0x101014, ix, TOP + 0.03, iz); const q = new ConeGeometry(0.03, 0.34, 5); q.rotateZ(0.5); at(q, 0xf2ece0, ix + 0.05, TOP + 0.2, iz);
     sink = null; LF.add('quill-ink', { kind: 'quill', pivot: [ix, TOP, iz], parts: QP, h: 0.3, size: 0.2 }); }
   propMesh(g, P, 'class-props');
+  // batch 9 (freecast-real-things.js): a knocked-over hourglass on a side table in the south-east corner (Reparo)
+  brokenHourglass(LF, 12.3, 7.0); cols.push({ type: 'box', x: 12.3, z: 7.0, hw: 0.45, hd: 0.3, angle: 0 });
   LF.finish();
   const forgotten = secretDoor(g, 'forgottenclass');        // south wall, x -9: the locked door to the forgotten classroom
   // Static pieces that share a material merge (walls, columns, window frames and glass, torches,

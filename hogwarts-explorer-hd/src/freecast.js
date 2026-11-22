@@ -25,6 +25,7 @@ import { createCastle } from './freecast-castle.js';
 import { createGlyphs, createFun } from './freecast-fun.js';
 import { createReal } from './freecast-real.js';
 import { createRealObjects } from './freecast-real-objects.js';
+import { createRealThings } from './freecast-real-things.js';
 
 const KEY = 'hpFreecast1';
 export const SPELLS = [
@@ -680,6 +681,14 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     SP._realObj = { noFallback: true, tick: (dt) => RO.tick(dt) };
     if (RL) { RL.api.objects = RO.api; const a0 = RL.api.aim; RL.api.aim = (id, d) => a0(id, d) || RO.api.aim(id, d); }
   } catch (e) { console.warn('[freecast] real objects skipped -', e && e.message || e); RO = null; }
+  // ================= batch 9 (freecast-real-things.js): Reparo, Engorgio / Reducio, Orchideous, Avis on the castle's real things =================
+  let RT = null;
+  try {
+    RT = createRealThings({ scene, player, interiors, fun, emit, burst, TARGETS, getSel: () => st.sel, isBusy: () => isModal() || isTakeover() });
+    SP._realThings = { noFallback: true, tick: (dt) => RT.tick(dt) };
+    if (K && K.setPerch) K.setPerch(RT.perch);
+    if (RL) { RL.api.things = RT.api; const a1 = RL.api.aim; RL.api.aim = (id, d) => a1(id, d) || RT.api.aim(id, d); }
+  } catch (e) { console.warn('[freecast] real things skipped -', e && e.message || e); RT = null; }
   for (const k of ['expelliarmus', 'stupefy', 'protego', 'riddikulus', 'petrificus']) if (!SP[k]) SP[k] = { noFallback: true, cast() { if (k === 'riddikulus' || k === 'protego') { tip(); burst(tipV.x, tipV.y, tipV.z, BYKEY[k].col, 16, 2, 0.8, 0.22, -1); if (k === 'riddikulus') fun.sfx.giggle(true); else fun.sfx.chime(); } else boltAhead(BYKEY[k].col); return false; } };
 
   // ================= casting =================
@@ -745,7 +754,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     duel: () => (D ? { x: DUEL.x, z: DUEL.z, y: D.Y0, visible: D.group.visible, show: { x: +(D.SHOW.x + DUEL.x).toFixed(2), z: +(D.SHOW.z + DUEL.z).toFixed(2) } } : null),
     _cool() { cool = 0; },
     castle: K ? K.api : null,
-    real: RL ? RL.api : (RO ? { objects: RO.api } : null),
+    real: RL ? RL.api : (RO || RT ? { objects: RO ? RO.api : null, things: RT ? RT.api : null } : null),
   };
   api._internal = { scene, emit, burst, stream, tip, tipBurst, TARGETS, SP, st, persist, glowTex, log, D, K };
   return api;

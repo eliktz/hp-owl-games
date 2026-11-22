@@ -15,6 +15,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MAT } from './interior-kit.js';
 import { liftables } from './liftables.js';
+import { brokenSheetDesk } from './real-things-kit.js';
 import * as fun from './fun.js';
 
 const FONT = "'Rubik','Arial Hebrew','Noto Sans Hebrew','Heebo',Arial,sans-serif";
@@ -363,7 +364,7 @@ export function secretRoom(room, id) {
       BK.push([new CylinderGeometry(0.2, 0.16, 0.34, 14, 1, true).translate(bx, 0.17, bz), c], [new CircleGeometry(0.16, 14).rotateX(-Math.PI / 2).translate(bx, 0.02, bz), 0x3a4a5a]);
       BK.push([new CylinderGeometry(0.17, 0.17, 0.02, 14).translate(bx, 0.25, bz), 0x5a8ab8]);   // soapy water
       BK.push([new TorusGeometry(0.19, 0.008, 4, 14, Math.PI).translate(bx, 0.34, bz), 0x3a3a3a]);
-      if (BK !== P) LF.add('bucket', { kind: 'bucket', pivot: [bx, 0, bz], parts: BK, h: 0.53, size: 0.3 });
+      if (BK !== P) LF.add('bucket', { kind: 'bucket', pivot: [bx, 0, bz], parts: BK, h: 0.53, size: 0.3, b9: { grow: true, label: 'bucket' } });   // (batch 9: Engorgio / Reducio too)
       cols.push({ type: 'circle', x: bx, z: bz, r: 0.28 });
     }
     // one lamp: a little wall lantern over the shelves, warm glow
@@ -432,7 +433,9 @@ export function secretRoom(room, id) {
       cols.push({ type: 'box', x, z, hw: w / 2 + 0.08, hd: d / 2 + 0.08, angle: 0 });
     };
     sheeted(-1.5, -1.9, 1.3, 0.7, 0.85);
-    for (const dx of [-1.7, 0, 1.7]) for (const dz of [-0.2, 1.3]) sheeted(dx, dz, 1.0, 0.6, 0.78);
+    for (const dx of [-1.7, 0, 1.7]) for (const dz of [-0.2, 1.3]) { if (dx === -1.7 && dz === -0.2) continue; sheeted(dx, dz, 1.0, 0.6, 0.78); }
+    // batch 9 (freecast-real-things.js): this one desk slumps on a broken leg under its sheet (Reparo)
+    brokenSheetDesk(LF, -1.7, -0.2, 1.0, 0.6, 0.78, SHEET, SHEET2); cols.push({ type: 'box', x: -1.7, z: -0.2, hw: 0.58, hd: 0.38, angle: 0 });
     // a stack of old books, a globe under a sheet in the corner, a chair upside down on a desk
     for (let k = 0; k < 4; k++) P.push([box(0.32, 0.07, 0.24, -1.5 + (k % 2) * 0.03, 0.91 + k * 0.07, -1.95), [0x5a1e1a, 0x1f3b5e, 0x2c4a2a, 0x5a3a1e][k]]);
     P.push([new SphereGeometry(0.42, 12, 10).scale(1, 1.15, 1).translate(X - 0.6, 0.7, -Z + 0.6), SHEET], [new CylinderGeometry(0.45, 0.5, 0.25, 12).translate(X - 0.6, 0.12, -Z + 0.6), SHEET2]);

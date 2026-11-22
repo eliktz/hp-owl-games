@@ -755,8 +755,8 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     cast() {
       if (!birdBody) makeBirds();
       AV.t = 0; AV.casts++; AV.maxR = 0; AV.tw = 0; AV.yaw0 = player.yaw; tip();
-      AV.perch = yard ? yard.perch() : null; AV.dur = AV.perch ? PCH.dur : 6.6; AV.landed = false;
-      if (AV.perch) { const P = AV.perch; birdP.forEach((b, i) => { const a = i * Math.PI / 3 + 0.3; b.seat.set(P.x + Math.cos(a) * P.r, P.y, P.z + Math.sin(a) * P.r); }); }
+      AV.perch = (yard ? yard.perch() : null) || (extraPerch ? extraPerch() : null);   // batch 9: real perches (Great Hall table edge, glasshouse eave) AV.dur = AV.perch ? PCH.dur : 6.6; AV.landed = false;
+      if (AV.perch) { const P = AV.perch; birdP.forEach((b, i) => { const a = i * Math.PI / 3 + 0.3; if (P.seats && P.seats[i]) b.seat.copy(P.seats[i]); else b.seat.set(P.x + Math.cos(a) * P.r, P.y, P.z + Math.sin(a) * P.r); }); }
       for (const b of birdP) { b.p.copy(tipV); b.prev.copy(tipV); }
       burst(tipV.x, tipV.y, tipV.z, 0xbfe0ff, 20, 2.4, 0.7, 0.22, -1); burst(tipV.x, tipV.y, tipV.z, 0xffffff, 10, 1.6, 0.5, 0.14, -2);
       fun.sfx.poof(); fun.sfx.tweet(); return true;
@@ -842,7 +842,7 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
   };
 
   // ======================= batch 4 (freecast-yard.js): Episkey, the courtyard spot, the Great Hall spot =======================
-  let yard = null;
+  let yard = null, extraPerch = null;   // (batch 9: setPerch)
   try {
     yard = createYard({ scene, camera, player, interiors, env, fun, emit, burst, stream, tip, tipV, glowTex, best, BYKEY, targets, hearts, heightAt,
       lib: { spotKit, flameMesh, bouquetGeo, ease, backOut, bouncy, M, newScal, stepScal, tickScal, newMover, startMover, tickMover, newFire, fireCast, tickFireState, fireOk } });
@@ -904,5 +904,5 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     wilt() { LS.pot.last = -1e9; if (yard) yard.wilt(); },
     yard: () => (yard ? yard.api : null),
   };
-  return { targets, SP, api, onLumos: (on) => { if (yard) yard.onLumos(on); } };
+  return { targets, SP, api, onLumos: (on) => { if (yard) yard.onLumos(on); }, setPerch: (fn) => { extraPerch = fn; } };
 }

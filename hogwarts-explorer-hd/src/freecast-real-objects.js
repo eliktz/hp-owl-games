@@ -32,9 +32,10 @@ export function createRealObjects({ player, interiors, fun, emit, burst, TARGETS
   // ---------------- per-visit ----------------
   function scan(room, id) {
     const g = room.group, L = g.userData.lift;
-    if (!L || !L.items.length) return null;
+    if (!L || !L.items.some(it => !it.noLift)) return null;
     const S = { id, g, items: [], targets: [], ceil: L.ceil, meshes: L.meshes };
     for (const it of L.items) {
+      if (it.noLift) continue;   // batch 9 pieces (broken things, dishes, flowers): not liftable
       S.items.push(Object.assign(Object.create(null), it, {
         mode: 'home', t: 0, rise: 0, lift: 0, holdEnd: 0, ang: 0, ang0: 0, angT: 0, r0: 0, slideK: 0, phase: null, blocked: false,
         rattle: 0, from: new Vector3(), maxLift: Math.max(0.3, Math.min(MAX_LIFT, L.ceil - 0.35 - (it.rest.p.y + it.h))),

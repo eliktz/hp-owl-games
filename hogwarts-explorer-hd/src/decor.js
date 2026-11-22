@@ -25,6 +25,8 @@ function feast(g) {
     d.scale.set(s * (big ? 1.25 : 1), s * (big ? 0.6 : 0.85), s); d.rotation.set(0, n, 0); d.updateMatrix();
     im.setMatrixAt(n, d.matrix); im.setColorAt(n, c.setHex(big ? (n % 2 ? 0x9a5a2a : 0xe0b060) : cols[(n * 3) % cols.length])); n++;
   }
+  // batch 9: rooms.js stands real dishes in for a few feast instances (Engorgio / Reducio): those are hidden (zero scale)
+  if (g.userData.feastHide) { d.scale.set(0, 0, 0); d.updateMatrix(); for (const i of g.userData.feastHide) im.setMatrixAt(i, d.matrix); }
   im.count = n; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
   im.frustumCulled = false; im.name = 'feast'; g.add(im);
   // wave the wand near a table and the whole feast hops and jiggles for a few seconds
