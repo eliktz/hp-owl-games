@@ -400,7 +400,7 @@ function library() {
   const WS = 0.75, WY = 5.6, sun = [];
   for (const z of [-3.6, 3.6]) { window2(g, W / 2 - 0.54, WY, z, -Math.PI / 2, 0xffc98a, 1.2, 'class').scale.setScalar(WS); sun.push({ x: W / 2 - 0.6, y: WY, z, nx: -1, nz: 0, w: 2.2 * WS, h: 6.1 * WS }); }
   // warm torches at the door and in the reading aisle (low, wide washes)
-  for (const z of [-2.5, 2.5]) torch(g, -W / 2 + 0.4, 3.4, z, 0xff8a2a, { shared: true, wash: 3, glowBall: false });
+  for (const z of [-2.7, 2.7]) torch(g, -W / 2 + 0.62, 3.4, z, 0xff8a2a, { shared: true, wash: 3, glowBall: false });   // (at -W/2 + 0.4 they sat inside the wall)
   mergeStatic(g, g.children.slice());
   const stoneHex = [WALL, 0x8f8a80].map(h => new Color(h).getHex());
   heightShade(g.children.filter(m => m.isMesh && !m.isInstancedMesh && m.material.map && m.material.color && stoneHex.includes(m.material.color.getHex()) && m.name !== 'corbels'),
