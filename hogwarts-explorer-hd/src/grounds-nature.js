@@ -326,14 +326,14 @@ function broadleafGeo() {
 // canopy rule at each vertex, so cards shade as part of the crown. Each card is a back-to-back pair
 // TWIN_GAP apart: the material is DoubleSide, which flips the normal on back faces, and a single card seen
 // from behind would turn dark; with the pair, the side facing the camera is always a front face.
-const CARD_TONE = 0.9;                            // cards a touch darker than the blob rule: they sink into the mass, only the outline shows
+const CARD_TONE = 0.84;                            // cards a touch darker than the blob rule: they sink into the mass, only the outline shows
 // The twin gap must be tiny: the copy behind is a back face (flipped normal), and at 3 cm its sliver showed
 // past the front copy's cut edge as a bright rim. 5 mm stays sub-pixel; with near 0.1 / far 2000 depth it
 // still separates cleanly out to roughly 90 m, where the cards are a few pixels across.
 const TWIN_GAP = 0.005;
 // The twin faces into the crown: it is what you see from below or inside a card (leaf undersides in the
 // crown's own shade), so it is darker; a card on the upper hull seen from underneath no longer glows.
-const TWIN_TONE = 0.55;
+const TWIN_TONE = 0.7;
 const LEAF_CARDS = 52;                            // x 2 tris (a twin pair) = 104 tris per tree
 function leafCards(BLOBS, lumpOf, softN, leafC) {
   const r = rng(4711), S = new Soup(), cand = [];
@@ -370,10 +370,14 @@ function leafCards(BLOBS, lumpOf, softN, leafC) {
     const UV = [[0.5, 1], [0, 0], [1, 0]];
     let V = [0, 1, 2].map(j => { const a = roll + Math.PI / 2 + j * 2 * Math.PI / 3, c = Math.cos(a) * R, s = Math.sin(a) * R; return [C[0] + e1[0] * c + e2[0] * s, C[1] + e1[1] * c + e2[1] * s, C[2] + e1[2] * c + e2[2] * s]; });
     let order = [0, 1, 2]; if (dot(cross(sub(V[1], V[0]), sub(V[2], V[0])), m) < 0) order = [0, 2, 1];   // front face outward
-    const vert = (j, off, tone = CARD_TONE) => { const q = [V[j][0] - m[0] * off, V[j][1] - m[1] * off, V[j][2] - m[2] * off], dq = nrm(q[0] - bx, q[1] - by, q[2] - bz);
-      return [q, softN(dq[0], dq[1], dq[2], bx, bz), cu('cluster', UV[j][0], UV[j][1]), leafC(q[1], by, br).map(c => c * tone)]; };
-    S.tri(vert(order[0], 0), vert(order[1], 0), vert(order[2], 0));
-    S.tri(vert(order[0], TWIN_GAP, TWIN_TONE), vert(order[2], TWIN_GAP, TWIN_TONE), vert(order[1], TWIN_GAP, TWIN_TONE));   // the back-to-back twin, just inward, darker
+    // the shading normal must lie on the side its triangle faces: a soft normal pointing away from the viewer gives
+    // the PBR material a grazing sky reflection (pale grey sheets seen from below), so its away-facing part is removed
+    const sided = (n, f, lo) => { const k = dot(n, f), q = k < 0 ? [n[0] - k * f[0] + 0.15 * f[0], n[1] - k * f[1] + 0.15 * f[1], n[2] - k * f[2] + 0.15 * f[2]] : n; const u = nrm(q[0], q[1], q[2]); return nrm(u[0], Math.max(u[1], lo), u[2]); };   // never far below the horizon: the sky map's lower half is black
+    const vert = (j, off, tone, f) => { const q = [V[j][0] - m[0] * off, V[j][1] - m[1] * off, V[j][2] - m[2] * off], dq = nrm(q[0] - bx, q[1] - by, q[2] - bz);
+      return [q, sided(softN(dq[0], dq[1], dq[2], bx, bz), f, -0.22), cu('cluster', UV[j][0], UV[j][1]), leafC(q[1], by, br).map(c => c * tone)]; };
+    const mi = [-m[0], -m[1], -m[2]];
+    S.tri(vert(order[0], 0, CARD_TONE, m), vert(order[1], 0, CARD_TONE, m), vert(order[2], 0, CARD_TONE, m));
+    S.tri(vert(order[0], TWIN_GAP, TWIN_TONE, mi), vert(order[2], TWIN_GAP, TWIN_TONE, mi), vert(order[1], TWIN_GAP, TWIN_TONE, mi));   // the back-to-back twin, just inward, darker
   });
   return S.geo();
 }
