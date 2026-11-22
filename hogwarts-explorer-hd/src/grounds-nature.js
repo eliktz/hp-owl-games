@@ -20,7 +20,7 @@
 import {
   Group, Mesh, InstancedMesh, Object3D, BufferGeometry, Float32BufferAttribute, CylinderGeometry, IcosahedronGeometry,
   PlaneGeometry, BoxGeometry, LatheGeometry, Vector2, Vector3, Color, Matrix4, Quaternion, Euler, CatmullRomCurve3,
-  MeshStandardMaterial, MeshBasicMaterial, MeshLambertMaterial, CanvasTexture, SRGBColorSpace, RepeatWrapping, ClampToEdgeWrapping, DoubleSide,
+  MeshStandardMaterial, MeshBasicMaterial, MeshLambertMaterial, CanvasTexture, DataTexture, RGBAFormat, LinearFilter, LinearMipmapLinearFilter, SRGBColorSpace, RepeatWrapping, ClampToEdgeWrapping, DoubleSide,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WORLD, SPOTS, PLACES } from './config.js';
@@ -255,7 +255,9 @@ export function planNature(heightAt) {
 // Atlas cells: [u0, v0, w, h], inset so mips do not bleed across cells. Bark and rock share the lower-left
 // quarter (half height each); the lower-right quarter is the ragged-alpha leaf cluster for the crown cards.
 const CELL = { leaf: [0, 0.5, 0.5, 0.5], needle: [0.5, 0.5, 0.5, 0.5], bark: [0, 0, 0.5, 0.25], rock: [0, 0.25, 0.5, 0.25], cluster: [0.5, 0, 0.5, 0.5] }, INSET = 0.014;
-const cu = (cell, u, v) => { const C = CELL[cell]; return [C[0] + INSET + clamp(u, 0, 1) * (C[2] - 2 * INSET), C[1] + INSET + clamp(v, 0, 1) * (C[3] - 2 * INSET)]; };
+const CLUSTER_INSET = 0.025;   // 0.05 of the cluster cell (12.8 px): card UVs stay well clear of the needle and rock cells at every mip
+const cellInset = (cell) => (cell === 'cluster' ? CLUSTER_INSET : INSET);
+const cu = (cell, u, v) => { const C = CELL[cell], I = cellInset(cell); return [C[0] + I + clamp(u, 0, 1) * (C[2] - 2 * I), C[1] + I + clamp(v, 0, 1) * (C[3] - 2 * I)]; };
 
 class Soup {
   constructor() { this.p = []; this.n = []; this.u = []; this.c = []; }
@@ -319,11 +321,19 @@ function broadleafGeo() {
 // Leaf fringe: LEAF_CARDS alpha-cut leaf-cluster triangles on the outer hull of the crown, so the outline
 // reads as ragged leaf clumps instead of polygon edges. A triangle (not a quad) per card: the cluster is
 // painted inside the triangle's inscribed ellipse (atlas 'cluster' cell, UVs (0,0) (1,0) (0.5,1)).
-// Mostly tangent cards (tilted 10-35 deg) plus ~40 % near-radial fins (55-80 deg), which are the ones
+// Mostly tangent cards (tilted 10-35 deg) plus ~25 % near-radial fins (55-80 deg, kept close to the hull), which are the ones
 // seen face-on at the silhouette where tangent cards turn edge-on. Normals and colours follow the
 // canopy rule at each vertex, so cards shade as part of the crown. Each card is a back-to-back pair
-// 3 cm apart: the material is DoubleSide, which flips the normal on back faces, and a single card seen
+// TWIN_GAP apart: the material is DoubleSide, which flips the normal on back faces, and a single card seen
 // from behind would turn dark; with the pair, the side facing the camera is always a front face.
+const CARD_TONE = 0.9;                            // cards a touch darker than the blob rule: they sink into the mass, only the outline shows
+// The twin gap must be tiny: the copy behind is a back face (flipped normal), and at 3 cm its sliver showed
+// past the front copy's cut edge as a bright rim. 5 mm stays sub-pixel; with near 0.1 / far 2000 depth it
+// still separates cleanly out to roughly 90 m, where the cards are a few pixels across.
+const TWIN_GAP = 0.005;
+// The twin faces into the crown: it is what you see from below or inside a card (leaf undersides in the
+// crown's own shade), so it is darker; a card on the upper hull seen from underneath no longer glows.
+const TWIN_TONE = 0.55;
 const LEAF_CARDS = 52;                            // x 2 tris (a twin pair) = 104 tris per tree
 function leafCards(BLOBS, lumpOf, softN, leafC) {
   const r = rng(4711), S = new Soup(), cand = [];
@@ -350,20 +360,20 @@ function leafCards(BLOBS, lumpOf, softN, leafC) {
   pick.forEach(({ bi, d, P }, k) => {
     const [bx, by, bz, br] = BLOBS[bi];
     const t1 = nrm(...(Math.abs(d[1]) > 0.9 ? cross(d, [1, 0, 0]) : cross(d, [0, 1, 0]))), t2 = cross(d, t1);
-    const fin = k % 5 < 2, tilt = (fin ? 55 + r() * 25 : 10 + r() * 25) * Math.PI / 180, ta = r() * Math.PI * 2;
+    const fin = k % 4 === 0, tilt = (fin ? 55 + r() * 25 : 10 + r() * 25) * Math.PI / 180, ta = r() * Math.PI * 2;
     const ax = [t1[0] * Math.cos(ta) + t2[0] * Math.sin(ta), t1[1] * Math.cos(ta) + t2[1] * Math.sin(ta), t1[2] * Math.cos(ta) + t2[2] * Math.sin(ta)];
     const m = nrm(...d.map((v, i) => v * Math.cos(tilt) + cross(ax, d)[i] * Math.sin(tilt)));   // card normal: d tilted about ax
     const e1 = nrm(...cross(m, ax)), e2 = cross(m, e1);
     const rc = 0.8 + r() * 0.5, ri = rc / 0.84, R = 2 * ri;                    // cluster radius 0.8-1.3 m (1.6-2.6 m across), ~0.84 of the inradius; circumradius = 2 x inradius
-    const out = 0.4 + r() * 0.4, push = Math.max(-0.5, out - rc * Math.sin(tilt) - rc * rc / (2 * br) * Math.cos(tilt));
+    const out = fin ? 0.3 + r() * 0.2 : 0.4 + r() * 0.4, push = Math.max(-0.5, out - rc * Math.sin(tilt) - rc * rc / (2 * br) * Math.cos(tilt));
     const C = [P[0] + d[0] * push, P[1] + d[1] * push, P[2] + d[2] * push], roll = r() * Math.PI * 2;
     const UV = [[0.5, 1], [0, 0], [1, 0]];
     let V = [0, 1, 2].map(j => { const a = roll + Math.PI / 2 + j * 2 * Math.PI / 3, c = Math.cos(a) * R, s = Math.sin(a) * R; return [C[0] + e1[0] * c + e2[0] * s, C[1] + e1[1] * c + e2[1] * s, C[2] + e1[2] * c + e2[2] * s]; });
     let order = [0, 1, 2]; if (dot(cross(sub(V[1], V[0]), sub(V[2], V[0])), m) < 0) order = [0, 2, 1];   // front face outward
-    const vert = (j, off) => { const q = [V[j][0] - m[0] * off, V[j][1] - m[1] * off, V[j][2] - m[2] * off], dq = nrm(q[0] - bx, q[1] - by, q[2] - bz);
-      return [q, softN(dq[0], dq[1], dq[2], bx, bz), cu('cluster', UV[j][0], UV[j][1]), leafC(q[1], by, br)]; };
+    const vert = (j, off, tone = CARD_TONE) => { const q = [V[j][0] - m[0] * off, V[j][1] - m[1] * off, V[j][2] - m[2] * off], dq = nrm(q[0] - bx, q[1] - by, q[2] - bz);
+      return [q, softN(dq[0], dq[1], dq[2], bx, bz), cu('cluster', UV[j][0], UV[j][1]), leafC(q[1], by, br).map(c => c * tone)]; };
     S.tri(vert(order[0], 0), vert(order[1], 0), vert(order[2], 0));
-    S.tri(vert(order[0], 0.03), vert(order[2], 0.03), vert(order[1], 0.03));   // the back-to-back twin, 3 cm inward
+    S.tri(vert(order[0], TWIN_GAP, TWIN_TONE), vert(order[2], TWIN_GAP, TWIN_TONE), vert(order[1], TWIN_GAP, TWIN_TONE));   // the back-to-back twin, just inward, darker
   });
   return S.geo();
 }
@@ -522,7 +532,8 @@ const canvas = (w, h = w) => { const c = document.createElement('canvas'); c.wid
 function ctex(c, ws, wt) { const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.wrapS = ws; t.wrapT = wt; t.anisotropy = 4; return t; }
 const pn = (x, k, ph) => Math.sin(x * Math.PI * 2 * k + ph);       // periodic over [0,1) for integer k
 
-// Atlas 512: TL leaves | TR fir needles (ragged alpha at the bottom = the tier edge) | BL bark | BR rock.
+// Atlas 512 (one texture, built from pixels): TL leaves | TR fir needles (ragged alpha at the bottom = the tier edge)
+// | BL bark (bottom half) + rock (top half) | BR leaf cluster (ragged alpha, the crown leaf cards).
 function atlasTexture() {
   const [c, g] = canvas(512), r = rng(64);
   // leaves (canvas 0..256 x 0..256 = u 0..0.5, v 0.5..1)
@@ -560,37 +571,55 @@ function atlasTexture() {
   for (let i = 0; i < 14; i++) { let x = r() * 256, y = 256 + r() * 128; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 30; y += (r() - 0.5) * 15; g.lineTo(x, y); } g.stroke(); }
   g.restore();
   // leaf cluster (256..512 x 256..512 = u 0.5..1, v 0..0.5), transparent around it. Card triangle UVs are
-  // (0,0) (1,0) (0.5,1) of the inset cell. The cluster stays inside the triangle's inscribed ellipse (which
-  // touches the edge midpoints) with three lobes reaching toward the corners, so no straight cut shows:
-  // a solid lobed core (mips keep alpha > 0.5 far away) under ~90 shaded sprigs of leaves, ragged outside.
-  // The whole cell first gets a faint (alpha 0.04, far below alphaTest) leaf green, so the colour at the
-  // alpha-cut edge blends toward green, not toward the black of empty canvas pixels.
+  // (0,0) (1,0) (0.5,1) of the cell inset by CLUSTER_INSET (12.8 px). The cluster shape stays inside the
+  // triangle's inscribed ellipse (which touches the edge midpoints) with three lobes toward the corners, so
+  // no straight cut shows: a solid lobed core (mips keep alpha > 0.5 far away) plus ~90 ragged leaf sprigs.
+  // The shape is only a mask: it is filled with the opaque leaf cell's own pixels (same greens, same
+  // mottling as the blobs), with a light shadow under each sprig so the clumps still read.
   {
-    const I = INSET * 512, S = 256 - 2 * I, X = (u) => 256 + I + u * S, Y = (v) => 512 - I - v * S;
+    const [mc, m] = canvas(256), I = CLUSTER_INSET * 512, S = 256 - 2 * I, X = (u) => I + u * S, Y = (v) => 256 - I - v * S;
     const cx = X(0.5), cy = Y(1 / 3), ax = 0.2887 * S, ay = 0.3333 * S;
-    g.fillStyle = 'rgba(44,66,34,0.04)'; g.fillRect(256, 256, 256, 256);
-    g.save(); g.beginPath(); const sh = (u, v) => [X(0.5 + (u - 0.5) * 0.96), Y(1 / 3 + (v - 1 / 3) * 0.96)];
-    g.moveTo(...sh(0, 0)); g.lineTo(...sh(1, 0)); g.lineTo(...sh(0.5, 1)); g.closePath(); g.clip();
+    m.save(); m.beginPath(); const sh = (u, v) => [X(0.5 + (u - 0.5) * 0.96), Y(1 / 3 + (v - 1 / 3) * 0.96)];
+    m.moveTo(...sh(0, 0)); m.lineTo(...sh(1, 0)); m.lineTo(...sh(0.5, 1)); m.closePath(); m.clip();
     const edge = (a) => 0.84 + 0.07 * Math.sin(4 * a + 0.7) + 0.05 * Math.sin(7 * a + 2.1) + 0.03 * Math.sin(13 * a + 0.3) + 0.45 * Math.max(0, Math.cos(3 * (a + Math.PI / 2))) ** 4;
     const polar = (x, y) => { const dx = (x - cx) / ax, dy = (y - cy) / ay; return [Math.atan2(dy, dx), Math.hypot(dx, dy)]; };
-    g.fillStyle = '#243c1e'; g.beginPath();
-    for (let i = 0; i <= 120; i++) { const a = i / 120 * Math.PI * 2, f = 0.8 * edge(a); g.lineTo(cx + Math.cos(a) * ax * f, cy + Math.sin(a) * ay * f); }
-    g.closePath(); g.fill();
-    const PAL = ['#182c16', '#263f1e', '#365426', '#46622c', '#557034', '#62783a'];
+    m.fillStyle = '#fff'; m.beginPath();
+    for (let i = 0; i <= 120; i++) { const a = i / 120 * Math.PI * 2, f = 0.8 * edge(a); m.lineTo(cx + Math.cos(a) * ax * f, cy + Math.sin(a) * ay * f); }
+    m.closePath(); m.fill();
+    const sprigs = [];
     for (let k = 0; k < 95; k++) {
-      const a0 = r() * Math.PI * 2, rho0 = Math.sqrt(r()) * edge(a0) * 0.88, x0 = cx + Math.cos(a0) * ax * rho0, y0 = cy + Math.sin(a0) * ay * rho0;
-      const cr = 7 + r() * 8, up = clamp((cy - y0) / ay * 0.4 + 0.5, 0, 1);
+      const a0 = r() * Math.PI * 2, rho0 = Math.sqrt(r()) * edge(a0) * 0.88, x0 = cx + Math.cos(a0) * ax * rho0, y0 = cy + Math.sin(a0) * ay * rho0, cr = 7 + r() * 8;
+      sprigs.push([x0, y0, cr]);
       for (let i = 0; i < 26; i++) {
         const b = r() * Math.PI * 2, dd = Math.sqrt(r()) * cr, x = x0 + Math.cos(b) * dd, y = y0 + Math.sin(b) * dd;
         const [pa, pr] = polar(x, y); if (pr > edge(pa)) continue;
-        const lit = clamp(0.5 + (y0 - y) / cr * 0.5, 0, 1), v = clamp(lit * 0.6 + up * 0.35 + (r() - 0.5) * 0.45, 0, 0.999);
-        g.fillStyle = PAL[Math.floor(v * PAL.length)];
-        const s = 2.6 + r() * 2.8; g.beginPath(); g.ellipse(x, y, s, s * (0.5 + r() * 0.25), r() * 3.14, 0, 7); g.fill();
+        const s = 2.6 + r() * 2.8; m.beginPath(); m.ellipse(x, y, s, s * (0.5 + r() * 0.25), r() * 3.14, 0, 7); m.fill();
       }
     }
-    g.restore();
+    m.globalCompositeOperation = 'source-in'; m.drawImage(c, 0, 0, 256, 256, 0, 0, 256, 256);   // the leaf cell's pixels, masked
+    m.globalCompositeOperation = 'source-atop';
+    for (const [x0, y0, cr] of sprigs) { m.fillStyle = 'rgba(8,16,6,0.22)'; m.beginPath(); m.ellipse(x0, y0 + cr * 0.55, cr * 0.9, cr * 0.45, 0, 0, 7); m.fill(); }
+    m.restore();
+    g.drawImage(mc, 256, 256);
   }
-  return ctex(c, ClampToEdgeWrapping, ClampToEdgeWrapping);
+  // Build the texture from pixels, not the canvas: a 2D canvas stores premultiplied alpha, so every
+  // transparent pixel reads back black (or, with a faint tint, a pale quantised colour) and bleeds a rim
+  // round alpha-cut edges. In the cluster and needle cells every pixel under the cut gets a dark leaf
+  // green with alpha 0, so filtering and mips blend toward green. Rows are flipped to match CanvasTexture's
+  // flipY (v = 0 at the canvas bottom), which DataTexture does not do.
+  const src = g.getImageData(0, 0, 512, 512).data, px = new Uint8Array(512 * 512 * 4);
+  for (let y = 0; y < 512; y++) {
+    const so = y * 512 * 4, d = (511 - y) * 512 * 4;
+    for (let x = 0; x < 512; x++) {
+      const i = so + x * 4, o = d + x * 4;
+      if (x >= 256 && src[i + 3] < 128) { px[o] = 30; px[o + 1] = 48; px[o + 2] = 24; px[o + 3] = 0; }
+      else { px[o] = src[i]; px[o + 1] = src[i + 1]; px[o + 2] = src[i + 2]; px[o + 3] = src[i + 3]; }
+    }
+  }
+  const t = new DataTexture(px, 512, 512, RGBAFormat);
+  t.colorSpace = SRGBColorSpace; t.wrapS = t.wrapT = ClampToEdgeWrapping; t.anisotropy = 4;
+  t.magFilter = LinearFilter; t.minFilter = LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true;
+  return t;
 }
 // Path: 256 across (u, clamped) x 512 along (v, 4 m, repeats). Earth + gravel, two worn tracks, ragged alpha.
 function pathTexture() {
