@@ -100,7 +100,8 @@ export const forestEdge = (z) => 104 + 5 * Math.sin(z * 0.045 + 1) + 3 * Math.si
 
 // Parkland clumps: [x, z, trees, radius]
 const CLUMPS = [[-28, 82, 5, 9], [32, 74, 4, 8], [-60, 34, 5, 9], [70, -4, 4, 8], [-22, -58, 5, 9], [26, -62, 4, 8],
-  [42, 96, 4, 8], [-38, 104, 4, 8], [-136, -52, 4, 9], [-140, 26, 4, 9], [-112, 70, 3, 7], [-90, -95, 4, 9]];
+  [42, 96, 4, 8], [-38, 104, 4, 8], [-136, -52, 4, 9], [-140, 26, 4, 9], [-112, 70, 3, 7], [-90, -95, 4, 9],
+  [-165, 95, 3, 8], [-170, -105, 3, 8], [-45, -122, 3, 8], [36, -126, 3, 8], [-108, 138, 3, 8]];   // west and north lawns (appended: earlier clumps keep their trees)
 
 // Jetty (walkable deck) + boat: placed on the shore due west of the lake spot.
 const DECK_Y = WORLD.waterLevel + 0.58, DECK_L = 12.5, DECK_HW = 1.0, JETTY_Z = -10;
