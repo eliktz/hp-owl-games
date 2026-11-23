@@ -331,10 +331,10 @@ function carScene(ctx) {
     P.hoop.visible = showHoop && sw.ph === 'tele'; if (P.hoop.visible) { P.hoop.position.set(LANES[sw.safe], 0.9, -1.2); P.hoop.rotation.z = S.t; P.hoop.material.opacity = 0.6 + Math.sin(S.t * 6) * 0.25; if (L === 1 && Math.random() < dt * 10) { W(LANES[sw.safe] + (Math.random() - 0.5) * 2.4, 0.9 + (Math.random() - 0.5) * 2.4, -1.2, v1); emit(v1.x, v1.y, v1.z, 0, 0.3, 0.5, 0.8, 0.25, 0x9cffa0, 0); } }
     P.shadows.forEach((s, i) => { s.visible = i !== sw.safe && sw.ph !== 'up'; s.material.opacity = sw.ph === 'tele' ? Math.min(0.8, sw.t / TL) : 0.85; });
     if (sw.ph === 'tele') {   // wind-up: the arm lifts a little further back and trembles
-      Wl.arm.rotation.x = Wl.REST_RX - 0.18 * ease(sw.t / TL) + Math.sin(S.t * 18) * 0.02 * (sw.t / TL);
+      Wl.arm.rotation.x = Wl.REST_RX - 0.3 * ease(sw.t / TL) + Math.sin(S.t * 18) * 0.025 * (sw.t / TL);
       if (sw.t >= TL) { sw.ph = 'slam'; sw.t = 0; sfx('whoosh'); }
     } else if (sw.ph === 'slam') {
-      const k = Math.min(1, sw.t / 0.55), e = k * k; Wl.arm.rotation.x = (Wl.REST_RX - 0.18) + (Wl.SLAM_RX - Wl.REST_RX + 0.18) * e;
+      const k = Math.min(1, sw.t / 0.55), e = k * k; Wl.arm.rotation.x = (Wl.REST_RX - 0.3) + (Wl.SLAM_RX - Wl.REST_RX + 0.3) * e;
       if (k >= 1) {
         sw.ph = 'hold'; sw.t = 0;
         let li = 0; for (let i = 1; i < 3; i++) if (Math.abs(S.x - LANES[i]) < Math.abs(S.x - LANES[li])) li = i;
@@ -368,7 +368,7 @@ function carScene(ctx) {
     else {
       if (!S.landed) { S.landed = 1; sfx('boing'); W(LAND.x, LAWN_Y + 0.2, LAND.z, v1); burst(v1.x, v1.y, v1.z, 0xc8e8a0, 22, 2.4, 1.0, 0.3, -1.2); setTimeout(honk, 450); }
       const sq = Math.max(0, 1 - (t - 2.6) * 3); c.position.set(LAND.x, LAWN_Y, LAND.z); c.rotation.set(0, Math.PI, 0); P.car.body.scale.set(1 + sq * 0.08, 1 - sq * 0.12, 1 + sq * 0.05);
-      Wl.arm.rotation.x = Wl.REST_RX + 0.25 + Math.sin(t * 3.2) * 0.3; Wl.root.rotation.z = Math.sin(t * 2) * 0.03;   // the willow waves
+      Wl.arm.rotation.x = Wl.REST_RX + Math.sin(t * 3.2) * 0.22; Wl.root.rotation.z = Math.sin(t * 2) * 0.03;   // the willow waves
       if (t > 3.4 && !S.saidLand) { S.saidLand = 1; ctx.say('נחתנו בהוגוורטס! 😄 תראה, הערבה מנופפת לנו!', '👦 רון', 5); sfx('heart'); }
       if (t > 6.6) done(4);
     }
@@ -382,7 +382,7 @@ function carScene(ctx) {
     if (step === 0) { const d = dFor(3.8, 6.5, 22); px = -d * 0.5; py = 1.8 + d * 0.16; pz = -d * 0.85; lx = 0; ly = 0.8; lz = 0; }
     else if (step === 4) {
       const d = dFor(5.2, 9, 26);
-      if (S.landing > 0) { px = LAND.x * 0.6; py = LAWN_Y + 2.6 + d * 0.12; pz = LAND.z + d * 0.95; lx = LAND.x * 0.4; ly = LAWN_Y + 2.4; lz = -8; }
+      if (S.landing > 0) { px = LAND.x * 0.5; py = LAWN_Y + 2.0 + d * 0.1; pz = LAND.z + d * 0.75; lx = LAND.x * 0.7; ly = LAWN_Y + 1.2; lz = LAND.z - 5; }
       else { px = S.x * 0.4 + 1; py = 2.4 + d * 0.25; pz = d; lx = LAND.x * 0.6; ly = LAWN_Y + 1; lz = LAND.z - 2; }
     } else if (step === 3) { const d = dFor(5.0, 8.5, 26); px = S.x * 0.3; py = 2.2 + d * 0.24; pz = d + 1; lx = 0; ly = 1.8; lz = -10; }
     else { const d = dFor(4.8, 7.5, 26); px = S.x * 0.4; py = S.y + 1.6 + d * 0.22; pz = d; lx = S.x * 0.25; ly = S.y + 0.3; lz = -12; }

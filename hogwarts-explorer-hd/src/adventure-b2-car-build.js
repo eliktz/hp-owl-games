@@ -234,7 +234,7 @@ export function buildSky() {
   const hoop = new Mesh(new TorusGeometry(1.45, 0.12, 8, 30), new MeshBasicMaterial({ color: 0x9cffa0, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }));
   hoop.name = 'safe-hoop'; hoop.visible = false; g.add(hoop);
   const shadowT = canvasTex(64, 64, (x) => { const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.75)'); gr.addColorStop(0.7, 'rgba(0,0,0,.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); });
-  const shadows = LANES.map((lx) => { const m = new Mesh(new PlaneGeometry(2.6, 5).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: shadowT, transparent: true, depthWrite: false, opacity: 0 })); m.position.set(lx, LAWN_Y + 0.08, 0); m.visible = false; m.renderOrder = 2; g.add(m); return m; });
+  const shadows = LANES.map((lx) => { const m = new Mesh(new PlaneGeometry(2.6, 5).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: shadowT, transparent: true, depthWrite: false, opacity: 0 })); m.position.set(lx, LAWN_Y + 0.08, -2.2); m.scale.set(1, 1, 1.3); m.visible = false; m.renderOrder = 2; g.add(m); return m; });
   const landT = canvasTex(128, 128, (x) => { x.strokeStyle = '#fff2a0'; x.lineWidth = 10; x.beginPath(); x.arc(64, 64, 52, 0, 7); x.stroke(); x.lineWidth = 6; x.beginPath(); x.arc(64, 64, 32, 0, 7); x.stroke(); x.font = 'bold 44px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#fff2a0'; x.fillText('H', 64, 66); });
   const land = new Mesh(new PlaneGeometry(4.4, 4.4).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: landT, transparent: true, depthWrite: false, blending: AdditiveBlending, color: 0xffe070 }));
   land.position.set(LAND.x, LAWN_Y + 0.1, LAND.z); land.visible = false; land.name = 'land-spot'; land.renderOrder = 3; g.add(land);
@@ -283,6 +283,6 @@ export function buildWillow() {
   });
   const SLAM_RX = Math.atan2(WILLOW.pivotY - (0.7 - LAWN_Y), -WILLOW.z - 0.6);
   noRay(root);
-  return { root, tree, arm, bundles, SLAM_RX, REST_RX: -1.15 };
+  return { root, tree, arm, bundles, SLAM_RX, REST_RX: -0.12 };   // at rest the arm hangs over the lanes, high and in view
 }
 export { FONT };
