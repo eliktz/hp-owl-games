@@ -35,6 +35,7 @@ import { createShowers } from './showers.js';
 import { createSecretRooms, LABELS as SECRET_LABELS, SPECS as SECRET } from './secret-rooms.js';
 import { createFloo } from './floo.js';
 import { createAdventures } from './adventures.js';
+import { createCorridorFree } from './corridor-free.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -291,6 +292,11 @@ async function boot() {
     adventures = createAdventures({ scene, camera, player, interiors, fun, freecast, setModal, isModal: () => modal, isTakeover: () => !!takeover, setTakeover });
     hooks.push((dt, inside) => adventures.update(dt, inside));
   } catch (e) { console.warn('[adventures] disabled -', e && e.message || e); adventures = null; }
+  let corridor = null;   // the Forbidden Corridor in free play (corridor-free.js): any failure -> the rooms are simply quiet
+  try {
+    corridor = createCorridorFree({ camera, player, interiors, fun, freecast, setTakeover, isModal: () => modal, isTakeover: () => !!takeover });
+    hooks.push((dt) => { try { corridor.update(dt); } catch (e) { if (!corridor.err) console.warn('[corridor] update failed -', e && e.message || e); corridor.err = (corridor.err || 0) + 1; } });
+  } catch (e) { console.warn('[corridor] disabled -', e && e.message || e); corridor = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -372,7 +378,8 @@ async function boot() {
     input, player, scene, camera, renderer, audio, env, interiors, toast, heightAt, kitStats, lessons, hooks, quests, fun,
     music, get modal() { return modal; }, setModal, quidditch, delight, students, spells, get takeover() { return takeover; }, get freecast() { return freecast; }, get showers() { return showers; }, get secretRooms() { return secretRooms; },
     get floo() { return floo ? floo.api : null; },   // floo.js: list() near() open() go(to) state() hold(phase) release()
-    get adventures() { return adventures ? adventures.api : null; },   // adventures.js: list() state() start(id) skipStep() hint(n) clock(s) hold() leave() reset()
+    get adventures() { return adventures ? adventures.api : null; },
+    get corridor() { return corridor ? corridor.api : null; },   // corridor-free.js: state() screen(v) harpW() keyW() ...   // adventures.js: list() state() start(id) skipStep() hint(n) clock(s) hold() leave() reset()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),

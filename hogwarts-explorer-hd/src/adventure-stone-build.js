@@ -3,6 +3,9 @@
 // the chess board, the potion bottles, the Mirror of Erised. Warm torchlit honey stone, never dark.
 // Static shell (walls, floor, ceiling, torches) merges per material; each room's props are a group that is only
 // shown when Harry is in or next to that room. Fluffy: soft and round, three sleeping heads, under 4k triangles.
+// The same interior serves free play (corridor-free.js, kid feedback 23 Nov 2026): buildChambers(0, { free: true })
+// adds a few small free-play props (Fluffy's half-open eye, a rope ladder back up, a toppled chess queen with a
+// chipped crown, eight knight-move highlights) and stands the door rook aside; quest builds are unchanged.
 import {
   Group, Mesh, BoxGeometry, PlaneGeometry, SphereGeometry, CylinderGeometry, TorusGeometry, LatheGeometry, TubeGeometry, IcosahedronGeometry,
   CatmullRomCurve3, Vector2, Vector3, Matrix4, Quaternion, Euler, Color, BufferAttribute, MeshStandardMaterial, MeshBasicMaterial, CanvasTexture,
@@ -22,6 +25,7 @@ export const SPOTS = {
   keysIn: { x: 0, z: -16.2 }, lock: { x: 0.45, y: 1.25, z: -24.35 },
   chessIn: { x: 0, z: -26.4 }, mirrorIn: { x: 0, z: -46.3 }, look: { x: 0, z: -52.0 }, mirror: { x: 0, y: 1.9, z: -54.3 },
   potionIn: { x: 0, z: -36.3 }, table: { x: 0, z: -41 },
+  ladder: { x: 2.7, z: -5.45 }, topple: { x: 3.3, z: -32.6 },   // free play only
 };
 export const BOARD = { s: 0.8, x0: -2.0, z0: -28.0, n: 6 };   // square (c, r): x = x0 + c*s, z = z0 - r*s (row 0 nearest the door Harry comes in by)
 export const sq = (c, r, out = new Vector3()) => out.set(BOARD.x0 + c * BOARD.s, 0, BOARD.z0 - r * BOARD.s);
@@ -72,11 +76,19 @@ function fluffy() {
   for (const [x, y, z, yaw, roll] of [[-0.82, 0.62, 1.0, 0.45, 0.25], [0, 0.7, 1.3, 0, -0.08], [0.82, 0.6, 1.0, -0.45, -0.22]]) {
     const h = new Mesh(headGeo, headMat); h.position.set(x, y, z); h.rotation.set(0.12, yaw, roll); h.userData.base = { y, rx: 0.12 }; g.add(h); heads.push(h);
   }
-  return { g, heads, body: bodyMesh };
+  return { g, heads, body: bodyMesh, headGeo, FUR, NOSE };
+}
+// free play: one half-open eye on the middle head (white, a dark pupil, a heavy furry lid over the top half)
+function dozyEye(f) {
+  const parts = [paint(place(new SphereGeometry(1, 10, 6), 0.17, 0.1, 0.43, 0, 0, 0, 0.075, 0.06, 0.04), 0xf0e8d8),
+    paint(place(new SphereGeometry(1, 8, 5), 0.17, 0.085, 0.46, 0, 0, 0, 0.034, 0.034, 0.02), 0x1a120c),
+    paint(place(new SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0.17, 0.1, 0.435, 0, 0, -0.12, 0.085, 0.07, 0.05), f.FUR)];
+  const eye = new Mesh(merge(parts), vc({ roughness: 0.6 })); eye.name = 'fluffy-eye'; f.heads[1].add(eye); return eye;
 }
 
 // ---------------- the room shell + props ----------------
-export function buildChambers(progress) {
+export function buildChambers(progress, opts = {}) {
+  const free = !!opts.free;
   const g = new Group(); g.name = 'adv-chambers'; const cols = [];
   const WALL = 0xc0a47c, wallM = stoneMat(3.3, 1.5, WALL), LINT = stoneMat(1.2, 0.5, WALL);
   const add = (geo, mat, parent = g) => { const m = new Mesh(geo, mat); parent.add(m); return m; };
@@ -136,6 +148,7 @@ export function buildChambers(progress) {
     const pivot = new Group(); pivot.position.set(SPOTS.trap.x, 0.02, SPOTS.trap.z - 0.7); rooms[0].add(pivot);
     const lid = new Mesh(merge([paint(place(new BoxGeometry(1.4, 0.07, 1.4), 0, 0.035, 0.7), 0x7a5230), ...[-0.4, 0, 0.4].map(x => paint(place(new BoxGeometry(0.03, 0.075, 1.38), x, 0.04, 0.7), 0x4a3018)), paint(place(new TorusGeometry(0.12, 0.022, 5, 12), 0, 0.08, 1.15, Math.PI / 2, 0, 0), 0x2e2b30)]), vc());
     pivot.add(lid); P.trap = { pivot, hole };
+    if (free) f.eye = dozyEye(f);
     if (progress >= 1) pivot.rotation.x = -1.9;
   }
   // ---- 1: Devil's Snare (soft green vines; a curtain over the far doorway that shrinks back from light) ----
@@ -160,6 +173,13 @@ export function buildChambers(progress) {
     const d = new Object3D(); for (let k = 0; k < 40; k++) { d.position.set(-1.2 + rnd() * 2.4, 0.2 + rnd() * 3, (rnd() - 0.5) * 0.5); d.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3); d.updateMatrix(); leaves.setMatrixAt(k, d.matrix); }
     leaves.name = 'snare-leaves'; cg.add(leaves);
     P.snare = { curtain: cg, room };
+    if (free) {   // a rope ladder on the wall under the trapdoor: the way back up to Fluffy's room
+      const L = SPOTS.ladder, lad = [];
+      for (const sx of [-1, 1]) lad.push(paint(place(new CylinderGeometry(0.035, 0.035, H, 6), L.x + sx * 0.32, H / 2, L.z), 0x8a6a40));
+      for (let k = 0; k < 9; k++) lad.push(paint(place(new CylinderGeometry(0.03, 0.03, 0.64, 5), L.x, 0.35 + k * 0.48, L.z + 0.02, 0, 0, Math.PI / 2), 0x6a4a2a));
+      lad.push(paint(place(new CylinderGeometry(0.75, 0.75, 0.04, 16), L.x, H - 0.02, L.z - 0.3), 0x9adf6a));   // the green glow of the open trapdoor above
+      const ladder = new Mesh(merge(lad), vc({ roughness: 0.9, emissive: 0x101808 })); ladder.name = 'free-ladder'; R.add(ladder); P.ladder = ladder;
+    }
     if (progress >= 2) { cg.scale.set(1, 0.06, 1); cg.position.y = 3.1; room.scale.set(1, 0.7, 1); }
   }
   // ---- 2: the flying keys + the locked door ----
@@ -210,7 +230,7 @@ export function buildChambers(progress) {
     const crown = new Mesh(merge([paint(place(new CylinderGeometry(0.17, 0.14, 0.12, 10, 1, true), 0, 0.06, 0), 0xffd040), ...[0, 1, 2, 3, 4].map(k => paint(place(new SphereGeometry(0.035, 6, 4), Math.cos(k * 1.256) * 0.16, 0.14, Math.sin(k * 1.256) * 0.16), 0xffe070))]), vc({ metalness: 0.6, roughness: 0.3, emissive: 0x3a2a00 }));
     crown.position.set(kingM.position.x, 1.6, kingM.position.z); R.add(crown);
     const doorRook = new Mesh(strip(paint(rook(), WH)), vc({ roughness: 0.4 })); doorRook.position.set(0, 0, DOOR_Z(3) + 1.0); doorRook.scale.setScalar(1.25); R.add(doorRook);
-    const hl = new InstancedMesh(new PlaneGeometry(s * 0.92, s * 0.92).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: 0xffd040, transparent: true, opacity: 0.7, blending: AdditiveBlending, depthWrite: false }), 3);
+    const hl = new InstancedMesh(new PlaneGeometry(s * 0.92, s * 0.92).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: 0xffd040, transparent: true, opacity: 0.7, blending: AdditiveBlending, depthWrite: false }), free ? 8 : 3);
     hl.frustumCulled = false; hl.count = 0; hl.name = 'chess-hl'; R.add(hl);
     // levels 2-3: a soft gold beam over each lit square, so the choices read over the big pieces (and on a phone in portrait)
     const beam = new InstancedMesh(new CylinderGeometry(0.3, 0.3, 1.8, 12, 1, true).translate(0, 0.9, 0), new MeshBasicMaterial({ color: 0xffc840, transparent: true, opacity: 0.35, blending: AdditiveBlending, depthWrite: false, side: DoubleSide }), 3);
@@ -218,6 +238,16 @@ export function buildChambers(progress) {
     for (const [c, r] of [[0, 1], [4, 1], [5, 0], [3, 1], [0, 4], [4, 4], [0, 5], [5, 4], [3, 5]]) { sq(c, r, _v); cols.push({ type: 'circle', x: _v.x, z: _v.z, r: 0.3 }); }
     if (progress >= 4) { sq(2, 3, _v); knightM.position.set(_v.x, 0, _v.z); kingM.rotation.x = 0.35; crown.position.set(kingM.position.x, 0.06, kingM.position.z + 0.6); doorRook.position.x = -2.4; }
     P.chess = { knightM, kingM, crown, doorRook, hl, beam };
+    if (free) {   // the way on stands open; one white queen lies toppled at the side, a chip knocked out of her crown (Reparo)
+      doorRook.position.x = -2.4;
+      const T0 = SPOTS.topple, tg = new Group(); tg.name = 'free-queen'; tg.position.set(T0.x, 0, T0.z); tg.rotation.x = Math.PI / 2 - 0.08; R.add(tg);
+      const crownGeo = (arc) => merge([paint(new CylinderGeometry(0.17, 0.14, 0.14, 12, 1, true, 0, arc), 0xffd040), ...[0, 1, 2, 3, 4].filter(k => k * 1.256 < arc).map(k => paint(place(new SphereGeometry(0.035, 6, 4), Math.sin(k * 1.256 + 0.3) * 0.17, 0.09, Math.cos(k * 1.256 + 0.3) * 0.17), 0xffe070))]);
+      const body = new Mesh(merge([paint(king(), WH), paint(place(crownGeo(Math.PI * 2 * 0.78), 0, 1.62, 0), 0xffd040)]), vc({ roughness: 0.4 })); tg.add(body);
+      const full = new Mesh(place(crownGeo(Math.PI * 2), 0, 1.62, 0), vc({ metalness: 0.6, roughness: 0.3, emissive: 0x3a2a00 })); full.visible = false; tg.add(full);
+      const chip = new Mesh(paint(new BoxGeometry(0.1, 0.12, 0.05), 0xffd040), vc({ metalness: 0.6, roughness: 0.3, emissive: 0x3a2a00 })); chip.position.set(T0.x - 0.5, 0.05, T0.z + 1.9); chip.rotation.set(0.4, 0.7, 0.2); R.add(chip);
+      cols.push({ type: 'box', x: T0.x, z: T0.z + 0.8, hw: 0.4, hd: 0.9, angle: 0 });
+      P.queen = { g: tg, body, full, chip };
+    }
   }
   // ---- 4: seven coloured bottles + the purple flame curtain ----
   {
@@ -255,11 +285,11 @@ export function buildChambers(progress) {
     P.mirror = { canvas: mc, tex: mt, stone, glass };
   }
   const light = bakeLight(g, cols);
-  return { g, cols, barriers, rooms, P, light };
+  return { g, cols, barriers, rooms, P, light, free };
 }
 
 // the Mirror's picture: soft gold mist; `show` 0..1 brings up Harry holding the red stone
-export function drawMirror(c, show, t) {
+export function drawMirror(c, show, t, what = 'stone') {
   const x = c.getContext('2d'), w = c.width, h = c.height;
   const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#5a4630'); gr.addColorStop(0.5, '#8a7050'); gr.addColorStop(1, '#4a3828'); x.fillStyle = gr; x.fillRect(0, 0, w, h);
   for (let k = 0; k < 7; k++) { const cx = w / 2 + Math.sin(t * 0.5 + k * 1.7) * 70, cy = h * (0.2 + k * 0.1) + Math.cos(t * 0.4 + k) * 12, r = 60 + k * 6; const m = x.createRadialGradient(cx, cy, 2, cx, cy, r); m.addColorStop(0, 'rgba(255,236,190,.22)'); m.addColorStop(1, 'rgba(255,236,190,0)'); x.fillStyle = m; x.fillRect(0, 0, w, h); }
@@ -273,6 +303,7 @@ export function drawMirror(c, show, t) {
     x.strokeStyle = '#1a1a1a'; x.lineWidth = 3; for (const sx of [-1, 1]) { x.beginPath(); x.arc(cx + sx * 14, 136, 10, 0, 7); x.stroke(); } x.beginPath(); x.moveTo(cx - 4, 136); x.lineTo(cx + 4, 136); x.stroke();
     x.strokeStyle = '#a02020'; x.lineWidth = 2; x.beginPath(); x.moveTo(cx + 6, 108); x.lineTo(cx + 1, 116); x.lineTo(cx + 7, 116); x.lineTo(cx + 2, 124); x.stroke();                                     // the scar
     x.strokeStyle = '#7a3a2a'; x.lineWidth = 3; x.beginPath(); x.arc(cx, 150, 12, 0.2, Math.PI - 0.2); x.stroke();                                                                                             // smile
+    if (what === 'socks') { drawSocks(x, cx, show); x.restore(); return; }
     x.fillStyle = '#f0c8a0'; x.beginPath(); x.ellipse(cx - 18, 252, 16, 12, 0, 0, 7); x.ellipse(cx + 18, 252, 16, 12, 0, 0, 7); x.fill();                                                                        // hands
     const sg = x.createRadialGradient(cx, 240, 2, cx, 240, 46); sg.addColorStop(0, 'rgba(255,120,120,1)'); sg.addColorStop(0.3, 'rgba(230,30,40,.9)'); sg.addColorStop(1, 'rgba(230,30,40,0)');
     x.fillStyle = sg; x.fillRect(cx - 50, 190, 100, 100); x.fillStyle = '#e0202a'; x.beginPath(); x.moveTo(cx, 226); x.lineTo(cx + 13, 240); x.lineTo(cx, 254); x.lineTo(cx - 13, 240); x.closePath(); x.fill();
@@ -280,3 +311,22 @@ export function drawMirror(c, show, t) {
   }
 }
 export { FLOOR_Y, FONT };
+
+// free play (Dumbledore's joke): Harry holds up a pair of thick woollen socks, red and gold stripes, one in each hand
+function drawSocks(x, cx, show) {
+  for (const sx of [-1, 1]) {
+    const bx = cx + sx * 34;
+    x.save(); x.translate(bx, 214); x.rotate(sx * 0.12);
+    x.scale(sx, 1);   // toes point outward
+    const sock = () => { x.beginPath(); x.moveTo(-14, -34); x.lineTo(14, -34); x.lineTo(14, 28); x.quadraticCurveTo(14, 40, 30, 42); x.quadraticCurveTo(46, 46, 42, 58); x.quadraticCurveTo(38, 66, 20, 64); x.lineTo(-6, 62); x.quadraticCurveTo(-16, 58, -14, 44); x.closePath(); };
+    x.save(); sock(); x.clip();
+    for (let k = 0; k < 9; k++) { x.fillStyle = k % 2 ? '#d8a830' : '#a8201c'; x.fillRect(-20, -34 + k * 12, 70, 12); }
+    x.fillStyle = 'rgba(255,255,255,.16)'; for (let k = 0; k < 40; k++) x.fillRect(-14 + ((k * 37) % 50), -30 + ((k * 53) % 96), 2, 3);   // woolly flecks
+    x.restore();
+    x.strokeStyle = 'rgba(60,20,10,.6)'; x.lineWidth = 2; sock(); x.stroke();
+    x.fillStyle = '#f4ecdc'; x.fillRect(-17, -40, 34, 10);   // the cuff
+    x.fillStyle = '#f0c8a0'; x.beginPath(); x.ellipse(0, -44, 15, 11, 0, 0, 7); x.fill();   // the hand holding it up
+    x.restore();
+  }
+  if (show > 0.8) { x.font = '28px serif'; x.textAlign = 'center'; x.fillText('✨', cx - 70, 190); x.fillText('✨', cx + 72, 236); }
+}

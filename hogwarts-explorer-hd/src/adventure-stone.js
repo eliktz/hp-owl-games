@@ -1,11 +1,14 @@
 // Book adventure 1: "אבן החכמים" (the Philosopher's Stone chambers) + the chapter stubs 2-5 ("בקרוב").
-// Data for adventures.js + the scene code. Reached by a door "המסדרון האסור" that appears in the moving-staircase hall
-// while the quest runs (south wall, x -6); it leads into the chambers interior (adventure-stone-build.js).
+// Data for adventures.js + the scene code. Reached by the PERMANENT door "המסדרון האסור / קומה שלישית" in the
+// moving-staircase hall (south wall, x -6); it leads into the chambers interior (adventure-stone-build.js).
+// One interior, two states: while quest 1 runs (CORRIDOR.quest) it is built in the quest's scripted state from the
+// step; otherwise (never started, paused, finished) it is built for free play and corridor-free.js drives it.
 // Steps: 1 Fluffy (play the harp: tap it / any spell on it / the 🎵 prompt) -> 2 Devil's Snare (Lumos or Incendio via
 // the spell wheel) -> 3 flying keys (tap the big silver key with the bent blue wing) -> 4 chess (tap the lit square)
 // -> 5 potions (tap the bottle of the colour in the riddle) -> 6 the Mirror of Erised (walk up and look).
 // Kid-safe: Fluffy only sleeps, the snare only shrinks from the light, no piece is smashed, no villain, no fail.
 import { Vector3, Group, Mesh, PlaneGeometry, BoxGeometry, TorusGeometry, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, Object3D, Raycaster, Plane, Vector2 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BUILDERS } from './rooms.js';
 import { MAT } from './interior-kit.js';
 import { TROLL } from './adventure-troll.js';
@@ -37,10 +40,12 @@ export const QUESTS = [
   { id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', soon: true, col: '#3a3a2a', col2: '#a0a070', pic: [['🦅', 0.5, 0.55, 72], ['🙇', 0.8, 0.3, 30]] },
 ];
 
-// The chambers interior: always registered (built from the quest's progress at build time).
+// The chambers interior: always registered (built from the quest's progress at build time, or for free play).
 let PROGRESS = 0;
+export const CORRIDOR = { quest: false };   // true while quest 1 runs (begin .. end)
 BUILDERS.chambers = () => {
-  const B = buildChambers(PROGRESS);
+  const free = !CORRIDOR.quest;
+  const B = buildChambers(free ? 0 : PROGRESS, { free });
   const g = B.g; g.position.y = FLOOR_Y;
   const portals = [{ x: 0, z: 7.7, r: 0.9, to: 'staircase', at: { x: -6, z: 7.8, yaw: Math.PI } }];
   for (const p of portals) p.armed = false;
@@ -48,6 +53,30 @@ BUILDERS.chambers = () => {
   return { group: g, colliders: B.cols, portals, spawn: { x: 0, z: 4.6, y: FLOOR_Y, yaw: Math.PI }, update(dt, t) { B.light.update(t); } };
 };
 const STAIR_DOOR = { x: -6, z: 10.5 };
+// The door in the staircase hall: part of the hall itself (added to every build), so it is there in free play too.
+function stairDoor(r) {
+  if (!r || !r.group || r.group.userData.advDoor) return;
+  const g = new Group(); g.name = 'adv-stair-door';
+  const D = STAIR_DOOR, z = D.z - 0.02;
+  const stone = mergeGeometries([new BoxGeometry(0.3, 2.8, 0.3).translate(D.x - 1.0, 1.4, z - 0.1), new BoxGeometry(0.3, 2.8, 0.3).translate(D.x + 1.0, 1.4, z - 0.1),
+    new TorusGeometry(1.0, 0.15, 6, 16, Math.PI).translate(D.x, 2.8, z - 0.1)].map(x => x.toNonIndexed()), false);
+  g.add(new Mesh(stone, MAT.stone));
+  const c = document.createElement('canvas'); c.width = 256; c.height = 320; const x = c.getContext('2d');
+  const gr = x.createLinearGradient(0, 320, 0, 80); gr.addColorStop(0, '#ffd08a'); gr.addColorStop(0.6, '#c06a2a'); gr.addColorStop(1, '#4a2410'); x.fillStyle = gr; x.fillRect(0, 80, 256, 240);
+  x.fillStyle = '#2a1608'; x.fillRect(0, 0, 256, 80); x.fillStyle = '#c9a046'; x.fillRect(4, 4, 248, 72); x.fillStyle = '#3a2414'; x.fillRect(9, 9, 238, 62);
+  x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 30px ' + FONT; x.fillStyle = '#ffe9a8'; x.fillText('המסדרון האסור', 128, 30);
+  x.font = 'bold 19px ' + FONT; x.fillStyle = '#e8c070'; x.fillText('קומה שלישית', 128, 57);
+  x.font = '60px serif'; x.fillText('🐾', 128, 210);
+  const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace;
+  g.add(new Mesh(new PlaneGeometry(2.0, 3.6).rotateY(Math.PI).translate(D.x, 1.8 + 0.25, z - 0.26), new MeshBasicMaterial({ map: t })));
+  r.group.add(g); r.group.userData.advDoor = g;
+  r.portals.push({ x: D.x, z: D.z - 0.95, r: 0.95, to: 'chambers', at: { x: 0, z: 4.6, yaw: Math.PI }, armed: false });
+}
+const baseStair = BUILDERS.staircase;
+if (baseStair) BUILDERS.staircase = (...a) => {
+  const r = baseStair(...a), add = (x) => { try { stairDoor(x); } catch (e) { console.warn('[corridor] door skipped -', e && e.message || e); } return x; };
+  return r && typeof r.then === 'function' ? r.then(add) : add(r);
+};
 
 function stoneScene(ctx) {
   const { interiors, player, fun, freecast, burst, emit, camera } = ctx;
@@ -75,25 +104,6 @@ function stoneScene(ctx) {
   }
   const casts = () => (FI && FI.log ? FI.log.casts : 0);
   S.casts0 = casts();
-
-  // ---- the door in the staircase hall (added to the live room while the quest runs) ----
-  function stairDoor() {
-    const r = interiors.room; if (!r || !r.group || r.group.userData.advDoor) return;
-    const g = new Group(); g.name = 'adv-stair-door';
-    const D = STAIR_DOOR, z = D.z - 0.02;
-    for (const sx of [-1, 1]) { const j = new Mesh(new BoxGeometry(0.3, 2.8, 0.3), MAT.stone); j.position.set(D.x + sx * 1.0, 1.4, z - 0.1); g.add(j); }
-    const arch = new Mesh(new TorusGeometry(1.0, 0.15, 6, 16, Math.PI), MAT.stone); arch.position.set(D.x, 2.8, z - 0.1); g.add(arch);
-    const c = document.createElement('canvas'); c.width = 256; c.height = 320; const x = c.getContext('2d');
-    const gr = x.createLinearGradient(0, 320, 0, 60); gr.addColorStop(0, '#ffd08a'); gr.addColorStop(0.6, '#c06a2a'); gr.addColorStop(1, '#4a2410'); x.fillStyle = gr; x.fillRect(0, 60, 256, 260);
-    x.fillStyle = '#2a1608'; x.fillRect(0, 0, 256, 60); x.fillStyle = '#c9a046'; x.fillRect(4, 4, 248, 52); x.fillStyle = '#3a2414'; x.fillRect(9, 9, 238, 42);
-    x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 30px ' + FONT; x.fillStyle = '#ffe9a8'; x.fillText('המסדרון האסור', 128, 31);
-    x.font = '60px serif'; x.fillText('🐾', 128, 200);
-    const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace;
-    const m = new Mesh(new PlaneGeometry(2.0, 3.6).rotateY(Math.PI).translate(D.x, 1.8 + 0.25, z - 0.26), new MeshBasicMaterial({ map: t })); g.add(m);
-    r.group.add(g); r.group.userData.advDoor = g;
-    const p = { x: D.x, z: D.z - 0.95, r: 0.95, to: 'chambers', at: { x: 0, z: 4.6, yaw: Math.PI }, locked: () => !S.active, armed: false };
-    r.portals.push(p); S.stair = { g, p };
-  }
 
   // ---- step actions ----
   function playHarp() {
@@ -158,9 +168,7 @@ function stoneScene(ctx) {
     const r = interiors.room;
     if (r !== S.lastRoom) {   // a room arrived
       S.lastRoom = r; S.B = interiors.active === 'chambers' && r && r.group ? r.group.userData.adv : null;
-      if (interiors.active === 'staircase' && S.active) stairDoor();
     }
-    if (S.stair) S.stair.g.visible = S.active && interiors.active === 'staircase';
     // casts: Lumos in the snare room clears it; another spell there gets a gentle word
     const n = casts();
     if (n !== S.casts0) {
@@ -303,7 +311,7 @@ function stoneScene(ctx) {
   }
 
   function begin(step, resumed) {
-    S.active = true; PROGRESS = step;
+    S.active = true; PROGRESS = step; CORRIDOR.quest = true;
     if (step === 4) setTimeout(() => ctx.say('החידה: הבקבוק ' + COLOURS[S.answer].name + ' יעביר אותך דרך האש ' + COLOURS[S.answer].e, '📜 החידה', 6), resumed ? 2500 : 600);
     if (!resumed && step > 0) return;
     // fresh start or resume: go to the right place
@@ -330,14 +338,13 @@ function stoneScene(ctx) {
     else if (step === 5) { if (inCh() && room() === 5) lookMirror(); else { interiors.enter('chambers', { ...SPOTS.look, yaw: Math.PI }); setTimeout(lookMirror, 1200); } }
   }
   function end() {
-    S.active = false;
-    if (S.stair) S.stair.g.visible = false;
+    S.active = false; CORRIDOR.quest = false;
     if (FI && Array.isArray(FI.TARGETS)) for (const t of T) { const i = FI.TARGETS.indexOf(t); if (i >= 0) FI.TARGETS.splice(i, 1); }
     if (ctx.isTakeover() && (S.hop || (S.look && !S.mirror))) ctx.setTakeover(null);
   }
   function state() {
     return { room: inCh() ? room() : null, answer: COLOURS[S.answer].k, answerIdx: S.answer, played: S.played, snare: S.snare > 0, key: S.key > 0, chess: S.chess > 0, potion: S.potion > 0, look: S.look > 0, mirror: !!S.mirror, wrong: S.wrong, hop: S.hop > 0,
-      stairDoor: !!(S.stair && S.stair.g.visible), spots: SPOTS };
+      stairDoor: !!(interiors.active === 'staircase' && interiors.room && interiors.room.group && interiors.room.group.userData.advDoor), spots: SPOTS };
   }
   // shown props for a debug camera / test: world position of things to tap
   ctx._stone = {
