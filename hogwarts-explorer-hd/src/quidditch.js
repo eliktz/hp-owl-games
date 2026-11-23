@@ -32,6 +32,7 @@ import { buildChibi } from './chibi.js';
 import { PLACES } from './config.js';
 import { loadModel, loadAnimated } from './models.js';
 import * as fun from './fun.js';
+import { speak as voiceSpeak } from './voice.js';
 
 const STAND = { x: PLACES.pitch.x, z: PLACES.pitch.z + 2 };   // 32 m south of the centre: in front of the stadium towers (their fronts are at 28.6), on the path from the castle
 const C = { x: PLACES.pitch.x, z: PLACES.pitch.z + 34 }, AX = 29, AZ = 21;
@@ -433,10 +434,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   function speak(text) {
     try {
       if (window.HP && window.HP.sfx && window.HP.sfx.isMuted && window.HP.sfx.isMuted()) return;
-      if (!('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(text); u.lang = 'he-IL'; u.rate = 0.95; u.pitch = 1.2;
-      const v = (speechSynthesis.getVoices() || []).find(x => /^(he|iw)/i.test(x.lang)); if (v) u.voice = v;
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      voiceSpeak(text, { preset: 'commentator' });   // voice.js: the family's / best Hebrew voice
     } catch { /* no speech here */ }
   }
 

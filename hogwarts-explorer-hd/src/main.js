@@ -21,6 +21,7 @@ import { createMap } from './map.js';
 import { createInteriors } from './interiors.js';
 import { createAudio } from './audio.js';
 import { init as initMusic } from './music.js';
+import { initVoice } from './voice.js';
 import { SPOTS, PLACES, TIER, TIMES } from './config.js';
 import { blobShadow } from './atmosphere.js';
 import * as fun from './fun.js';
@@ -180,6 +181,7 @@ async function boot() {
   // Background music: the game's own original theme synthesised in code (src/theme.js) by default; a family-picked file (kept in IndexedDB on the device, none shipped) replaces it.
   const music = initMusic({ audio, isMatch: () => { try { return !!takeover && !takeover.spell; } catch { return false; } } });   // takeover = a Quidditch match (a spell course keeps the castle theme)
   wireButtons({ env, map, interiors, audio, player, music });
+  initVoice();   // 🗣️ the Hebrew voice picker (src/voice.js); every speaker goes through voice.js
   // resume the audio context on the first user gesture (autoplay policy); also arms the music
   // (touchend/click too: on iOS Safari pointerdown alone is not always a media user-activation)
   const KICK = ['pointerdown', 'touchend', 'click', 'keydown'];

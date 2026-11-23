@@ -57,6 +57,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { animateChibi } from './chibi.js';
 import * as fun from './fun.js';
+import { speak as voiceSpeak, hush as voiceHush } from './voice.js';
 
 const SAVE_KEY = 'hpSpells1';             // { charms: { stars, plays } } (new key; nothing else changes meaning)
 const SNAP = 0.86;                        // lift progress at which the thing snaps into its outline
@@ -4382,13 +4383,10 @@ export function createSpells({ scene, camera, player, interiors, lessons, setTak
   function speak(text) {
     try {
       if (window.HP && window.HP.sfx && window.HP.sfx.isMuted && window.HP.sfx.isMuted()) return;
-      if (!('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(text.replace(/[—!]/g, ' ')); u.lang = 'he-IL'; u.rate = 0.92; u.pitch = (S.C && S.C.pitch) || 1.35;   // Flitwick: a little higher
-      const v = (speechSynthesis.getVoices() || []).find(x => /^(he|iw)/i.test(x.lang)); if (v) u.voice = v;
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      voiceSpeak(text, { preset: 'flitwick', pitch: (S.C && S.C.pitch) || 1.35 });   // voice.js; Flitwick: a little higher
     } catch { /* no speech here */ }
   }
-  const hush = () => { try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch { /* ignore */ } };
+  const hush = () => voiceHush();
 
   // ---- state ----
   const S = { on: false, key: null, C: null, phase: null, sub: null, step: 0, casts: 0, drops: 0, stars: 0, clock: 0, tCourse: 0, doneStations: 0,

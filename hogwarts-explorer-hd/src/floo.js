@@ -18,6 +18,7 @@ import { InstancedMesh, PlaneGeometry, MeshBasicMaterial, CanvasTexture, Object3
 import { hutHearth, tickHearth } from './floo-hearth.js';
 import { HUT } from './grounds-film.js';
 import { FLOOR_Y } from './rooms.js';
+import { speak as voiceSpeak } from './voice.js';
 
 export const FLOO = [
   { id: 'commonroom', room: 'commonroom', ico: '🦁', label: 'חדר המועדון של גריפינדור' },
@@ -244,10 +245,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
   function speak(text) {
     log.spoken.push(text); if (log.spoken.length > 8) log.spoken.shift();
     try {
-      if (muted() || !('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(text.replace(/[—!/]/g, ' ')); u.lang = 'he-IL'; u.rate = 0.9; u.pitch = 1.15;
-      const v = (speechSynthesis.getVoices() || []).find(x => /^(he|iw)/i.test(x.lang)); if (v) u.voice = v;
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      if (!muted()) voiceSpeak(text);   // voice.js: the family's / best Hebrew voice
     } catch { /* no speech here */ }
   }
   const bub = new Vector3();

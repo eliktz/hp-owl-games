@@ -26,6 +26,7 @@ import { createGlyphs, createFun } from './freecast-fun.js';
 import { createReal } from './freecast-real.js';
 import { createRealObjects } from './freecast-real-objects.js';
 import { createRealThings } from './freecast-real-things.js';
+import { speak as voiceSpeak } from './voice.js';
 
 const KEY = 'hpFreecast1';
 export const SPELLS = [
@@ -176,10 +177,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   function speak(text) {
     log.spoken.push(text); if (log.spoken.length > 12) log.spoken.shift();
     try {
-      if (muted() || !('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(text.replace(/[—!/]/g, ' ')); u.lang = 'he-IL'; u.rate = 0.9; u.pitch = 1.15;
-      const v = (speechSynthesis.getVoices() || []).find(x => /^(he|iw)/i.test(x.lang)); if (v) u.voice = v;
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      if (!muted()) voiceSpeak(text);   // voice.js: the family's / best Hebrew voice
     } catch { /* no speech here */ }
   }
   const bubAt = new Vector3();

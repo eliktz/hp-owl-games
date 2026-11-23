@@ -18,6 +18,7 @@
 // Debug: window.__game.adventures  list() state() start(id, lv) skipStep() hint(n) clock(s) hold(on) leave() reset()
 import { InstancedMesh, PlaneGeometry, MeshBasicMaterial, CanvasTexture, Color, Vector3, Matrix4, Quaternion, Mesh, ConeGeometry, CylinderGeometry, AdditiveBlending, SRGBColorSpace } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { speak as voiceSpeak } from './voice.js';
 import { DOOR } from './castle.js';
 import { QUESTS } from './adventure-stone.js';
 
@@ -59,10 +60,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   function speak(text) {
     log.spoken.push(text); if (log.spoken.length > 10) log.spoken.shift();
     try {
-      if (muted() || !('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(String(text).replace(/[\p{Extended_Pictographic}\uFE0F\u200D—!/]/gu, ' ')); u.lang = 'he-IL'; u.rate = 0.9; u.pitch = 1.1;
-      const v = (speechSynthesis.getVoices() || []).find(x => /^(he|iw)/i.test(x.lang)); if (v) u.voice = v;
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      if (!muted()) voiceSpeak(text, { preset: 'narrator' });   // voice.js: the family's / best Hebrew voice
     } catch { /* no speech here */ }
   }
 
