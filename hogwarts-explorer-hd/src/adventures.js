@@ -26,6 +26,7 @@ const KEY = 'hpAdventures1';
 const FONT = "'Rubik','Arial Hebrew','Noto Sans Hebrew','Heebo',Arial,sans-serif";
 const HINT_T = { 1: [15, 30, 45, 60], 2: [25, 45, 65, 85], 3: [25, 45, 65, 85] };
 const BYID = Object.fromEntries(QUESTS.map(q => [q.id, q]));
+const BOOKS = { 1: '📕 ספר 1: אבן החכמים', 2: '📗 ספר 2: חדר הסודות' };
 
 // ---------------- save (versioned; never throws, never trusts what it reads) ----------------
 const empty = () => ({ v: 1, done: {}, cur: null });
@@ -126,8 +127,12 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
     background:radial-gradient(ellipse at 50% 40%,rgba(96,60,30,.97),rgba(26,14,8,.98));touch-action:manipulation}
   #advBook.on{display:flex}
   #advBook h2{color:#ffe9a8;font-size:32px;margin:0;text-shadow:0 2px 0 #000,0 0 18px rgba(255,200,90,.55)}
-  #advBook .pages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;width:min(1040px,94vw);padding:16px;box-sizing:border-box;border-radius:22px;
-    background:linear-gradient(90deg,#efe0bc,#f8ecd0 48%,#d9c49a 50%,#f8ecd0 52%,#efe0bc);box-shadow:0 10px 40px rgba(0,0,0,.6),inset 0 0 30px rgba(120,80,30,.35);max-height:70vh;overflow:auto}
+  #advBook .pages{display:block;width:min(1040px,94vw);padding:10px 16px 16px;box-sizing:border-box;border-radius:22px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+    background:linear-gradient(90deg,#efe0bc,#f8ecd0 48%,#d9c49a 50%,#f8ecd0 52%,#efe0bc);box-shadow:0 10px 40px rgba(0,0,0,.6),inset 0 0 30px rgba(120,80,30,.35);max-height:72vh;overflow:auto}
+  #advBook .sec{margin:4px 0 8px;padding:4px 14px;border-radius:14px;background:linear-gradient(90deg,rgba(122,58,18,.0),rgba(122,58,18,.85) 20%,rgba(122,58,18,.85) 80%,rgba(122,58,18,0));
+    color:#ffe9a8;font-size:23px;font-weight:bold;text-align:center;text-shadow:0 2px 0 #000}
+  #advBook .grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:12px}
+  #advBook .card canvas{max-height:16vh;object-fit:cover}
   #advBook .card{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 6px 10px;border-radius:16px;border:3px solid #b8862e;background:rgba(255,250,236,.9);
     font-family:inherit;color:#3a2410;cursor:pointer;touch-action:manipulation;box-shadow:0 4px 12px rgba(80,50,10,.3)}
   #advBook .card:active{transform:scale(.96)}
@@ -138,7 +143,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   #advBook .card.done .s{background:#2e6a2a}
   #advBook .card .star{position:absolute;top:2px;left:6px;font-size:28px;filter:drop-shadow(0 0 6px rgba(255,200,60,.9))}
   #advBook .close{padding:10px 30px;border-radius:22px;border:3px solid #ffd76a;background:rgba(90,50,20,.85);color:#ffe9a8;font-size:22px;font-weight:bold;cursor:pointer;font-family:inherit}
-  @media (max-aspect-ratio:1/1){#advBook .pages{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px;max-height:72vh;width:94vw;background:linear-gradient(#f8ecd0,#efe0bc)}
+  @media (max-aspect-ratio:1/1){#advBook .pages{padding:8px 10px;max-height:74vh;width:94vw;background:linear-gradient(#f8ecd0,#efe0bc)} #advBook .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} #advBook .sec{font-size:20px}
     #advBook .card canvas{height:min(17vw,96px);object-fit:cover} #advBook .card{gap:3px;padding:6px 5px 8px} #advBook .card .t{font-size:17px} #advBook .card .s{font-size:15px} #advBook h2{font-size:26px}}
   #advIntro{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:38;display:none;width:min(680px,92vw);box-sizing:border-box;
     padding:16px 22px 14px;border-radius:22px;border:4px solid #b8862e;background:linear-gradient(#fbf1d6,#ecd9ae);color:#3a2410;direction:rtl;font-family:${FONT};
@@ -200,8 +205,10 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   const bookClose = el('button', null, 'close', book); bookClose.textContent = '✨ חזרה למשחק';
   bookClose.addEventListener('click', (e) => { e.stopPropagation(); closeBook(); });
   const cardEls = {};
+  const grids = {};
+  for (const [b, t] of Object.entries(BOOKS)) { const sec = el('div', null, 'sec', pages); sec.textContent = t; sec.dataset.book = b; grids[b] = el('div', null, 'grid', pages); grids[b].dataset.book = b; }
   for (const q of QUESTS) {
-    const c = el('button', null, 'card', pages); c.dataset.id = q.id;
+    const c = el('button', null, 'card', grids[q.book || 1] || grids[1]); c.dataset.id = q.id;
     const cv = document.createElement('canvas'); cv.width = 240; cv.height = 170; c.appendChild(cv);
     try { drawPicture(cv.getContext('2d'), q, 240, 170); } catch { /* picture optional */ }
     el('div', null, 't', c).textContent = q.title;
@@ -212,7 +219,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   let bookOpen = false;
   function cardState(q) {
     if (q.soon) return 'soon';
-    const i = QUESTS.indexOf(q), prev = QUESTS.slice(0, i).filter(p => !p.soon);
+    const i = QUESTS.indexOf(q), prev = QUESTS.slice(0, i).filter(p => !p.soon && (p.book || 1) === (q.book || 1));   // unlock in order inside each book
     if (prev.some(p => !save.done[p.id])) return 'locked';
     if (save.cur && save.cur.id === q.id) return 'resume';
     return save.done[q.id] ? 'done' : 'open';
@@ -280,8 +287,13 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
 
   // ---------------- run state ----------------
   let run = null;   // { q, scene, step, idle, stage, lv, intro, hold }
+  // A takeover a quest scene starts itself with { adv: true } (the flying car) keeps hints, taps and the arrow alive.
+  let advTk = null;
+  const advSetTakeover = (o) => { advTk = o && o.adv ? o : null; setTakeover(o); };
+  const tkBusy = () => { try { return isTakeover() && !(advTk && window.__game && window.__game.takeover === advTk); } catch { return isTakeover(); } };
   const ctx = {
-    scene, camera, player, interiors, fun, freecast, emit, burst, speak, glowTex, setTakeover, isModal, isTakeover,
+    scene, camera, player, interiors, fun, freecast, emit, burst, speak, glowTex, setTakeover: advSetTakeover, isModal, isTakeover,
+    poke: () => { if (run) run.idle = 0; },
     get level() { return run ? run.lv : 1; },
     get step() { return run ? run.step : -1; },
     done: (i) => completeStep(i),
@@ -475,7 +487,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
     view.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; }, { passive: true });
     view.addEventListener('pointerup', (e) => {
       const d0 = down; down = null;
-      if (!d0 || d0.id !== e.pointerId || !run || run.intro >= 0 || isModal() || isTakeover()) return;
+      if (!d0 || d0.id !== e.pointerId || !run || run.intro >= 0 || isModal() || tkBusy()) return;
       if (Math.hypot(e.clientX - d0.x, e.clientY - d0.y) > 18 || performance.now() - d0.t > 900) return;
       log.taps++;
       try { run.scene.tap(e.clientX, e.clientY, run.step); } catch (er) { console.warn('[adventures] tap failed -', er && er.message || er); }
@@ -488,7 +500,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
     T += dt;
     if (resumeAt > 0) { resumeAt -= dt; if (resumeAt <= 0) { if (save.cur && !save.cur.paused && !run) { if (!resume(save.cur.id)) resumeAt = 1.5; } } }
     if (hintT > 0) { hintT -= dt; if (hintT <= 0) hintEl.classList.remove('on'); }
-    const busy = isModal() || isTakeover() || busyBody();
+    const busy = isModal() || tkBusy() || busyBody();
     if (run) {
       try { run.scene.update(dt, run.step, busy); } catch (e) { if (!log.updErr) console.warn('[adventures] scene update failed -', e && e.message || e); log.updErr = (log.updErr || 0) + 1; }
       if (run && run.intro < 0 && !busy && !run.hold) {
@@ -502,7 +514,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   }
 
   const api = {
-    list: () => QUESTS.map(q => ({ id: q.id, title: q.title, soon: !!q.soon, steps: q.steps ? q.steps.length : 0, state: cardState(q), stars: save.done[q.id] ? save.done[q.id].stars : 0 })),
+    list: () => QUESTS.map(q => ({ id: q.id, book: q.book || 1, title: q.title, soon: !!q.soon, steps: q.steps ? q.steps.length : 0, state: cardState(q), stars: save.done[q.id] ? save.done[q.id].stars : 0 })),
     state: () => ({
       quest: run ? run.q.id : null, step: run ? run.step : null, stage: run ? run.stage : null, level: run ? run.lv : null, idle: run ? +run.idle.toFixed(2) : null,
       intro: run ? run.intro : -1, line: run && run.q.steps[run.step] ? run.q.steps[run.step].line : null, book: bookOpen, save: JSON.parse(JSON.stringify(save)),

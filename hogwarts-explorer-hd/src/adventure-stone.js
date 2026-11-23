@@ -12,6 +12,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BUILDERS } from './rooms.js';
 import { MAT } from './interior-kit.js';
 import { TROLL } from './adventure-troll.js';
+import { B2CAR } from './adventure-b2-car.js';
+import { B2DOBBY } from './adventure-b2-dobby.js';
 import { buildChambers, drawMirror, SPOTS, DOOR_Z, zc, sq, BOARD, COLOURS, FLOOR_Y, FONT, N } from './adventure-stone-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };
@@ -36,8 +38,14 @@ export const QUESTS = [
   },
   TROLL,
   { id: 'norbert', title: 'נורברט הדרקון הקטן', ico: '🐉', soon: true, col: '#5a2a10', col2: '#d8803a', pic: [['🐉', 0.5, 0.55, 74], ['🏡', 0.2, 0.3, 30]] },
-  { id: 'chamber', title: 'חדר הסודות', ico: '🐦‍🔥', soon: true, col: '#2a2a4a', col2: '#6a6ab0', pic: [['🔥', 0.5, 0.55, 66], ['💡', 0.2, 0.3, 30]] },
   { id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', soon: true, col: '#3a3a2a', col2: '#a0a070', pic: [['🦅', 0.5, 0.55, 72], ['🙇', 0.8, 0.3, 30]] },
+  // book 2: "חדר הסודות" (briefs/2026-11-23-book2-chamber-quests.md); the first is open from the start, the rest in order
+  B2CAR,
+  B2DOBBY,
+  { id: 'b2-wall', book: 2, title: 'הכתובת על הקיר', ico: '🐈', soon: true, col: '#3a2a1a', col2: '#b08a5a', pic: [['🐈', 0.5, 0.58, 66], ['💡', 0.2, 0.3, 30], ['🕷️', 0.8, 0.3, 28]] },
+  { id: 'b2-polyjuice', book: 2, title: 'שיקוי רב-מיצים', ico: '🧪', soon: true, col: '#2a4a3a', col2: '#7ab09a', pic: [['🧪', 0.5, 0.55, 66], ['👻', 0.8, 0.3, 32]] },
+  { id: 'b2-diary', book: 2, title: 'היומן הסודי', ico: '📓', soon: true, col: '#2a2a3a', col2: '#8a8ab0', pic: [['📓', 0.5, 0.55, 66], ['✒️', 0.8, 0.3, 30]] },
+  { id: 'b2-chamber', book: 2, title: 'אל תוך החדר', ico: '🐦‍🔥', soon: true, col: '#2a2a4a', col2: '#6a6ab0', pic: [['🔥', 0.5, 0.55, 66], ['🎩', 0.2, 0.3, 30], ['⚔️', 0.8, 0.3, 30]] },
 ];
 
 // The chambers interior: always registered (built from the quest's progress at build time, or for free play).
