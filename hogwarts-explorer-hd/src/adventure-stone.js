@@ -8,12 +8,13 @@
 import { Vector3, Group, Mesh, PlaneGeometry, BoxGeometry, TorusGeometry, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, Object3D, Raycaster, Plane, Vector2 } from 'three';
 import { BUILDERS } from './rooms.js';
 import { MAT } from './interior-kit.js';
+import { TROLL } from './adventure-troll.js';
 import { buildChambers, drawMirror, SPOTS, DOOR_Z, zc, sq, BOARD, COLOURS, FLOOR_Y, FONT, N } from './adventure-stone-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };
 export const QUESTS = [
   {
-    id: 'stone', title: 'אבן החכמים', ico: '💎', gem: '#d8202a', col: '#5a1a2a', col2: '#c0503a', helper: HERM,
+    id: 'stone', title: 'אבן החכמים', ico: '💎', gem: '#d8202a', confetti: ['✨', '⭐', '❤️', '📖'], col: '#5a1a2a', col2: '#c0503a', helper: HERM,
     pic: [['🐶', 0.22, 0.62, 46], ['🔑', 0.5, 0.3, 34], ['♟️', 0.78, 0.62, 40], ['💎', 0.5, 0.66, 52]],
     intro: [
       'מישהו רוצה לגנוב את אבן החכמים!',
@@ -30,7 +31,7 @@ export const QUESTS = [
     ],
     create: (ctx) => stoneScene(ctx),
   },
-  { id: 'troll', title: 'הטרול בשירותים', ico: '🧌', soon: true, col: '#3a5a3a', col2: '#8ab07a', pic: [['🧌', 0.5, 0.55, 74], ['🪶', 0.8, 0.3, 34]] },
+  TROLL,
   { id: 'norbert', title: 'נורברט הדרקון הקטן', ico: '🐉', soon: true, col: '#5a2a10', col2: '#d8803a', pic: [['🐉', 0.5, 0.55, 74], ['🏡', 0.2, 0.3, 30]] },
   { id: 'chamber', title: 'חדר הסודות', ico: '🐦‍🔥', soon: true, col: '#2a2a4a', col2: '#6a6ab0', pic: [['🔥', 0.5, 0.55, 66], ['💡', 0.2, 0.3, 30]] },
   { id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', soon: true, col: '#3a3a2a', col2: '#a0a070', pic: [['🦅', 0.5, 0.55, 72], ['🙇', 0.8, 0.3, 30]] },
@@ -50,7 +51,7 @@ const STAIR_DOOR = { x: -6, z: 10.5 };
 
 function stoneScene(ctx) {
   const { interiors, player, fun, freecast, burst, emit, camera } = ctx;
-  const S = { harp: 0, snare: 0, key: 0, chess: 0, potion: 0, mirror: 0, hop: 0, look: 0, answer: 4, distract: [], wrong: 0, casts0: 0, lastRoom: null, B: null, stair: null, played: false, hopT: -1 };
+  const S = { harp: 0, snare: 0, key: 0, chess: 0, potion: 0, mirror: 0, hop: 0, look: 0, answer: 4, distract: [], wrong: 0, dark: [], casts0: 0, lastRoom: null, B: null, stair: null, played: false, hopT: -1 };
   const sfx = (k, ...a) => { try { fun.sfx[k](...a); } catch { /* no audio */ } };
   const tone = (f, d, w = 0) => sfx('tone', f, d, 'triangle', 0.12, w);
   const lv = () => ctx.level;
@@ -213,7 +214,7 @@ function stoneScene(ctx) {
     // chess: highlights; the knight hops, the king bows and lays his crown down, the door rook steps aside
     const C = P.chess;
     if (step === 3 && !S.chess && B.rooms[3].visible) {
-      const d = new Object3D(), lit = [[2, 3], ...(lv() > 1 ? (lv() > 2 ? [[0, 3], [3, 2]] : [[0, 3]]) : [])];
+      const d = new Object3D(), lit = [[2, 3], ...(lv() > 1 ? (lv() > 2 ? [[0, 3], [3, 2]] : [[0, 3]]) : [])].filter(([c, r]) => !S.dark.includes(c + ',' + r));
       lit.forEach(([c, r], i) => { sq(c, r, v1); d.position.set(v1.x, 0.03, v1.z); d.updateMatrix(); C.hl.setMatrixAt(i, d.matrix); });
       C.hl.count = lit.length; C.hl.instanceMatrix.needsUpdate = true; C.hl.material.opacity = 0.45 + Math.sin(tt * 4) * 0.25;
     } else C.hl.count = 0;
@@ -262,7 +263,10 @@ function stoneScene(ctx) {
       const c = Math.round((v1.x - BOARD.x0) / BOARD.s), r = Math.round((BOARD.z0 - v1.z) / BOARD.s);
       if (c < 0 || c > 5 || r < 0 || r > 5) return false;
       if (c === 2 && r === 3) { chessMove(); return true; }
-      S.wrong++; ctx.oops('לא לשם 🙂 נסה את המשבצת הזוהרת'); return true;
+      S.wrong++;
+      // levels 2-3: a lit distractor goes dark after a try, so every wrong tap narrows the choice (always beatable)
+      if (lv() > 1 && ((c === 0 && r === 3) || (lv() > 2 && c === 3 && r === 2))) { S.dark.push(c + ',' + r); ctx.oops('לא לשם 🙂 משם הפרש לא מגיע למלך הלבן 👑 נסה משבצת זוהרת אחרת'); return true; }
+      ctx.oops('לא לשם 🙂 נסה את המשבצת הזוהרת'); return true;
     }
     if (step === 4 && cur === 4 && !S.potion) {
       let bi = -1, bd = 1e9; P.potions.bpos.forEach((b, i) => { const d = near(v1.copy(b).add(S.B.g.position).setY(Y() + b.y + 0.3)); if (d < bd) { bd = d; bi = i; } });
@@ -283,7 +287,7 @@ function stoneScene(ctx) {
     if (step === 1) return W(SPOTS.snare.x, 0.6, SPOTS.snare.z + 0.5, out);
     if (step === 2) { if (S.key) return null; S.B.P.keys.sk.getWorldPosition(out); out.y -= 1.0; return out; }
     if (step === 3) { sq(2, 3, out); return out.set(out.x, Y(), out.z); }
-    if (step === 4) return lv() === 1 && ctx._glowBottle ? W(S.B.P.potions.bpos[S.answer].x, 0.9, S.B.P.potions.bpos[S.answer].z, out) : W(SPOTS.table.x, 0.9, SPOTS.table.z, out);
+    if (step === 4) return ctx._glowBottle ? W(S.B.P.potions.bpos[S.answer].x, 0.9, S.B.P.potions.bpos[S.answer].z, out) : W(SPOTS.table.x, 0.9, SPOTS.table.z, out);
     if (step === 5) return W(SPOTS.look.x, 0, SPOTS.look.z, out);
     return null;
   }
@@ -298,6 +302,15 @@ function stoneScene(ctx) {
     interiors.enter('chambers', at);
   }
   function glow(step, on) { ctx._glowBottle = on && step === 4; }
+  // levels 2-3 only (level 1 keeps its hint texts): the chess clue and the riddle colour again
+  function hintText(step, n) {
+    if (lv() === 1) return null;
+    if (step === 3 && n === 1) return 'המהלך המנצח: המשבצת הזוהרת הקרובה ביותר למלך הלבן 👑';
+    if (step === 3 && n === 2) return 'הפרש קופץ אל המשבצת שליד המלך הלבן ♞👑';
+    if (step === 4 && n === 1) return 'החידה אמרה: הבקבוק ' + COLOURS[S.answer].name + ' ' + COLOURS[S.answer].e;
+    if (step === 4 && n === 2) return 'הבקבוק ' + COLOURS[S.answer].name + ' זוהר עכשיו ' + COLOURS[S.answer].e;
+    return null;
+  }
   function together(step) {
     if (step === 0) playHarp();
     else if (step === 1) { if (!inCh() || room() !== 1) { interiors.enter('chambers', { x: SPOTS.land.x, z: SPOTS.land.z, yaw: Math.PI }); setTimeout(clearSnare, 900); } else clearSnare(); }
@@ -324,5 +337,5 @@ function stoneScene(ctx) {
     bottleW: (i) => { if (!S.B) return null; const b = S.B.P.potions.bpos[i]; return new Vector3(b.x, Y() + b.y + 0.3, b.z); },
     harpW: () => W(SPOTS.harp.x, 1.1, SPOTS.harp.z),
   };
-  return { begin, update, goal, tap, glow, together, end, state };
+  return { begin, update, goal, tap, glow, together, end, state, hintText };
 }

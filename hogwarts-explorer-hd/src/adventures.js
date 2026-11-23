@@ -272,7 +272,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
     cardOv.innerHTML = ''; const cv = document.createElement('canvas'); cv.width = 300; cv.height = 420; cardOv.appendChild(cv);
     try { drawCard(cv.getContext('2d'), q); } catch { /* card art optional */ }
     el('div', null, 't', cardOv).textContent = '⭐ פרק חדש בספר! ' + q.title;
-    cardOv.classList.add('on'); log.cards++; sfx('fanfare'); try { fun.confetti(['✨', '⭐', '💎', '📖'], 22); } catch { /* ok */ }
+    cardOv.classList.add('on'); log.cards++; sfx('fanfare'); try { fun.confetti(q.confetti || ['✨', '⭐', '📖'], 22); } catch { /* ok */ }
     clearTimeout(cardT); cardT = setTimeout(hideCard, 4200);
   }
   function hideCard() { cardOv.classList.remove('on'); clearTimeout(cardT); }
@@ -414,6 +414,8 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
     if (!run) return;
     const st = run.q.steps[run.step]; if (!st) return;
     run.stage = n; log.hints.push(run.step + ':' + n);
+    let own = null; try { own = run.scene.hintText ? run.scene.hintText(run.step, n) : null; } catch { own = null; }   // a scene may word a hint itself (levels 2-3)
+    if (own && n < 4) { if (n === 2) { try { run.scene.glow(run.step, true); } catch { /* ok */ } } if (n === 3 && st.spell) { const t = document.querySelector('#fcWheel .sp[data-k="' + st.spell + '"]'); if (t) t.classList.add('advHint'); const b = document.getElementById('fcBtn'); if (b) b.classList.add('advHint'); } helperSay(own); return; }
     if (n === 1) helperSay((st.hints && st.hints[0]) || st.line);
     else if (n === 2) { try { run.scene.glow(run.step, true); } catch { /* ok */ } helperSay((st.hints && st.hints[1]) || 'תראה מה זוהר! ✨'); }
     else if (n === 3) {
