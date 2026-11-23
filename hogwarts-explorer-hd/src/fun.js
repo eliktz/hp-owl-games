@@ -84,7 +84,7 @@ css.textContent = `
 @keyframes funFall{0%{transform:translate3d(0,0,0) rotate(0)}100%{transform:translate3d(var(--dx),108vh,0) rotate(var(--rot))}}
 .funBub{position:fixed;transform:translate(-50%,-100%) scale(.6);padding:8px 14px;border-radius:18px;background:rgba(255,248,228,.96);
   border:3px solid #ffd76a;color:#2a1a12;font:bold 24px 'Rubik',sans-serif;text-align:center;z-index:12;pointer-events:none;opacity:0;
-  transition:opacity .18s,transform .25s cubic-bezier(.3,1.7,.5,1);max-width:56vw;white-space:nowrap;direction:rtl}
+  transition:opacity .18s,transform .25s cubic-bezier(.3,1.7,.5,1);width:max-content;max-width:min(92vw,560px);box-sizing:border-box;white-space:normal;direction:rtl}
 .funBub.on{opacity:1;transform:translate(-50%,-100%) scale(1)}
 #funPrompt{position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%) scale(0);z-index:14;
   width:96px;height:96px;border-radius:50%;border:5px solid #fff;background:linear-gradient(#ffe48a,#ffb020);font-size:50px;
@@ -126,7 +126,7 @@ export function tick(dt, camera) {
     if (b.t <= 0) { b.el.classList.remove('on'); if (b.t < -0.4) { b.el.remove(); bubs.splice(i, 1); } continue; }
     v3.copy(b.pos).project(camera);
     if (v3.z > 1 || Math.abs(v3.x) > 1.1 || Math.abs(v3.y) > 1.1) { b.el.classList.remove('on'); continue; }
-    b.el.style.left = (v3.x * 0.5 + 0.5) * innerWidth + 'px'; b.el.style.top = (-v3.y * 0.5 + 0.5) * innerHeight + 'px'; b.el.classList.add('on');
+    { const hw = b.el.offsetWidth * 0.5 + 4, cx = (v3.x * 0.5 + 0.5) * innerWidth; b.el.style.left = (hw * 2 >= innerWidth ? innerWidth * 0.5 : Math.max(hw, Math.min(innerWidth - hw, cx))) + 'px'; }   // long lines wrap and stay on screen b.el.style.top = (-v3.y * 0.5 + 0.5) * innerHeight + 'px'; b.el.classList.add('on');
   }
   if (!promptEl) {
     promptEl = document.createElement('button'); promptEl.id = 'funPrompt'; document.body.appendChild(promptEl);
