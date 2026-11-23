@@ -83,7 +83,7 @@ function dozyEye(f) {
   const parts = [paint(place(new SphereGeometry(1, 10, 6), 0.17, 0.1, 0.43, 0, 0, 0, 0.075, 0.06, 0.04), 0xf0e8d8),
     paint(place(new SphereGeometry(1, 8, 5), 0.17, 0.085, 0.46, 0, 0, 0, 0.034, 0.034, 0.02), 0x1a120c),
     paint(place(new SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0.17, 0.1, 0.435, 0, 0, -0.12, 0.085, 0.07, 0.05), f.FUR)];
-  const eye = new Mesh(merge(parts), vc({ roughness: 0.6 })); eye.name = 'fluffy-eye'; f.heads[1].add(eye); return eye;
+  const eye = new Mesh(merge(parts), vc({ roughness: 0.6 })); eye.name = 'fluffy-eye'; eye.position.set(0.17, 0.1, 0.43).multiplyScalar(-0.3); eye.scale.setScalar(1.3); f.heads[1].add(eye); return eye;
 }
 
 // ---------------- the room shell + props ----------------

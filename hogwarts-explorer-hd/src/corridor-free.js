@@ -160,7 +160,7 @@ export function createCorridorFree({ camera, player, interiors, fun, freecast, s
       const c = player.cam; c.yaw = 0.35; c.pitch = 0.12; c.dist = 3.6; c.userControlled = false; c.idle = 0;
       focus.set(0, Y(), SPOTS.look.z - 0.8); c.update(dt, focus, 0, false);
       player.animate(dt, { moving: false }, 0);
-      if (t > 1.8 && !said) { said = true; S.looked = true; sfx('chime'); say('במראה אתה מחזיק זוג גרבי צמר עבים! 🧦 דמבלדור אומר שאי אפשר שיהיו מספיק גרביים', W(0, 3.2, SPOTS.mirror.z + 0.6), 5); award(5, 'mirror'); }
+      if (t > 1.8 && !said) { said = true; S.looked = true; sfx('chime'); say('במראה: זוג גרבי צמר עבים! 🧦 בדיוק כמו דמבלדור', W(0, 3.2, SPOTS.mirror.z + 0.6), 5); award(5, 'mirror'); }
       if (t > 4.4) setTakeover(null);
     } });
   }
@@ -313,6 +313,7 @@ export function createCorridorFree({ camera, player, interiors, fun, freecast, s
     setBarrier(2, K.hinge.rotation.y > 1.0);
     // 3: chess: the knight's lit squares, the hop, the mended queen
     const C = P.chess;
+    setBarrier(3, true);   // free play: the door rook stands aside, the way on is open
     if (B.rooms[3].visible) {
       const L = cur === 3 ? lit() : [];
       L.forEach(([c, r2], i) => { sq(c, r2, v1); dO.position.set(v1.x, 0.03, v1.z); dO.rotation.set(0, 0, 0); dO.scale.setScalar(1); dO.updateMatrix(); C.hl.setMatrixAt(i, dO.matrix); });
