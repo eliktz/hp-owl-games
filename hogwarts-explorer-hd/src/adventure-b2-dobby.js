@@ -81,9 +81,14 @@ function dobbyScene(ctx) {
   const casts = () => (FI && FI.log ? FI.log.casts : 0);
   S.casts0 = casts();
   // the pot ribbons: level 1 in the same order as the mandrakes (any empty pot is fine); levels 2-3 shuffled
-  const order = Array.from({ length: need() }, (_, i) => i);
-  if (lv() > 1) for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-  const potCols = order.map(i => RIBBONS[i]);
+  // (filled in begin(): the level is not known yet while adventures.js creates the scene)
+  const order = [], potCols = [];
+  function init() {
+    if (order.length) return;
+    for (let i = 0; i < need(); i++) order.push(i);
+    if (lv() > 1) for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    for (const i of order) potCols.push(RIBBONS[i]);
+  }
 
   // ---- the common room: Dobby on the sofa + the letters (added to the live room while the quest needs them) ----
   function dressCommon(step) {
@@ -108,6 +113,7 @@ function dobbyScene(ctx) {
   // ---- outdoors: the Herbology corner ----
   function dressHerb() {
     if (S.herb || !outdoors()) return;
+    init();
     const y0 = player.heightAt ? player.heightAt(HERB.x, HERB.z) : 0;
     const H = buildHerbology(need(), potCols); H.g.position.set(HERB.x, y0, HERB.z); H.g.scale.setScalar(HS); scene.add(H.g); S.herb = H;
     S.mand = []; S.potted = []; S.potFull = new Array(need()).fill(-1);
@@ -316,7 +322,7 @@ function dobbyScene(ctx) {
   }
 
   function begin(step, resumed) {
-    S.active = true;
+    init(); S.active = true;
     if (step >= 3 && S.dob) undressCommon();
     if (step >= 4) { S.muffsOn = 1; wearMuffs(); }
     if (step === 3 && S.muffsOn === 0) dropMuffs();
