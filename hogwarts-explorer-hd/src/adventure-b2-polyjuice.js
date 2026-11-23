@@ -86,7 +86,7 @@ function polyScene(ctx) {
     S.gk = G;
     try {
       for (const c of player.model.children) { G.kids.push([c, c.scale.clone()]); c.scale.set(c.scale.x * 1.45, c.scale.y * 1.04, c.scale.z * 1.4); }
-      player.model.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { if (!m || !m.color || G.mats.has(m)) continue; G.mats.set(m, [m.color.clone(), m.emissive ? m.emissive.clone() : null, m.emissiveIntensity]); m.color.multiply(TINT); if (m.emissive) { m.emissive.setHex(0x2a7a2a); m.emissiveIntensity = 0.45; } } });
+      player.model.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { if (!m || !m.color || G.mats.has(m)) continue; G.mats.set(m, [m.color.clone(), m.emissive ? m.emissive.clone() : null, m.emissiveIntensity]); m.color.multiply(TINT); if (m.emissive) { m.emissive.setHex(0x2a7a2a); m.emissiveIntensity = 0.3; } } });
     } catch (e) { goyleOff(); console.warn('[b2-polyjuice] goyle skipped -', e && e.message || e); }
   }
   function goyleOff() {
@@ -148,7 +148,7 @@ function polyScene(ctx) {
   #advPw button{padding:12px 20px;border-radius:18px;border:3px solid #b8862e;background:linear-gradient(#fbf1d6,#ecd9ae);color:#3a2410;font:bold 24px ${FONT};cursor:pointer;touch-action:manipulation;min-width:140px}
   #advPw button.glow{animation:advPulse .9s ease-in-out infinite;border-color:#fff}
   body.modalOn #advPw,body.inSpell #advPw,body.inFloo #advPw{display:none !important}
-  @media (max-width:700px){#advPw{top:calc(88px + env(safe-area-inset-top))} #advPw button{font-size:21px;min-width:120px;padding:10px 14px} #advPw .q{font-size:19px}}`;
+  @media (max-width:700px){#advPw{top:calc(192px + env(safe-area-inset-top));max-width:62vw} #advPw button{font-size:21px;min-width:120px;padding:10px 14px} #advPw .q{font-size:19px}}`;
   document.head.appendChild(css);
   const pw = document.createElement('div'); pw.id = 'advPw'; document.body.appendChild(pw);
   const q = document.createElement('div'); q.className = 'q'; q.textContent = '🐍 הנחש על הדלת שואל: מה הסיסמה?'; pw.appendChild(q);
