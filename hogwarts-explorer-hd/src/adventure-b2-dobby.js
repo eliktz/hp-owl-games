@@ -296,7 +296,7 @@ function dobbyScene(ctx) {
     if (step === 0) { if (inCommon()) return null; return ctx.routeTo('commonroom', out, ['staircase', 'entrancehall']); }
     if (step <= 2) {
       if (!inCommon()) return ctx.routeTo('commonroom', out, ['staircase', 'entrancehall']);
-      if (step === 1) return S.talk ? null : RW(SOFA.x, 0.4, SOFA.z, out);
+      if (step === 1) return S.talk ? null : RW(SOFA.x, 1.25, SOFA.z, out);   // the arrow floats over his ears
       if (S.bye) return null;
       let best = null, bd = 1e9; const g = interiors.room.group.position;
       for (const L of S.letters) { if (L.got) continue; const d = Math.hypot(player.pos.x - g.x - L.sp.x, player.pos.z - g.z - L.sp.z); if (d < bd) { bd = d; best = L; } }
