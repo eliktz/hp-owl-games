@@ -8,6 +8,8 @@
 // never fall through to the wand's delights: nothing is cast on people or creatures.
 // Batch 3 (freecast-castle.js) and batch 4 (freecast-yard.js: Episkey, the courtyard and Great Hall spots) add more;
 // batch 5 (freecast-fun.js: Tarantallegra, Rictusempra, Glacius, Periculum, Ascendio) brings the wheel to 24.
+// Batch 10 (freecast-batch10.js: Finite Incantatem, Point Me, Herbivicus, Diffindo, Sonorus, Glisseo) brings it to 30
+// (wheel: 10 x 3 in landscape, 5 x 6 in portrait).
 //   hpFreecast1 (localStorage)  { sel, disc: [spell keys cast on a real target], chestPaid }
 // Cost: nothing while idle (the corner hides beyond 70 m / indoors, effects are pooled and hidden when
 // unused, nothing is allocated per frame).

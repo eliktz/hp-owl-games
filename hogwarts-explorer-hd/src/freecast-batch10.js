@@ -363,8 +363,8 @@ export function createBatch10(ctx) {
   };
 
   // ================= Diffindo =================
-  // room-local places (rooms sit at x/z 0, y -200: room-local x/z = world x/z)
-  const DIF = { gift: { room: 'commonroom', x: -2.7, z: 2.3 }, banner: { room: 'greathall', x: -5.2, z: 17.72, h: 6.4 }, curtain: { room: 'library', x: 10.86, z: -6.4, h: 4.6 } };
+  // room-local places (rooms sit at x/z 0, y -200: room-local x/z = world x/z; rooms.js walls are 1 m thick on W/2, D/2)
+  const DIF = { gift: { room: 'commonroom', x: -2.7, z: 2.3 }, banner: { room: 'greathall', x: -5.2, z: 17.44, h: 5.1 }, curtain: { room: 'library', x: 10.44, z: -3.25, h: 6.0 } };
   const DF = { casts: 0, cuts: 0, builds: 0, room: null, seen: null, items: [] };
   let difMat = null;
   const vc = (g, hex) => { const n = g.attributes.position.count, a = new Float32Array(n * 3); _c.setHex(hex); for (let i = 0; i < n; i++) { a[i * 3] = _c.r; a[i * 3 + 1] = _c.g; a[i * 3 + 2] = _c.b; } g.setAttribute('color', new BufferAttribute(a, 3)); const o = g.index ? g.toNonIndexed() : g; if (o.attributes.uv) o.deleteAttribute('uv'); return o; };
@@ -382,7 +382,7 @@ export function createBatch10(ctx) {
   }
   function buildBanner(g, P) {
     // a house banner rolled up under its rod, tied with a cord; cut: it unrolls down the wall. cloth (top anchored) + roll + cord
-    const W = 1.5, L = 3.6, grp = new Group(); grp.position.set(P.x, P.h, P.z); grp.rotation.y = Math.PI; grp.name = 'diffindo-banner'; g.add(grp);   // faces -z (into the hall)
+    const W = 1.5, L = 3.0, grp = new Group(); grp.position.set(P.x, P.h, P.z); grp.rotation.y = Math.PI; grp.name = 'diffindo-banner'; g.add(grp);   // faces -z (into the hall)
     const rod = [vc(new CylinderGeometry(0.035, 0.035, W + 0.3, 8).rotateZ(Math.PI / 2), 0xb8903e)];
     for (const sx of [-1, 1]) rod.push(vc(new CylinderGeometry(0.06, 0.06, 0.06, 8).rotateZ(Math.PI / 2).translate(sx * (W / 2 + 0.17), 0, 0), 0xd8b04a));
     const cl = [vc(new PlaneGeometry(W, L, 1, 1).translate(0, -L / 2, 0.02), 0x7a1a20), vc(new PlaneGeometry(W * 0.82, L * 0.9, 1, 1).translate(0, -L * 0.48, 0.025), 0x8a2228)];
