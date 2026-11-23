@@ -25,7 +25,7 @@ export const B2POLY = {
     'נבשל אותו בשירותי הבנות, איפה שאף אחד לא בא. חוץ ממיילי! אני רון, ואני אעזור לך ✨',
   ],
   steps: [
-    { line: 'לך לשירותי הבנות ופגוש את מיילי 👻', hints: ['השירותים ליד אולם הכניסה, דרך הדלת החדשה 🚪', 'מיילי מרחפת ליד הכיורים. גע בה!', 'לך אחרי החץ הזהוב 👻'], glowL1: true },
+    { line: 'לך לשירותי הבנות ופגוש את מיילי 👻', hints: ['השירותים ליד אולם הכניסה, דרך הדלת החדשה 🚪', 'מיילי מרחפת ליד הכיורים. גע בה!', 'לך אחרי החץ הזהוב 👻'] },
     { line: 'מצא שלושה מרכיבים בחדר 🌿', hints: ['שלוש צנצנות צבעוניות מחכות בחדר 🫙', 'חפש ליד הכיורים, ליד החלון וליד הדלת', 'הצנצנות זוהרות עכשיו. גע בהן!'] },
     { line: 'בשל את השיקוי לפי המתכון 🧪', hints: ['הסתכל במתכון: איזה צבע ראשון? 🧪', 'גע בצנצנת בצבע של העיגול הראשון (מימין)', 'אחרי כל הצנצנות: גע בכף שלוש פעמים כדי לערבב 🥄'] },
     { line: 'שתה את השיקוי! 🥤', hints: ['השיקוי מוכן! גע בקלחת 🥤', 'גע בקלחת כדי לשתות', 'אל תדאג, זה רק לשעה! גע בקלחת 😄'], glowL1: true },
@@ -53,7 +53,7 @@ function drawPolyCard(x, cx, cy) {
 const NEED = { 1: 3, 2: 4, 3: 5 };
 const PASS = 'נחש ישנוני';
 const WORDS = [PASS, 'עוגת דלעת', 'גרב סגולה'];
-const TINT = new Color(0.74, 1.0, 0.78);   // "Goyle": a comic green tint over Harry's robes (multiplied, restored exactly)
+const TINT = new Color(0.55, 1.0, 0.6);   // "Goyle": a comic green tint over Harry's robes (multiplied, restored exactly)
 const MURK = new Color(0x3a3a30), READY = new Color(0x6a9a3a);
 
 function polyScene(ctx) {
@@ -85,7 +85,7 @@ function polyScene(ctx) {
     const G = { kids: [], mats: new Map() };
     S.gk = G;
     try {
-      for (const c of player.model.children) { G.kids.push([c, c.scale.clone()]); c.scale.set(c.scale.x * 1.32, c.scale.y * 1.05, c.scale.z * 1.3); }
+      for (const c of player.model.children) { G.kids.push([c, c.scale.clone()]); c.scale.set(c.scale.x * 1.45, c.scale.y * 1.04, c.scale.z * 1.4); }
       player.model.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { if (!m || !m.color || G.mats.has(m)) continue; G.mats.set(m, m.color.clone()); m.color.multiply(TINT); } });
     } catch (e) { goyleOff(); console.warn('[b2-polyjuice] goyle skipped -', e && e.message || e); }
   }
@@ -112,7 +112,7 @@ function polyScene(ctx) {
     B.my = buildMyrtle(); B.my.root.position.set(MYRTLE.x, MYRTLE.y, MYRTLE.z); B.my.root.rotation.y = Math.PI / 2; g.add(B.my.root); B.myTris = triCount(B.my.root);
     B.set = buildCauldronSet(); g.add(B.set.g);
     B.jars = buildJars(need()); g.add(B.jars);
-    B.rec = buildRecipe(); B.rec.m.position.set(CAULDRON.x - 0.2, 2.05, CAULDRON.z + 0.35); g.add(B.rec.m);
+    B.rec = buildRecipe(); B.rec.m.position.set(CAULDRON.x - 0.1, 2.75, CAULDRON.z + 0.2); B.rec.m.scale.setScalar(1.3); g.add(B.rec.m);
     try { if (adv && adv.P && adv.P.doors && adv.P.doors[2]) adv.P.doors[2].rotation.y = 1.6; } catch { /* the stall stays shut */ }   // the open stall
     // a (re)visit or a resume: put the jars where the step says (found ones stay found, poured ones stay in)
     for (const J of jar) {
@@ -141,14 +141,14 @@ function polyScene(ctx) {
     r.colliders.push({ type: 'box', x: SDOOR.x - 0.1, z: SDOOR.z, hw: 0.25, hd: 1.15, angle: 0 });
   }
   const css = document.createElement('style');
-  css.textContent = `#advPw{position:fixed;left:50%;top:calc(42% + env(safe-area-inset-top));transform:translate(-50%,-50%);z-index:14;display:none;flex-direction:column;align-items:center;gap:10px;direction:rtl;font-family:${FONT};
+  css.textContent = `#advPw{position:fixed;left:50%;top:calc(96px + env(safe-area-inset-top));transform:translateX(-50%);z-index:14;display:none;flex-direction:column;align-items:center;gap:10px;direction:rtl;font-family:${FONT};
     padding:14px 18px;border-radius:22px;border:4px solid #9aa4a8;background:rgba(20,40,30,.9);box-shadow:0 8px 28px rgba(0,0,0,.55);max-width:92vw;box-sizing:border-box}
   #advPw.on{display:flex} #advPw .q{color:#e8f4ea;font-size:22px;font-weight:bold;text-align:center}
   #advPw .row{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
   #advPw button{padding:12px 20px;border-radius:18px;border:3px solid #b8862e;background:linear-gradient(#fbf1d6,#ecd9ae);color:#3a2410;font:bold 24px ${FONT};cursor:pointer;touch-action:manipulation;min-width:140px}
   #advPw button.glow{animation:advPulse .9s ease-in-out infinite;border-color:#fff}
   body.modalOn #advPw,body.inSpell #advPw,body.inFloo #advPw{display:none !important}
-  @media (max-width:700px){#advPw{top:calc(50% + env(safe-area-inset-top))} #advPw button{font-size:21px;min-width:120px;padding:10px 14px} #advPw .q{font-size:19px}}`;
+  @media (max-width:700px){#advPw{top:calc(88px + env(safe-area-inset-top))} #advPw button{font-size:21px;min-width:120px;padding:10px 14px} #advPw .q{font-size:19px}}`;
   document.head.appendChild(css);
   const pw = document.createElement('div'); pw.id = 'advPw'; document.body.appendChild(pw);
   const q = document.createElement('div'); q.className = 'q'; q.textContent = '🐍 הנחש על הדלת שואל: מה הסיסמה?'; pw.appendChild(q);
@@ -288,8 +288,8 @@ function polyScene(ctx) {
     else L.rotation.y += dt * 0.3;
     // step 4 (drink): the cauldron glows a little (level 1)
     if (step === 3 && !S.drank && J1 && Math.random() < dt * 3) { RW(CAULDRON.x, 1.2, CAULDRON.z, v1); emit(v1.x + (Math.random() - 0.5) * 0.4, v1.y, v1.z, 0, 0.4, 0, 0.8, 0.16, 0xffe07a, 0); }
-    // the recipe card faces the camera
-    B.rec.m.quaternion.copy(camera.quaternion);
+    // the recipe card faces the camera (from the brewing step on)
+    B.rec.m.visible = step >= 1 && step <= 2; B.rec.m.quaternion.copy(camera.quaternion);
   }
   const _jc = new Color(), _bc = new Color(), _w = new Color(1, 1, 1);
   function tickDoor(dt, step) {
