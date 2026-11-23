@@ -259,24 +259,17 @@ function stoneScene(ctx) {
       return false;
     }
     if (step === 3 && cur === 3 && !S.chess) {
-      if (lv() > 1) {   // levels 2-3: a tap near a lit square (or its beam) picks that square, so small phone screens stay fair
+      if (lv() > 1) {   // levels 2-3: a tap on a lit square's gold beam picks that square, so small phone screens stay fair
         const lit = [[2, 3], [0, 3], ...(lv() > 2 ? [[3, 2]] : [])].filter(([c, r]) => !S.dark.includes(c + ',' + r));
         let best = null, bd = 1e9;
-        for (const [c, r] of lit) for (const hy of [0.05, 0.9, 1.6]) { const o = sq(c, r, v2); const dd = near(W(o.x, hy, o.z, v1)); if (dd < bd) { bd = dd; best = [c, r]; } }
-        if (best && bd < rr * 1.1) {
-          if (best[0] === 2 && best[1] === 3) { chessMove(); return true; }
-          S.wrong++; S.dark.push(best[0] + ',' + best[1]); ctx.oops('לא לשם 🙂 משם הפרש לא מגיע למלך הלבן 👑 נסה משבצת זוהרת אחרת'); return true;
-        }
+        for (const [c, r] of lit) for (const hy of [0.9, 1.5]) { const o = sq(c, r, v2); const dd = near(W(o.x, hy, o.z, v1)); if (dd < bd) { bd = dd; best = [c, r]; } }
+        if (best && bd < rr * 0.7) return pickSquare(best[0], best[1]);
       }
       const ndc = new Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1), rc = new Raycaster(); rc.setFromCamera(ndc, camera);
       const hit = rc.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), -Y()), v1); if (!hit) return false;
       const c = Math.round((v1.x - BOARD.x0) / BOARD.s), r = Math.round((BOARD.z0 - v1.z) / BOARD.s);
       if (c < 0 || c > 5 || r < 0 || r > 5) return false;
-      if (c === 2 && r === 3) { chessMove(); return true; }
-      S.wrong++;
-      // levels 2-3: a lit distractor goes dark after a try, so every wrong tap narrows the choice (always beatable)
-      if (lv() > 1 && ((c === 0 && r === 3) || (lv() > 2 && c === 3 && r === 2))) { S.dark.push(c + ',' + r); ctx.oops('לא לשם 🙂 משם הפרש לא מגיע למלך הלבן 👑 נסה משבצת זוהרת אחרת'); return true; }
-      ctx.oops('לא לשם 🙂 נסה את המשבצת הזוהרת'); return true;
+      return pickSquare(c, r);
     }
     if (step === 4 && cur === 4 && !S.potion) {
       let bi = -1, bd = 1e9; P.potions.bpos.forEach((b, i) => { const d = near(v1.copy(b).add(S.B.g.position).setY(Y() + b.y + 0.3)); if (d < bd) { bd = d; bi = i; } });
@@ -287,6 +280,13 @@ function stoneScene(ctx) {
     return false;
   }
 
+  function pickSquare(c, r) {
+    if (c === 2 && r === 3) { chessMove(); return true; }
+    S.wrong++;
+    // levels 2-3: a lit distractor goes dark after a try, so every wrong tap narrows the choice (always beatable)
+    if (lv() > 1 && ((c === 0 && r === 3) || (lv() > 2 && c === 3 && r === 2)) && !S.dark.includes(c + ',' + r)) { S.dark.push(c + ',' + r); ctx.oops('לא לשם 🙂 משם הפרש לא מגיע למלך הלבן 👑 נסה משבצת זוהרת אחרת'); return true; }
+    ctx.oops('לא לשם 🙂 נסה את המשבצת הזוהרת'); return true;
+  }
   // ---- where the arrow points ----
   function goal(step, out) {
     if (step === 0 && interiors.active === 'staircase') return out.set(STAIR_DOOR.x, Y(), STAIR_DOOR.z - 0.6);
