@@ -74,9 +74,14 @@ function polyScene(ctx) {
   const Y = FLOOR_Y;
   const RW = (x, y, z, out = new Vector3()) => out.set(x, y, z).add(interiors.room.group.position);
   // the recipe: a shuffled order of the colours in use; jar k: 0..2 are found round the room, 3.. wait on the bench
-  const order = Array.from({ length: need() }, (_, i) => i);
-  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-  const jar = order.map((_, k) => ({ k, st: k < 3 ? 'hide' : 'bench', t: 0, from: new Vector3(), to: new Vector3(), pos: new Vector3() }));
+  // (filled in begin(): the level is not known yet while adventures.js creates the scene)
+  const order = [], jar = [];
+  function init() {
+    if (order.length) return;
+    for (let i = 0; i < need(); i++) order.push(i);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    order.forEach((_, k) => jar.push({ k, st: k < 3 ? 'hide' : 'bench', t: 0, from: new Vector3(), to: new Vector3(), pos: new Vector3() }));
+  }
   const brewCol = MURK.clone();
 
   // ---------------- "Goyle": wider + a green tint on Harry's own model; always undone ----------------
@@ -345,7 +350,7 @@ function polyScene(ctx) {
   }
 
   function begin(step, resumed) {
-    S.active = true; BATH.myrtle = true;
+    init(); S.active = true; BATH.myrtle = true;
     if (step === 4) goyleOn();
     if (step === 1 && !resumed) ctx.say('אנחנו צריכים שלושה מרכיבים. הם מוסתרים כאן בחדר 🫙', null, 4);
     if (step === 2 && !resumed) ctx.say('עכשיו לבשל! הצבעים במתכון אומרים מה לשים, מימין לשמאל 🧪', null, 4.5);

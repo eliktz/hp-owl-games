@@ -73,10 +73,10 @@ function wallScene(ctx) {
   S.casts0 = casts();
   const RW = (x, y, z, out = new Vector3()) => out.set(x, y, z).add(interiors.room.group.position);
   // the library books: which slot holds the cauldron book
-  const nB = BOOKS[lv()] || 3;
-  const right = Math.floor(Math.random() * nB);
+  // (set in begin(): the level is not known yet while adventures.js creates the scene)
+  let nB = 3, right = 0, bookZ = [], inited = false;
+  function init() { if (inited) return; inited = true; nB = BOOKS[lv()] || 3; right = Math.floor(Math.random() * nB); bookZ = Array.from({ length: nB }, (_, i) => (i - (nB - 1) / 2) * 0.46); }
   const others = ['star', 'moon', 'leaf'];
-  const bookZ = Array.from({ length: nB }, (_, i) => (i - (nB - 1) / 2) * 0.46);
 
   // ---- the staircase hall dressing (added to the live room while the quest needs it) ----
   function dressHall(step) {
@@ -304,7 +304,7 @@ function wallScene(ctx) {
   }
 
   function begin(step, resumed) {
-    S.active = true;
+    init(); S.active = true;
     if (step === 3 && S.D) { dropCat(); addSpiders(); }
     if (step === 1 && !resumed) { /* the arrow sits under the writing */ }
     if (step === 2 && !resumed) ctx.say('גברת נוריס קפואה! 🧊 אבל היא רק ישנה עמוק. פרופסור ספראוט השאירה כאן שיקוי מנדרייק 🧴', null, 4.5);
