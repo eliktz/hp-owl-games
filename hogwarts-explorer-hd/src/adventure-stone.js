@@ -16,6 +16,8 @@ import { B2CAR } from './adventure-b2-car.js';
 import { B2DOBBY } from './adventure-b2-dobby.js';
 import { B2WALL } from './adventure-b2-wall.js';
 import { B2POLY } from './adventure-b2-polyjuice.js';
+import { B2DIARY } from './adventure-b2-diary.js';
+import { B2CHAMBER } from './adventure-b2-chamber.js';
 import { buildChambers, drawMirror, SPOTS, DOOR_Z, zc, sq, BOARD, COLOURS, FLOOR_Y, FONT, N } from './adventure-stone-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };
@@ -46,8 +48,8 @@ export const QUESTS = [
   B2DOBBY,
   B2WALL,
   B2POLY,
-  { id: 'b2-diary', book: 2, title: 'היומן הסודי', ico: '📓', soon: true, col: '#2a2a3a', col2: '#8a8ab0', pic: [['📓', 0.5, 0.55, 66], ['✒️', 0.8, 0.3, 30]] },
-  { id: 'b2-chamber', book: 2, title: 'אל תוך החדר', ico: '🐦‍🔥', soon: true, col: '#2a2a4a', col2: '#6a6ab0', pic: [['🔥', 0.5, 0.55, 66], ['🎩', 0.2, 0.3, 30], ['⚔️', 0.8, 0.3, 30]] },
+  B2DIARY,
+  B2CHAMBER,
 ];
 
 // The chambers interior: always registered (built from the quest's progress at build time, or for free play).

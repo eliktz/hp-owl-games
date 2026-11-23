@@ -139,6 +139,7 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
   #advBook .card canvas{width:100%;height:auto;border-radius:10px;display:block}
   #advBook .card .t{font-size:19px;font-weight:bold;line-height:1.15;text-align:center;min-height:2.3em;display:flex;align-items:center}
   #advBook .card .s{font-size:17px;font-weight:bold;padding:4px 12px;border-radius:14px;background:#7a3a12;color:#ffe9a8;white-space:nowrap}
+  #advBook .sec.gold{color:#fff3b0;text-shadow:0 2px 0 #000,0 0 14px rgba(255,215,106,.95)}
   #advBook .card.soon{filter:grayscale(.7);opacity:.75;cursor:default} #advBook .card.soon .s{background:#7a7064}
   #advBook .card.done .s{background:#2e6a2a}
   #advBook .card .star{position:absolute;top:2px;left:6px;font-size:28px;filter:drop-shadow(0 0 6px rgba(255,200,60,.9))}
@@ -231,6 +232,11 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
       c.dataset.state = st;
       c.querySelector('.s').textContent = { soon: 'בקרוב', locked: '🔒', open: '▶ להתחיל', resume: '▶ להמשיך (' + (save.cur ? save.cur.step + 1 : 1) + '/' + (q.steps ? q.steps.length : 0) + ')', done: '⭐ לשחק שוב' }[st];
       c.querySelector('.star').textContent = save.done[q.id] ? '⭐' : '';
+    }
+    // a section's title gets a gold ⭐ when it has no stubs left and all its quests are done
+    for (const sec of pages.querySelectorAll('.sec')) {
+      const b = sec.dataset.book, qs = QUESTS.filter(q => String(q.book || 1) === b), all = qs.length && qs.every(q => !q.soon && save.done[q.id]);
+      sec.textContent = BOOKS[b] + (all ? ' ⭐' : ''); sec.classList.toggle('gold', !!all);
     }
   }
   function openBook() {
@@ -397,6 +403,11 @@ export function createAdventures({ scene, camera, player, interiors, fun, freeca
     save.done[q.id] = { stars: 1, lv: Math.max(run.lv, d ? d.lv : 1), n: (d ? d.n : 0) + 1 };
     save.cur = null; persist(); log.finishes++;
     showCard(q);
+    if (q.bonus && !d) {   // a quest's extra house points, the first time only (once per save)
+      try { window.HPLessons.progress.bonus(q.bonus); } catch { /* lessons not loaded */ }
+      log.bonus = (log.bonus || 0) + q.bonus;
+      setTimeout(() => { try { fun.toast('🏆', '+' + q.bonus + ' נקודות לבית!', 2600); } catch { /* ok */ } }, 7200);
+    }
     try { window.HPLessons.progress.bonus(10); } catch { /* lessons not loaded */ }
     setTimeout(() => { try { fun.toast('📖⭐', 'כוכב בספר ההרפתקאות!', 2600); } catch { /* ok */ } }, 4400);
     end(true);
