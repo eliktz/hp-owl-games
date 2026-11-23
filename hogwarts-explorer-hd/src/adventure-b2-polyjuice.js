@@ -86,13 +86,13 @@ function polyScene(ctx) {
     S.gk = G;
     try {
       for (const c of player.model.children) { G.kids.push([c, c.scale.clone()]); c.scale.set(c.scale.x * 1.45, c.scale.y * 1.04, c.scale.z * 1.4); }
-      player.model.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { if (!m || !m.color || G.mats.has(m)) continue; G.mats.set(m, m.color.clone()); m.color.multiply(TINT); } });
+      player.model.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { if (!m || !m.color || G.mats.has(m)) continue; G.mats.set(m, [m.color.clone(), m.emissive ? m.emissive.clone() : null, m.emissiveIntensity]); m.color.multiply(TINT); if (m.emissive) { m.emissive.setHex(0x2a7a2a); m.emissiveIntensity = 0.45; } } });
     } catch (e) { goyleOff(); console.warn('[b2-polyjuice] goyle skipped -', e && e.message || e); }
   }
   function goyleOff() {
     const G = S.gk; if (!G) return; S.gk = null;
     for (const [c, s] of G.kids) { try { c.scale.copy(s); } catch { /* keep going */ } }
-    for (const [m, c] of G.mats) { try { m.color.copy(c); } catch { /* keep going */ } }
+    for (const [m, [c, e, ei]] of G.mats) { try { m.color.copy(c); if (e && m.emissive) m.emissive.copy(e); if (ei !== undefined) m.emissiveIntensity = ei; } catch { /* keep going */ } }
   }
 
   // ---------------- the Entrance Hall door (the troll quest's door, our own copy + portal while we run) ----------------
