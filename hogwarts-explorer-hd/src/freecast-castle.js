@@ -904,5 +904,15 @@ export function createCastle({ scene, camera, player, interiors, env, fun, emit,
     wilt() { LS.pot.last = -1e9; if (yard) yard.wilt(); },
     yard: () => (yard ? yard.api : null),
   };
-  return { targets, SP, api, onLumos: (on) => { if (yard) yard.onLumos(on); }, setPerch: (fn) => { extraPerch = fn; } };
+  // batch 10 (Finite Incantatem, freecast-batch10.js): end what the wheel left running here; near(worldPoint) = in reach. Returns the ids undone.
+  function finite(near) {
+    const out = [];
+    if (MX.t >= 0 && MX.t < MX.dur - 1.2) { MX.t = MX.dur - 1.2; out.push('maxima'); }
+    if (AV.t >= 0 && AV.t < AV.dur - 0.8) { AV.t = AV.perch ? Math.max(AV.t, PCH.leave) : AV.dur - 0.8; out.push('avis'); }
+    if (hallLive() && HS.vase.bloomed && near(hP('vase', HALL.vase.x, 1.3, HALL.vase.z, v2))) { HS.vase.bloomed = false; HS.vase.k = 0; out.push('hall-vase'); }
+    if (libLive() && LS.pot.bloomed && !LS.pot.pend && near(lW(LIB.pot.x, 0.7, LIB.pot.z, v2))) { LS.pot.bloomed = false; LS.pot.k = 0; LS.pot.growTo = 1; out.push('lib-pot'); }
+    if (yard && yard.finite) out.push(...yard.finite(near));
+    return out;
+  }
+  return { targets, SP, api, finite, onLumos: (on) => { if (yard) yard.onLumos(on); }, setPerch: (fn) => { extraPerch = fn; } };
 }

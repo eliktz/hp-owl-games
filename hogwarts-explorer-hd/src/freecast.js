@@ -27,6 +27,7 @@ import { createReal } from './freecast-real.js';
 import { createRealObjects } from './freecast-real-objects.js';
 import { createRealThings } from './freecast-real-things.js';
 import { speak as voiceSpeak } from './voice.js';
+import { createBatch10 } from './freecast-batch10.js';
 
 const KEY = 'hpFreecast1';
 export const SPELLS = [
@@ -54,6 +55,13 @@ export const SPELLS = [
   { key: 'glacius', icon: '❄️', name: 'גְּלַצְיוּס', words: 'גְּלַצְיוּס!', col: 0x8ad8ff },
   { key: 'periculum', icon: '🎆', name: 'פֶּרִיקוּלוּם', words: 'פֶּרִיקוּלוּם!', col: 0xff4a3a },
   { key: 'ascendio', icon: '🚀', name: 'אַסְצֶנְדִיוֹ', words: 'אַסְצֶנְדִיוֹ!', col: 0xffe27a },
+  // batch 10 (freecast-batch10.js): the wheel goes to 30
+  { key: 'finite', icon: '🔄', name: 'פִינִיטֶה אִינְקַנְטָטֶם', words: 'פִינִיטֶה אִינְקַנְטָטֶם!', col: 0xdfe8ff },
+  { key: 'pointme', icon: '🧭', name: 'פּוֹינְט מִי', words: 'פּוֹינְט מִי!', col: 0xffd76a },
+  { key: 'herbivicus', icon: '🌱', name: 'הֶרְבִּיוִיקוּס', words: 'הֶרְבִּיוִיקוּס!', col: 0x8ae07a },
+  { key: 'diffindo', icon: '✂️', name: 'דִּיפִינְדוֹ', words: 'דִּיפִינְדוֹ!', col: 0xffb0d0 },
+  { key: 'sonorus', icon: '📢', name: 'סוֹנוֹרוּס', words: 'סוֹנוֹרוּס!', col: 0xffc860 },
+  { key: 'glisseo', icon: '🛝', name: 'גְּלִיסֵאוֹ', words: 'גְּלִיסֵאוֹ!', col: 0x9ae0ff },
 ];
 const BYKEY = Object.fromEntries(SPELLS.map(s => [s.key, s]));
 const COOL = 0.8;                 // seconds of game time between casts (the wand's own is 0.55)
@@ -96,7 +104,7 @@ function glowTexture() {
 const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-export function createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal, isTakeover, registerOutdoor }) {
+export function createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal, isTakeover, setTakeover, registerOutdoor }) {
   const pos = player.pos;
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { saved = {}; }
@@ -121,19 +129,19 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   #fcWheel .hd{display:flex;align-items:center;gap:18px;color:#ffe9a8;font-size:28px;font-weight:bold;text-shadow:0 2px 0 #000}
   #fcWheel .cnt{font-size:20px;padding:2px 12px;border-radius:16px;background:rgba(255,215,106,.18);border:2px solid rgba(255,215,106,.6)}
   #fcWheel .pan{max-height:calc(100vh - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch}
-  #fcWheel .grid{display:grid;grid-template-columns:repeat(8,min(140px,calc((96vw - 112px) / 8)));gap:10px}
-  #fcWheel .sp{position:relative;height:min(132px,calc((100vh - 128px) / 3 - 10px));border-radius:22px;border:4px solid rgba(255,215,106,.55);background:rgba(40,25,95,.85);color:#fff;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 3px;cursor:pointer;touch-action:manipulation;font-family:inherit;box-sizing:border-box}
-  #fcWheel .sp .i{font-size:min(52px,calc((100vh - 128px) / 3 - 66px));line-height:1.05}
-  #fcWheel .sp .n{font-size:max(13px,min(17px,1.42vw));font-weight:bold;line-height:1.12;text-align:center;color:#ffe9a8;overflow-wrap:anywhere}
+  #fcWheel .grid{display:grid;grid-template-columns:repeat(10,min(132px,calc((96vw - 130px) / 10)));gap:10px}
+  #fcWheel .sp{position:relative;height:min(132px,calc((100vh - 128px) / 3 - 10px));border-radius:20px;border:4px solid rgba(255,215,106,.55);background:rgba(40,25,95,.85);color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;cursor:pointer;touch-action:manipulation;font-family:inherit;box-sizing:border-box;min-width:0;overflow:hidden}
+  #fcWheel .sp .i{font-size:min(48px,calc((100vh - 128px) / 3 - 66px),5vw);line-height:1.05}
+  #fcWheel .sp .n{font-size:max(12px,min(16px,1.3vw));font-weight:bold;line-height:1.12;text-align:center;color:#ffe9a8;overflow-wrap:anywhere}
   #fcWheel .sp.on{border-color:#fff3b0;background:radial-gradient(circle at 50% 30%,rgba(140,105,255,.95),rgba(60,35,140,.95));box-shadow:0 0 0 4px rgba(255,215,106,.5),0 0 22px rgba(255,215,106,.8)}
-  #fcWheel .sp .st{position:absolute;top:3px;left:7px;font-size:18px}
-  @media (max-aspect-ratio:1/1){#fcWheel .pan{padding:12px 10px 12px} #fcWheel .grid{grid-template-columns:repeat(3,min(calc((96vw - 44px) / 3),200px));gap:8px}
-    #fcWheel .sp{height:min(124px,calc((100vh - 132px) / 8 - 8px));padding:3px 2px;border-width:3px;gap:2px} #fcWheel .sp .i{font-size:min(46px,11vw,calc((100vh - 132px) / 8 - 62px))} #fcWheel .sp .n{font-size:max(14px,min(18px,3.6vw))}
-    #fcWheel .sp .st{font-size:15px;top:2px;left:5px}}
-  @media (max-height:520px){#fcWheel .pan{padding:6px 12px 8px;gap:5px} #fcWheel .hd{font-size:20px} #fcWheel .cnt{font-size:16px}
-    #fcWheel .grid{grid-template-columns:repeat(8,min(150px,calc((96vw - 70px) / 8)));gap:5px} #fcWheel .sp{height:min(108px,calc((100vh - 70px) / 3 - 6px));border-radius:16px;gap:1px;border-width:3px;padding:3px 2px}
-    #fcWheel .sp .i{font-size:32px} #fcWheel .sp .n{font-size:13px} #fcWheel .sp .st{font-size:14px;top:2px;left:4px}}
+  #fcWheel .sp .st{position:absolute;top:3px;left:7px;font-size:16px}
+  @media (max-aspect-ratio:1/1){#fcWheel .pan{padding:10px 8px 10px} #fcWheel .grid{grid-template-columns:repeat(5,min(calc((96vw - 52px) / 5),170px));gap:6px}
+    #fcWheel .sp{height:min(124px,calc((100vh - 120px) / 6 - 6px));padding:3px 1px;border-width:3px;gap:1px;border-radius:16px} #fcWheel .sp .i{font-size:min(44px,9vw,calc((100vh - 120px) / 6 - 60px))} #fcWheel .sp .n{font-size:max(12px,min(17px,3.3vw))}
+    #fcWheel .sp .st{font-size:13px;top:2px;left:4px}}
+  @media (max-height:520px){#fcWheel .pan{padding:6px 10px 8px;gap:5px} #fcWheel .hd{font-size:20px} #fcWheel .cnt{font-size:16px}
+    #fcWheel .grid{grid-template-columns:repeat(10,min(140px,calc((96vw - 76px) / 10)));gap:5px} #fcWheel .sp{height:min(108px,calc((100vh - 70px) / 3 - 6px));border-radius:14px;gap:1px;border-width:3px;padding:3px 1px}
+    #fcWheel .sp .i{font-size:30px} #fcWheel .sp .n{font-size:12px} #fcWheel .sp .st{font-size:13px;top:2px;left:4px}}
   body.modalOn #fcBtn,body.inMatch #fcBtn,body.inSpell #fcBtn,body.modalOn #fcWheel,body.inMatch #fcWheel,body.inSpell #fcWheel{display:none !important}`;
   document.head.appendChild(css);
   const btn = document.createElement('button'); btn.id = 'fcBtn'; btn.className = 'gamebtn'; btn.setAttribute('aria-label', 'בְּחַר לַחַשׁ');
@@ -687,6 +695,13 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     if (K && K.setPerch) K.setPerch(RT.perch);
     if (RL) { RL.api.things = RT.api; const a1 = RL.api.aim; RL.api.aim = (id, d) => a1(id, d) || RT.api.aim(id, d); }
   } catch (e) { console.warn('[freecast] real things skipped -', e && e.message || e); RT = null; }
+  // ================= batch 10 (freecast-batch10.js): Finite Incantatem, Point Me, Herbivicus, Diffindo, Sonorus, Glisseo =================
+  let B10 = null;
+  try {
+    B10 = createBatch10({ scene, camera, player, interiors, env, heightAt, fun, emit, burst, stream, tip, tipV, glowTex, best, BYKEY, TARGETS, SP, glyph, REACH,
+      parts: { D, K, RL, RO, RT }, lumos: { isOn: () => lumOn }, getSel: () => st.sel, isBusy: () => isModal() || isTakeover(), setTakeover });
+    Object.assign(SP, B10.SP);
+  } catch (e) { console.warn('[freecast] batch 10 skipped -', e && e.message || e); B10 = null; }
   for (const k of ['expelliarmus', 'stupefy', 'protego', 'riddikulus', 'petrificus']) if (!SP[k]) SP[k] = { noFallback: true, cast() { if (k === 'riddikulus' || k === 'protego') { tip(); burst(tipV.x, tipV.y, tipV.z, BYKEY[k].col, 16, 2, 0.8, 0.22, -1); if (k === 'riddikulus') fun.sfx.giggle(true); else fun.sfx.chime(); } else boltAhead(BYKEY[k].col); return false; } };
 
   // ================= casting =================
@@ -752,6 +767,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     duel: () => (D ? { x: DUEL.x, z: DUEL.z, y: D.Y0, visible: D.group.visible, show: { x: +(D.SHOW.x + DUEL.x).toFixed(2), z: +(D.SHOW.z + DUEL.z).toFixed(2) } } : null),
     _cool() { cool = 0; },
     castle: K ? K.api : null,
+    batch10: B10 ? B10.api : null,
     real: RL ? RL.api : (RO || RT ? { objects: RO ? RO.api : null, things: RT ? RT.api : null } : null),
   };
   api._internal = { scene, emit, burst, stream, tip, tipBurst, TARGETS, SP, st, persist, glowTex, log, D, K };

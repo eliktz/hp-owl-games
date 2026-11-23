@@ -173,6 +173,8 @@ export function createCorridorFree({ camera, player, interiors, fun, freecast, s
       ok: () => active() && room() === 0 && !S.played, cast: () => playHarp() });
     T.push({ id: 'free-fluffy', spells: SPELLKEYS, at: (o) => W(SPOTS.fluffy.x, 1.3, SPOTS.fluffy.z + 1.6, o), ok: () => active() && room() === 0, cast: (k) => fluffyNo(k || true) });
     T.push({ id: 'free-snare', spells: ['incendio'], at: (o) => W(SPOTS.snare.x, SPOTS.snare.y, SPOTS.snare.z, o), ok: () => active() && room() === 1 && !S.snare, cast: () => { S.castHit = true; clearSnare('incendio'); } });
+    // batch 10 (freecast-batch10.js): Herbivicus turns the Snare into harmless blossoms (that file draws the blossoms, says the line, pays)
+    T.push({ id: 'free-snare-bloom', spells: ['herbivicus'], at: (o) => W(SPOTS.snare.x, SPOTS.snare.y, SPOTS.snare.z, o), ok: () => active() && room() === 1 && !S.snare, cast: () => { S.castHit = true; clearSnare('herbivicus', true); } });
     T.push({ id: 'free-key', spells: ['accio', 'leviosa'], at: (o) => { if (B && B.P) { B.P.keys.sk.getWorldPosition(o); return o; } return o.set(0, -999, 0); }, ok: () => active() && room() === 2 && !S.keyT && !S.open2 && !S.unlockT, cast: (k) => catchKey(k) });
     T.push({ id: 'free-lock', spells: ['alohomora'], at: (o) => W(SPOTS.lock.x, SPOTS.lock.y, SPOTS.lock.z, o), ok: () => active() && room() === 2 && !S.open2 && !S.unlockT && !S.keyT, cast: () => unlock() });
     T.push({ id: 'free-queen', spells: ['reparo'], at: (o) => W(SPOTS.topple.x, 0.4, SPOTS.topple.z + 0.8, o), ok: () => active() && room() === 3 && !S.mended && !S.mendT, cast: () => mendQueen() });

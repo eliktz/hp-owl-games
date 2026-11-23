@@ -670,5 +670,17 @@ export function createDuel({ scene, camera, player, heightAt, fun, emit, burst, 
       if (group.visible !== vis) group.visible = vis;
     },
   };
-  return { group, statMesh, skin, shield, targets, SP: SPX, DUM, Y0, SHOW, IN };
+  // batch 10 (Finite Incantatem, freecast-batch10.js): the jig / the giggles end gently (their own fade-out); returns the ids
+  function finite(near) {
+    const out = [];
+    if (!group.visible) return out;
+    for (const d of DUM) {
+      if (!near(v0.set(d.x, d.y + 1.3, d.z).add(group.position))) continue;
+      if (d.danceT >= 0 && d.danceT < DANCE5 - 0.5) { d.danceT = DANCE5 - 0.5; out.push('dummy' + d.i); }
+      if (d.gigT >= 0 && d.gigT < GIG5 - 0.5) { d.gigT = GIG5 - 0.5; if (!out.includes('dummy' + d.i)) out.push('dummy' + d.i); }
+    }
+    if (wr.gigT >= 0 && wr.gigT < 2.9 && near(wLocal(0, 1.1, 0.35, v0).add(group.position))) { wr.gigT = 2.9; out.push('wardrobe'); }
+    return out;
+  }
+  return { group, statMesh, skin, shield, targets, SP: SPX, DUM, Y0, SHOW, IN, finite };
 }

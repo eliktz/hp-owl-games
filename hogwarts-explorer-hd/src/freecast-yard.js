@@ -572,6 +572,8 @@ export function createYard({ scene, camera, player, interiors, fun, emit, burst,
   const meshCount = (g) => { let n = 0; if (g) g.traverse(o => { if (o.isMesh) n++; }); return n; };
   return {
     SP, tick, maxima, perch, onLumos,
+    // batch 10 (Finite Incantatem): the planter's Orchideous flowers go (the bed itself stays)
+    finite(near) { if (!yardOn() || !PLs.bloomed || PLs.pend || !near(L('planter', 0.75, v2))) return []; PLs.bloomed = false; PLs.growTo = 1; return ['yard-planter']; },
     wilt() { PLs.last = -1e9; },
     spots: () => ({
       courtyard: { x: YARD.x, z: YARD.z, yaw: YARD.yaw, y: +Y0.toFixed(2), visible: yardRoot.visible, meshes: meshCount(yardRoot),

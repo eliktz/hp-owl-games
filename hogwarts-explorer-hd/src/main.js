@@ -276,7 +276,7 @@ async function boot() {
       env.amb.intensity = AMB + (a - AMB) * k; env.hemi.intensity = HEMI + (h - HEMI) * k;
     }); }
   let freecast = null;   // free-play spell wheel (freecast.js); any failure -> simply the plain wand
-  try { freecast = createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal: () => modal, isTakeover: () => !!takeover, registerOutdoor: (o) => outdoorRoots.push(o) }); hooks.push((dt, inside) => freecast.update(dt, inside)); } catch (e) { console.warn('[freecast] disabled -', e && e.message || e); freecast = null; }
+  try { freecast = createFreecast({ scene, camera, player, interiors, heightAt, delight, env, isModal: () => modal, isTakeover: () => !!takeover, setTakeover, registerOutdoor: (o) => outdoorRoots.push(o) }); hooks.push((dt, inside) => freecast.update(dt, inside)); } catch (e) { console.warn('[freecast] disabled -', e && e.message || e); freecast = null; }
   let showers = null;   // the shower hall's play (showers.js): idle unless the hall is the room
   try { showers = createShowers({ scene, camera, player, interiors, delight, freecast, env }); hooks.push((dt) => showers.update(dt)); } catch (e) { console.warn('[showers] disabled -', e && e.message || e); showers = null; }
   let secretRooms = null;   // the locked doors + reward rooms (secret-rooms.js): Alohomora opens them
