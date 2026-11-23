@@ -51,8 +51,9 @@ function drawSleepyTroll(x, cx, cy) {
 
 // the bathroom interior: always registered (built from the quest's progress at build time)
 let PROGRESS = 0;
+export const BATH = { myrtle: false };   // true while b2-polyjuice runs: the same room, no troll (adventure-b2-polyjuice.js)
 BUILDERS.trollroom = () => {
-  const B = buildTrollRoom(PROGRESS);
+  const B = buildTrollRoom(PROGRESS, { noTroll: BATH.myrtle });
   const g = B.g; g.position.y = FLOOR_Y;
   const portals = [{ x: 0, z: 5.4, r: 0.85, to: 'entrancehall', at: { x: HALL_DOOR.x, z: HALL_DOOR.z - 2.2, yaw: Math.PI } }];
   for (const p of portals) p.armed = false;

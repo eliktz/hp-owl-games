@@ -116,7 +116,7 @@ function tileTex(a, b, n) {
   const t = canvasTex(256, 256, (x) => { const s = 256 / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { x.fillStyle = (i + j) % 2 ? a : b; x.fillRect(i * s, j * s, s, s); } x.strokeStyle = 'rgba(60,40,20,.35)'; x.lineWidth = 2; for (let i = 0; i <= n; i++) { x.beginPath(); x.moveTo(i * s, 0); x.lineTo(i * s, 256); x.stroke(); x.beginPath(); x.moveTo(0, i * s); x.lineTo(256, i * s); x.stroke(); } });
   t.wrapS = t.wrapT = RepeatWrapping; return t;
 }
-export function buildTrollRoom(progress) {
+export function buildTrollRoom(progress, opts = {}) {
   const g = new Group(); g.name = 'adv-trollroom'; const cols = [];
   const WALL = 0xc4a47a, wallM = stoneMat(3.3, 1.6, WALL), LINT = stoneMat(1.2, 0.5, WALL);
   const add = (geo, mat, parent = g) => { const m = new Mesh(geo, mat); parent.add(m); return m; };
@@ -193,9 +193,10 @@ export function buildTrollRoom(progress) {
     x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#5a2a10'; x.font = 'bold 40px ' + FONT; x.fillText('הלו? 👧', 96, 54); }) }));
   bub.name = 'herm-bubble'; bub.visible = false; bub.renderOrder = 5; bub.raycast = () => {}; g.add(bub);
   // the troll
-  const T = buildTroll(); T.root.position.set(TROLL_AT.x, 0, TROLL_AT.z); T.root.rotation.y = Math.PI / 2; g.add(T.root);
-  cols.push({ type: 'circle', x: TROLL_AT.x, z: TROLL_AT.z, r: 1.25 });
-  if (progress >= 3) T.root.rotation.y = -Math.PI / 2;
+  const T = opts.noTroll ? null : buildTroll();   // (b2-polyjuice reuses the room without the troll)
+  if (T) { T.root.position.set(TROLL_AT.x, 0, TROLL_AT.z); T.root.rotation.y = Math.PI / 2; g.add(T.root);
+    cols.push({ type: 'circle', x: TROLL_AT.x, z: TROLL_AT.z, r: 1.25 });
+    if (progress >= 3) T.root.rotation.y = -Math.PI / 2; }
   const light = bakeLight(g, cols);
   return { g, cols, P: { troll: T, doors, mop, bucket, herm, sinks, bub }, light };
 }
