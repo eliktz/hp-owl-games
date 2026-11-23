@@ -535,8 +535,8 @@ export function createBatch10(ctx) {
     SN.casts++; SN.t = 0; SN.place = null; SN.maxOff = 0;
     // the boom: a low drop + a rumble (WebAudio synth, fun.sfx)
     fun.sfx.boom(); fun.sfx.tone(95, 1.1, 'sine', 0.3, 0, 48); fun.sfx.tone(140, 0.6, 'triangle', 0.12, 0.05, 70);
-    for (let i = 0; i < 4; i++) ring(pos.x, pos.y + 1.4, pos.z, 3.5 + i * 1.2, 1.0, 0xffd890, false, i * 0.22, 0.4);
-    ring(pos.x, pos.y + 0.1, pos.z, 7, 1.3, 0xffc860, true, 0.1);
+    for (let i = 0; i < 4; i++) ring(pos.x, pos.y + 1.4, pos.z, 3.5 + i * 1.2, 1.0, 0x9a8450, false, i * 0.22, 0.4);   // (soft: additive rings over the whole view)
+    ring(pos.x, pos.y + 0.1, pos.z, 7, 1.3, 0x8a6a30, true, 0.1);
     const T0 = sonorusTargets(); if (!T0) return null;
     SN.place = T0.id;
     for (const it of T0.list) {
@@ -633,7 +633,8 @@ export function createBatch10(ctx) {
         pos.set(x, GL.Y + y, z); player.yaw = yaw;
         const m = player.model; m.position.copy(pos); m.rotation.y = yaw; m.rotation.x = lean;
         player.animate(dt, { moving: false }, 0);
-        player.cam.update(dt, cam.copy(pos), yaw, true);
+        const C = player.cam; C.yaw += (0.35 - C.yaw) * Math.min(1, dt * 3); C.pitch += (0.22 - C.pitch) * Math.min(1, dt * 3); C.userControlled = false; C.idle = 0;
+        C.update(dt, cam.copy(pos), yaw, false);   // the lens waits down the hall, looking up the slide (behind him would be inside the landing)
       } catch (e) { console.warn('[freecast] glisseo -', e && e.message || e); glEnd(false); }
     } });
   }
