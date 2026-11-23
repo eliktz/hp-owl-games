@@ -61,6 +61,8 @@ const SPOTS = [
   { x: 0.75, y: 4.02, z: -7.25, rx: -Math.PI / 2 + 0.35, ry: 0, rz: 0 },   // leaning on the mantel
 ];
 const SOFA = { x: 1.2, y: 0.62, z: -1.45 };
+const DS = 1.3;     // Dobby's scale (about 1.2 m: he reads clearly over the sofa back)
+const HS = 1.3;     // the Herbology corner's scale (bigger mandrakes and pots for small fingers)
 
 function dobbyScene(ctx) {
   const { interiors, player, fun, freecast, burst, emit, camera, scene } = ctx;
@@ -88,7 +90,7 @@ function dobbyScene(ctx) {
     const r = interiors.room; if (!r || !r.group) return;
     const g = r.group;
     if (step <= 2 && !S.dob) {
-      const D = buildDobby(); D.root.position.set(SOFA.x, SOFA.y, SOFA.z); g.add(D.root); S.dob = D;
+      const D = buildDobby(); D.root.position.set(SOFA.x, SOFA.y, SOFA.z); D.root.scale.setScalar(DS); g.add(D.root); S.dob = D;
       S.dobTris = triCount(D.root);
     }
     if (step === 2 && !S.letters.length) {
@@ -107,18 +109,21 @@ function dobbyScene(ctx) {
   function dressHerb() {
     if (S.herb || !outdoors()) return;
     const y0 = player.heightAt ? player.heightAt(HERB.x, HERB.z) : 0;
-    const H = buildHerbology(need(), potCols); H.g.position.set(HERB.x, y0, HERB.z); scene.add(H.g); S.herb = H;
+    const H = buildHerbology(need(), potCols); H.g.position.set(HERB.x, y0, HERB.z); H.g.scale.setScalar(HS); scene.add(H.g); S.herb = H;
     S.mand = []; S.potted = []; S.potFull = new Array(need()).fill(-1);
     for (let i = 0; i < need(); i++) { const m = buildMandrake(RIBBONS[i]); m.g.position.set(H.smallX[i], TABLE_H + 0.1, 0); H.g.add(m.g); S.mand.push({ ...m, i, st: 'pot', t: 0, pot: -1, from: new Vector3(), to: new Vector3() }); }
     H.muffs.visible = !S.muffsOn;
     S.herbTris = triCount(H.g);
   }
   function undressHerb() { if (S.herb && S.herb.g.parent) S.herb.g.parent.remove(S.herb.g); S.herb = null; S.mand = []; }
-  const HWo = (x, y, z, out = new Vector3()) => out.set(x, y, z).add(S.herb.g.position);
-  function headY() { try { const b = new Box3().setFromObject(player.model); const h = b.max.y - player.pos.y; if (h > 0.8 && h < 3) return h; } catch { /* ok */ } return 1.62; }
+  const HWo = (x, y, z, out = new Vector3()) => out.set(x, y, z).multiplyScalar(HS).add(S.herb.g.position);
+  function headY() { try { const b = new Box3().setFromObject(player.model); const h = b.max.y - player.pos.y; if (h > 1.1 && h < 1.95) return h; } catch { /* ok */ } return 1.7; }
+  // the head bone of the rigged Harry (the muffs follow it exactly); null on the chibi fallback
+  function headBone() { let hb = null; try { player.model.traverse(o => { if (!hb && o.isBone && /head$/i.test(o.name) && !/top|end/i.test(o.name)) hb = o; }); } catch { /* ok */ } return hb; }
+  function headAt(out) { if (S.bone && S.bone.parent) { S.bone.getWorldPosition(out); out.y += 0.1; return out; } return out.set(player.pos.x, player.pos.y + S.headY - 0.14, player.pos.z); }
   function wearMuffs() {
     if (S.muffs) return;
-    const m = buildEarmuffs(); m.name = 'adv-earmuffs-worn'; scene.add(m); S.muffs = m; S.headY = headY();
+    const m = buildEarmuffs(); m.name = 'adv-earmuffs-worn'; scene.add(m); S.muffs = m; S.headY = headY(); S.bone = headBone();
   }
   function dropMuffs() { if (S.muffs && S.muffs.parent) S.muffs.parent.remove(S.muffs); S.muffs = null; }
 
@@ -136,7 +141,7 @@ function dobbyScene(ctx) {
     else { S.bye = 0.001; ctx.say('דובי מצטער! דובי ילך עכשיו... להתראות, הארי פוטר! 👋', DOBBY, 4); }
   }
   function takeMuffs() {
-    if (S.muffsOn || ctx.step !== 3 || !S.herb) return; S.muffsOn = 1; S.muffsT = 0.001; sfx('pop');
+    if (S.muffsOn || ctx.step !== 3 || !S.herb) return; S.muffsOn = 1; wearMuffs(); S.muffsT = 0.001; sfx('pop');
     ctx.say('מחממי אוזניים ורודים ופרוותיים! עכשיו אפשר לשלוף מנדרייקים 🎧', '🌿 פרופסור ספראוט', 4);
   }
   function pull(k) {
@@ -176,8 +181,8 @@ function dobbyScene(ctx) {
     if (S.muffs) {
       const k = S.muffsT > 0 && S.muffsT < 1 ? S.muffsT : 1;
       S.muffs.visible = !!player.model.visible;
-      if (S.muffsT > 0 && S.muffsT < 1 && S.herb) { S.muffsT += dt * 1.4; HWo(2.6, 0.53, 0.3, v1); v2.set(player.pos.x, player.pos.y + S.headY - 0.1, player.pos.z); S.muffs.position.lerpVectors(v1, v2, Math.min(1, S.muffsT)); S.muffs.position.y += Math.sin(Math.min(1, S.muffsT) * Math.PI) * 0.8; if (S.muffsT >= 1 && !S.done[3]) { sfx('sparkle'); burst(v2.x, v2.y + 0.2, v2.z, 0xff9ad0, 18, 1.6, 0.8, 0.22, -0.5); setTimeout(() => done(3), 600); } }
-      else S.muffs.position.set(player.pos.x, player.pos.y + S.headY - 0.1, player.pos.z);
+      if (S.muffsT > 0 && S.muffsT < 1 && S.herb) { S.muffsT += dt * 1.4; HWo(2.6, 0.53, 0.3, v1); headAt(v2); S.muffs.position.lerpVectors(v1, v2, Math.min(1, S.muffsT)); S.muffs.position.y += Math.sin(Math.min(1, S.muffsT) * Math.PI) * 0.8; if (S.muffsT >= 1 && !S.muffsDone) { S.muffsDone = 1; sfx('sparkle'); burst(v2.x, v2.y + 0.2, v2.z, 0xff9ad0, 18, 1.6, 0.8, 0.22, -0.5); setTimeout(() => done(3), 600); } }
+      else headAt(S.muffs.position);
       S.muffs.rotation.set(0, player.model.rotation.y, 0); void k;
     }
   }
@@ -188,7 +193,7 @@ function dobbyScene(ctx) {
     const face = Math.atan2(player.pos.x - (SOFA.x + interiors.room.group.position.x), player.pos.z - (SOFA.z + interiors.room.group.position.z));
     R0.rotation.y += (face - R0.rotation.y) * Math.min(1, dt * 3);
     const bounce = S.bye ? 0 : Math.abs(Math.sin(S.t * (S.talk ? 2.2 : 3.4))) * (S.talk ? 0.18 : 0.42);
-    R0.position.y = SOFA.y + bounce; R0.scale.set(1, 1 - Math.max(0, 0.08 - bounce) * 1.2, 1);
+    R0.position.y = SOFA.y + bounce; R0.scale.set(DS, DS * (1 - Math.max(0, 0.08 - bounce) * 1.2), DS);
     D.ears.forEach((e, i) => { e.rotation.z = (i ? -1 : 1) * (0.1 + Math.sin(S.t * (S.talk ? 7 : 3) + i) * (S.talk ? 0.22 : 0.12)); });
     D.arms.forEach((a, i) => { a.rotation.z = (i ? -1 : 1) * (S.talk ? 1.8 + Math.sin(S.t * 8 + i * 2) * 0.5 : 0.25 + Math.sin(S.t * 3.4) * 0.4); });
     if (step === 1 && !S.talk) { if (Math.random() < dt * 3) { RW(SOFA.x, SOFA.y + 1.2 + bounce, SOFA.z, v1); emit(v1.x + (Math.random() - 0.5) * 0.4, v1.y, v1.z, 0, 0.4, 0, 0.8, 0.16, 0xffe07a, 0); } }
@@ -259,7 +264,7 @@ function dobbyScene(ctx) {
     const rr = R();
     const near = (v) => { ctx.screen(v, scr); return scr.on ? Math.hypot(scr.x - x, scr.y - y) : 1e9; };
     if (inCommon() && S.dob && S.dob.root.visible && (step === 1 || step === 2)) {
-      const d = near(RW(SOFA.x, S.dob.root.position.y + 0.55, SOFA.z, v1));
+      const d = near(RW(SOFA.x, S.dob.root.position.y + 0.7, SOFA.z, v1));
       if (step === 1 && d < rr * 1.8) { talk(); return true; }
       if (step === 2) {
         let best = null, bd = 1e9; for (const L of S.letters) { if (L.got) continue; const dd = near(RW(L.sp.x, L.sp.y + 0.05, L.sp.z, v1)); if (dd < bd) { bd = dd; best = L; } }
@@ -345,7 +350,7 @@ function dobbyScene(ctx) {
       herb: !!S.herb, herbTris: S.herbTris || null, muffs: !!S.muffsOn, worn: !!S.muffs, held: S.held, potted: S.mand.filter(m => m.st === 'in').length, wrong: S.wrong, snore: S.snore > 0, order: order.slice() };
   }
   ctx._dobby = {
-    dobbyW: () => (S.dob && inCommon() ? RW(SOFA.x, S.dob.root.position.y + 0.55, SOFA.z) : null),
+    dobbyW: () => (S.dob && inCommon() ? RW(SOFA.x, S.dob.root.position.y + 0.7, SOFA.z) : null),
     letterW: (i) => { const L = S.letters.filter(l => !l.got)[i || 0]; return L && inCommon() ? RW(L.sp.x, L.sp.y + 0.05, L.sp.z) : null; },
     letterSpot: (i) => { const L = S.letters.filter(l => !l.got)[i || 0]; return L ? { ...L.sp } : null; },
     muffsW: () => (S.herb ? HWo(2.6, 0.55, 0.3) : null),

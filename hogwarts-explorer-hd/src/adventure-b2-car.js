@@ -125,7 +125,7 @@ function carScene(ctx) {
     if (scene.fog) L.fog = { c: scene.fog.color.getHex(), d: scene.fog.density };
     S.lit = L;
     for (const { o } of L.lights) { if (o.isHemisphereLight) { o.intensity = 1.05; o.color.setHex(0xd0e4ff); o.groundColor.setHex(0x7a8a5a); } else { o.intensity = 0.95; o.color.setHex(0xfff2e0); } }
-    if (scene.fog && scene.fog.density !== undefined) { scene.fog.density = 0.0042; scene.fog.color.setHex(0xd6e2ea); }
+    if (scene.fog && scene.fog.density !== undefined) { scene.fog.density = 0.0032; scene.fog.color.setHex(0xc4d8e4); }
   }
   function restoreLight() {
     const L = S.lit; if (!L) return; S.lit = null;
@@ -160,7 +160,7 @@ function carScene(ctx) {
     P.lawnG.visible = step >= 3; P.lawnG.position.z = step >= 3 && S.approach >= 1 ? 0 : -230;
     P.ron.visible = P.harry.visible = step === 0; P.car.kids.visible = step > 0;
     P.ron.position.set(-1.6, 0, -0.8); P.harry.position.set(1.6, 0, -0.6);
-    const c = P.car.root; c.position.set(step === 0 ? 0 : LANES[S.lane], 0, 0); c.rotation.set(0, 0, 0); P.car.body.rotation.set(0, 0, 0); P.car.body.position.set(0, 0, 0);
+    const c = P.car.root; c.position.set(step === 0 ? 0 : LANES[S.lane], 0, 0); c.rotation.set(0, 0, 0); P.car.body.scale.set(1, 1, 1); P.car.body.rotation.set(0, 0, 0); P.car.body.position.set(0, 0, 0);
     if (step === 0) S.x = 0;
     P.land.visible = step === 4; P.hoop.visible = false; for (const s of P.shadows) s.visible = false;
     P.stars.count = 0; P.ring.visible = false;

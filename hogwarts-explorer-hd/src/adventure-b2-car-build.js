@@ -41,10 +41,10 @@ export function buildCar() {
   const root = new Group(); root.name = 'b2-car';
   const body = new Group(); root.add(body);   // body bobs / banks; wheels stay on it
   const B = [];
-  B.push(paint(place(new CapsuleGeometry(0.42, 3.0, 4, 14).rotateX(Math.PI / 2), 0, 0.64, 0, 0, 0, 0, 1.9, 0.82, 1), TURQ));      // the round lower body
+  B.push(paint(place(new CapsuleGeometry(0.42, 3.0, 4, 12).rotateX(Math.PI / 2), 0, 0.64, 0, 0, 0, 0, 1.9, 0.82, 1), TURQ));      // the round lower body
   B.push(paint(place(new BoxGeometry(1.5, 0.08, 3.2), 0, 0.98, 0), TURQ2));                                                          // the belt line
   B.push(paint(place(new BoxGeometry(1.36, 0.1, 1.62), 0, 1.47, 0.2), ROOF));                                                         // the white roof
-  B.push(paint(place(S(14, 6).scale(1, 0.5, 1), 0, 1.5, 0.2, 0, 0, 0, 0.68, 0.14, 0.82), ROOF));                                     // its rounded top
+  B.push(paint(place(S(12, 6), 0, 1.5, 0.2, 0, 0, 0, 0.7, 0.1, 0.84), ROOF));                                     // its rounded top
   for (const [x, z] of [[-0.64, -0.58], [0.64, -0.58], [-0.64, 0.98], [0.64, 0.98], [-0.66, 0.2], [0.66, 0.2]]) B.push(paint(place(new BoxGeometry(0.07, 0.5, 0.07), x, 1.2, z), ROOF));   // pillars
   for (const sx of [-1, 1]) {                                                                                                          // tail fins + chrome strip
     B.push(paint(place(new BoxGeometry(0.1, 0.26, 0.7), sx * 0.7, 1.02, 1.55, -0.25, 0, 0), TURQ));
@@ -54,31 +54,31 @@ export function buildCar() {
   B.push(paint(place(new BoxGeometry(1.66, 0.14, 0.14), 0, 0.42, 1.92), CHROME));
   B.push(paint(place(new TorusGeometry(0.34, 0.045, 6, 14, Math.PI), 0, 0.66, -1.88, 0, 0, Math.PI), CHROME));                          // the grille: a big smile
   for (const sx of [-1, 1]) {                                                                                                          // headlight rims + pupils (eyes)
-    B.push(paint(place(new TorusGeometry(0.19, 0.035, 6, 14), sx * 0.48, 0.8, -1.84), CHROME));
+    B.push(paint(place(new TorusGeometry(0.19, 0.035, 5, 10), sx * 0.48, 0.8, -1.84), CHROME));
     B.push(paint(place(S(10, 6), sx * 0.45, 0.82, -2.0, 0, 0, 0, 0.075, 0.085, 0.03), DARK));
     B.push(paint(place(S(6, 4), sx * 0.42, 0.86, -2.02, 0, 0, 0, 0.025, 0.025, 0.01), 0xffffff));
     B.push(paint(place(new BoxGeometry(0.16, 0.12, 0.05), sx * 0.58, 0.82, 1.97), 0xc0302a));                                          // tail lights
   }
   const W = [];
   for (const [x, z] of [[-0.74, -1.2], [0.74, -1.2], [-0.74, 1.15], [0.74, 1.15]]) {
-    W.push(paint(place(new CylinderGeometry(0.3, 0.3, 0.22, 14), x, 0.3, z, 0, 0, Math.PI / 2), TYRE));
-    W.push(paint(place(new CylinderGeometry(0.16, 0.16, 0.24, 10), x, 0.3, z, 0, 0, Math.PI / 2), CHROME));
+    W.push(paint(place(new CylinderGeometry(0.3, 0.3, 0.22, 10), x, 0.3, z, 0, 0, Math.PI / 2), TYRE));
+    W.push(paint(place(new CylinderGeometry(0.16, 0.16, 0.24, 8, 1), x, 0.3, z, 0, 0, Math.PI / 2), CHROME));
   }
   const mat = vc({ roughness: 0.45, metalness: 0.15 });
   const bodyMesh = new Mesh(merge([...B, ...W]), mat); bodyMesh.name = 'car-body'; body.add(bodyMesh);
   // Ron (left, red hair) and Harry (right, black hair + round glasses) inside: heads and shoulders, under the glass
   const P = [];
   for (const [x, hair, glasses] of [[-0.34, 0xc0521c, false], [0.34, 0x2a1a14, true]]) {
-    P.push(paint(place(S(10, 8), x, 0.98, 0.25, 0, 0, 0, 0.26, 0.2, 0.22), 0x2a2030));                                                 // robe shoulders
-    P.push(paint(place(S(12, 10), x, 1.22, 0.22, 0, 0, 0, 0.17, 0.18, 0.17), SKIN));                                                    // head
-    P.push(paint(place(Cap(12, 6), x, 1.24, 0.25, 0.45, 0, 0, 0.185, 0.19, 0.19), hair));                                                  // hair cap
-    if (glasses) for (const sx of [-1, 1]) P.push(paint(place(new TorusGeometry(0.045, 0.01, 4, 10), x + sx * 0.06, 1.24, 0.05), DARK));
+    P.push(paint(place(S(8, 5), x, 0.98, 0.25, 0, 0, 0, 0.26, 0.2, 0.22), 0x2a2030));                                                 // robe shoulders
+    P.push(paint(place(S(10, 7), x, 1.22, 0.22, 0, 0, 0, 0.17, 0.18, 0.17), SKIN));                                                    // head
+    P.push(paint(place(Cap(10, 4), x, 1.24, 0.25, 0.45, 0, 0, 0.185, 0.19, 0.19), hair));                                                  // hair cap
+    if (glasses) for (const sx of [-1, 1]) P.push(paint(place(new TorusGeometry(0.045, 0.01, 3, 8), x + sx * 0.06, 1.24, 0.05), DARK));
     for (const sx of [-1, 1]) P.push(paint(place(S(6, 4), x + sx * 0.06, 1.24, 0.06, 0, 0, 0, 0.02), DARK));                            // eyes
   }
   const kids = new Mesh(merge(P), mat); kids.name = 'car-kids'; body.add(kids);
-  const glass = new Mesh(merge([place(new BoxGeometry(1.3, 0.46, 1.58), 0, 1.2, 0.2)]), new MeshStandardMaterial({ color: 0x9ac8e0, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.3, depthWrite: false }));
+  const glass = new Mesh(merge([place(new BoxGeometry(1.3, 0.46, 1.58), 0, 1.2, 0.2)]), new MeshStandardMaterial({ color: 0x7aaec8, roughness: 0.15, metalness: 0.3, transparent: true, opacity: 0.5, depthWrite: false }));
   glass.name = 'car-glass'; glass.renderOrder = 3; body.add(glass);
-  const lamps = new Mesh(merge([0, 1].map(i => place(new SphereGeometry(0.17, 14, 10), (i ? 1 : -1) * 0.48, 0.8, -1.84, 0, 0, 0, 1, 1, 0.5))), new MeshStandardMaterial({ color: 0xfff2c8, emissive: 0xffe6a0, emissiveIntensity: 0.9, roughness: 0.3 }));
+  const lamps = new Mesh(merge([0, 1].map(i => place(new SphereGeometry(0.17, 10, 8), (i ? 1 : -1) * 0.48, 0.8, -1.84, 0, 0, 0, 1, 1, 0.5))), new MeshStandardMaterial({ color: 0xfff2c8, emissive: 0xffe6a0, emissiveIntensity: 0.9, roughness: 0.3 }));
   lamps.name = 'car-eyes'; body.add(lamps);
   noRay(root);
   return { root, body, kids, glass, lamps, mats: [mat] };
@@ -160,10 +160,10 @@ function archTex() {
 export function buildSky() {
   const g = new Group(); g.name = 'adv-b2sky';
   // the sky dome (follows the camera; no fog): warm blue, hazy toward the horizon
-  const skyT = canvasTex(4, 256, (x, w, h) => { const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#4f86c8'); gr.addColorStop(0.38, '#86b4e0'); gr.addColorStop(0.5, '#d8e6f0'); gr.addColorStop(0.56, '#e8eee8'); gr.addColorStop(1, '#c8d8d0'); x.fillStyle = gr; x.fillRect(0, 0, w, h); });
+  const skyT = canvasTex(4, 256, (x, w, h) => { const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#3a72bc'); gr.addColorStop(0.3, '#5e96d4'); gr.addColorStop(0.44, '#94bce4'); gr.addColorStop(0.5, '#c4d8e8'); gr.addColorStop(0.56, '#c8d8e2'); gr.addColorStop(1, '#b8ccd8'); x.fillStyle = gr; x.fillRect(0, 0, w, h); });
   const dome = new Mesh(new SphereGeometry(420, 24, 14), new MeshBasicMaterial({ map: skyT, side: BackSide, fog: false, depthWrite: false }));
   dome.name = 'sky-dome'; dome.renderOrder = -5; dome.frustumCulled = false; g.add(dome);
-  const sun = new Mesh(new PlaneGeometry(90, 90), new MeshBasicMaterial({ map: canvasTex(128, 128, (x) => { const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.18, 'rgba(255,240,190,.9)'); gr.addColorStop(1, 'rgba(255,230,170,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); }), transparent: true, fog: false, depthWrite: false, blending: AdditiveBlending }));
+  const sun = new Mesh(new PlaneGeometry(46, 46), new MeshBasicMaterial({ map: canvasTex(128, 128, (x) => { const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,250,220,.95)'); gr.addColorStop(0.2, 'rgba(255,240,190,.55)'); gr.addColorStop(1, 'rgba(255,230,170,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); }), transparent: true, fog: false, depthWrite: false, blending: AdditiveBlending }));
   sun.position.set(-120, 150, -330); sun.lookAt(0, 0, 0); sun.name = 'sun'; sun.renderOrder = -4; g.add(sun);
 
   // ground group: the fields, the start pad, the viaduct + train
@@ -176,17 +176,17 @@ export function buildSky() {
   PD.push(paint(place(new CircleGeometry(16, 24).rotateX(-Math.PI / 2), 0, 0.03, 0), 0x6e9a4e));
   PD.push(paint(place(new PlaneGeometry(5, 32).rotateX(-Math.PI / 2), 0, 0.05, 0), 0x6a6460));
   for (let k = -6; k <= 6; k++) PD.push(paint(place(new PlaneGeometry(0.18, 1.2).rotateX(-Math.PI / 2), 0, 0.06, k * 2.4), 0xd8d0b0));
-  PD.push(paint(place(new BoxGeometry(0.5, 2.4, 18), -4.4, 1.2, -2), 0x9a5a3e));
-  PD.push(paint(place(new BoxGeometry(0.6, 0.16, 18.2), -4.4, 2.46, -2), 0x7a7068));
-  PD.push(paint(place(new CylinderGeometry(0.07, 0.09, 3.6, 8), 3.4, 1.8, -3), 0x2e2b30));
-  PD.push(paint(place(new BoxGeometry(0.4, 0.45, 0.4), 3.4, 3.75, -3), 0x2e2b30));
-  for (const z of [-7, 2]) PD.push(paint(place(IcoS(1.3), 5.8, 1.0, z, 0, 0, 0, 1.3, 1, 1.3), 0x4e7a3a));
+  PD.push(paint(place(new BoxGeometry(0.5, 2.4, 18), 5.4, 1.2, 2), 0x9a5a3e));
+  PD.push(paint(place(new BoxGeometry(0.6, 0.16, 18.2), 5.4, 2.46, 2), 0x7a7068));
+  PD.push(paint(place(new CylinderGeometry(0.07, 0.09, 3.6, 8), -3.4, 1.8, 3), 0x2e2b30));
+  PD.push(paint(place(new BoxGeometry(0.4, 0.45, 0.4), -3.4, 3.75, 3), 0x2e2b30));
+  for (const z of [-6, 6]) PD.push(paint(place(IcoS(1.3), -6.2, 1.0, z, 0, 0, 0, 1.3, 1, 1.3), 0x4e7a3a));
   pad.add(new Mesh(merge(PD), vc({ roughness: 0.95 })));
-  const lampGlow = new Mesh(new BoxGeometry(0.3, 0.32, 0.3), new MeshStandardMaterial({ color: 0xffe0a0, emissive: 0xffd080, emissiveIntensity: 0.8 })); lampGlow.position.set(3.4, 3.7, -3); pad.add(lampGlow);
+  const lampGlow = new Mesh(new BoxGeometry(0.3, 0.32, 0.3), new MeshStandardMaterial({ color: 0xffe0a0, emissive: 0xffd080, emissiveIntensity: 0.8 })); lampGlow.position.set(-3.4, 3.7, 3); pad.add(lampGlow);
   const sign = new Mesh(new PlaneGeometry(4.2, 1.3), new MeshBasicMaterial({ map: canvasTex(384, 120, (x, w, h) => {
     x.fillStyle = '#1a3a6a'; x.beginPath(); x.roundRect(4, 4, w - 8, h - 8, 14); x.fill(); x.strokeStyle = '#f0e8d0'; x.lineWidth = 6; x.stroke();
     x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f4ecd8'; x.font = 'bold 44px ' + FONT; x.fillText('קינגס קרוס 🚂', w / 2, h / 2 + 2); }) }));
-  sign.position.set(-4.1, 1.6, -1.5); sign.rotation.y = Math.PI / 2; sign.name = 'kings-cross-sign'; pad.add(sign);
+  sign.position.set(5.1, 1.6, 1.0); sign.rotation.y = -Math.PI / 2; sign.name = 'kings-cross-sign'; pad.add(sign);
   // the viaduct (one long box, arches scroll) and the little red steam train on it
   const aT = archTex(); aT.repeat.set(1200 / 14, 1);
   const viaduct = new Group(); viaduct.name = 'viaduct'; viaduct.position.set(-24, 0, 0); ground.add(viaduct);
@@ -209,7 +209,7 @@ export function buildSky() {
   const clouds = new InstancedMesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: cloudTex(), transparent: true, depthWrite: false, fog: true }), NC);
   clouds.name = 'clouds'; clouds.frustumCulled = false; clouds.renderOrder = 1; g.add(clouds);
   // the car + the hop-in kids
-  const car = buildCar(); g.add(car.root);
+  const car = buildCar(); car.root.scale.setScalar(1.2); g.add(car.root);
   const ron = buildKid(0xc0521c), harry = buildKid(0x2a1a14, true);
   ron.position.set(-1.5, 0, 0.3); harry.position.set(1.5, 0, 0.6); g.add(ron, harry);
   // stars (instanced, gold, they glow: a true light) and one smoke ring

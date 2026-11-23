@@ -32,28 +32,28 @@ export function buildDobby() {
   // the pillowcase: a sack with a knot on one shoulder and a ragged hem
   L.push(paint(place(new CylinderGeometry(0.15, 0.2, 0.42, 14, 1, true), 0, 0.33, 0), SACK));
   L.push(paint(place(new CircleGeometry(0.2, 14).rotateX(Math.PI / 2), 0, 0.12, 0), SACK));
-  L.push(paint(place(S(10, 6), 0, 0.54, 0, 0, 0, 0, 0.16, 0.06, 0.13), SACK));
+  L.push(paint(place(S(8, 4), 0, 0.54, 0, 0, 0, 0, 0.16, 0.06, 0.13), SACK));
   L.push(paint(place(S(8, 6), 0.11, 0.56, 0.02, 0, 0, 0, 0.06), SACK2));
   for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; L.push(paint(place(new ConeGeometry(0.05, 0.08, 4), Math.cos(a) * 0.18, 0.09, Math.sin(a) * 0.18, Math.PI, 0, 0), SACK2)); }
   // thin legs, big feet
   for (const sx of [-1, 1]) { L.push(paint(place(new CapsuleGeometry(0.03, 0.1, 2, 6), sx * 0.08, 0.07, 0), SKIN)); L.push(paint(place(S(10, 6), sx * 0.09, 0.03, 0.06, 0, 0, 0, 0.065, 0.035, 0.11), SKIN2)); }
   // neck + head (a big round head), long pointy nose, a wide happy smile, huge green eyes
   L.push(paint(place(new CylinderGeometry(0.04, 0.05, 0.08, 8), 0, 0.6, 0), SKIN));
-  L.push(paint(place(S(18, 14), 0, 0.78, 0, 0, 0, 0, 0.23, 0.21, 0.22), SKIN));
+  L.push(paint(place(S(14, 10), 0, 0.78, 0, 0, 0, 0, 0.23, 0.21, 0.22), SKIN));
   L.push(paint(place(new ConeGeometry(0.04, 0.18, 8), 0, 0.74, 0.27, Math.PI / 2 + 0.35, 0, 0), SKIN2));
   L.push(paint(place(new TorusGeometry(0.075, 0.014, 5, 12, Math.PI), 0, 0.68, 0.2, 0.25, 0, Math.PI), 0x6a2a24));
   for (const sx of [-1, 1]) {
-    L.push(paint(place(S(14, 10), sx * 0.095, 0.8, 0.15, 0, 0, 0, 0.085, 0.095, 0.07), 0xf0ece0));
-    L.push(paint(place(S(12, 8), sx * 0.09, 0.79, 0.205, 0, 0, 0, 0.055, 0.06, 0.03), IRIS));
+    L.push(paint(place(S(10, 8), sx * 0.095, 0.8, 0.15, 0, 0, 0, 0.085, 0.095, 0.07), 0xf0ece0));
+    L.push(paint(place(S(10, 6), sx * 0.09, 0.79, 0.205, 0, 0, 0, 0.055, 0.06, 0.03), IRIS));
     L.push(paint(place(S(8, 6), sx * 0.09, 0.79, 0.228, 0, 0, 0, 0.028, 0.032, 0.015), DARK));
     L.push(paint(place(S(6, 4), sx * 0.075, 0.81, 0.236, 0, 0, 0, 0.012), 0xffffff));
-    L.push(paint(place(S(8, 4), sx * 0.095, 0.86, 0.16, 0.4, 0, 0, 0.095, 0.04, 0.075), SKIN2));   // brows / lids
+    L.push(paint(place(S(6, 3), sx * 0.095, 0.86, 0.16, 0.4, 0, 0, 0.095, 0.04, 0.075), SKIN2));   // brows / lids
   }
   const bodyMesh = new Mesh(merge(L), mat); bodyMesh.name = 'dobby-body'; root.add(bodyMesh);
   // ears: huge, flat, a little droopy (pivots so they can flap)
   const ears = [-1, 1].map((sx) => {
     const p = new Group(); p.position.set(sx * 0.2, 0.8, -0.01); root.add(p);
-    const E = [paint(place(S(14, 8), sx * 0.2, 0.02, 0, 0, 0, sx * -0.25, 0.24, 0.1, 0.025), SKIN), paint(place(S(10, 6), sx * 0.2, 0.02, 0.016, 0, 0, sx * -0.25, 0.18, 0.065, 0.012), EAR_IN)];
+    const E = [paint(place(S(10, 6), sx * 0.2, 0.02, 0, 0, 0, sx * -0.25, 0.24, 0.1, 0.025), SKIN), paint(place(S(8, 4), sx * 0.2, 0.02, 0.016, 0, 0, sx * -0.25, 0.18, 0.065, 0.012), EAR_IN)];
     const m = new Mesh(merge(E), mat); p.add(m); return p;
   });
   const arms = [-1, 1].map((sx) => {
