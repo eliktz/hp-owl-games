@@ -194,14 +194,14 @@ function stoneScene(ctx) {
     // keys fly; the special key is slower and lower; caught: it flies to the lock and the door swings
     const K = P.keys;
     if (B.rooms[2].visible) {
-      const d = new Object3D(), Z2 = zc(2), sp = lv() === 1 ? 0.6 : 0.85;
+      const d = new Object3D(), Z2 = zc(2), sp = lv() === 1 ? 0.6 : 0.85, ks = innerWidth <= 560 ? 1.3 : 1;   // phones: keys 30% bigger
       for (let k = 0; k < K.NK; k++) {
         const a = tt * (0.25 + (k % 4) * 0.05) * sp + k * 0.57;
-        d.position.set(Math.sin(a * 1.3 + k) * 3.2, 1.6 + Math.sin(a * 2.1 + k * 0.7) * 1.2, Z2 + Math.cos(a + k * 0.3) * 3.0); d.rotation.set(0, a * 2 + k, Math.sin(a * 3) * 0.3); d.scale.setScalar(1); d.updateMatrix();
-        K.keys.setMatrixAt(k, d.matrix); d.scale.set(1, 1 + Math.sin(tt * 18 + k) * 0.5, 1); d.updateMatrix(); K.wings.setMatrixAt(k, d.matrix);
+        d.position.set(Math.sin(a * 1.3 + k) * 3.2, 1.6 + Math.sin(a * 2.1 + k * 0.7) * 1.2, Z2 + Math.cos(a + k * 0.3) * 3.0); d.rotation.set(0, a * 2 + k, Math.sin(a * 3) * 0.3); d.scale.setScalar(ks); d.updateMatrix();
+        K.keys.setMatrixAt(k, d.matrix); d.scale.set(ks, ks * (1 + Math.sin(tt * 18 + k) * 0.5), ks); d.updateMatrix(); K.wings.setMatrixAt(k, d.matrix);
       }
       K.keys.instanceMatrix.needsUpdate = true; K.wings.instanceMatrix.needsUpdate = true;
-      if (!S.key && step <= 2) { const a = tt * 0.3 * sp; K.sk.position.set(Math.sin(a) * 2.2, 1.5 + Math.sin(a * 1.7) * 0.35, Z2 + 0.8 + Math.cos(a * 0.8) * 1.6); K.sk.rotation.set(0, a * 2.5, Math.sin(tt * 2) * 0.2); K.sk.children[1].scale.y = 1 + Math.sin(tt * 14) * 0.4; }
+      if (!S.key && step <= 2) { const a = tt * 0.3 * sp; K.sk.position.set(Math.sin(a) * 2.2, 1.5 + Math.sin(a * 1.7) * 0.35, Z2 + 0.8 + Math.cos(a * 0.8) * 1.6); K.sk.rotation.set(0, a * 2.5, Math.sin(tt * 2) * 0.2); K.sk.children[1].scale.y = 1 + Math.sin(tt * 14) * 0.4; K.sk.scale.setScalar(ks); }
       else if (S.key > 0) {
         S.key += dt; const L = SPOTS.lock, k = Math.min(1, S.key / 1.4);
         K.sk.position.lerp(v1.set(L.x, L.y, L.z + 0.15), Math.min(1, dt * 4)); K.sk.rotation.set(0, Math.PI / 2, k > 0.7 ? (k - 0.7) * 5 : 0);

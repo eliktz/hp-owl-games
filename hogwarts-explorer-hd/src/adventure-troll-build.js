@@ -186,12 +186,18 @@ export function buildTrollRoom(progress) {
   // ---- Hermione's stand-in (a chibi; adventure-troll.js swaps in the rigged model when it is cached) ----
   const herm = buildChibi({ robe: 0x1a1414, trim: 0x7a1020, house: 0x7a1020, hair: 0x7a4a26 });
   herm.name = 'adv-hermione'; herm.scale.setScalar(1.15); herm.visible = false; g.add(noRay(herm));
+  // level 1: a little speech bubble over Hermione's stall ("הלו?")
+  const bub = new Mesh(new PlaneGeometry(1.1, 0.75), new MeshBasicMaterial({ transparent: true, depthWrite: false, map: canvasTex(192, 128, (x) => {
+    x.fillStyle = '#fff8e4'; x.strokeStyle = '#b8862e'; x.lineWidth = 6; x.beginPath(); x.roundRect(6, 6, 180, 92, 26); x.fill(); x.stroke();
+    x.beginPath(); x.moveTo(70, 96); x.lineTo(96, 124); x.lineTo(110, 96); x.closePath(); x.fill(); x.stroke(); x.fillStyle = '#fff8e4'; x.fillRect(72, 90, 36, 8);
+    x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#5a2a10'; x.font = 'bold 40px ' + FONT; x.fillText('הלו? 👧', 96, 54); }) }));
+  bub.name = 'herm-bubble'; bub.visible = false; bub.renderOrder = 5; bub.raycast = () => {}; g.add(bub);
   // the troll
   const T = buildTroll(); T.root.position.set(TROLL_AT.x, 0, TROLL_AT.z); T.root.rotation.y = Math.PI / 2; g.add(T.root);
   cols.push({ type: 'circle', x: TROLL_AT.x, z: TROLL_AT.z, r: 1.25 });
   if (progress >= 3) T.root.rotation.y = -Math.PI / 2;
   const light = bakeLight(g, cols);
-  return { g, cols, P: { troll: T, doors, mop, bucket, herm, sinks }, light };
+  return { g, cols, P: { troll: T, doors, mop, bucket, herm, sinks, bub }, light };
 }
 
 // ---------------- the Entrance Hall door "שירותי הבנות" (added to the live hall while the quest runs) ----------------

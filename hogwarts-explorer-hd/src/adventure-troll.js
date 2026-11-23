@@ -196,6 +196,8 @@ function trollScene(ctx) {
       S.voiceT -= dt;
       if (S.voiceT <= 0) { S.voiceT = lv() === 1 ? 9 : 14; ctx.say(lv() === 1 ? 'הלו? מה הרעש הזה? אני כאן, בתא הזה! 🚪' : 'הלו? יש פה מישהו? 😮', '👧 קול מתוך תא', 3.5); }
     }
+    // level 1 (or the glow hint): the bubble bobs over her stall
+    const bub = P.bub; if (bub) { bub.visible = step === 4 && !S.out && (lv() === 1 || !!S.glow); if (bub.visible) { bub.position.set(STALL_X - 0.15, 2.75 + Math.sin(tt * 2.5) * 0.08, STALL_Z[S.herm]); bub.quaternion.copy(camera.quaternion); } }
     // Hermione
     const H = P.herm;
     if (S.out > 0) {
