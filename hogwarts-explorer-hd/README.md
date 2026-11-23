@@ -35,6 +35,22 @@ WebGL backend.
 - **Quidditch** — a full match (Quaffle, Bludgers, Golden Snitch) on a pitch south of the gates.
 - **Delight** — a wand that wakes things up, the Sorting Hat, Pip the owlet, silly beans, Trevor.
 
+## Hebrew voice
+Every spoken line (spell courses, free casting, Floo, Quidditch, book adventures) goes through
+`src/voice.js` and the device's own speech engine (`speechSynthesis`; no audio files). It picks
+the best Hebrew voice it finds (Enhanced/Premium first, then on-device, then Carmit); the 🗣️
+**קול** button lists the Hebrew voices, plays "שלום הארי!" when one is tapped and remembers the
+choice on that device (`localStorage` `hpVoice`). No Hebrew voice: the game stays quiet and the
+speech bubbles still show.
+
+**For parents: a better voice on iPhone/iPad.**
+- iOS 18 and later: Settings > Accessibility > Read & Speak > Voices > Hebrew > Carmit > tap the
+  download (cloud) icon for Enhanced/Premium (use Wi-Fi, 100 MB+).
+- iOS 17 and earlier: Settings > Accessibility > Spoken Content > Voices > Hebrew.
+- Then fully close and reopen Safari. Only one Enhanced/Premium voice per language reaches web
+  pages, and Siri voices are not available to web pages at all. Whether an Enhanced Hebrew
+  Carmit is offered depends on the iOS version; check on the device.
+
 ## Credits & licences
 Engine, CC0 textures/HDRIs and procedural art: **[CREDITS.md](CREDITS.md)**.
 Fan Sketchfab models (attribution + disclaimer): **[MODELS-CREDITS.md](MODELS-CREDITS.md)**.
