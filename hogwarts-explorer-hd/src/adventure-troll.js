@@ -30,7 +30,24 @@ export const TROLL = {
     { line: 'פתח את הדלת להרמיוני 🚪', hints: ['הרמיוני מסתתרת באחד התאים 🚪', 'הקשב: מאיזה תא מגיע הקול?', 'גע בדלת של התא, או הטל אלוהומורה 🔓'], spell: 'alohomora' },
   ],
   create: (ctx) => trollScene(ctx),
+  art: drawSleepyTroll,
 };
+// the reward card picture: a round, friendly, sleeping troll with his club on the floor and a feather above (canvas)
+function drawSleepyTroll(x, cx, cy) {
+  const E = (px, py, rx, ry, col, rot = 0) => { x.fillStyle = col; x.beginPath(); x.ellipse(px, py, rx, ry, rot, 0, 7); x.fill(); };
+  x.save(); x.translate(cx, cy + 20);
+  x.strokeStyle = '#6a4426'; x.lineWidth = 14; x.lineCap = 'round'; x.beginPath(); x.moveTo(-90, 72); x.lineTo(-20, 86); x.stroke(); E(-98, 70, 20, 16, '#8a5e36');   // the club on the floor
+  E(0, 30, 70, 62, '#8c9a72'); E(0, 42, 48, 40, '#a2ac84'); E(0, 66, 74, 18, '#7a5634');                          // the round body, belly, loincloth
+  E(-58, 84, 26, 14, '#76865e'); E(58, 84, 26, 14, '#76865e');                                                    // feet
+  E(-66, 40, 18, 36, '#8c9a72', 0.4); E(66, 40, 18, 36, '#8c9a72', -0.4);                                         // arms
+  E(0, -40, 36, 32, '#8c9a72'); E(-38, -42, 12, 7, '#76865e', 0.5); E(38, -42, 12, 7, '#76865e', -0.5);            // head, ears
+  E(0, -34, 12, 10, '#76865e'); E(-18, -28, 7, 5, '#c8907a'); E(18, -28, 7, 5, '#c8907a');                         // nose, cheeks
+  x.strokeStyle = '#2a2018'; x.lineWidth = 3; for (const sx of [-1, 1]) { x.beginPath(); x.arc(sx * 13, -46, 6, 0.2, Math.PI - 0.2); x.stroke(); }   // closed, sleeping eyes
+  x.beginPath(); x.arc(0, -22, 7, 0.3, Math.PI - 0.3); x.stroke();                                                  // a little smile
+  x.fillStyle = '#4a6a3a'; x.font = 'bold 30px Arial'; x.fillText('z', 36, -76); x.font = 'bold 22px Arial'; x.fillText('z', 58, -98); x.font = 'bold 16px Arial'; x.fillText('z', 74, -114);
+  x.restore();
+  x.save(); x.font = '40px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('🪶', cx - 60, cy - 90); x.restore();
+}
 
 // the bathroom interior: always registered (built from the quest's progress at build time)
 let PROGRESS = 0;
