@@ -212,9 +212,12 @@ export function buildChambers(progress) {
     const doorRook = new Mesh(strip(paint(rook(), WH)), vc({ roughness: 0.4 })); doorRook.position.set(0, 0, DOOR_Z(3) + 1.0); doorRook.scale.setScalar(1.25); R.add(doorRook);
     const hl = new InstancedMesh(new PlaneGeometry(s * 0.92, s * 0.92).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: 0xffd040, transparent: true, opacity: 0.7, blending: AdditiveBlending, depthWrite: false }), 3);
     hl.frustumCulled = false; hl.count = 0; hl.name = 'chess-hl'; R.add(hl);
+    // levels 2-3: a soft gold beam over each lit square, so the choices read over the big pieces (and on a phone in portrait)
+    const beam = new InstancedMesh(new CylinderGeometry(0.3, 0.3, 1.8, 12, 1, true).translate(0, 0.9, 0), new MeshBasicMaterial({ color: 0xffc840, transparent: true, opacity: 0.35, blending: AdditiveBlending, depthWrite: false, side: DoubleSide }), 3);
+    beam.frustumCulled = false; beam.count = 0; beam.name = 'chess-beam'; beam.raycast = () => {}; R.add(beam);
     for (const [c, r] of [[0, 1], [4, 1], [5, 0], [3, 1], [0, 4], [4, 4], [0, 5], [5, 4], [3, 5]]) { sq(c, r, _v); cols.push({ type: 'circle', x: _v.x, z: _v.z, r: 0.3 }); }
     if (progress >= 4) { sq(2, 3, _v); knightM.position.set(_v.x, 0, _v.z); kingM.rotation.x = 0.35; crown.position.set(kingM.position.x, 0.06, kingM.position.z + 0.6); doorRook.position.x = -2.4; }
-    P.chess = { knightM, kingM, crown, doorRook, hl };
+    P.chess = { knightM, kingM, crown, doorRook, hl, beam };
   }
   // ---- 4: seven coloured bottles + the purple flame curtain ----
   {

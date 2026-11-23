@@ -217,7 +217,8 @@ function stoneScene(ctx) {
       const d = new Object3D(), lit = [[2, 3], ...(lv() > 1 ? (lv() > 2 ? [[0, 3], [3, 2]] : [[0, 3]]) : [])].filter(([c, r]) => !S.dark.includes(c + ',' + r));
       lit.forEach(([c, r], i) => { sq(c, r, v1); d.position.set(v1.x, 0.03, v1.z); d.updateMatrix(); C.hl.setMatrixAt(i, d.matrix); });
       C.hl.count = lit.length; C.hl.instanceMatrix.needsUpdate = true; C.hl.material.opacity = 0.45 + Math.sin(tt * 4) * 0.25;
-    } else C.hl.count = 0;
+      if (C.beam) { if (lv() > 1) { lit.forEach(([c, r], i) => { sq(c, r, v1); d.position.set(v1.x, 0.02, v1.z); d.updateMatrix(); C.beam.setMatrixAt(i, d.matrix); }); C.beam.count = lit.length; C.beam.instanceMatrix.needsUpdate = true; C.beam.material.opacity = 0.28 + Math.sin(tt * 4) * 0.1; } else C.beam.count = 0; }
+    } else { C.hl.count = 0; if (C.beam) C.beam.count = 0; }
     if (S.chess > 0) {
       S.chess += dt; const t = S.chess; sq(1, 1, v1); sq(2, 3, v2);
       const k = Math.min(1, t / 1.0); C.knightM.position.set(v1.x + (v2.x - v1.x) * k, Math.sin(k * Math.PI) * 0.8, v1.z + (v2.z - v1.z) * k);
@@ -258,6 +259,15 @@ function stoneScene(ctx) {
       return false;
     }
     if (step === 3 && cur === 3 && !S.chess) {
+      if (lv() > 1) {   // levels 2-3: a tap near a lit square (or its beam) picks that square, so small phone screens stay fair
+        const lit = [[2, 3], [0, 3], ...(lv() > 2 ? [[3, 2]] : [])].filter(([c, r]) => !S.dark.includes(c + ',' + r));
+        let best = null, bd = 1e9;
+        for (const [c, r] of lit) for (const hy of [0.05, 0.9, 1.6]) { const o = sq(c, r, v2); const dd = near(W(o.x, hy, o.z, v1)); if (dd < bd) { bd = dd; best = [c, r]; } }
+        if (best && bd < rr * 1.1) {
+          if (best[0] === 2 && best[1] === 3) { chessMove(); return true; }
+          S.wrong++; S.dark.push(best[0] + ',' + best[1]); ctx.oops('לא לשם 🙂 משם הפרש לא מגיע למלך הלבן 👑 נסה משבצת זוהרת אחרת'); return true;
+        }
+      }
       const ndc = new Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1), rc = new Raycaster(); rc.setFromCamera(ndc, camera);
       const hit = rc.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), -Y()), v1); if (!hit) return false;
       const c = Math.round((v1.x - BOARD.x0) / BOARD.s), r = Math.round((BOARD.z0 - v1.z) / BOARD.s);
