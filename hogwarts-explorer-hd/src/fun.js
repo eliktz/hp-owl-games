@@ -126,7 +126,7 @@ export function tick(dt, camera) {
     if (b.t <= 0) { b.el.classList.remove('on'); if (b.t < -0.4) { b.el.remove(); bubs.splice(i, 1); } continue; }
     v3.copy(b.pos).project(camera);
     if (v3.z > 1 || Math.abs(v3.x) > 1.1 || Math.abs(v3.y) > 1.1) { b.el.classList.remove('on'); continue; }
-    { const hw = b.el.offsetWidth * 0.5 + 4, cx = (v3.x * 0.5 + 0.5) * innerWidth; b.el.style.left = (hw * 2 >= innerWidth ? innerWidth * 0.5 : Math.max(hw, Math.min(innerWidth - hw, cx))) + 'px'; }   // long lines wrap and stay on screen b.el.style.top = (-v3.y * 0.5 + 0.5) * innerHeight + 'px'; b.el.classList.add('on');
+    { const hw = b.el.offsetWidth * 0.5 + 4, cx = (v3.x * 0.5 + 0.5) * innerWidth; b.el.style.left = (hw * 2 >= innerWidth ? innerWidth * 0.5 : Math.max(hw, Math.min(innerWidth - hw, cx))) + 'px'; } b.el.style.top = (-v3.y * 0.5 + 0.5) * innerHeight + 'px'; b.el.classList.add('on');   // long lines wrap and stay on screen
   }
   if (!promptEl) {
     promptEl = document.createElement('button'); promptEl.id = 'funPrompt'; document.body.appendChild(promptEl);
