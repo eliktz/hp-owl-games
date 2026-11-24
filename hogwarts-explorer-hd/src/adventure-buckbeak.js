@@ -18,7 +18,7 @@
 // NOT WIRED YET (24 Nov 2026): the card in adventure-stone.js QUESTS is still the "בקרוב" stub because the full iPad
 // test did not finish inside the helper's time cap. To open it: import { BUCKBEAK } from './adventure-buckbeak.js' there
 // and replace the stub line `{ id: 'buckbeak', ... soon: true ... }` with `BUCKBEAK,`.
-import { Vector3, Quaternion, Euler, Matrix4, AnimationMixer, LoopOnce, LoopRepeat } from 'three';
+import { Vector3, Quaternion, Euler, Matrix4, Frustum, Sphere, AnimationMixer, LoopOnce, LoopRepeat } from 'three';
 import { loadAnimated } from './models.js';
 import { BB, BB_SCALE, BOW, LAND, HOME, WATER, SPEED, LANES, flightCurve, overLake, buildBowSpot, buildFeathers, triCount } from './adventure-buckbeak-build.js';
 
@@ -62,6 +62,7 @@ function drawCard(x, cx, cy) {
 const BOW_T = { 1: 3, 2: 4, 3: 5 }, NFEATH = { 1: 3, 2: 4, 3: 5 };
 const FLY_FAR = 0;   // a shorter far plane for the flight (0 = keep the game's)
 const T_MOUNT = 1.2, T_OPEN = 1.5, FLY_TIMEOUT = 150, PATS = 3;
+const CASTLE = { x: 0, z: 4 };   // the castle's centre (castle.js footprint x -35..35, z -32..41)
 const ease = (k) => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -69,7 +70,7 @@ function buckbeakScene(ctx) {
   const { interiors, player, fun, freecast, burst, emit, camera, scene } = ctx;
   const S = { active: false, ended: false, bb: null, mixer: null, acts: {}, cur: null, loading: false, failed: false, bones: {}, t: 0,
     arrived: 0, onSpot: false, camSet: -1, bowing: false, bow: 0, bowAuto: false, bowBack: 0, pats: 0, patT: 0, glowHint: false, said: {},
-    ph: 'ground', phT: 0, clk: 1, log: null, ft: 0, s: 0, L: 0, curve: null, lane: 1, lx: 0, axPrev: 0, feathers: [], got: 0, autop: false, flyT: 0, tk: null, bank: 0,
+    ph: 'ground', phT: 0, clk: 1, camSide: 1, log: null, ft: 0, s: 0, L: 0, curve: null, lane: 1, lx: 0, axPrev: 0, feathers: [], got: 0, autop: false, flyT: 0, tk: null, bank: 0,
     from: new Vector3(), seatOff: new Vector3(), camP: new Vector3(), camL: new Vector3(), camInit: false, cheer: 0, cheered: false, lakeOn: false, cheerUntil: 0,
     stepDoneAt: 0, prevTier: null, prevFar: null, done: {}, casts0: 0, aborts: 0, lastAbort: null, maxTri: 0, maxDc: 0, endT: 0, lastP: new Vector3(), moveAcc: 0,
     yaw: BB.yaw, pitch: 0, walkT: 0, offT: 0, finalT: 0 };
@@ -82,6 +83,7 @@ function buckbeakScene(ctx) {
   const outdoors = () => !interiors.active;
   const groundAt = (x, z) => (player.heightAt ? player.heightAt(x, z) : 0);
   const R = () => Math.max(46, Math.min(innerWidth, innerHeight) * 0.08);
+  const FR = new Frustum(), SPH = new Sphere(new Vector3(), 4.6 * BB_SCALE);
   const scr = { x: 0, y: 0, on: false }, v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3(), q1 = new Quaternion(), e1 = new Euler(), M4 = new Matrix4();
   const FI = freecast && freecast._internal;
   const casts = () => (FI && FI.log ? FI.log.casts : 0);
@@ -266,7 +268,7 @@ function buckbeakScene(ctx) {
     if (ctx.step !== 3 || S.tk || !S.bb || !outdoors()) return false;
     showAct(null);
     S.curve = flightCurve(groundAt); S.L = S.curve.getLength();
-    S.ph = 'mount'; S.phT = 0; S.s = 0; S.lane = 1; S.lx = 0; S.flyT = 0; S.autop = auto; S.cheered = false; S.cheer = 0; S.cheerUntil = 0; S.camInit = false; S.bank = 0;
+    S.ph = 'mount'; S.phT = 0; S.s = 0; S.lane = 1; S.lx = 0; S.flyT = 0; S.autop = auto; S.cheered = false; S.cheer = 0; S.cheerUntil = 0; S.camInit = false; S.sideInit = false; S.bank = 0;
     S.from.copy(player.pos);
     placeStanding();
     setupFeathers();
@@ -460,7 +462,14 @@ function buckbeakScene(ctx) {
       px = p.x + Math.sin(sa) * d; pz = p.z + Math.cos(sa) * d; py = p.y + 2.6 * BB_SCALE; lx = p.x; ly = p.y + 1.5 * BB_SCALE; lz = p.z;
     } else {
       const back = (narrow ? 10.5 : 8) * BB_SCALE, up = (narrow ? 3.6 : 3.0) * BB_SCALE;
-      px = p.x - fx * back; pz = p.z - fz * back; py = p.y + up; lx = p.x + fx * 9; ly = p.y + 0.6 * BB_SCALE; lz = p.z + fz * 9;
+      // the budget: a three-quarter chase from the castle's side, looking a little away from it, so the castle (the
+      // heaviest thing in the grounds) stays at or past the edge of the frame; the side eases over when it changes
+      const rx = fz, rz = -fx, side = (CASTLE.x - p.x) * rx + (CASTLE.z - p.z) * rz >= 0 ? 1 : -1;
+      if (!S.sideInit) { S.sideInit = true; S.camSide = side; }
+      S.camSide += (side - S.camSide) * Math.min(1, dt * 0.8);
+      const off = 5 * S.camSide, away = 6.5 * S.camSide;
+      px = p.x - fx * back + rx * off; pz = p.z - fz * back + rz * off; py = p.y + up;
+      lx = p.x + fx * 9 - rx * away; ly = p.y + 0.4 * BB_SCALE; lz = p.z + fz * 9 - rz * away;
     }
     const g = groundAt(px, pz), fl = overLake(px, pz, g) ? Math.max(g, WATER) : g; py = Math.max(py, fl + 1.4);
     v1.set(px, py, pz); v2.set(lx, ly, lz);
@@ -478,9 +487,11 @@ function buckbeakScene(ctx) {
   function update(dt, step, busy) {
     S.t += dt;
     if (!S.active) return;
-    if (S.bb) S.bb.visible = outdoors();
+    // skinned meshes are drawn unculled (their bind-pose bounds are wrong), so cull him by hand: a sphere round his body
+    // against the camera's frustum (off screen = no draw calls, no 6k tris: the hut / gates views keep their budget)
+    if (S.bb) { let vis = outdoors(); if (vis && !S.tk) { camera.updateMatrixWorld(); M4.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); FR.setFromProjectionMatrix(M4); SPH.center.set(S.bb.position.x, S.bb.position.y + 1.6 * BB_SCALE, S.bb.position.z); vis = FR.intersectsSphere(SPH); } S.bb.visible = vis; }
     if (S.tk && !outdoors()) abort('room');
-    if (S.bb && S.bb.visible) { try { S.mixer.update(dt); } catch { /* ok */ } }
+    if (S.bb && (S.bb.visible || S.tk)) { try { S.mixer.update(dt); } catch { /* ok */ } }
     bowSpot.visible = !!S.bb && outdoors() && step === 1 && !S.bowBack;
     if (bowSpot.visible) { bowSpot.position.set(BOW.x, groundAt(BOW.x, BOW.z) + 0.06, BOW.z); const s = 1 + Math.sin(S.t * 4) * 0.06; bowSpot.scale.set(s, 1, s); bowSpot.material.opacity = 0.75 + Math.sin(S.t * 4) * 0.25; }
     // a spell near Buckbeak: a kind word (he is bowed to and patted, never charmed)
