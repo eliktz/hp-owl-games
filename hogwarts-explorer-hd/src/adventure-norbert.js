@@ -490,7 +490,7 @@ function norbertScene(ctx) {
       }
       if (step === 3 && !S.inCrate && S.crate && S.crate.g.parent === S.G) {
         if (near(HW(S.crate.g.position.x, S.crate.g.position.y + 0.35, S.crate.g.position.z, v1)) < rr * 1.7) { hopIn(); return true; }
-        if (S.nor && near(tummyW(v2)) < rr * 1.4) { ctx.say('נורברט רוצה לנסוע בארגז עם הדובי שלו 🧸 גע בארגז', null, 2.6); return true; }
+        if (S.nor && near(tummyW(v2)) < rr * 1.4) { hopIn(); return true; }   // a tap on Norbert works too (on a phone the crate can sit under the camera buttons)
       }
       if (step === 1 && !S.fireLit && near(HW(KETTLE.x, EGG_Y, KETTLE.z, v1)) < rr * 1.5) { ctx.say('הביצה צריכה חום מהאש! אינסנדיו על האח 🔥', null, 2.6); return true; }
     }
