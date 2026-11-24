@@ -111,9 +111,16 @@ export function confetti(set = ['✨', '⭐', '🎉', '🌟', '💛', '🎊'], n
   }
 }
 const bubs = [], v3 = new Vector3();
+// the highest a world bubble's top may go: under the quest tracker while a quest runs, else a small margin
+function bubTop() {
+  const t = document.getElementById('advTrack');
+  if (t && t.classList.contains('on')) { const r = t.getBoundingClientRect(); if (r.height) return r.bottom + 6; }
+  return 8;
+}
 export function say(pos, text, sec = 2.4, key = null) {
   let b = key && bubs.find(x => x.key === key);
   if (!b) { b = { el: document.createElement('div'), key }; b.el.className = 'funBub'; document.body.appendChild(b.el); bubs.push(b); }
+  sec = Math.max(sec, String(text).length > 34 ? 4.5 : 3);
   b.pos = pos.clone ? pos.clone() : pos; b.t = sec; if (b.text !== text) { b.text = text; b.el.textContent = text; }
   return b;
 }
@@ -126,7 +133,7 @@ export function tick(dt, camera) {
     if (b.t <= 0) { b.el.classList.remove('on'); if (b.t < -0.4) { b.el.remove(); bubs.splice(i, 1); } continue; }
     v3.copy(b.pos).project(camera);
     if (v3.z > 1 || Math.abs(v3.x) > 1.1 || Math.abs(v3.y) > 1.1) { b.el.classList.remove('on'); continue; }
-    { const hw = b.el.offsetWidth * 0.5 + 4, cx = (v3.x * 0.5 + 0.5) * innerWidth; b.el.style.left = (hw * 2 >= innerWidth ? innerWidth * 0.5 : Math.max(hw, Math.min(innerWidth - hw, cx))) + 'px'; } b.el.style.top = (-v3.y * 0.5 + 0.5) * innerHeight + 'px'; b.el.classList.add('on');   // long lines wrap and stay on screen
+    { const hw = b.el.offsetWidth * 0.5 + 4, cx = (v3.x * 0.5 + 0.5) * innerWidth; b.el.style.left = (hw * 2 >= innerWidth ? innerWidth * 0.5 : Math.max(hw, Math.min(innerWidth - hw, cx))) + 'px'; } b.el.style.top = Math.max(bubTop() + b.el.offsetHeight, (-v3.y * 0.5 + 0.5) * innerHeight) + 'px'; b.el.classList.add('on');   // long lines wrap and stay on screen, under the quest tracker
   }
   if (!promptEl) {
     promptEl = document.createElement('button'); promptEl.id = 'funPrompt'; document.body.appendChild(promptEl);
