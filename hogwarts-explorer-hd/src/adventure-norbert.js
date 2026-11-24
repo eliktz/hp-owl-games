@@ -296,7 +296,11 @@ function norbertScene(ctx) {
     if (S.sig > 0) return;   // the riders own it now
     let tx, ty, tz, yaw;
     if (inTower() && ctx.step === 4) { towerSpot(v1); tx = v1.x; ty = v1.y + (S.parked ? 0 : 0.4); tz = v1.z; yaw = 0; S.towerT += dt; if (S.towerT > 2.0 && !S.parked) { S.parked = true; sfx('pop'); } }
-    else { const f = player.yaw, s = player.model.scale.y || 1; tx = player.pos.x - Math.sin(f) * 1.7 + Math.cos(f) * 0.7; tz = player.pos.z - Math.cos(f) * 1.7 - Math.sin(f) * 0.7; ty = player.pos.y + 0.55 * s + Math.sin(S.t * 2.2) * 0.08; yaw = f; S.parked = false; S.towerT = 0; }
+    else {   // outdoors a little behind and beside Harry; indoors (a short lens) at his side, never between the lens and him
+      const f = player.yaw, s = player.model.scale.y || 1, bk = interiors.active ? 0.4 : 1.7, sd = interiors.active ? 1.3 : 0.7;
+      tx = player.pos.x - Math.sin(f) * bk + Math.cos(f) * sd; tz = player.pos.z - Math.cos(f) * bk - Math.sin(f) * sd; ty = player.pos.y + 0.55 * s + Math.sin(S.t * 2.2) * 0.08; yaw = f; S.parked = false; S.towerT = 0;
+    }
+    if (S.nor && S.nor.root.parent === c) S.nor.root.rotation.y = inTower() && ctx.step === 4 ? 0 : Math.PI;   // riding along he looks back at Harry
     const d = Math.hypot(tx - c.position.x, tz - c.position.z) + Math.abs(ty - c.position.y);
     if (d > 9) c.position.set(tx, ty, tz);
     else { const k = 1 - Math.exp(-3 * dt); c.position.x += (tx - c.position.x) * k; c.position.y += (ty - c.position.y) * k; c.position.z += (tz - c.position.z) * k; }
@@ -310,10 +314,32 @@ function norbertScene(ctx) {
     S.sig = 0.001; ctx.poke(); sfx('chime');
     towerSpot(v1); S.crate.g.position.set(v1.x, v1.y, v1.z); S.crate.g.rotation.set(0, 0, 0); S.parked = true;
     if (!S.riders) { S.riders = buildRiders(4); scene.add(S.riders.g); S.tris.riders = triCount(S.riders.g); }
-    // turn Harry to the crate and put the lens low behind him, looking up a little at the sky over the far wall
-    try { const dx = v1.x - player.pos.x, dz = v1.z - player.pos.z; if (Math.hypot(dx, dz) > 0.5) player.yaw = Math.atan2(dx, dz); const c = player.cam; c.reset(player.yaw); c.pitch = -0.15; c.dist = 6; c.userControlled = false; } catch { /* ok */ }
-    HW(0, 0, 0, v2); void v2;
+    // Harry steps beside the crate (never in front of it) and a short cinematic lens looks up from the room's south end:
+    // the crate low in the frame, the starry enchanted sky (the tower's ceiling at 13 m) above it, where the riders come
+    try { player.teleport(v1.x + 2.4, v1.z + 2.2); player.yaw = Math.atan2(v1.x - player.pos.x, v1.z - player.pos.z); } catch { /* ok */ }
+    camStart();
     say('הסימן! תראה, הם מגיעים מהשמיים! 🧹🏮', RON.ico + ' ' + RON.name, 3.5);
+  }
+  // the cinematic lens: an adventure takeover (hints and taps stay alive) for the ~16 s of the goodbye, then the normal camera
+  const camP = new Vector3(), camL = new Vector3(), cam0 = new Vector3(), camQ0 = new Quaternion();
+  const tk = { adv: true, update: (dt) => { try { camTick(dt); } catch (e) { if (!S.camErr) console.warn('[norbert] lens failed -', e && e.message || e); S.camErr = 1; camStop(); } } };
+  function camStart() { if (S.tk) return; cam0.copy(camera.position); camQ0.copy(camera.quaternion); S.camT = 0; S.fov0 = camera.fov; S.tk = tk; ctx.setTakeover(tk); }
+  function camStop() {
+    if (!S.tk) return; S.tk = null;
+    if (S.fov0) { camera.fov = S.fov0; camera.updateProjectionMatrix(); S.fov0 = 0; }
+    try { if (!window.__game || window.__game.takeover === tk) ctx.setTakeover(null); } catch { ctx.setTakeover(null); }
+    try { player.cam.reset(player.yaw); } catch { /* ok */ }
+  }
+  function camTick(dt) {
+    if (!inTower()) { camStop(); return; }
+    try { player.animate(dt, { moving: false }, 0); } catch { /* ok */ }
+    S.camT += dt; towerSpot(v3);
+    camP.set(v3.x + 1.2, v3.y + 0.9, v3.z + 8.6); camL.set(v3.x + 0.3, v3.y + 3.8, v3.z - 4.0);
+    const k = ease(Math.min(1, S.camT / 1.4));
+    // a wider lens for these seconds only: the crate above the hint bubble AND the riders in the starry sky below the tracker
+    const fov = S.fov0 + (75 - S.fov0) * k; if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    camera.position.copy(cam0).lerp(camP, k); camera.lookAt(camL); if (k < 1) { _Q.copy(camera.quaternion); camera.quaternion.copy(camQ0).slerp(_Q, k); }
+    camera.updateMatrixWorld();
   }
   const RO = [[-1.0, -0.7], [1.0, -0.7], [-1.0, 0.7], [1.0, 0.7]];
   const _M = new Matrix4(), _Q = new Quaternion(), _E = new Euler(), _S = new Vector3(1, 1, 1), _P = new Vector3();
@@ -322,27 +348,28 @@ function norbertScene(ctx) {
     const t0 = S.sig; S.sig += dt; const t = S.sig, Rd = S.riders, c = S.crate.g;
     if (!inTower()) return;
     towerSpot(v1);   // the crate's spot on the floor
-    const HOV = 4.6;
+    const HOV = 8.6, TOP = 3.6;   // they hover high against the starry sky; the sky (the ceiling) is at 13 m, the far wall 6.4 m behind the crate
     let liftY = 0;
     for (let i = 0; i < Rd.n; i++) {
       const [ox, oz] = RO[i];
-      let x, y, z, yaw = 0, pitch = 0;
-      if (t < 5.5) {   // glide in from far and high over the far wall, in a gentle curve
-        const k = ease(t / 5.5), side = (i % 2 ? 1 : -1) * (1 - k) * 8;
-        x = v1.x + ox + side; y = v1.y + HOV + (1 - k) * 22; z = v1.z + oz - (1 - k) * 34; yaw = 0; pitch = (1 - k) * 0.35;
+      let x, y, z, yaw = 0, pitch = 0, sc = 1; const side = ox < 0 ? Math.PI / 2 : -Math.PI / 2;   // over the crate they turn side-on (facing each other): a clear broom-rider profile
+      if (t < 5.5) {   // out of the starry sky far behind: small at first, gliding down and nearer in a gentle curve
+        const k = ease(t / 5.5);
+        x = v1.x + ox * (1 + 3.5 * (1 - k)); y = v1.y + HOV + (1 - k) * TOP; z = v1.z + oz - (1 - k) * 5.4; pitch = (1 - k) * 0.35; sc = 0.35 + 0.65 * k; yaw = side * k;
       } else if (t < 10.5) {   // hover over the crate
-        x = v1.x + ox + Math.sin(t * 1.3 + i) * 0.08; y = v1.y + HOV + Math.sin(t * 2 + i * 1.7) * 0.1; z = v1.z + oz; yaw = 0;
-      } else {   // and away to the reserve: up and over the far wall, getting small
-        const k = ease((t - 10.5) / 5.5);
-        x = v1.x + ox; y = v1.y + HOV + k * 26; z = v1.z + oz - k * 42; yaw = Math.PI; pitch = -0.3 * k;
+        x = v1.x + ox + Math.sin(t * 1.3 + i) * 0.08; y = v1.y + HOV + Math.sin(t * 2 + i * 1.7) * 0.1; z = v1.z + oz; yaw = side;
+      } else {   // and away to the reserve: up into the stars, getting small, gone with a twinkle
+        const k = ease((t - 10.5) / 4.5);
+        x = v1.x + ox * (1 + k); y = v1.y + HOV + k * TOP; z = v1.z + oz - k * 5.4; yaw = side * (1 + k); pitch = -0.3 * k; sc = 1 - 0.75 * k;
       }
+      _S.setScalar(sc);
       _E.set(pitch, yaw, Math.sin(t * 1.7 + i) * 0.06); _Q.setFromEuler(_E); _P.set(x, y, z);
       _M.compose(_P, _Q, _S); Rd.riders.setMatrixAt(i, _M);
       // the lantern hangs at the broom's front
-      v2.set(0, -0.25, 0.65).applyQuaternion(_Q).add(_P); _M.compose(v2, _Q, _S); Rd.lantern.setMatrixAt(i, _M);
+      v2.set(0, -0.25, 0.65).multiplyScalar(sc).applyQuaternion(_Q).add(_P); _M.compose(v2, _Q, _S); Rd.lantern.setMatrixAt(i, _M);
       // the harness rope: from the broom down to a corner of the crate
       const ropeK = t < 5.5 ? 0 : Math.min(1, (t - 5.5) / 1.2);
-      const cx = c.position.x + ox * 0.4, cy = c.position.y + 0.5, cz = c.position.z + oz * 0.28;
+      const cs = c.scale.x, cx = c.position.x + ox * 0.4 * cs, cy = c.position.y + 0.5 * cs, cz = c.position.z + oz * 0.28 * cs;
       Rd.pos[i * 6] = x; Rd.pos[i * 6 + 1] = y - 0.1; Rd.pos[i * 6 + 2] = z;
       Rd.pos[i * 6 + 3] = x + (cx - x) * ropeK; Rd.pos[i * 6 + 4] = y - 0.1 + (cy - y + 0.1) * ropeK; Rd.pos[i * 6 + 5] = z + (cz - z) * ropeK;
       if (i === 0) liftY = y;
@@ -350,12 +377,13 @@ function norbertScene(ctx) {
     Rd.riders.instanceMatrix.needsUpdate = true; Rd.lantern.instanceMatrix.needsUpdate = true; Rd.ropes.geometry.attributes.position.needsUpdate = true;
     Rd.ropes.visible = t > 5.5;
     // the crate: lifted on the harness from 7 s, then carried away under them
-    if (t > 7.0) { const k = ease(Math.min(1, (t - 7.0) / 2.0)); const want = v1.y + k * 2.4 + (t > 10.5 ? (liftY - (v1.y + HOV)) : 0); c.position.y = want; if (t > 10.5) { const k2 = ease((t - 10.5) / 5.5); c.position.z = v1.z - k2 * 42; } }
+    _S.setScalar(1);
+    if (t > 7.0) { const k = ease(Math.min(1, (t - 7.0) / 2.0)); c.position.y = v1.y + k * 2.4 + (t > 10.5 ? (liftY - (v1.y + HOV)) : 0); if (t > 10.5) { const k2 = ease(Math.min(1, (t - 10.5) / 4.5)); c.position.z = v1.z - k2 * 5.4; c.scale.setScalar(1 - 0.75 * k2); } }
     if (t0 < 5.5 && t >= 5.5) { say('ארבעה רוכבים עם פנסים! החברים של צ\'רלי 🏮', RON.ico + ' ' + RON.name, 3); sfx('whoosh'); }
     if (t0 < 7.2 && t >= 7.2) { say('להתראות, הארי! 👋🐉', NORB, 3); sfx('squeak'); }
     if (t0 < 11.0 && t >= 11.0) { say('סניף... 🥲 להתראות, נורברט! תהיה דרקון טוב! 💚', HAGRID, 4.5); tone(392, 0.4, 0, 'sine', 0.08, 330); }
-    if (t > 15.0 && !S.gone) { S.gone = true; c.visible = false; Rd.g.visible = false; }
-    if (t > 16.0) done(4);
+    if (t > 15.0 && !S.gone) { S.gone = true; c.visible = false; Rd.g.visible = false; burst(c.position.x, c.position.y, c.position.z, 0xffe07a, 22, 1.6, 1.0, 0.22, -0.2); sfx('sparkle'); }
+    if (t > 16.0) { camStop(); done(4); }
   }
 
   // ---- Norbert's little life: breathing, looking at Harry, wings, reactions ----
@@ -528,7 +556,7 @@ function norbertScene(ctx) {
   }
   function end(finished) {
     S.active = false;
-    flooMute(false);
+    flooMute(false); camStop();
     undressHut();
     if (S.crate && S.crate.g.parent) S.crate.g.parent.remove(S.crate.g);
     if (S.riders && S.riders.g.parent) S.riders.g.parent.remove(S.riders.g);
