@@ -18,7 +18,7 @@
 // NOT WIRED YET (24 Nov 2026): the card in adventure-stone.js QUESTS is still the "בקרוב" stub because the full iPad
 // test did not finish inside the helper's time cap. To open it: import { BUCKBEAK } from './adventure-buckbeak.js' there
 // and replace the stub line `{ id: 'buckbeak', ... soon: true ... }` with `BUCKBEAK,`.
-import { Vector3, Quaternion, Euler, Matrix4, Frustum, Sphere, AnimationMixer, LoopOnce, LoopRepeat } from 'three';
+import { Vector3, Quaternion, Euler, Matrix4, AnimationMixer, LoopOnce, LoopRepeat } from 'three';
 import { loadAnimated } from './models.js';
 import { BB, BB_SCALE, BOW, LAND, HOME, WATER, SPEED, LANES, flightCurve, overLake, buildBowSpot, buildFeathers, triCount } from './adventure-buckbeak-build.js';
 
@@ -83,7 +83,8 @@ function buckbeakScene(ctx) {
   const outdoors = () => !interiors.active;
   const groundAt = (x, z) => (player.heightAt ? player.heightAt(x, z) : 0);
   const R = () => Math.max(46, Math.min(innerWidth, innerHeight) * 0.08);
-  const FR = new Frustum(), SPH = new Sphere(new Vector3(), 4.6 * BB_SCALE);
+  const SHOW_R = 70;   // metres: Buckbeak is drawn when Harry or the camera is within this distance of him
+  const nearBB = () => { const b = S.bb.position, dp = Math.hypot(player.pos.x - b.x, player.pos.z - b.z), dc = Math.hypot(camera.position.x - b.x, camera.position.z - b.z); return Math.min(dp, dc) < SHOW_R; };
   const scr = { x: 0, y: 0, on: false }, v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3(), q1 = new Quaternion(), e1 = new Euler(), M4 = new Matrix4();
   const FI = freecast && freecast._internal;
   const casts = () => (FI && FI.log ? FI.log.casts : 0);
@@ -487,11 +488,11 @@ function buckbeakScene(ctx) {
   function update(dt, step, busy) {
     S.t += dt;
     if (!S.active) return;
-    // skinned meshes are drawn unculled (their bind-pose bounds are wrong), so cull him by hand: a sphere round his body
-    // against the camera's frustum (off screen = no draw calls, no 6k tris: the hut / gates views keep their budget)
-    if (S.bb) { let vis = outdoors(); if (vis && !S.tk) { camera.updateMatrixWorld(); M4.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); FR.setFromProjectionMatrix(M4); SPH.center.set(S.bb.position.x, S.bb.position.y + 1.6 * BB_SCALE, S.bb.position.z); vis = FR.intersectsSphere(SPH); } S.bb.visible = vis; }
+    // He is on screen whenever Harry or the lens is anywhere near him (the approach, the bow, the pat, the mount, the flight).
+    // Only far away (the main gates view, 82 m off) he is not drawn, so that view keeps its triangle budget. No frustum test.
+    if (S.bb) S.bb.visible = outdoors() && (!!S.tk || nearBB());
     if (S.tk && !outdoors()) abort('room');
-    if (S.bb && (S.bb.visible || S.tk)) { try { S.mixer.update(dt); } catch { /* ok */ } }
+    if (S.bb && S.mixer) { try { S.mixer.update(dt); } catch { /* ok */ } }
     bowSpot.visible = !!S.bb && outdoors() && step === 1 && !S.bowBack;
     if (bowSpot.visible) { bowSpot.position.set(BOW.x, groundAt(BOW.x, BOW.z) + 0.06, BOW.z); const s = 1 + Math.sin(S.t * 4) * 0.06; bowSpot.scale.set(s, 1, s); bowSpot.material.opacity = 0.75 + Math.sin(S.t * 4) * 0.25; }
     // a spell near Buckbeak: a kind word (he is bowed to and patted, never charmed)
@@ -626,7 +627,8 @@ function buckbeakScene(ctx) {
   }
   function state() {
     const b = S.bb;
-    return { loaded: !!b, loading: S.loading, failed: S.failed, clip: S.cur, bbTris: S.bbTris || null, pos: b ? { x: +b.position.x.toFixed(2), y: +b.position.y.toFixed(2), z: +b.position.z.toFixed(2), yaw: +S.yaw.toFixed(2) } : null,
+    let onScreen = false; if (b) { try { ctx.screen(v1.copy(b.position).setY(b.position.y + 1.2 * BB_SCALE), scr); onScreen = !!scr.on; } catch { /* no lens yet */ } }
+    return { loaded: !!b, visible: !!(b && b.visible), onScreen, distPlayer: b ? +Math.hypot(player.pos.x - b.position.x, player.pos.z - b.position.z).toFixed(1) : null, loading: S.loading, failed: S.failed, clip: S.cur, bbTris: S.bbTris || null, pos: b ? { x: +b.position.x.toFixed(2), y: +b.position.y.toFixed(2), z: +b.position.z.toFixed(2), yaw: +S.yaw.toFixed(2) } : null,
       ground: b ? +groundAt(b.position.x, b.position.z).toFixed(2) : null, onSpot: S.onSpot, bowing: S.bowing, bow: +S.bow.toFixed(2), bowBack: S.bowBack > 0, pats: S.pats, act: actKind,
       ph: S.ph, s: +S.s.toFixed(1), L: +S.L.toFixed(1), u: S.L ? +(S.s / S.L).toFixed(3) : 0, lane: S.lane, lx: +S.lx.toFixed(2), got: S.got, need: needF(), feathers: S.feathers.map(f => ({ s: +f.s.toFixed(1), lane: f.lane, got: f.got })),
       takeover: !!S.tk, lanes: document.body.classList.contains('bbLanes'), lake: S.lakeOn, cheered: S.cheered, autop: S.autop, flyT: +S.flyT.toFixed(1), aborts: S.aborts, lastAbort: S.lastAbort,
