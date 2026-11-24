@@ -27,9 +27,9 @@ export const WATER = WORLD.waterLevel;
 // over the west shore, and home east along the same strip a little higher, down to the paddock. Low the whole way
 // (<= 10 m: under the crown tops, so the camera stays near the ground and the far grounds stay small: the budget).
 export const PATH = [
-  [79.5, 50.5, 0], [72, 51, 3.5], [60, 51.5, 6.5], [40, 51.5, 7], [14, 51.5, 7], [-14, 51.5, 7], [-40, 52, 7], [-60, 52.5, 7],
+  [79.5, 50.5, 0], [72, 51, 3.5], [60, 51.5, 6.5], [40, 51.5, 7.5], [14, 51.5, 8.5], [-14, 51.5, 8], [-40, 52, 7], [-60, 52.8, 7],
   [-78, 48, 6.5], [-90, 36, 5.5], [-92, 22, 3], [-89, 10, 'w'], [-90, -3, 'w'], [-96, -14, 'w'], [-106, -18, 'w'], [-115, -10, 2.5],
-  [-118, 6, 6], [-111, 25, 8], [-97, 42, 9], [-80, 52, 9.5], [-60, 53.5, 9.5], [-40, 53.5, 9.5], [-14, 53.5, 9.5], [14, 53.5, 9.5],
+  [-118, 6, 6], [-111, 25, 8], [-97, 42, 9], [-80, 52, 9.5], [-60, 52.8, 9.5], [-40, 53.5, 9.5], [-14, 53.5, 9.5], [14, 53.5, 9.5],
   [40, 53.5, 9], [58, 54, 6.5], [69, 53.5, 3], [LAND.x, LAND.z, 0],
 ];
 export const SPEED = 10;           // m/s along the path (slow and smooth)
