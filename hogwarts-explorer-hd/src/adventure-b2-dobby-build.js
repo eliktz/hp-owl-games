@@ -73,20 +73,22 @@ export function buildLetter(mat) {
 }
 
 // ---------------- Herbology by the glasshouse: table, bench, earmuffs, small pots + mandrakes, big pots ----------------
-export function buildMandrake(ribbon) {
+// lite (levels 2-3: 4 or 5 of them): fewer segments on the same shapes, so the corner stays under 3k tris at every level
+export function buildMandrake(ribbon, lite = false) {
   const ROOT = 0x9a7a52, ROOT2 = 0x7e6040, LEAF = 0x4a8a3a, LEAF2 = 0x5e9e46, DARK = 0x2a1a12;
   const g = new Group(); g.name = 'adv-mandrake';
   const B = [];
-  B.push(paint(place(S(10, 8), 0, 0.13, 0, 0, 0, 0, 0.095, 0.13, 0.09), ROOT));                                   // the round wrinkly root-baby
-  B.push(paint(place(S(6, 4), 0, 0.02, 0, 0, 0, 0, 0.05, 0.05, 0.05), ROOT2));
-  for (const sx of [-1, 1]) { B.push(paint(place(S(6, 4), sx * 0.035, 0.17, 0.08, 0, 0, 0, 0.016, 0.01, 0.01), DARK)); B.push(paint(place(new ConeGeometry(0.012, 0.09, 4), sx * 0.04, 0.0, 0.02, 0, 0, sx * 0.5), ROOT2)); }   // shut eyes, little root legs
+  const sm = lite ? S(4, 3) : S(6, 4);
+  B.push(paint(place(lite ? S(8, 6) : S(10, 8), 0, 0.13, 0, 0, 0, 0, 0.095, 0.13, 0.09), ROOT));                                   // the round wrinkly root-baby
+  B.push(paint(place(sm.clone(), 0, 0.02, 0, 0, 0, 0, 0.05, 0.05, 0.05), ROOT2));
+  for (const sx of [-1, 1]) { B.push(paint(place(sm.clone(), sx * 0.035, 0.17, 0.08, 0, 0, 0, 0.016, 0.01, 0.01), DARK)); B.push(paint(place(new ConeGeometry(0.012, 0.09, lite ? 3 : 4), sx * 0.04, 0.0, 0.02, 0, 0, sx * 0.5), ROOT2)); }   // shut eyes, little root legs
   for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; B.push(paint(place(new ConeGeometry(0.035, 0.2, 4), Math.cos(a) * 0.03, 0.33, Math.sin(a) * 0.03, Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5), k % 2 ? LEAF : LEAF2)); }   // leaf hair
-  B.push(paint(place(new TorusGeometry(0.035, 0.012, 4, 8), 0, 0.25, 0, Math.PI / 2, 0, 0), ribbon));                   // the ribbon round its leaf tuft
-  B.push(paint(place(S(6, 4), 0.05, 0.26, 0.01, 0, 0, 0, 0.03, 0.02, 0.015), ribbon));
-  for (const sx of [-1, 1]) B.push(paint(place(new CapsuleGeometry(0.012, 0.06, 2, 4), sx * 0.1, 0.13, 0, 0, 0, sx * 0.9), ROOT2));   // little arms (up: wriggling)
+  B.push(paint(place(new TorusGeometry(0.035, 0.012, lite ? 3 : 4, lite ? 6 : 8), 0, 0.25, 0, Math.PI / 2, 0, 0), ribbon));                   // the ribbon round its leaf tuft
+  B.push(paint(place(sm.clone(), 0.05, 0.26, 0.01, 0, 0, 0, 0.03, 0.02, 0.015), ribbon));
+  for (const sx of [-1, 1]) B.push(paint(place(lite ? new ConeGeometry(0.014, 0.08, 4) : new CapsuleGeometry(0.012, 0.06, 2, 4), sx * 0.1, 0.13, 0, 0, 0, sx * 0.9), ROOT2));   // little arms (up: wriggling)
   const mat = vc({ roughness: 0.85 });
   const body = new Mesh(merge(B), mat); g.add(body);
-  const mouth = new Mesh(paint(place(S(8, 4), 0, 0, 0, 0, 0, 0, 0.028, 0.008, 0.01), 0x4a1a14), mat); mouth.position.set(0, 0.11, 0.088); g.add(mouth);
+  const mouth = new Mesh(paint(place(lite ? S(6, 3) : S(8, 4), 0, 0, 0, 0, 0, 0, 0.028, 0.008, 0.01), 0x4a1a14), mat); mouth.position.set(0, 0.11, 0.088); g.add(mouth);
   noRay(g);
   return { g, body, mouth, mat };
 }

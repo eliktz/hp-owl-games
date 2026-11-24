@@ -117,7 +117,7 @@ function dobbyScene(ctx) {
     const y0 = player.heightAt ? player.heightAt(HERB.x, HERB.z) : 0;
     const H = buildHerbology(need(), potCols); H.g.position.set(HERB.x, y0, HERB.z); H.g.scale.setScalar(HS); scene.add(H.g); S.herb = H;
     S.mand = []; S.potted = []; S.potFull = new Array(need()).fill(-1);
-    for (let i = 0; i < need(); i++) { const m = buildMandrake(RIBBONS[i]); m.g.position.set(H.smallX[i], TABLE_H + 0.1, 0); H.g.add(m.g); S.mand.push({ ...m, i, st: 'pot', t: 0, pot: -1, from: new Vector3(), to: new Vector3() }); }
+    for (let i = 0; i < need(); i++) { const m = buildMandrake(RIBBONS[i], need() > 3); m.g.position.set(H.smallX[i], TABLE_H + 0.1, 0); H.g.add(m.g); S.mand.push({ ...m, i, st: 'pot', t: 0, pot: -1, from: new Vector3(), to: new Vector3() }); }
     H.muffs.visible = !S.muffsOn;
     S.herbTris = triCount(H.g);
   }
