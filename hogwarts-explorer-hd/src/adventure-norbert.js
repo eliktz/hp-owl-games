@@ -154,6 +154,12 @@ function norbertScene(ctx) {
     if (S.fire.position.y !== y) S.fire.position.y = y;
   }
 
+  // while the egg / Norbert / the crate wait at the hut hearth (steps 2-4) the Floo's own 🔥 prompt there stays hidden
+  // (a child would open the Floo picker by mistake); Floo travel to and from the hut still works
+  function flooMute(on) {
+    if (S.flooMuted === on) return;
+    try { const f = window.__game && window.__game.floo; if (f && f.suppressPrompt) { f.suppressPrompt('hut', on); S.flooMuted = on; } } catch { /* no Floo */ }
+  }
   // ---- step 2: the hatch ----
   function light() {
     if (S.fireLit || ctx.step !== 1) return;
@@ -166,12 +172,13 @@ function norbertScene(ctx) {
     const t0 = S.hatch; S.hatch += dt; const t = S.hatch, e = S.egg;
     if (e && !S.eggGone) {
       if (t < 2.6) { const a = Math.min(1, t / 2.0); e.mesh.rotation.set(0, 0, Math.sin(t * (6 + t * 3)) * 0.18 * a); if (Math.floor(t0 * 2.2) !== Math.floor(t * 2.2)) sfx('tink', Math.floor(t * 2)); }
-      if (t0 < 2.6 && t >= 2.6) {   // crack! the top flies off as shell bits, Norbert pops up
-        e.mesh.geometry = e.broken; e.mesh.rotation.set(0, 0, 0); sfx('pop'); sfx('sparkle');
-        HW(KETTLE.x, EGG_Y + 0.15, KETTLE.z, v1); burst(v1.x, v1.y, v1.z, 0xf4e4c0, 18, 1.8, 1.0, 0.16, -3); burst(v1.x, v1.y + 0.1, v1.z, 0xffd76a, 14, 1.4, 0.9, 0.2, -0.5);
-        makeNorbert(); S.G.add(S.nor.root); S.nor.root.position.set(KETTLE.x, EGG_Y - 0.1, KETTLE.z); S.nor.root.scale.setScalar(0.01);
-        say('קראק! 🐣 הנה הוא!', HAGRID, 2.5);
-      }
+    }
+    if (t >= 2.6 && !S.nor && S.G) {   // crack! the top flies off as shell bits, Norbert pops up (also when "together" jumps the clock past it)
+      if (e && !S.eggGone) { e.mesh.geometry = e.broken; e.mesh.rotation.set(0, 0, 0); }
+      sfx('pop'); sfx('sparkle');
+      HW(KETTLE.x, EGG_Y + 0.15, KETTLE.z, v1); burst(v1.x, v1.y, v1.z, 0xf4e4c0, 18, 1.8, 1.0, 0.16, -3); burst(v1.x, v1.y + 0.1, v1.z, 0xffd76a, 14, 1.4, 0.9, 0.2, -0.5);
+      makeNorbert(); S.G.add(S.nor.root); S.nor.root.position.set(KETTLE.x, EGG_Y - 0.1, KETTLE.z); S.nor.root.scale.setScalar(0.01);
+      say('קראק! 🐣 הנה הוא!', HAGRID, 2.5);
     }
     const n = S.nor; if (!n || t < 2.6) return;
     if (t < 3.4) { const k = ease((t - 2.6) / 0.8); n.root.scale.setScalar(NS * (0.2 + 0.8 * k + Math.sin(k * Math.PI) * 0.15)); n.root.position.set(KETTLE.x, EGG_Y - 0.1 + k * 0.12, KETTLE.z); }
@@ -381,6 +388,7 @@ function norbertScene(ctx) {
     if (S.active && outdoors() && !S.G && step <= 3) dressHut(step);
     if (S.G) S.G.visible = outdoors();
     fireCtl();
+    flooMute(S.active && step >= 1 && step <= 3);
     // step 1: arriving at the hearth
     if (S.active && step === 0 && outdoors() && S.G) {
       front(v1); const d = Math.hypot(player.pos.x - v1.x, player.pos.z - v1.z);
@@ -520,6 +528,7 @@ function norbertScene(ctx) {
   }
   function end(finished) {
     S.active = false;
+    flooMute(false);
     undressHut();
     if (S.crate && S.crate.g.parent) S.crate.g.parent.remove(S.crate.g);
     if (S.riders && S.riders.g.parent) S.riders.g.parent.remove(S.riders.g);
