@@ -135,7 +135,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   #fcWheel .sp{position:relative;height:min(132px,calc((100vh - 128px) / 3 - 10px));border-radius:20px;border:4px solid rgba(255,215,106,.55);background:rgba(40,25,95,.85);color:#fff;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;cursor:pointer;touch-action:manipulation;font-family:inherit;box-sizing:border-box;min-width:0;overflow:hidden}
   #fcWheel .sp .i{font-size:min(48px,calc((100vh - 128px) / 3 - 66px),5vw);line-height:1.05}
-  #fcWheel .sp .n{font-size:max(12px,min(16px,1.3vw));font-weight:bold;line-height:1.12;text-align:center;color:#ffe9a8;overflow-wrap:anywhere}
+  #fcWheel .sp .n{font-size:max(12px,min(16px,1.3vw));font-weight:bold;line-height:1.12;text-align:center;color:#ffe9a8;overflow-wrap:normal;word-break:normal;display:block;max-width:100%;overflow:hidden}
   #fcWheel .sp.on{border-color:#fff3b0;background:radial-gradient(circle at 50% 30%,rgba(140,105,255,.95),rgba(60,35,140,.95));box-shadow:0 0 0 4px rgba(255,215,106,.5),0 0 22px rgba(255,215,106,.8)}
   #fcWheel .sp .st{position:absolute;top:3px;left:7px;font-size:16px}
   @media (max-aspect-ratio:1/1){#fcWheel .pan{padding:10px 8px 10px} #fcWheel .grid{grid-template-columns:repeat(5,min(calc((96vw - 52px) / 5),170px));gap:6px}
@@ -174,11 +174,23 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
   }
   function openWheel() {
     if (isModal() || isTakeover()) return false;
-    refreshUI(); wheel.classList.add('on'); fun.sfx.flip();
+    refreshUI(); wheel.classList.add('on'); fun.sfx.flip(); fitNames();
     if (!st.opened) { st.opened = true; btn.classList.remove('try'); persist(); }
     return true;
   }
   function closeWheel() { wheel.classList.remove('on'); }
+  // every name fits its button on one or two lines, broken only at spaces / hyphens: shrink the font per name (a phone)
+  let fitW = 0;
+  function fitNames() {
+    if (fitW === innerWidth * 10000 + innerHeight) return;
+    fitW = innerWidth * 10000 + innerHeight;
+    for (const s of SPELLS) {
+      const n = tiles[s.key].querySelector('.n'); n.style.fontSize = '';
+      let f = parseFloat(getComputedStyle(n).fontSize) || 14;
+      const fits = () => n.scrollWidth <= n.clientWidth + 1 && n.offsetHeight <= f * 1.12 * 2 + 2;
+      while (!fits() && f > 8) { f -= 0.5; n.style.fontSize = f + 'px'; }
+    }
+  }
   function select(k) { if (!BYKEY[k]) return false; st.sel = k; persist(); refreshUI(); return true; }
   refreshUI();
 
