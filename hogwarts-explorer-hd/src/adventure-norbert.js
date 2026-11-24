@@ -53,6 +53,7 @@ function drawNorbertCard(x, cx, cy) {
 }
 
 const NEED = { 1: 3, 2: 4, 3: 5 };
+const CRATE_PHONE = { x: 1.35, z: 2.3 };   // the crate's spot on a narrow phone (hearth frame), see crateSpot()
 const WANT_HE = { hungry: 'רעב 🍗', tickle: 'רוצה דגדוגים 😄', hiccup: 'עם שיהוקים 🔥' };
 const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
 const readSub = () => { try { const o = JSON.parse(localStorage.getItem(SUB)); return o && typeof o === 'object' ? o : {}; } catch { return {}; } };
@@ -125,10 +126,13 @@ function norbertScene(ctx) {
     if (step >= 2 && !S.inCrate) { makeNorbert(); sitInNest(); }
     if (step >= 2) { S.fireLit = true; S.hatched = true; }
   }
+  // on a narrow phone (<= 700 px wide) the crate waits on the right of the bowl: its iPad spot (left of the nest) sits
+  // under the phone's camera-button column; the right side of the screen is clear there
+  const crateSpot = () => (innerWidth <= 700 ? CRATE_PHONE : CRATE);
   function placeCrateAtHut() {
-    const c = S.crate.g; HW(CRATE.x, 0, CRATE.z, v1);
+    const c = S.crate.g, cs = crateSpot(); HW(cs.x, 0, cs.z, v1);
     const gy = player.heightAt ? player.heightAt(v1.x, v1.z) : S.G.position.y;
-    c.position.set(CRATE.x, Math.max(-0.2, Math.min(0.6, gy - S.G.position.y)) + 0.0, CRATE.z); c.rotation.set(0, 0.25, 0); c.scale.setScalar(1);
+    c.position.set(cs.x, Math.max(-0.2, Math.min(0.6, gy - S.G.position.y)) + 0.0, cs.z); c.rotation.set(0, 0.25, 0); c.scale.setScalar(1);
   }
   function makeNorbert() {
     if (S.nor) return S.nor;
@@ -528,6 +532,7 @@ function norbertScene(ctx) {
     if (step === 0 && !resumed) writeSub(null);
     if (step >= 2) { S.fireLit = true; S.hatched = true; }
     if (step === 2) { initWants(); S.gap = 1.2; }
+    if (step === 3 && S.crate && S.G && S.crate.g.parent === S.G && !S.hop) placeCrateAtHut();   // the phone / iPad spot for the screen it is on now
     if (step === 3 && resumed && sub.crate && !S.inCrate) { if (!S.crate) S.crate = buildCrate(); putInCrate(); startFollow(false); S.crate.g.position.set(player.pos.x, player.pos.y + 0.6, player.pos.z); }
     if (step === 4 && !S.inCrate) { if (!S.crate) { S.crate = buildCrate(); S.tris.crate = triCount(S.crate.g); } if (S.G && S.nor && S.nor.root.parent === S.G) S.G.remove(S.nor.root); putInCrate(); if (!S.follow) startFollow(false); S.crate.g.position.set(player.pos.x, player.pos.y + 0.6, player.pos.z); }
     if (step === 4) { undressHut(); writeSub({ crate: 1 }); }
