@@ -65,10 +65,11 @@ const T_MOUNT = 1.2, T_OPEN = 1.5, FLY_TIMEOUT = 150, PATS = 3;
 const CASTLE = { x: 0, z: 4 };   // the castle's centre (castle.js footprint x -35..35, z -32..41)
 const ease = (k) => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-// the lanes narrow by the broadleaf crown south of the strip at (-56, 40) (its edge is ~5.3 m from the rail: the outer
-// lane came within ~3.1 m of it): near it every lane glides in toward the rail, so a wing never brushes the leaves
-const CROWN = { x: -56, z: 40 };
-const laneK = (x, z) => { const d = Math.hypot(x - CROWN.x, z - CROWN.z); return 0.14 + 0.86 * ease((d - 12.6) / 7.4); };
+// the lanes narrow by the two broadleaf crowns nearest the strip, (-56, 40) south of the outbound leg and (34.3, 66.7)
+// north of the home leg (their edges are ~5.3 m from the rail: the outer lane came within ~3.1 m of them): near them
+// every lane glides in toward the rail, so a wing never brushes the leaves
+const CROWNS = [{ x: -56, z: 40 }, { x: 34.3, z: 66.7 }];
+const laneK = (x, z) => { let d = 1e9; for (const c of CROWNS) d = Math.min(d, Math.hypot(x - c.x, z - c.z)); return 0.14 + 0.86 * ease((d - 12.6) / 7.4); };
 
 function buckbeakScene(ctx) {
   const { interiors, player, fun, freecast, burst, emit, camera, scene } = ctx;
