@@ -16,7 +16,7 @@ import { LOOK, GLB_PROF } from './lessons.js';
 import { speak } from './voice.js';
 import * as P from './roam-plan.js';
 
-export const ROAM_ON = true;            // the single switch: false = every teacher stands at the station as before
+export const ROAM_ON = false;           // the single switch (OFF until the browser safety tests pass): false = every teacher stands at the station as before
 const GREET_R = 4, COOL = 60, SAY_S = 3.4, AFTER_S = 2.0, FADE = 0.3, ANIM_R = 60, OUT_R = 60, WAIT_R = 1.6;
 // Walk clip ground speed at timeScale 1 for each rig at the cast's 1.3 world scale (measured, see roam.gait())
 const NAT = { mcgonagall: 1.5, flitwick: 1.15, snape: 1.5, tonks: 1.5 };
