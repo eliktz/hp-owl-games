@@ -379,9 +379,9 @@ function chamberScene(ctx) {
       if (!S.hatT) H.hat.position.set(fr.position.x, fr.position.y - 0.75, fr.position.z);
       if (f.t >= 4.2) { f.mode = 'circle'; f.t = 0; S.hatT = 0.001; sfx('whoosh'); if (step === 3) { ctx.say('פוקס! הציפור של דמבלדור! והוא הביא את מצנפת המיון 🎩', '👦 רון', 4.5); S.shadowT = 0; } }
     } else if (f.mode === 'circle' || f.mode === 'lift') {
-      const a = f.t * 0.45, rr = 3.6;
+      const a = f.t * 0.45, rr = 3.2;
       if (f.mode === 'lift') { const k = ease(f.t / 2.5); fr.position.set(SPOT.ginny.x - 1.2, 3 - 1.2 * k, SPOT.ginny.z + 1.4); fr.rotation.set(0, Math.PI, 0); }
-      else { fr.position.set(Math.sin(a) * rr, 5.6 + Math.sin(f.t * 1.3) * 0.5, -1.5 + Math.cos(a) * rr * 1.5); fr.rotation.set(0, a + Math.PI / 2, -0.25); }
+      else { fr.position.set(Math.sin(a) * rr, 3.8 + Math.sin(f.t * 1.3) * 0.4, 0.5 + Math.cos(a) * rr * 1.2); fr.rotation.set(0, a + Math.PI / 2, -0.25); }
     } else { fr.position.set(0, -20, 0); flap = 0; }
     const w = Math.sin(S.t * (f.mode === 'in' ? 5 : 7)) * 0.65 * flap;
     F.wL.rotation.z = w; F.wR.rotation.z = -w;
@@ -399,7 +399,7 @@ function chamberScene(ctx) {
     if (S.shadowT >= 0) {
       S.shadowT += dt; const t = S.shadowT, T = 6.0;
       if (t - dt <= 0.05) { S.shadowRuns++; tone(160, 1.6, 0, 'sine', 0.025, 90); }
-      const op = t < 1 ? t * 0.42 : t < T - 1.6 ? 0.42 : Math.max(0, 0.42 * (T - t) / 1.6);
+      const op = t < 1 ? t * 0.5 : t < T - 1.6 ? 0.5 : Math.max(0, 0.5 * (T - t) / 1.6);
       H.shadow.visible = op > 0.01; H.shadow.material.opacity = op; S.shadowMaxOp = Math.max(S.shadowMaxOp, op);
       H.shadow.position.set(SHADOW.x0 + (SHADOW.x1 - SHADOW.x0) * ease(t / T), SHADOW.y + Math.sin(t * 1.5) * 0.08, SHADOW.z);
       if (t >= T) { S.shadowT = -1; H.shadow.visible = false; if (step === 3 && !S.hatHit) ctx.say('פוקס שומר עלינו. עכשיו גע במצנפת! 🎩', '👦 רון', 3.5); }
@@ -470,8 +470,9 @@ function chamberScene(ctx) {
     if (inHall() && S.H) {
       if (step === 3 && near(RW(SPOT.hat.x, 0.4, SPOT.hat.z, v1)) < rr * 2.0) { tapHat(); return true; }
       if (step === 4) {
-        if (!S.fang && near(RW(SPOT.fang.x, 0.05, SPOT.fang.z, v1)) < rr * 1.6) { tapFang(); return true; }
-        if (!S.zap && near(RW(SPOT.diary.x, 0.1, SPOT.diary.z, v1)) < rr * 1.7) { tapDiary(); return true; }
+        const dF = S.fang ? 1e9 : near(RW(SPOT.fang.x, 0.05, SPOT.fang.z, v1)), dD = S.zap ? 1e9 : near(RW(SPOT.diary.x, 0.1, SPOT.diary.z, v1));   // the nearer of the two wins
+        if (dF < rr * 1.6 && dF <= dD) { tapFang(); return true; }
+        if (dD < rr * 1.7) { tapDiary(); return true; }
         if (!S.wake && near(RW(SPOT.ginny.x, 0.4, SPOT.ginny.z, v1)) < rr * 1.8) { ctx.say('ג\'יני ישנה בשקט... 😴 קודם השן, ואז היומן ✨', null, 3); return true; }
       }
       if (S.H.fk.root.visible) { S.H.fk.root.getWorldPosition(v1); if (near(v1) < rr * 1.6) { tone(880, 0.2, 0, 'sine', 0.05, 1320); tone(1320, 0.25, 0.2, 'sine', 0.04, 990); ctx.say('פוקס שר שיר יפה 🎶', '👦 רון', 2.5); return true; } }
@@ -515,8 +516,8 @@ function chamberScene(ctx) {
   function standAt() { const z = SINK_Z[S.sink], sz = z > 2 ? -1 : 1; return { x: SINK_X + 2.6, z: z + 2.3 * sz, yaw: Math.atan2(-2.6, -2.3 * sz) + 0.62 * sz }; }
   function faceSink() { const at = standAt(); player.teleport(at.x, at.z); frame(tapW(S.sink, v3)); }
   // face Harry to a target and swing the lens behind-beside him, a little higher, so he never hides it (until he walks)
-  function frame(t, side = 0.5) {
-    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = 0.42; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
+  function frame(t, side = 0.5, pitch = 0.42) {
+    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = pitch; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
   }
   function standHall() { player.teleport(SPOT.stand.x, SPOT.stand.z); frame(RW((SPOT.fang.x + SPOT.diary.x) / 2, 0, (SPOT.fang.z + SPOT.diary.z) / 2, v3)); }
   function glow(step, on) { S.glowHint = !!on; }
@@ -558,7 +559,7 @@ function chamberScene(ctx) {
     hatW: () => (inHall() ? RW(SPOT.hat.x, 0.4, SPOT.hat.z) : null), fangW: () => (inHall() ? RW(SPOT.fang.x, 0.05, SPOT.fang.z) : null), diaryW: () => (inHall() ? RW(SPOT.diary.x, 0.1, SPOT.diary.z) : null),
     ginnyW: () => (inHall() ? RW(SPOT.ginny.x, 0.6, SPOT.ginny.z) : null), fawkesW: () => (S.H ? S.H.fk.root.getWorldPosition(new Vector3()) : null), shadowW: () => (S.H ? S.H.shadow.getWorldPosition(new Vector3()) : null),
     standAt: () => standAt(), spawn: HALL_SPAWN, spot: SPOT, breakSlide: () => { S.slideBreak = true; }, faceSink, standHall, frameHat: () => frame(RW(SPOT.hat.x, 0, SPOT.hat.z, new Vector3()), 0.3),
-    frameAt: (x, z, side) => frame(RW(x, 0, z, new Vector3()), side),
+    frameAt: (x, z, side, pitch) => frame(RW(x, 0, z, new Vector3()), side, pitch),
   };
   return { begin, update, goal, tap, glow, together, end, state };
 }
