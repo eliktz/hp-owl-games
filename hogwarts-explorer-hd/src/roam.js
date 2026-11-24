@@ -17,7 +17,7 @@ import { speak } from './voice.js';
 import * as P from './roam-plan.js';
 
 export const ROAM_ON = true;            // the single switch: false = every teacher stands at the station as before
-const GREET_R = 4, COOL = 60, SAY_S = 3.4, AFTER_S = 2.0, FADE = 0.3, ANIM_R = 60, OUT_R = 60, WAIT_R = 1.6, VANISH = 0.6, APPEAR = 0.5;
+const GREET_R = 4, COOL = 60, SAY_S = 3.4, AFTER_S = 2.0, FADE = 0.3, ANIM_R = 60, OUT_R = 32, WAIT_R = 1.6, VANISH = 0.6, APPEAR = 0.5;
 // Walk clip ground speed (m/s) at timeScale 1 at the cast's 1.3 world scale: measured in the game (25 Nov 2026) from
 // the foot bones' backward travel during stance (1.333 s cycles, no root motion). The walk timeScale = speed / NAT.
 const NAT = { mcgonagall: 0.98, flitwick: 0.47, snape: 1.09, tonks: 1.0 };
@@ -38,6 +38,8 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   reset();
   const log = { greets: [], holds: 0, built: 0, dropped: 0, spoke: [] };
   let now = 0, lastGreet = -1e9, slow = 0, chipKey = '', busyT = 1, busy = null;
+  let bub = null, bubOf = null;   // the greeting bubble (fun.say's handle) and whose it is: it ends when her figure leaves the stage
+  const endBub = (id) => { if (bub && bubOf === id) { bub.t = Math.min(bub.t, 0); bub = null; bubOf = null; } };
 
   // ---- hold rules ----
   function busyWhy() {
@@ -102,6 +104,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
     if (fig.col) { const arr = fig.colArr, i = arr ? arr.indexOf(fig.col) : -1; if (i >= 0) arr.splice(i, 1); fig.col = null; }
   }
   function dropFig(st) {
+    endBub(st.id);
     const fig = st.fig; if (!fig) return;
     st.fig = null; finishFig(fig);
   }
@@ -157,6 +160,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   // take a figure off the stage: in view -> fade over VANISH s (+ sparkles when `magic`); off view -> at once
   const fading = [];
   function vanish(st, magic) {
+    endBub(st.id);
     const fig = st.fig; if (!fig) return;
     if (!fig.ready || !fig.holder.visible || fig.dead || !fig.holder.parent) { dropFig(st); return; }
     st.fig = null;
@@ -225,7 +229,8 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
       const where = q.place ? P.roomOf(q.place) : null, outdoor = q.place && P.ROOMS[q.place] && P.ROOMS[q.place].outdoor;
       let want = false;
       if (q.phase === 'walk' || q.phase === 'pause') {
-        if (outdoor) want = !room && Math.hypot(q.x - player.pos.x, q.z - player.pos.z) < OUT_R;
+        // outdoors only near Harry (32 m, dropped at 36): the main-gates view (~295.6k tris, 40+ m away) never carries a teacher
+        if (outdoor) want = !room && Math.hypot(q.x - player.pos.x, q.z - player.pos.z) < (st.fig ? OUT_R + 4 : OUT_R);
         else want = !!room && where === room;
       }
       if (st.fig && (st.fig.dead || st.fig.roomObj !== interiors.room || st.fig.outdoor !== !!outdoor)) dropFig(st);
@@ -245,7 +250,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
           const line = P.LINES[id][st.line++ % P.LINES[id].length];
           st.greet = { t: 0, line }; st.cool = now; lastGreet = now;
           head.set(q.x, by + (id === 'flitwick' ? 1.9 : 2.85) + (outdoor ? 0 : interiors.room.group.position.y), q.z);
-          fun.say(head, line, SAY_S, 'roam');
+          bub = fun.say(head, line, SAY_S, 'roam'); bubOf = id;
           let spoke = false; try { spoke = speak(line, { preset: st.T.preset }); } catch { spoke = false; }
           log.greets.push({ id, line, at: +now.toFixed(1), place: q.place, spoke }); if (log.greets.length > 20) log.greets.shift();
         }
@@ -281,7 +286,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
         if (solid && !fig.col && dP > 0.9) { fig.col = { type: 'circle', x, z, r: 0.35, npc: 'roam-' + id }; fig.colArr = outdoor ? colliders : interiors.room.colliders; fig.colArr.push(fig.col); }
         if (fig.col) { fig.col.x = x; fig.col.z = z; if (!solid) { const i = fig.colArr.indexOf(fig.col); if (i >= 0) fig.colArr.splice(i, 1); fig.col = null; } }
         // visibility + animation: only what is in view and near
-        fig.holder.visible = seen && (!outdoor || dP < OUT_R);
+        fig.holder.visible = seen && (!outdoor || dP < OUT_R + 4);
         if (fig.holder.visible && dP < ANIM_R) {
           if (fig.mixer) { fadeTo(fig, st.greet ? 'talk' : moving ? 'walk' : (q.act === 'fold' && fig.acts.fold ? 'fold' : q.act === 'talk' && fig.acts.talk ? 'talk' : 'idle')); fig.mixer.update(dt); }
           else if (fig.rig) { animateChibi(fig.rig, dt, { moving }); if (fig.chibi) fig.chibi.position.y = moving ? Math.abs(Math.sin(now * 9)) * 0.04 : 0; }
