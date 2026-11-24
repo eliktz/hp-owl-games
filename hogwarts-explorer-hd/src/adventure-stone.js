@@ -12,6 +12,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BUILDERS } from './rooms.js';
 import { MAT } from './interior-kit.js';
 import { TROLL } from './adventure-troll.js';
+import { NORBERT } from './adventure-norbert.js';
 import { B2CAR } from './adventure-b2-car.js';
 import { B2DOBBY } from './adventure-b2-dobby.js';
 import { B2WALL } from './adventure-b2-wall.js';
@@ -41,7 +42,7 @@ export const QUESTS = [
     create: (ctx) => stoneScene(ctx),
   },
   TROLL,
-  { id: 'norbert', title: 'נורברט הדרקון הקטן', ico: '🐉', soon: true, col: '#5a2a10', col2: '#d8803a', pic: [['🐉', 0.5, 0.55, 74], ['🏡', 0.2, 0.3, 30]] },
+  NORBERT,
   { id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', soon: true, col: '#3a3a2a', col2: '#a0a070', pic: [['🦅', 0.5, 0.55, 72], ['🙇', 0.8, 0.3, 30]] },
   // book 2: "חדר הסודות" (briefs/2026-11-23-book2-chamber-quests.md); the first is open from the start, the rest in order
   B2CAR,
