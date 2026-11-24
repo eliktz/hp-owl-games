@@ -26,14 +26,14 @@ function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.w
 
 // ---------------- where things stand by the hearth (hearth frame) ----------------
 export const SLAB_Y = 0.08;
-export const KETTLE = { x: 0, y: 1.52, z: 0.36 };          // the kettle's centre, hanging over the fire
-export const EGG_Y = KETTLE.y + 0.3;                        // the egg's centre, sitting in the kettle
+export const KETTLE = { x: 0, y: 1.5, z: 0.5 };          // the kettle's centre, hanging over the fire
+export const EGG_Y = KETTLE.y + 0.36;                       // the egg's centre, sitting in the kettle
 export const NEST = { x: -1.3, z: 1.45 };
 export const HAY = { x: -0.62, z: 1.15 };                  // the little pile of hay his hiccup sparks make smoke
 export const BOWL = { x: 1.05, z: 1.45 };
 export const BUCKET = { x: 1.62, z: 1.0 };
 export const CRATE = { x: -2.55, z: 1.55 };
-export const NS = 1.35;                                     // Norbert's scale (about 0.8 m: he reads clearly from the camera)
+export const NS = 1.5;                                     // Norbert's scale (about 0.8 m: he reads clearly from the camera)
 
 // ---------------- baby Norbert (round, big head, big eyes, stubby wings) ----------------
 export function buildNorbert() {
@@ -43,7 +43,7 @@ export function buildNorbert() {
   body.position.y = 0.2;
   const L = [];
   // round body + cream belly
-  L.push(paint(place(S(14, 10), 0, 0, 0, 0, 0, 0, 0.19, 0.2, 0.18), GREEN));
+  L.push(paint(place(S(12, 8), 0, 0, 0, 0, 0, 0, 0.19, 0.2, 0.18), GREEN));
   L.push(paint(place(S(12, 8), 0, -0.01, 0.07, 0, 0, 0, 0.14, 0.15, 0.12), BELLY));
   for (let k = 0; k < 3; k++) L.push(paint(place(new TorusGeometry(0.1 - k * 0.012, 0.006, 3, 12, Math.PI), 0, -0.07 + k * 0.05, 0.172 - k * 0.006, 0, 0, Math.PI), 0xd8c088));   // belly stripes
   // stubby legs: two front paws, two round back feet
@@ -59,12 +59,12 @@ export function buildNorbert() {
   L.push(paint(place(new ConeGeometry(0.06, 0.09, 4), 0.24, -0.14, -0.33, 0, 0, -Math.PI / 2, 1, 1, 0.4), SPIKE));
   // big round head
   const HY = 0.29, HZ = 0.05;
-  L.push(paint(place(S(16, 12), 0, HY, HZ, 0, 0, 0, 0.2, 0.185, 0.19), GREEN));
+  L.push(paint(place(S(14, 10), 0, HY, HZ, 0, 0, 0, 0.2, 0.185, 0.19), GREEN));
   L.push(paint(place(S(12, 8), 0, HY - 0.05, HZ + 0.15, 0, 0, 0, 0.12, 0.085, 0.09), SNOUT));                 // snout
   for (const sx of [-1, 1]) L.push(paint(place(S(5, 3), sx * 0.04, HY - 0.02, HZ + 0.235, 0, 0, 0, 0.014, 0.01, 0.01), DARK));   // nostrils
   L.push(paint(place(new TorusGeometry(0.05, 0.008, 3, 10, Math.PI), 0, HY - 0.08, HZ + 0.215, 0.3, 0, Math.PI), 0x6a2a24));   // a happy smile
   for (const sx of [-1, 1]) {
-    L.push(paint(place(S(12, 10), sx * 0.085, HY + 0.035, HZ + 0.13, 0, 0, 0, 0.075, 0.082, 0.06), WHITE));    // huge eyes
+    L.push(paint(place(S(10, 8), sx * 0.085, HY + 0.035, HZ + 0.13, 0, 0, 0, 0.075, 0.082, 0.06), WHITE));    // huge eyes
     L.push(paint(place(S(10, 8), sx * 0.088, HY + 0.03, HZ + 0.172, 0, 0, 0, 0.055, 0.062, 0.03), 0x3a2418));  // brown iris
     L.push(paint(place(S(8, 6), sx * 0.088, HY + 0.03, HZ + 0.19, 0, 0, 0, 0.034, 0.04, 0.02), DARK));
     L.push(paint(place(S(6, 4), sx * 0.07, HY + 0.06, HZ + 0.205, 0, 0, 0, 0.016), WHITE));                    // sparkle
@@ -96,7 +96,7 @@ export function buildNorbert() {
 // ---------------- the egg (whole, then the broken bottom half) ----------------
 export function buildEgg() {
   const SHELL = 0xeedcb4, SPECK = 0x8a5a3a;
-  const L = [paint(place(S(14, 10), 0, 0, 0, 0, 0, 0, 0.17, 0.23, 0.17), SHELL)];
+  const L = [paint(place(S(14, 10), 0, 0, 0, 0, 0, 0, 0.17, 0.23, 0.17), SHELL)];   // (shown at 1.35x)
   for (let k = 0; k < 11; k++) { const a = k * 2.4, y = -0.15 + (k % 5) * 0.075, r = Math.sqrt(Math.max(0.02, 1 - (y / 0.23) ** 2)); L.push(paint(place(S(5, 3), Math.cos(a) * 0.165 * r, y, Math.sin(a) * 0.165 * r, 0, -a, 0, 0.012, 0.025, 0.03), k % 3 ? SPECK : 0x5a7a3a)); }
   const whole = merge(L);
   // the bottom cup with a zig-zag rim (the top flies off as shell bits)
@@ -104,7 +104,7 @@ export function buildEgg() {
   const cup = paint(new LatheGeometry(prof, 14), SHELL);
   const zig = []; for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; zig.push(paint(place(new ConeGeometry(0.035, 0.07, 3), Math.cos(a) * 0.165, 0.065, Math.sin(a) * 0.165, 0, -a, 0), SHELL)); }
   const broken = merge([cup, ...zig]);
-  const mesh = new Mesh(whole, vc({ roughness: 0.55, side: DoubleSide })); mesh.name = 'adv-egg'; mesh.raycast = () => {};
+  const mesh = new Mesh(whole, vc({ roughness: 0.55, side: DoubleSide, emissive: new Color(0x5a3a18), emissiveIntensity: 0.6 })); mesh.scale.setScalar(1.35); mesh.name = 'adv-egg'; mesh.raycast = () => {};
   return { mesh, whole, broken };
 }
 
@@ -180,7 +180,7 @@ export function buildBubble() {
     if (k === 'hiccup') { x.font = 'bold 30px Arial'; x.fillStyle = '#c0502a'; x.fillText('היק!', 214, 168); }
   });
   const mat = new MeshBasicMaterial({ map: tex.hungry, transparent: true, depthWrite: false });
-  const mesh = new Mesh(new PlaneGeometry(0.8, 0.7), mat); mesh.name = 'norbert-bubble'; mesh.renderOrder = 5; mesh.raycast = () => {};
+  const mesh = new Mesh(new PlaneGeometry(1.0, 0.875), mat); mesh.name = 'norbert-bubble'; mesh.renderOrder = 5; mesh.raycast = () => {};
   return { mesh, tex, set: (k) => { if (tex[k] && mat.map !== tex[k]) { mat.map = tex[k]; mat.needsUpdate = true; } } };
 }
 

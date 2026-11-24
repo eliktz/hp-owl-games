@@ -86,7 +86,22 @@ function norbertScene(ctx) {
   }
   // hearth frame -> world (the props group copies the hearth's place and turn)
   const HW = (x, y, z, out = new Vector3()) => { if (!S.G) { const h = findHearth(); if (!h) return out.set(player.pos.x, player.pos.y, player.pos.z); h.updateMatrixWorld(); return out.set(x, y, z).applyMatrix4(h.matrixWorld); } return out.set(x, y, z).applyMatrix4(S.G.matrixWorld); };
-  const front = (out = new Vector3()) => HW(0, 0, 3.4, out);   // where Harry stands to see the hearth, the nest and the bowl
+  const front = (out = new Vector3()) => HW(1.7, 0, 3.1, out);   // where Harry stands to see the hearth, the nest and the bowl (off to one side: he never hides the kettle)
+  const lookAt = (out = new Vector3()) => HW(-0.6, 0, 0.9, out);
+  // a closer lens by the hearth, once per arrival (the player can still zoom); a teleport arms it again
+  const lastP = new Vector3(1e9, 0, 0);
+  function frameHut(dt) {
+    const jump = Math.hypot(player.pos.x - lastP.x, player.pos.z - lastP.z) > 3; lastP.copy(player.pos);
+    if (jump) S.framed = false;
+    if (S.framed || !S.G || !outdoors() || ctx.step < 0 || ctx.step > 3 || S.follow) return;
+    front(v1); if (Math.hypot(player.pos.x - v1.x, player.pos.z - v1.z) > 4) return;
+    S.framed = true;
+    try { const c = player.cam; if (!c.userControlled) { c.dist = Math.min(c.dist, 6.2); c.pitch = 0.26; } } catch { /* ok */ }
+  }
+  // the hint bubble moves up while a quest prompt button (🔥 / 💧 / 💡) shows, so it never covers it
+  const css = document.createElement('style'); css.id = 'advNorbertCss';
+  css.textContent = '@media (min-width:701px){body.inAdv:has(#funPrompt.on) #advHint{bottom:calc(236px + env(safe-area-inset-bottom))}}';
+  document.head.appendChild(css);
 
   // ---- spells: Incendio on the hearth, Aguamenti on the smoking hay (objects only) ----
   const T = [];
@@ -357,6 +372,7 @@ function norbertScene(ctx) {
   // ---- per frame ----
   function update(dt, step, busy) {
     S.t += dt; S.stepT += dt;
+    frameHut(dt);
     if (S.active && outdoors() && !S.G && step <= 3) dressHut(step);
     if (S.G) S.G.visible = outdoors();
     fireCtl();
@@ -376,7 +392,7 @@ function norbertScene(ctx) {
     if (S.bubble) {
       const on = step === 2 && !!S.want && !S.react && outdoors();
       S.bubble.mesh.visible = on;
-      if (on) { S.bubble.mesh.position.set(NEST.x + 0.25, SLAB_Y + 1.35 + Math.sin(S.t * 2) * 0.04, NEST.z); S.bubble.mesh.quaternion.copy(camera.quaternion); if (S.G) { _Q.copy(S.G.quaternion).invert(); S.bubble.mesh.quaternion.premultiply(_Q); } }
+      if (on) { S.bubble.mesh.position.set(NEST.x + 0.3, SLAB_Y + 1.62 + Math.sin(S.t * 2) * 0.04, NEST.z); S.bubble.mesh.quaternion.copy(camera.quaternion); if (S.G) { _Q.copy(S.G.quaternion).invert(); S.bubble.mesh.quaternion.premultiply(_Q); } }
     }
     // level 1 (or the glow hint): the right thing twinkles
     if (S.G && outdoors() && (lv() === 1 || S.glowHint) && Math.random() < dt * 4) {
@@ -481,12 +497,12 @@ function norbertScene(ctx) {
       return;
     }
     // a resume (reload / the book): go to the right place; the step starts over
-    if (step >= 1 && step <= 3 && !S.follow) { if (interiors.active) interiors.exit(); const h = findHearth(); if (h) { front(v1); HW(0, 0, 1.0, v2); player.yaw = Math.atan2(v2.x - v1.x, v2.z - v1.z); player.teleport(v1.x, v1.z); setTimeout(() => { try { player.cam.reset(player.yaw); } catch { /* ok */ } }, 50); } }
+    if (step >= 1 && step <= 3 && !S.follow) { if (interiors.active) interiors.exit(); const h = findHearth(); if (h) { front(v1); lookAt(v2); player.yaw = Math.atan2(v2.x - v1.x, v2.z - v1.z); player.teleport(v1.x, v1.z); setTimeout(() => { try { player.cam.reset(player.yaw); } catch { /* ok */ } }, 50); } }
     if (step === 4 && !inTower()) interiors.enter('tower');
   }
   function glow(step, on) { S.glowHint = !!on; }
   function together(step, fast) {
-    const atHut = (fn, d = 900) => { if (outdoors() && S.G && Math.hypot(player.pos.x - front(v1).x, player.pos.z - v1.z) < 8) { fn(); return; } if (interiors.active) interiors.exit(); setTimeout(() => { const h = findHearth(); if (h) { front(v1); HW(0, 0, 1.0, v2); player.yaw = Math.atan2(v2.x - v1.x, v2.z - v1.z); player.teleport(v1.x, v1.z); } setTimeout(fn, d); }, interiors.active ? 900 : 0); };
+    const atHut = (fn, d = 900) => { if (outdoors() && S.G && Math.hypot(player.pos.x - front(v1).x, player.pos.z - v1.z) < 8) { fn(); return; } if (interiors.active) interiors.exit(); setTimeout(() => { const h = findHearth(); if (h) { front(v1); lookAt(v2); player.yaw = Math.atan2(v2.x - v1.x, v2.z - v1.z); player.teleport(v1.x, v1.z); } setTimeout(fn, d); }, interiors.active ? 900 : 0); };
     if (step === 0) atHut(() => {}, 0);
     else if (step === 1) atHut(() => { light(); if (fast) S.hatch = Math.max(S.hatch, 8.95); });
     else if (step === 2) atHut(() => {
@@ -506,6 +522,7 @@ function norbertScene(ctx) {
     fireCtl(); if (S.fire) S.fire.visible = true;   // the hearth back to its normal burning self
     if (FI && Array.isArray(FI.TARGETS)) for (const t of T) { const i = FI.TARGETS.indexOf(t); if (i >= 0) FI.TARGETS.splice(i, 1); }
     if (finished) writeSub(null);
+    if (css.parentNode) css.parentNode.removeChild(css);
   }
   function state() {
     return { room: interiors.active, hut: !!S.G, fireLit: S.fireLit, hearthFire: S.fire ? S.fire.visible : null, hatch: +S.hatch.toFixed(2), hatched: S.hatched, egg: !!(S.egg && !S.eggGone), norbert: !!S.nor,
@@ -514,7 +531,7 @@ function norbertScene(ctx) {
       crateD: S.crate && S.follow ? +Math.hypot(S.crate.g.position.x - player.pos.x, S.crate.g.position.z - player.pos.z).toFixed(2) : null };
   }
   ctx._norbert = {
-    front: () => { if (!findHearth()) return null; front(v1); HW(0, 0, 1.0, v2); return { x: v1.x, z: v1.z, yaw: Math.atan2(v2.x - v1.x, v2.z - v1.z) }; },
+    front: () => { if (!findHearth()) return null; front(v1); lookAt(v2); return { x: v1.x, z: v1.z, yaw: Math.atan2(v2.x - v1.x, v2.z - v1.z) }; },
     hearthW: () => HW(0, 0.7, 0.5),
     eggW: () => HW(KETTLE.x, EGG_Y, KETTLE.z),
     bowlW: () => HW(BOWL.x, SLAB_Y + 0.2, BOWL.z),
