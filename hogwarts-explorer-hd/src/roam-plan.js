@@ -80,15 +80,15 @@ export const HOME_DOORS = { classrooms: { staircase: { x: 0, z: 8.6 } }, dungeon
 // loop: places in order (each consecutive pair joined by a doorway); stop: true = pause at one of the
 // room's stops, false = walk straight through door to door. The loop starts and ends at home.
 export const TEACHERS = {
-  mcgon:    { lesson: 'transfiguration', home: 'classrooms', model: 'mcgonagall', badge: '🐱', speed: 1.2, phase: 0.0,
+  mcgon:    { lesson: 'transfiguration', home: 'classrooms', model: 'mcgonagall', badge: '🐱', speed: 1.0, phase: 0.0, off: [0, 0],
     loop: [['staircase', 1], ['entrancehall', 0], ['greathall', 1], ['entrancehall', 1], ['courtyard', 1], ['entrancehall', 0], ['staircase', 0]] },
-  flitwick: { lesson: 'charms', home: 'classrooms', model: 'flitwick', badge: '🪶', speed: 1.0, phase: 0.3, preset: 'flitwick',
+  flitwick: { lesson: 'charms', home: 'classrooms', model: 'flitwick', badge: '🪶', speed: 0.65, phase: 0.3, preset: 'flitwick', off: [1.0, 0.6],
     loop: [['staircase', 1], ['entrancehall', 0], ['library', 1], ['entrancehall', 0], ['greathall', 1], ['entrancehall', 0], ['staircase', 0]] },
-  snape:    { lesson: 'potions', home: 'dungeon', model: 'snape', badge: '🧪', speed: 1.15, phase: 0.55, idle: 'FoldArms',
+  snape:    { lesson: 'potions', home: 'dungeon', model: 'snape', badge: '🧪', speed: 1.1, phase: 0.55, idle: 'FoldArms', off: [0, 0],
     loop: [['greathall_w', 1]] },   // the tables wall the dungeon door off from the aisle: he keeps to the west side
-  defence:  { lesson: 'spells', home: 'classrooms', model: 'tonks', badge: '🛡️', speed: 1.3, phase: 0.8,
+  defence:  { lesson: 'spells', home: 'classrooms', model: 'tonks', badge: '🛡️', speed: 1.15, phase: 0.8, off: [-1.0, 0.6],
     loop: [['staircase', 1], ['entrancehall', 0], ['courtyard', 1], ['entrancehall', 1], ['staircase', 0]] },
-  sinistra: { lesson: 'astronomy', home: 'tower', model: null, badge: '🔭', speed: 1.0, phase: 0.15, chibi: true,
+  sinistra: { lesson: 'astronomy', home: 'tower', model: null, badge: '🔭', speed: 0.9, phase: 0.15, chibi: true, off: [-1.0, -0.6],
     loop: [['staircase', 1], ['entrancehall', 0], ['library', 1], ['entrancehall', 0], ['staircase', 0]] },
 };
 export const ORDER = ['mcgon', 'flitwick', 'snape', 'defence', 'sinistra'];
@@ -152,6 +152,16 @@ export function pathAt(p, s) {
   return { x: p[0][0], z: p[0][1], yaw: 0 };
 }
 
+// a teacher's own spot at a shared stop: the stop moved by the teacher's `off` (metres), unless that lands in an
+// obstacle or a keep-out (then the stop itself); so two teachers pausing at one stop stand side by side
+export function stopFor(id, R, st) {
+  const o = (TEACHERS[id] && TEACHERS[id].off) || [0, 0];
+  if (!o[0] && !o[1]) return st;
+  const x = +(st.x + o[0]).toFixed(2), z = +(st.z + o[1]).toFixed(2);
+  if (!pointFree(x, z, R.obs || [], 0.5) || inKeep(x, z, R.keep || [])) return st;
+  return { ...st, x, z };
+}
+
 // ---- the schedule ----
 // A teacher's day is a list of SEGMENTS: { place, kind: 'walk'|'pause'|'gap'|'home', path?, dur, stop? }.
 // 'gap' = the few seconds between two doorways (no figure anywhere). Built once per seed.
@@ -170,7 +180,7 @@ export function buildDay(id, seed) {
     if (!din || !dout) throw new Error('roam: no door ' + place + ' <-> ' + prev + '/' + next);
     const rad = T.chibi ? 0.3 : 0.35;
     if (stopHere) {
-      const st = R.stops[(r() * R.stops.length) | 0];
+      const st = stopFor(id, R, R.stops[(r() * R.stops.length) | 0]);
       const p1 = [[din.x, din.z], ...route(R, [din.ix, din.iz], [st.x, st.z], rad)];
       segs.push({ place, kind: 'walk', path: p1, dur: pathLen(p1) / T.speed });
       segs.push({ place, kind: 'pause', at: st, dur: pause() });

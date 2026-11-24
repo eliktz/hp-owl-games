@@ -9,17 +9,18 @@
 //  - during any adventure, lesson, course, Quidditch, Floo trip or takeover ALL teachers hold home;
 //  - spells never target teachers (nothing here registers with freecast);
 //  - any failure is non-fatal: roaming switches itself off and the teachers stand as before.
-import { Group, AnimationMixer, Box3, Frustum, Matrix4, Sphere, Vector3, Mesh, SphereGeometry, ConeGeometry, MeshStandardMaterial, MeshBasicMaterial } from 'three';
+import { Group, AnimationMixer, Frustum, Matrix4, Sphere, Vector3, Mesh, SphereGeometry, ConeGeometry, OctahedronGeometry, InstancedMesh, Object3D, MeshStandardMaterial, MeshBasicMaterial } from 'three';
 import { buildChibi, animateChibi } from './chibi.js';
 import { loadAnimated } from './models.js';
 import { LOOK, GLB_PROF } from './lessons.js';
 import { speak } from './voice.js';
 import * as P from './roam-plan.js';
 
-export const ROAM_ON = false;           // the single switch (OFF until the browser safety tests pass): false = every teacher stands at the station as before
-const GREET_R = 4, COOL = 60, SAY_S = 3.4, AFTER_S = 2.0, FADE = 0.3, ANIM_R = 60, OUT_R = 60, WAIT_R = 1.6;
-// Walk clip ground speed at timeScale 1 for each rig at the cast's 1.3 world scale (measured, see roam.gait())
-const NAT = { mcgonagall: 1.5, flitwick: 1.15, snape: 1.5, tonks: 1.5 };
+export const ROAM_ON = true;            // the single switch: false = every teacher stands at the station as before
+const GREET_R = 4, COOL = 60, SAY_S = 3.4, AFTER_S = 2.0, FADE = 0.3, ANIM_R = 60, OUT_R = 60, WAIT_R = 1.6, VANISH = 0.6, APPEAR = 0.5;
+// Walk clip ground speed (m/s) at timeScale 1 at the cast's 1.3 world scale: measured in the game (25 Nov 2026) from
+// the foot bones' backward travel during stance (1.333 s cycles, no root motion). The walk timeScale = speed / NAT.
+const NAT = { mcgonagall: 0.98, flitwick: 0.47, snape: 1.09, tonks: 1.0 };
 
 export function createRoam({ scene, camera, player, interiors, lessons, map, env, fun, colliders, groundAt, isModal, isTakeover, adventures, floo }) {
   const off = { tick() {}, api: { state: () => ({ on: false }), fast() {}, where: () => null, hold() {}, seed() {} } };
@@ -31,7 +32,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   function reset() {
     for (const id of P.ORDER) {
       const prev = S[id];
-      S[id] = { id, T: P.TEACHERS[id], day: P.buildDay(id, seed), clock: 0, held: null, fig: prev ? prev.fig : null, cool: -1e9, greet: null, line: 0, wait: 0, off: { x: 0, z: 0 }, stuck: 0, visits: new Set() };
+      S[id] = { id, T: P.TEACHERS[id], day: P.buildDay(id, seed), clock: 0, held: null, fig: prev ? prev.fig : null, cool: -1e9, greet: null, line: 0, wait: 0, off: { x: 0, z: 0 }, stuck: 0, yieldT: 0, moving: false, visits: new Set() };
     }
   }
   reset();
@@ -43,7 +44,10 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
     try {
       if (isTakeover()) return 'takeover';
       if (lessons.openKey && lessons.openKey()) return 'lesson';
-      if (document.body.classList.contains('inSpell')) return 'course';
+      const bc = document.body.classList;
+      if (bc.contains('inSpell')) return 'course';
+      if (bc.contains('inMatch')) return 'match';
+      if (bc.contains('inFloo')) return 'floo';
       const fl = floo(); if (fl) { const f = fl.state(); if (f.phase !== 'idle' || f.pickOpen) return 'floo'; }
       const ad = adventures(); if (ad) { const a = ad.state(); if (a.quest) return 'adventure'; }
     } catch { /* an api missing: not busy */ }
@@ -56,13 +60,13 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
     if (st.id === 'sinistra' && env && env.time === 'night') return 'night';
     return null;
   }
-  function home(id) { const st = S[id]; if (!st) return; st.clock = 0; st.greet = null; st.wait = 0; dropFig(st); }
+  function home(id) { const st = S[id]; if (!st) return; st.clock = 0; st.greet = null; st.wait = 0; vanish(st, true); }
 
   // ---- figures ----
   function roomGroup() { return interiors.active && interiors.room ? interiors.room.group : null; }
   function buildFig(st, parent, outdoor) {
     const holder = new Group(); holder.name = 'roam-' + st.id; holder.visible = false;
-    const fig = { holder, parent, outdoor, roomObj: interiors.room, mixer: null, acts: null, cur: null, rig: null, ready: false, yaw: 0, col: null, place: null };
+    const fig = { holder, parent, outdoor, roomObj: interiors.room, appear: 0, mixer: null, acts: null, cur: null, rig: null, ready: false, yaw: 0, col: null, place: null };
     const look = LOOK[st.id];
     const chibi = look ? buildChibi(look) : null;
     if (chibi) { holder.add(chibi); fig.chibi = chibi; chibi.visible = false; }
@@ -99,16 +103,82 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   }
   function dropFig(st) {
     const fig = st.fig; if (!fig) return;
-    st.fig = null; killFig(fig);
-    if (fig.holder.parent) fig.holder.parent.remove(fig.holder);
-    if (fig.chibi) fig.chibi.traverse(o => { if (o.isMesh) { try { o.geometry.dispose(); } catch { /* backend quirk */ } } });
-    if (fig.cat) fig.cat.traverse(o => { if (o.isMesh) { try { o.geometry.dispose(); } catch { /* backend quirk */ } } });
-    log.dropped++;
+    st.fig = null; finishFig(fig);
   }
   function fadeTo(fig, name) {
     if (!fig.mixer || fig.cur === name) return;
     const next = fig.acts[name] || fig.acts.idle; if (!next || next === fig.acts[fig.cur]) { fig.cur = name; return; }
     const prev = fig.acts[fig.cur]; next.reset().play(); if (prev) prev.crossFadeTo(next, FADE, false); fig.cur = name;
+  }
+
+  // ---- appear / vanish (never an instant pop in view): per-figure material clones fade the opacity ----
+  // The GLB materials are shared with the models.js cache (the lesson figure uses them too), so a fading
+  // figure gets its own transparent clones and gives the shared ones back when it is fully visible again.
+  function setAlpha(fig, a) {
+    fig.holder.traverse(o => {
+      if (!o.isMesh || o.userData.roamSpark) return;
+      if (!o.userData.mat0) {
+        o.userData.mat0 = o.material;
+        const mk = (m) => { const c = m.clone(); c.transparent = true; c.userData.op0 = m.opacity; return c; };
+        o.material = Array.isArray(o.material) ? o.material.map(mk) : mk(o.material);
+      }
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.opacity = (m.userData.op0 ?? 1) * a;
+    });
+  }
+  function solidMats(fig) {
+    fig.holder.traverse(o => {
+      if (!o.isMesh || !o.userData.mat0) return;
+      const cl = o.material; o.material = o.userData.mat0; o.userData.mat0 = null;
+      for (const m of Array.isArray(cl) ? cl : [cl]) { try { m.dispose(); } catch { /* backend quirk */ } }
+    });
+  }
+  // a small sparkle puff: one InstancedMesh of tiny gold diamonds rising and shrinking (1 draw call, ~0.9 s)
+  const sparkGeo = new OctahedronGeometry(0.045, 0), sparks = [], dummy = new Object3D();
+  function sparkle(parent, x, y, z, h = 1.6) {
+    if (!parent) return;
+    const N = 16, mat = new MeshBasicMaterial({ color: 0xffe7a0, transparent: true, depthWrite: false });
+    const m = new InstancedMesh(sparkGeo, mat, N); m.userData.roamSpark = true; m.frustumCulled = false; m.name = 'roam-sparkle';
+    const pts = [];
+    for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, r = 0.25 + Math.random() * 0.35; pts.push({ x: Math.cos(a) * r, y: 0.2 + Math.random() * h, z: Math.sin(a) * r, v: 0.5 + Math.random() * 0.8, s: 0.6 + Math.random() * 0.8, a }); }
+    m.position.set(x, y, z); parent.add(m);
+    sparks.push({ m, mat, pts, t: 0 });
+  }
+  function sparkTick(dt) {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const sp = sparks[i]; sp.t += dt; const k = sp.t / 0.9;
+      if (k >= 1 || !sp.m.parent) { if (sp.m.parent) sp.m.parent.remove(sp.m); try { sp.mat.dispose(); } catch { /* backend quirk */ } sparks.splice(i, 1); continue; }
+      sp.pts.forEach((p, j) => {
+        dummy.position.set(p.x * (1 + k * 0.6), p.y + p.v * sp.t, p.z * (1 + k * 0.6)); dummy.rotation.set(0, p.a + sp.t * 6, sp.t * 4);
+        dummy.scale.setScalar(p.s * Math.sin(Math.PI * Math.min(1, k * 1.3 + 0.05))); dummy.updateMatrix(); sp.m.setMatrixAt(j, dummy.matrix);
+      });
+      sp.m.instanceMatrix.needsUpdate = true; sp.mat.opacity = 1 - k * k;
+    }
+  }
+  // take a figure off the stage: in view -> fade over VANISH s (+ sparkles when `magic`); off view -> at once
+  const fading = [];
+  function vanish(st, magic) {
+    const fig = st.fig; if (!fig) return;
+    if (!fig.ready || !fig.holder.visible || fig.dead || !fig.holder.parent) { dropFig(st); return; }
+    st.fig = null;
+    if (fig.col) { const i = fig.colArr ? fig.colArr.indexOf(fig.col) : -1; if (i >= 0) fig.colArr.splice(i, 1); fig.col = null; }
+    if (magic) { const p = fig.holder.position; sparkle(fig.holder.parent, p.x, p.y, p.z, fig.glb && st.id === 'flitwick' ? 1.1 : 1.8); }
+    fading.push({ st, fig, t: 0 });
+  }
+  function fadeTick(dt) {
+    for (let i = fading.length - 1; i >= 0; i--) {
+      const f = fading[i]; f.t += dt;
+      if (f.fig.dead || !f.fig.holder.parent || f.t >= VANISH) { fading.splice(i, 1); finishFig(f.fig); continue; }
+      const k = f.t / VANISH; setAlpha(f.fig, 1 - k); f.fig.holder.scale.setScalar(1 - 0.12 * k);
+      if (f.fig.mixer) f.fig.mixer.update(dt);
+    }
+  }
+  function finishFig(fig) {
+    killFig(fig);
+    if (fig.holder.parent) fig.holder.parent.remove(fig.holder);
+    solidMats(fig);
+    if (fig.chibi) fig.chibi.traverse(o => { if (o.isMesh) { try { o.geometry.dispose(); } catch { /* backend quirk */ } } });
+    if (fig.cat) fig.cat.traverse(o => { if (o.isMesh) { try { o.geometry.dispose(); } catch { /* backend quirk */ } } });
+    log.dropped++;
   }
 
   // ---- the McGonagall cat (one fun touch): at a stop, a little tabby for ~6 s in a puff of sparkles ----
@@ -123,7 +193,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
     for (let i = 0; i < 3; i++) { const s = new Mesh(new SphereGeometry(0.08, 6, 4), dark); s.scale.set(1.05, 0.25, 1); s.position.set(0, 0.36, 0.1 - i * 0.14); g.add(s); }   // tabby stripes
     g.userData.tail = tail; g.visible = false; return g;
   }
-  function puff(fig) { try { const p = fig.holder.getWorldPosition(new Vector3()); p.y += 1.2; fun.say(p, '✨💫✨', 1.0, 'roampuff'); } catch { /* ignore */ } }
+  function puff(fig) { try { const p = fig.holder.position; sparkle(fig.holder.parent, p.x, p.y, p.z, 1.0); } catch { /* ignore */ } }
 
   // ---- per-frame ----
   const frustum = new Frustum(), pm = new Matrix4(), sph = new Sphere(new Vector3(), 1.6), head = new Vector3(), wp = new Vector3();
@@ -140,13 +210,14 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   }
   function step(dt) {
     now += dt; slow += dt; busyT += dt;
+    sparkTick(dt); fadeTick(dt);
     if (busyT > 0.25) { busyT = 0; busy = busyWhy(); }   // the hold rules are checked 4x a second (lessons' hook is instant)
     pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(pm, camera.coordinateSystem);
     const room = interiors.active, rg = roomGroup();
     for (const id of P.ORDER) {
       const st = S[id];
       const why = holdWhy(st, busy);
-      if (why) { if (st.held !== why) { st.held = why; log.holds++; } st.clock = 0; st.greet = null; if (st.fig) dropFig(st); continue; }
+      if (why) { if (st.held !== why) { st.held = why; log.holds++; } st.clock = 0; st.greet = null; st.cat = null; if (st.fig) vanish(st, true); continue; }
       if (st.held) { st.held = null; st.clock = 0; }
       // this teacher's figure lives where the player is
       let q = P.sampleDay(st.day, st.clock);
@@ -157,11 +228,13 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
         if (outdoor) want = !room && Math.hypot(q.x - player.pos.x, q.z - player.pos.z) < OUT_R;
         else want = !!room && where === room;
       }
-      if (st.fig && (st.fig.dead || st.fig.roomObj !== interiors.room || st.fig.outdoor !== !!outdoor || !want)) dropFig(st);
+      if (st.fig && (st.fig.dead || st.fig.roomObj !== interiors.room || st.fig.outdoor !== !!outdoor)) dropFig(st);
+      else if (st.fig && !want) vanish(st, false);   // out through a doorway (or out of range): a soft fade, no sparkles
       if (want && !st.fig) { st.fig = buildFig(st, outdoor ? scene : rg, !!outdoor); st.fig.holder.rotation.y = q.yaw || 0; st.off.x = st.off.z = 0; st.stuck = 0; }
       const fig = st.fig;
       let advance = true;
       if (fig && fig.ready) {
+        if (fig.appear < APPEAR) { fig.appear += dt; if (fig.appear >= APPEAR) solidMats(fig); else setAlpha(fig, fig.appear / APPEAR); }   // fade in (a doorway, a finished load)
         const by = outdoor ? (groundAt ? groundAt(q.x, q.z) : 0) : 0;
         const px = player.pos.x, pz = player.pos.z, dP = Math.hypot(px - q.x, pz - q.z);
         // greeting: stop, turn to Harry, Talk, one kind line (bubble + voice), then carry on
@@ -181,6 +254,14 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
         if (q.phase === 'walk' && !st.greet) {
           const ax = Math.sin(q.yaw), az = Math.cos(q.yaw), ahead = (px - q.x) * ax + (pz - q.z) * az;
           if (dP < WAIT_R && ahead > -0.2) { advance = false; st.wait += dt; } else st.wait = 0;
+          // another teacher just ahead (standing, or walking with the right of way): wait up to 4 s, then carry on
+          let blocked = false;
+          for (const oid of P.ORDER) {
+            const o = S[oid]; if (oid === id || !o.fig || !o.fig.ready || o.fig.parent !== fig.parent) continue;
+            const ox = o.fig.holder.position.x - q.x, oz = o.fig.holder.position.z - q.z, d = Math.hypot(ox, oz);
+            if (d < 1.1 && ox * ax + oz * az > 0.1 && (!o.moving || P.ORDER.indexOf(oid) < P.ORDER.indexOf(id))) blocked = true;
+          }
+          if (blocked && st.yieldT < 4) { advance = false; st.yieldT += dt; } else if (!blocked) st.yieldT = 0;
         }
         // Harry pressed against a standing teacher for > 1 s: slide aside (an offset clear of the room's colliders)
         if (dP < 0.95) st.stuck += dt; else st.stuck = Math.max(0, st.stuck - dt);
@@ -192,7 +273,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
         // facing: Harry while greeting, the walk direction while walking, the stop's yaw while pausing
         const wantYaw = st.greet ? Math.atan2(px - x, pz - z) : q.yaw;
         let dy = wantYaw - fig.holder.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); fig.holder.rotation.y += dy * Math.min(1, dt * 5);
-        const moving = advance && q.phase === 'walk';
+        const moving = advance && q.phase === 'walk'; st.moving = moving;
         // the cat (McGonagall only, at a stop, never while greeting): 6 s once per stop visit, seeded
         if (id === 'mcgon') catTick(st, fig, q, dt);
         // solid while standing (never pops on top of Harry), off while walking (she waits for him instead)
@@ -247,17 +328,17 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
     state: () => Object.fromEntries(P.ORDER.map(id => { const st = S[id], q = P.sampleDay(st.day, st.clock); return [id, {
       place: placeOf(st), card: P.CARD_OF(placeOf(st)), stop: q.phase === 'pause' ? [q.x, q.z] : null, phase: st.held ? 'home' : q.phase, held: st.held,
       x: q.x != null ? +q.x.toFixed(2) : null, z: q.z != null ? +q.z.toFixed(2) : null, clock: +st.clock.toFixed(1), day: +st.day.total.toFixed(0),
-      fig: st.fig ? { ready: st.fig.ready, glb: !!st.fig.glb, visible: st.fig.holder.visible, x: +st.fig.holder.position.x.toFixed(2), z: +st.fig.holder.position.z.toFixed(2), yaw: +st.fig.holder.rotation.y.toFixed(2), anim: st.fig.cur, solid: !!st.fig.col } : null,
+      fig: st.fig ? { ready: st.fig.ready, glb: !!st.fig.glb, visible: st.fig.holder.visible, x: +st.fig.holder.position.x.toFixed(2), z: +st.fig.holder.position.z.toFixed(2), yaw: +st.fig.holder.rotation.y.toFixed(2), anim: st.fig.cur, solid: !!st.fig.col, ts: st.fig.acts && st.fig.acts.walk ? +st.fig.acts.walk.timeScale.toFixed(2) : null } : null,
       greeting: !!st.greet, cat: !!st.cat, visits: [...st.visits] }]; })),
     fast: (k) => { fast = Math.max(0, +k || 1); return fast; },
     where: (id) => (S[id] ? placeOf(S[id]) : null),
     hold: (on = true) => { debugHold = !!on; return debugHold; },
-    seed: (n) => { seed = (n >>> 0) || seed; for (const id of P.ORDER) dropFig(S[id]); reset(); return seed; },
+    seed: (n) => { seed = (n >>> 0) || seed; for (const id of P.ORDER) vanish(S[id], true); reset(); return seed; },
     clock: (id, t) => { if (S[id] && t != null) { S[id].clock = t; } return S[id] ? S[id].clock : null; },
     plan: (id) => S[id] ? S[id].day.segs.map(s => ({ place: s.place, kind: s.kind, t0: +s.t0.toFixed(1), dur: +s.dur.toFixed(1), to: s.to || null, at: s.at ? [s.at.x, s.at.z] : null, path: s.path || null })) : null,
     cooldown: (id, t = -1e9) => { if (S[id]) S[id].cool = t; lastGreet = -1e9; return true; },
     cat: (on = true) => { S.mcgon.catForce = !!on; return true; },
-    home, log, on: true, get failed() { return failed; },
+    home, log, on: true, get failed() { return failed; }, get fading() { return fading.length; },
   };
   return { tick, api };
 }
