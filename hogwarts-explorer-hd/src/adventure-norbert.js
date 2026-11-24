@@ -86,8 +86,8 @@ function norbertScene(ctx) {
   }
   // hearth frame -> world (the props group copies the hearth's place and turn)
   const HW = (x, y, z, out = new Vector3()) => { if (!S.G) { const h = findHearth(); if (!h) return out.set(player.pos.x, player.pos.y, player.pos.z); h.updateMatrixWorld(); return out.set(x, y, z).applyMatrix4(h.matrixWorld); } return out.set(x, y, z).applyMatrix4(S.G.matrixWorld); };
-  const front = (out = new Vector3()) => HW(1.7, 0, 3.1, out);   // where Harry stands to see the hearth, the nest and the bowl (off to one side: he never hides the kettle)
-  const lookAt = (out = new Vector3()) => HW(-0.6, 0, 0.9, out);
+  const front = (out = new Vector3()) => HW(-0.4, 0, 3.6, out);   // where Harry stands to see the hearth, the nest and the bowl (a high lens over his shoulder: he never hides the kettle)
+  const lookAt = (out = new Vector3()) => HW(-0.3, 0, 0.9, out);
   // a closer lens by the hearth, once per arrival (the player can still zoom); a teleport arms it again
   const lastP = new Vector3(1e9, 0, 0);
   function frameHut(dt) {
@@ -96,7 +96,7 @@ function norbertScene(ctx) {
     if (S.framed || !S.G || !outdoors() || ctx.step < 0 || ctx.step > 3 || S.follow) return;
     front(v1); if (Math.hypot(player.pos.x - v1.x, player.pos.z - v1.z) > 4) return;
     S.framed = true;
-    try { const c = player.cam; if (!c.userControlled) { c.dist = Math.min(c.dist, 6.2); c.pitch = 0.26; } } catch { /* ok */ }
+    try { const c = player.cam; if (!c.userControlled) { c.dist = Math.min(c.dist, 6.8); c.pitch = 0.5; } } catch { /* ok */ }
   }
   // the hint bubble moves up while a quest prompt button (🔥 / 💧 / 💡) shows, so it never covers it
   const css = document.createElement('style'); css.id = 'advNorbertCss';
@@ -145,8 +145,13 @@ function norbertScene(ctx) {
   // the hearth's own fire: out until Incendio (always lit during a Floo trip, so travel looks right)
   function fireCtl() {
     findHearth(); if (!S.fire) return;
-    const want = !S.active || S.fireLit || document.body.classList.contains('inFloo');
+    const floo = document.body.classList.contains('inFloo');
+    const want = !S.active || S.fireLit || floo;
     if (S.fire.visible !== want) S.fire.visible = want;
+    // the quest's fire is a gentle one under the kettle: the flames sit lower (the Floo's own fire is back for a trip)
+    if (S.fireY === undefined) S.fireY = S.fire.position.y;
+    const y = S.active && !floo ? S.fireY - 0.55 : S.fireY;
+    if (S.fire.position.y !== y) S.fire.position.y = y;
   }
 
   // ---- step 2: the hatch ----
@@ -468,7 +473,7 @@ function norbertScene(ctx) {
       if (interiors.active) return routeOut(out);
       if (!S.G) { const h = findHearth(); return h ? out.set(h.position.x, h.position.y, h.position.z) : null; }
       if (step === 0) return HW(0, 0, 1.6, out);
-      if (step === 1) return S.fireLit ? null : HW(0, 0.1, 1.0, out);
+      if (step === 1) return S.fireLit ? null : HW(0, -0.45, 1.45, out);   // the arrow points into the fire bed, below the kettle (it never hides the egg)
       if (step === 2) {
         if (!S.want || S.react) return null;
         if (lv() === 1 || S.glowHint) { if (S.want === 'hungry') return HW(BOWL.x, SLAB_Y + 0.2, BOWL.z, out); if (S.want === 'tickle') return tummyW(out).setY(out.y + 0.25); return S.smoke ? HW(HAY.x, SLAB_Y + 0.25, HAY.z, out) : null; }
@@ -519,7 +524,7 @@ function norbertScene(ctx) {
     if (S.crate && S.crate.g.parent) S.crate.g.parent.remove(S.crate.g);
     if (S.riders && S.riders.g.parent) S.riders.g.parent.remove(S.riders.g);
     S.crate = null; S.nor = null; S.riders = null; S.follow = false; S.inCrate = false;
-    fireCtl(); if (S.fire) S.fire.visible = true;   // the hearth back to its normal burning self
+    fireCtl(); if (S.fire) { S.fire.visible = true; if (S.fireY !== undefined) S.fire.position.y = S.fireY; }   // the hearth back to its normal burning self
     if (FI && Array.isArray(FI.TARGETS)) for (const t of T) { const i = FI.TARGETS.indexOf(t); if (i >= 0) FI.TARGETS.splice(i, 1); }
     if (finished) writeSub(null);
     if (css.parentNode) css.parentNode.removeChild(css);
