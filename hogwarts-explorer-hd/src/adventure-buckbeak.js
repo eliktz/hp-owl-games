@@ -20,7 +20,7 @@
 // and replace the stub line `{ id: 'buckbeak', ... soon: true ... }` with `BUCKBEAK,`.
 import { Vector3, Quaternion, Euler, Matrix4, AnimationMixer, LoopOnce, LoopRepeat } from 'three';
 import { loadAnimated } from './models.js';
-import { BB, BOW, LAND, HOME, WATER, SPEED, LANES, flightCurve, overLake, buildBowSpot, buildFeathers, triCount } from './adventure-buckbeak-build.js';
+import { BB, BB_SCALE, BOW, LAND, HOME, WATER, SPEED, LANES, flightCurve, overLake, buildBowSpot, buildFeathers, triCount } from './adventure-buckbeak-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };
 const HAG = '🧔 האגריד';
@@ -69,8 +69,8 @@ function buckbeakScene(ctx) {
   const { interiors, player, fun, freecast, burst, emit, camera, scene } = ctx;
   const S = { active: false, ended: false, bb: null, mixer: null, acts: {}, cur: null, loading: false, failed: false, bones: {}, t: 0,
     arrived: 0, onSpot: false, camSet: -1, bowing: false, bow: 0, bowAuto: false, bowBack: 0, pats: 0, patT: 0, glowHint: false, said: {},
-    ph: 'ground', phT: 0, s: 0, L: 0, curve: null, lane: 1, lx: 0, axPrev: 0, feathers: [], got: 0, autop: false, flyT: 0, tk: null, bank: 0,
-    from: new Vector3(), seatOff: new Vector3(), camP: new Vector3(), camL: new Vector3(), camInit: false, cheer: 0, cheered: false, lakeOn: false,
+    ph: 'ground', phT: 0, clk: 1, log: null, ft: 0, s: 0, L: 0, curve: null, lane: 1, lx: 0, axPrev: 0, feathers: [], got: 0, autop: false, flyT: 0, tk: null, bank: 0,
+    from: new Vector3(), seatOff: new Vector3(), camP: new Vector3(), camL: new Vector3(), camInit: false, cheer: 0, cheered: false, lakeOn: false, cheerUntil: 0,
     stepDoneAt: 0, prevTier: null, prevFar: null, done: {}, casts0: 0, aborts: 0, lastAbort: null, maxTri: 0, maxDc: 0, endT: 0, lastP: new Vector3(), moveAcc: 0,
     yaw: BB.yaw, pitch: 0, walkT: 0, offT: 0, finalT: 0 };
   const lv = () => ctx.level;
@@ -148,7 +148,7 @@ function buckbeakScene(ctx) {
       S.loading = false;
       if (!S.active || S.ended) return;
       if (!r || !r.clips || !r.clips.find(c => c.name === 'Idle')) { modelFailed(); return; }
-      const obj = r.obj; obj.name = 'adv-buckbeak';
+      const obj = r.obj; obj.name = 'adv-buckbeak'; obj.scale.setScalar(BB_SCALE);
       obj.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.receiveShadow = false; o.raycast = () => {}; } if (o.isBone) S.bones[o.name] = o; });
       const mixer = new AnimationMixer(obj), acts = {};
       for (const c of r.clips) acts[c.name] = mixer.clipAction(c);
@@ -176,18 +176,18 @@ function buckbeakScene(ctx) {
   // standing by the paddock: feet on the lawn (average of the ground under the front and back feet), facing yaw
   function placeStanding(x = BB.x, z = BB.z, yaw = BB.yaw) {
     if (!S.bb) return;
-    const fx = Math.sin(yaw) * 0.9, fz = Math.cos(yaw) * 0.9;
+    const fx = Math.sin(yaw) * 0.9 * BB_SCALE, fz = Math.cos(yaw) * 0.9 * BB_SCALE;
     const yf = groundAt(x + fx, z + fz), yb = groundAt(x - fx, z - fz);
     S.bb.position.set(x, Math.min(yf, yb) + Math.abs(yf - yb) * 0.5 - 0.02, z);
     S.bb.rotation.set(0, yaw, 0); S.yaw = yaw;
   }
-  const headW = (out) => { const h = S.bones.head; if (h) { h.getWorldPosition(out); return out; } return out.set(S.bb.position.x + Math.sin(S.yaw) * 1.2, S.bb.position.y + 2.0, S.bb.position.z + Math.cos(S.yaw) * 1.2); };
+  const headW = (out) => { const h = S.bones.head; if (h) { h.getWorldPosition(out); return out; } return out.set(S.bb.position.x + Math.sin(S.yaw) * 1.2 * BB_SCALE, S.bb.position.y + 2.0 * BB_SCALE, S.bb.position.z + Math.cos(S.yaw) * 1.2 * BB_SCALE); };
   // the seat: between the wing roots, a little behind them, on top of the back
-  const SEAT = { up: 0.22, back: -0.42 };
+  const SEAT = { up: 0.22 * BB_SCALE, back: -0.42 * BB_SCALE };
   function seatW(out) {
     const a = S.bones.wing_l_01, b = S.bones.wing_r_01;
     if (a && b) { a.getWorldPosition(v2); b.getWorldPosition(v3); out.copy(v2).add(v3).multiplyScalar(0.5); }
-    else out.set(0, 1.5, 0).applyMatrix4(S.bb.matrixWorld);
+    else out.set(0, 1.5, 0).applyMatrix4(S.bb.matrixWorld);   // (local: the scale applies)
     out.x += Math.sin(S.yaw) * SEAT.back; out.z += Math.cos(S.yaw) * SEAT.back; out.y += SEAT.up;
     return out;
   }
@@ -222,7 +222,7 @@ function buckbeakScene(ctx) {
   function bowCamera() {
     faceBB();
     const c = player.cam; if (!c) return;
-    try { c.reset(player.yaw); c.yaw += 0.65; c.pitch = 0.16; c.dist = Math.max(6.5, Math.min(9, 6.5 * 1.4 / Math.max(0.6, Math.min(1.4, innerWidth / innerHeight)))); c.userControlled = false; c.idle = 0; } catch { /* ok */ }
+    try { c.reset(player.yaw); c.yaw += 0.65; c.pitch = 0.16; c.dist = Math.max(7.5, Math.min(10.5, 7.5 * 1.4 / Math.max(0.6, Math.min(1.4, innerWidth / innerHeight)))); c.userControlled = false; c.idle = 0; } catch { /* ok */ }
   }
 
   // ---------------- step actions ----------------
@@ -266,7 +266,7 @@ function buckbeakScene(ctx) {
     if (ctx.step !== 3 || S.tk || !S.bb || !outdoors()) return false;
     showAct(null);
     S.curve = flightCurve(groundAt); S.L = S.curve.getLength();
-    S.ph = 'mount'; S.phT = 0; S.s = 0; S.lane = 1; S.lx = 0; S.flyT = 0; S.autop = auto; S.cheered = false; S.cheer = 0; S.camInit = false; S.bank = 0;
+    S.ph = 'mount'; S.phT = 0; S.s = 0; S.lane = 1; S.lx = 0; S.flyT = 0; S.autop = auto; S.cheered = false; S.cheer = 0; S.cheerUntil = 0; S.camInit = false; S.bank = 0;
     S.from.copy(player.pos);
     placeStanding();
     setupFeathers();
@@ -282,15 +282,17 @@ function buckbeakScene(ctx) {
     S.got = 0; fe.count = 0; fe.visible = true;
   }
   const needF = () => NFEATH[lv()] || 3;
+  const qTier = () => { try { return window.__game.stats().tier; } catch { return null; } };
   // nature LOW (half the trees, no reeds) + a shorter far plane for the flight; given back after
   function lowTier(on) {
     const nat = window.__game && window.__game.nature;
     try {
       if (on) {
-        if (S.prevTier === null && nat) { S.prevTier = nat.stats().tier; nat.setTier('low'); }
+        if (S.prevTier === null && nat) { S.prevTier = nat.stats().tier; S.prevQ = qTier(); nat.setTier('low'); }
         if (S.prevFar === null && FLY_FAR) { S.prevFar = camera.far; camera.far = Math.min(camera.far, FLY_FAR); camera.updateProjectionMatrix(); }
       } else {
-        if (S.prevTier !== null && nat) { nat.setTier(S.prevTier); }
+        // give it back only if it is still the one we set: the quality manager may have chosen a tier mid-flight
+        if (S.prevTier !== null && nat && nat.stats().tier === 'low' && qTier() === S.prevQ) nat.setTier(S.prevTier);
         S.prevTier = null;
         if (S.prevFar !== null) { camera.far = S.prevFar; camera.updateProjectionMatrix(); }
         S.prevFar = null;
@@ -321,6 +323,7 @@ function buckbeakScene(ctx) {
 
   function sim(dt, axis) {
     if (!S.tk) return;
+    dt *= S.clk;   // 1 in play; a test / debug fast-forward of the flight clock (frames still drawn)
     if (S.boom) { S.boom = false; throw new Error('test: a forced flight error'); }   // the abort-safety test
     if (!outdoors()) { abort('room'); return; }
     if (!S.bb || !S.bb.parent) { abort('model'); return; }
@@ -341,6 +344,7 @@ function buckbeakScene(ctx) {
     if (S.ph !== 'off' && S.ph !== 'ground') seatHarry();
     if (S.cheer > 0) { S.cheer -= dt; armsUp(Math.min(1, S.cheer / 0.4, (1.6 - S.cheer) / 0.3)); }
     placeCamera(frozen ? 0 : dt);
+    if (!frozen) S.ft += dt;
     Promise.resolve().then(measure);   // after this frame has drawn (the renderer resets its info at the frame start)
   }
   function seatHarry() {
@@ -384,9 +388,9 @@ function buckbeakScene(ctx) {
     const lake = wet && S.bb.position.y < WATER + 1.0;
     if (lake) {
       for (let i = 0; i < 2; i++) { const back = -Math.random() * 1.2; emit(S.bb.position.x + Math.sin(S.yaw) * back + (Math.random() - 0.5) * 0.5, WATER + 0.06, S.bb.position.z + Math.cos(S.yaw) * back + (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.4, 0.5 + Math.random() * 0.6, (Math.random() - 0.5) * 0.4, 0.9, 0.22, Math.random() < 0.5 ? 0xffffff : 0xbfe8ff, -1.4); }
-      if (!S.lakeOn) { S.lakeOn = true; sfx('sparkle'); ctx.say('רואה? הרגליים של אבזם נוגעות במים! ✨', HAG, 3); }
+      if (!S.lakeOn) { S.lakeOn = true; S.cheerUntil = S.ft + 6; sfx('sparkle'); ctx.say('רואה? הרגליים של אבזם נוגעות במים! ✨', HAG, 3); }
     } else S.lakeOn = false;
-    if (S.ph === 'fly') showAct(lake && !S.cheered ? 'cheer' : null);
+    if (S.ph === 'fly') showAct((lake || S.ft < (S.cheerUntil || 0)) && !S.cheered ? 'cheer' : null);   // the 🙌 stays a few seconds after the skim
     // feathers
     tickFeathers(dt);
     // a slow wing whoosh now and then
@@ -417,11 +421,11 @@ function buckbeakScene(ctx) {
     }
     fe.count = n; fe.instanceMatrix.needsUpdate = true;
   }
-  // a feather floats on the rail, 1.4 m above Buckbeak's back line, in its lane
+  // a feather floats on the rail, about 1.4 m above Buckbeak's back line (scaled with him), in its lane
   function fPos(f, out) {
     const u = Math.min(1, f.s / S.L); S.curve.getPointAt(u, out); S.curve.getTangentAt(u, v2);
     const hl = Math.hypot(v2.x, v2.z) || 1, lx = lanesOn() ? LANES[f.lane] : 0;
-    out.x += -v2.z / hl * lx; out.z += v2.x / hl * lx; out.y += 1.9 + Math.sin(f.spin) * 0.12;
+    out.x += -v2.z / hl * lx; out.z += v2.x / hl * lx; out.y += 1.9 * BB_SCALE + Math.sin(f.spin) * 0.12;
     return out;
   }
   function autopilot() {
@@ -452,11 +456,11 @@ function buckbeakScene(ctx) {
     const p = S.bb.position, fx = Math.sin(S.yaw), fz = Math.cos(S.yaw);
     let px, py, pz, lx, ly, lz;
     if (S.ph === 'mount' || S.ph === 'open' || S.ph === 'walk' || S.ph === 'off') {   // a side three-quarter view
-      const d = narrow ? 11 : 8.5, sa = S.yaw + 0.8;   // in front of him, to his left: his face, the hut and the forest behind (not the castle)
-      px = p.x + Math.sin(sa) * d; pz = p.z + Math.cos(sa) * d; py = p.y + 2.6; lx = p.x; ly = p.y + 1.5; lz = p.z;
+      const d = (narrow ? 11 : 8.5) * BB_SCALE, sa = S.yaw + 0.8;   // in front of him, to his left: his face, the hut and the forest behind (not the castle)
+      px = p.x + Math.sin(sa) * d; pz = p.z + Math.cos(sa) * d; py = p.y + 2.6 * BB_SCALE; lx = p.x; ly = p.y + 1.5 * BB_SCALE; lz = p.z;
     } else {
-      const back = narrow ? 10.5 : 8, up = narrow ? 3.6 : 3.0;
-      px = p.x - fx * back; pz = p.z - fz * back; py = p.y + up; lx = p.x + fx * 9; ly = p.y + 0.6; lz = p.z + fz * 9;
+      const back = (narrow ? 10.5 : 8) * BB_SCALE, up = (narrow ? 3.6 : 3.0) * BB_SCALE;
+      px = p.x - fx * back; pz = p.z - fz * back; py = p.y + up; lx = p.x + fx * 9; ly = p.y + 0.6 * BB_SCALE; lz = p.z + fz * 9;
     }
     const g = groundAt(px, pz), fl = overLake(px, pz, g) ? Math.max(g, WATER) : g; py = Math.max(py, fl + 1.4);
     v1.set(px, py, pz); v2.set(lx, ly, lz);
@@ -466,7 +470,8 @@ function buckbeakScene(ctx) {
   }
   // the budget along the flight (renderer.info of the frame drawn before this one)
   function measure() {
-    try { const r = window.__game && window.__game.renderer; const inf = r && r.info && r.info.render; if (inf) { const t = inf.triangles | 0, d = inf.drawCalls !== undefined ? inf.drawCalls | 0 : inf.calls | 0; if (t > S.maxTri) S.maxTri = t; if (d > S.maxDc) S.maxDc = d; } } catch { /* ok */ }
+    try { const r = window.__game && window.__game.renderer; const inf = r && r.info && r.info.render; if (inf) { const t = inf.triangles | 0, d = inf.drawCalls !== undefined ? inf.drawCalls | 0 : inf.calls | 0; if (t > S.maxTri) S.maxTri = t; if (d > S.maxDc) S.maxDc = d;
+      if (S.log && S.log.length < 4000 && S.bb) { const c = camera.position, b = S.bb.position; S.log.push([+S.ft.toFixed(2), S.ph, +S.s.toFixed(1), t, d, +c.x.toFixed(1), +c.y.toFixed(1), +c.z.toFixed(1), +b.x.toFixed(1), +b.y.toFixed(1), +b.z.toFixed(1)]); } } } catch { /* ok */ }
   }
 
   // ---------------- per frame (the framework's hook) ----------------
@@ -626,6 +631,8 @@ function buckbeakScene(ctx) {
     phase: () => S.ph, abort: (why) => abort(why || 'test'), throwOnce: () => { S.boom = true; }, timeoutNow: () => { S.flyT = FLY_TIMEOUT - 0.01; },
     nextLane: () => { const f = S.feathers.filter(x => !x.got && x.s > S.s).sort((a, b) => a.s - b.s)[0]; return f ? f.lane : null; },
     resetMax: () => { S.maxTri = 0; S.maxDc = 0; },
+    clock: (k) => { S.clk = Math.max(0.1, Math.min(20, +k || 1)); return S.clk; },   // debug: run the flight clock k x faster
+    logStart: () => { S.log = []; S.ft = 0; }, log: () => S.log, logStop: () => { const l = S.log; S.log = null; return l; },
     path: () => { if (!S.curve) S.curve = flightCurve(groundAt); const L = S.curve.getLength(), out = []; for (let i = 0; i <= 80; i++) { const p = S.curve.getPointAt(i / 80); out.push([+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1), +groundAt(p.x, p.z).toFixed(1)]); } return { L, pts: out }; },
   };
   return { begin, update, goal, tap, glow, together, end, state, hintText };
