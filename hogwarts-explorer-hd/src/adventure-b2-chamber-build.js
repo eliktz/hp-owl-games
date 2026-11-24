@@ -38,7 +38,7 @@ export const SPOT = {
   ginny: { x: 3.4, z: -4.6 },                                        // asleep by the pool's east side
   stand: { x: 0.9, z: 3.3 },                                         // a good place for Harry in step 5 (the fang and the diary ahead, clear of the hat)
 };
-export const SHADOW = { z: -HD / 2 + 0.2, y: 2.3, x0: -3.0, x1: 9.5 };   // the far wall: the soft shadow slides away to the east
+export const SHADOW = { z: -HD / 2 + 0.2, y: 2.0, x0: 2.6, x1: 8.6 };   // over the honey stone east of the arch, away into the low opening   // the far wall: the soft shadow slides away to the east
 // the slide: from high outside the south wall down a curving pipe to the hall floor (room-local)
 export const SLIDE = [[0, 15.5, 40], [2.5, 12.5, 32], [-1.5, 9.0, 25], [1.0, 5.6, 19.8], [0, 3.4, 16.9], [0, 1.6, 14.2], [0, 0.25, HALL_SPAWN.z + 0.2]];
 export const slideCurve = () => new CatmullRomCurve3(SLIDE.map(([x, y, z]) => new Vector3(x, y, z)), false, 'catmullrom', 0.3);
@@ -137,7 +137,7 @@ export function buildShadow() {
       x.fillStyle = gr; x.fillRect(0, 0, 256, 64);
     }
   });
-  const m = new Mesh(new PlaneGeometry(13, 2.6), new MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, color: 0xffffff, fog: false }));
+  const m = new Mesh(new PlaneGeometry(7, 2.2), new MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, color: 0xffffff, fog: false }));
   m.name = 'adv-shadow'; m.renderOrder = 3; m.visible = false; noRay(m);
   return m;
 }
