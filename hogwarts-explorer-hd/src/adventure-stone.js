@@ -42,8 +42,7 @@ export const QUESTS = [
     create: (ctx) => stoneScene(ctx),
   },
   TROLL,
-  // NORBERT (adventure-norbert.js) is built but not yet verified end to end (crate / tower / riders untested): it stays a stub until then
-  { ...NORBERT, soon: true, create: undefined },
+  NORBERT,
   { id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', soon: true, col: '#3a3a2a', col2: '#a0a070', pic: [['🦅', 0.5, 0.55, 72], ['🙇', 0.8, 0.3, 30]] },
   // book 2: "חדר הסודות" (briefs/2026-11-23-book2-chamber-quests.md); the first is open from the start, the rest in order
   B2CAR,
