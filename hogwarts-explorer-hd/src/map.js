@@ -24,7 +24,7 @@ export const DESTS = [
 // with the chosen destination; the overlay then hides itself.
 export function createMap({ onTravel }) {
   const root = document.getElementById('map');
-  if (!root) return { toggle() {}, open() {}, close() {}, setBadges() {} };
+  if (!root) return { toggle() {}, open() {}, close() {}, setBadges() {}, setChips() {} };
   root.innerHTML = '';
 
   const h = document.createElement('h2');
@@ -54,8 +54,25 @@ export function createMap({ onTravel }) {
       else if (b) b.remove();
     }
   }
+  // small teacher chips (roam.js: where each teacher is right now), top-right of a card; separate from the Floo badge
+  // byId = { cardId: ['🐱', '🪶'], ... }; cards not listed lose their chips
+  function setChips(byId) {
+    if (!document.getElementById('mapChipsCss')) {
+      const st = document.createElement('style'); st.id = 'mapChipsCss';
+      st.textContent = '#map .dest .chips{position:absolute;top:4px;right:6px;display:flex;flex-wrap:wrap;gap:2px;max-width:60%;justify-content:flex-end;pointer-events:none}' +
+        '#map .dest .chips i{font-style:normal;font-size:17px;line-height:1;background:rgba(255,236,170,.92);border-radius:12px;padding:2px 3px;box-shadow:0 1px 3px rgba(0,0,0,.5)}';
+      document.head.appendChild(st);
+    }
+    for (const c of grid.children) {
+      const list = byId[c.dataset.id] || []; let el = c.querySelector('.chips');
+      if (!list.length) { if (el) el.remove(); continue; }
+      if (!el) { el = document.createElement('span'); el.className = 'chips'; c.appendChild(el); }
+      const html = list.map(e => '<i>' + e + '</i>').join('');
+      if (el.innerHTML !== html) el.innerHTML = html;
+    }
+  }
   function open() { root.classList.add('on'); }
   function close() { root.classList.remove('on'); }
   function toggle() { root.classList.toggle('on'); }
-  return { toggle, open, close, setBadges, isOpen: () => root.classList.contains('on') };
+  return { toggle, open, close, setBadges, setChips, isOpen: () => root.classList.contains('on') };
 }

@@ -36,6 +36,7 @@ import { createSecretRooms, LABELS as SECRET_LABELS, SPECS as SECRET } from './s
 import { createFloo } from './floo.js';
 import { createAdventures } from './adventures.js';
 import { createCorridorFree } from './corridor-free.js';
+import { createRoam } from './roam.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -297,6 +298,12 @@ async function boot() {
     corridor = createCorridorFree({ camera, player, interiors, fun, freecast, setTakeover, isModal: () => modal, isTakeover: () => !!takeover });
     hooks.push((dt) => { try { corridor.update(dt); } catch (e) { if (!corridor.err) console.warn('[corridor] update failed -', e && e.message || e); corridor.err = (corridor.err || 0) + 1; } });
   } catch (e) { console.warn('[corridor] disabled -', e && e.message || e); corridor = null; }
+  let roam = null;   // teachers roam the castle (roam.js): any failure -> they stand at their stations as before
+  try {
+    roam = createRoam({ scene, camera, player, interiors, lessons, map, env, fun, colliders, groundAt, isModal: () => modal, isTakeover: () => !!takeover,
+      adventures: () => (adventures ? adventures.api : null), floo: () => (floo ? floo.api : null) });
+    hooks.push((dt) => roam.tick(dt));
+  } catch (e) { console.warn('[roam] disabled -', e && e.message || e); roam = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -380,6 +387,7 @@ async function boot() {
     get floo() { return floo ? floo.api : null; },   // floo.js: list() near() open() go(to) state() hold(phase) release()
     get adventures() { return adventures ? adventures.api : null; },
     get corridor() { return corridor ? corridor.api : null; },   // corridor-free.js: state() screen(v) harpW() keyW() ...   // adventures.js: list() state() start(id) skipStep() hint(n) clock(s) hold() leave() reset()
+    get roam() { return roam ? roam.api : null; },   // roam.js: state() fast(k) where(id) hold(on) seed(n) clock(id,t) plan(id) cooldown(id) cat()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),

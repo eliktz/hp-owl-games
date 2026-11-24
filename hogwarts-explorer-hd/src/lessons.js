@@ -17,7 +17,7 @@ import { buildGlasshouse } from './grounds-film.js';
 import * as fun from './fun.js';
 
 // who teaches what, and where they stand (room-local x,z indoors; world x,z outdoors)
-const LOOK = {
+export const LOOK = {
   snape:    { robe: 0x14121a, trim: 0x2a2630, hair: 0x100c10, skin: 0xe8d6c4, house: 0x1a5236 },
   flitwick: { robe: 0x3a2f5e, trim: 0x2a2148, hair: 0xe8e4ea, skin: 0xf1d2b0, house: 0x1b3a6b, scale: 0.78 },
   mcgon:    { robe: 0x1a4030, trim: 0x8a1a2a, hair: 0x2a1d16, skin: 0xe6c3a0, house: 0x7a1420, hat: 0x14110c, glasses: true },
@@ -31,7 +31,7 @@ const LOOK = {
 // (the chibi kids are 1.78 m, 2.33 with hat), Snape 1.85 -> 2.4, Sprout 1.7 -> 2.21, Flitwick 1.1 -> 1.43.
 // `sig` = the signature clip played once after a finished lesson (missing clip -> simply skipped);
 // `h` = rest height in metres (only used to keep the floating lesson label near a small head).
-const GLB_PROF = {
+export const GLB_PROF = {
   mcgon:    { model: 'mcgonagall', scale: 1.3, sig: 'Cast', h: 1.9 },
   flitwick: { model: 'flitwick',   scale: 1.3, sig: 'Cast', h: 1.1 },
   snape:    { model: 'snape',      scale: 1.3, sig: 'Cast', h: 1.85 },
@@ -69,6 +69,8 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   const defs = {}; (HPL.LESSONS || []).forEach(l => (defs[l.key] = l));
   const live = [];                       // stations present right now: {key, x, z, y, chibi, world}
   let openKey = null;                    // the lesson whose overlay is open right now
+  let roamHook = null;                   // roam.js: (lessonKey) => put that teacher home at the station before the lesson shows
+  const toRoam = (key) => { try { if (roamHook) roamHook(key); } catch (e) { console.warn('[lessons] roam hook -', e && e.message || e); } };
   const outdoor = [];
 
   function professor(key, par, x, y, z, faceYaw) {
@@ -212,6 +214,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   // ---- start / go ----
   function start(key) {
     const def = defs[key]; if (!def || !HPL.overlay || window.__game.modal) return false;
+    toRoam(key);
     openKey = key;
     HPL.overlay.open(def, (stars, quit) => {
       openKey = null; refreshBell();
@@ -222,6 +225,7 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   }
   async function go(key) {
     const s = STATIONS[key]; if (!s) return false;
+    toRoam(key);
     if (s.room) {
       if (interiors.active !== s.room) await interiors.enter(s.room);
       player.pos.set(s.x, FLOOR_Y, s.z + 3.1); player.smoothY = FLOOR_Y; player._lastPos.copy(player.pos);
@@ -377,5 +381,6 @@ export function createLessons({ scene, player, interiors, heightAt, registerOutd
   const hold = (key, on) => { const s = stationOf(key); if (s && s.critters) { s.held = !!on; for (const c of s.critters) c.cr.visible = !on; } };
   const signature = (key) => { const s = stationOf(key); if (s && s.chibi && s.chibi.userData.acts && s.chibi.userData.acts.cast) { fadeTo(s.chibi, 'cast'); return true; } return false; };
   return { update, anim, cull, roomEntered, start, go, openPicker, closePicker, stations: STATIONS, near: () => nearKey, addPickerButton: (label, fn) => extras.push({ label, fn }),
-    addPickerCard: (c) => cards.push(c), figure, pose, signature, hold };
+    addPickerCard: (c) => cards.push(c), figure, pose, signature, hold,
+    setRoamHook: (fn) => { roamHook = fn; }, openKey: () => openKey };
 }
