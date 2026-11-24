@@ -402,6 +402,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
 
   // ---------------- per frame ----------------
   const offerNear = { id: null, d: 99 };
+  const mutedPrompt = new Set();   // hearth ids whose 🔥 prompt a quest hides for a while (api.suppressPrompt); travel there still works
   function near() {
     offerNear.id = null; offerNear.d = 99;
     const f = hereInfo(); if (!f) return offerNear;
@@ -411,6 +412,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
     const facing = (Math.sin(player.yaw) * -dx + Math.cos(player.yaw) * -dz) / Math.max(d, 1e-3);   // > 0: Harry looks toward the hearth
     if (S.quiet) { if (d > 2.6 || facing > 0.5) S.quiet = false; else return offerNear; }   // just arrived: no prompt until he turns round or steps away
     if (facing < 0 && d > 1.6) return offerNear;
+    if (mutedPrompt.has(hereId())) return offerNear;
     offerNear.id = hereId(); offerNear.d = d; return offerNear;
   }
   const busyBody = () => { const c = document.body.classList; return c.contains('inSpell') || c.contains('inMatch') || c.contains('modalOn'); };
@@ -477,6 +479,7 @@ export function createFloo({ scene, camera, player, interiors, fun, groundAt, co
     },
     near: () => { const n = near(); return { id: n.id, d: +n.d.toFixed(2), prompt: fun.promptId ? fun.promptId() : null }; },
     open, close, go,
+    suppressPrompt: (id, on) => { if (on) mutedPrompt.add(id); else mutedPrompt.delete(id); return mutedPrompt.has(id); },
     hold: (p, at = 0) => { S.hold = p || null; S.holdAt = at; return S.hold; },   // freeze a phase's clock at `at` s (screenshots at 2-4 fps); visuals keep moving
     release: () => { S.hold = null; return true; },
     state: () => ({
