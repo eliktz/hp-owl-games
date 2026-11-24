@@ -65,6 +65,10 @@ const T_MOUNT = 1.2, T_OPEN = 1.5, FLY_TIMEOUT = 150, PATS = 3;
 const CASTLE = { x: 0, z: 4 };   // the castle's centre (castle.js footprint x -35..35, z -32..41)
 const ease = (k) => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+// the lanes narrow by the broadleaf crown south of the strip at (-56, 40) (its edge is ~5.3 m from the rail: the outer
+// lane came within ~3.1 m of it): near it every lane glides in toward the rail, so a wing never brushes the leaves
+const CROWN = { x: -56, z: 40 };
+const laneK = (x, z) => { const d = Math.hypot(x - CROWN.x, z - CROWN.z); return 0.14 + 0.86 * ease((d - 12.6) / 7.4); };
 
 function buckbeakScene(ctx) {
   const { interiors, player, fun, freecast, burst, emit, camera, scene } = ctx;
@@ -397,7 +401,8 @@ function buckbeakScene(ctx) {
     S.pitch = Math.max(-0.12, Math.min(0.2, Math.atan2(v2.y, hl) * 0.8));   // nose up a little when climbing, barely down when descending
     const rx = -hz / hl, rz = hx / hl;   // right of the heading
     const y = v1.y + (S.ph === 'land' && u > 0.985 ? 0 : Math.sin(S.t * 5.2) * 0.06);
-    S.bb.position.set(v1.x + rx * S.lx, y, v1.z + rz * S.lx);
+    S.lk = laneK(v1.x, v1.z); const ox = S.lx * S.lk;
+    S.bb.position.set(v1.x + rx * ox, y, v1.z + rz * ox);
     // keep clear of the ground (and the lake surface) whatever the curve does between its points
     const g = groundAt(S.bb.position.x, S.bb.position.z), wet = overLake(S.bb.position.x, S.bb.position.z, g), floor = wet ? Math.max(g, WATER + 0.05) : g;
     if (S.bb.position.y < floor && S.ph !== 'land') S.bb.position.y = floor;
@@ -425,7 +430,7 @@ function buckbeakScene(ctx) {
       f.spin += dt * 2.2;
       // passing it: collected if in its lane (level 1: always in it)
       if (S.s >= f.s - 0.6) {
-        const inLane = !lanesOn() || Math.abs(S.lx - LANES[f.lane]) < 1.3;
+        const inLane = !lanesOn() || Math.abs(S.lx - LANES[f.lane]) * (S.lk || 1) < 1.3;   // in metres (the lanes narrow by the crown)
         if (inLane) { f.got = true; S.got++; ctx.poke(); fPos(f, v3); burst(v3.x, v3.y, v3.z, 0xffd76a, 20, 2.2, 0.9, 0.28, -0.5); sfx('tink', S.got); sfx('sparkle');
           showCount(true, true);
           if (S.got >= needF()) ctx.say('כל נוצות הזהב! אבזם גאה בך 🪶', HAG, 2.8); continue; }
@@ -443,7 +448,7 @@ function buckbeakScene(ctx) {
   // a feather floats on the rail, about 1.4 m above Buckbeak's back line (scaled with him), in its lane
   function fPos(f, out) {
     const u = Math.min(1, f.s / S.L); S.curve.getPointAt(u, out); S.curve.getTangentAt(u, v2);
-    const hl = Math.hypot(v2.x, v2.z) || 1, lx = lanesOn() ? LANES[f.lane] : 0;
+    const hl = Math.hypot(v2.x, v2.z) || 1, lx = lanesOn() ? LANES[f.lane] * laneK(out.x, out.z) : 0;
     out.x += -v2.z / hl * lx; out.z += v2.x / hl * lx; out.y += 1.9 * BB_SCALE + Math.sin(f.spin) * 0.12;
     return out;
   }
@@ -647,7 +652,7 @@ function buckbeakScene(ctx) {
     let onScreen = false; if (b) { try { ctx.screen(v1.copy(b.position).setY(b.position.y + 1.2 * BB_SCALE), scr); onScreen = !!scr.on; } catch { /* no lens yet */ } }
     return { loaded: !!b, visible: !!(b && b.visible), onScreen, distPlayer: b ? +Math.hypot(player.pos.x - b.position.x, player.pos.z - b.position.z).toFixed(1) : null, loading: S.loading, failed: S.failed, clip: S.cur, bbTris: S.bbTris || null, pos: b ? { x: +b.position.x.toFixed(2), y: +b.position.y.toFixed(2), z: +b.position.z.toFixed(2), yaw: +S.yaw.toFixed(2) } : null,
       ground: b ? +groundAt(b.position.x, b.position.z).toFixed(2) : null, onSpot: S.onSpot, bowing: S.bowing, bow: +S.bow.toFixed(2), bowBack: S.bowBack > 0, pats: S.pats, act: actKind,
-      ph: S.ph, s: +S.s.toFixed(1), L: +S.L.toFixed(1), u: S.L ? +(S.s / S.L).toFixed(3) : 0, lane: S.lane, lx: +S.lx.toFixed(2), got: S.got, need: needF(), feathers: S.feathers.map(f => ({ s: +f.s.toFixed(1), lane: f.lane, got: f.got })),
+      ph: S.ph, s: +S.s.toFixed(1), L: +S.L.toFixed(1), u: S.L ? +(S.s / S.L).toFixed(3) : 0, lane: S.lane, lx: +S.lx.toFixed(2), lk: +(S.lk || 1).toFixed(2), got: S.got, need: needF(), feathers: S.feathers.map(f => ({ s: +f.s.toFixed(1), lane: f.lane, got: f.got })),
       takeover: !!S.tk, lanes: document.body.classList.contains('bbLanes'), lake: S.lakeOn, cheered: S.cheered, autop: S.autop, flyT: +S.flyT.toFixed(1), aborts: S.aborts, lastAbort: S.lastAbort,
       maxTri: S.maxTri, maxDc: S.maxDc, spellSays: S.spellSays || 0, tier: S.prevTier !== null ? 'low (was ' + S.prevTier + ')' : null, finalT: +S.finalT.toFixed(2) };
   }
