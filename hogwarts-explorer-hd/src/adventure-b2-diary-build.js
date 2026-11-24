@@ -22,7 +22,7 @@ export const triCount = (o) => { let n = 0; o.traverse(m => { if (m.isMesh && m.
 // ---------------- spots (room-local) ----------------
 export const PUDDLE = { x: -2.3, z: -3.6 };                 // the bathroom: between the sinks and the window, a shallow puddle
 export const DESK = { x: -6.9, z: 2.2, top: 0.8 };          // the common room: a small writing desk by the west window, facing +x
-export const DESK_STAND = { x: -5.3, z: 2.2, yaw: -Math.PI / 2 };   // where Harry stands to write (facing the desk)
+export const DESK_STAND = { x: -4.7, z: 4.0, yaw: Math.atan2(-2.2, -1.8) + 0.55 };   // where Harry stands to write (the desk ahead, beside him, never hidden by him)
 
 // ---------------- the diary: a small, plain black book with cream page edges (closed or open) ----------------
 export function buildDiary(open = false) {
@@ -45,7 +45,7 @@ export function buildDiary(open = false) {
 
 // ---------------- the puddle: a soft, shallow, blue-grey disc on the tiles ----------------
 export function buildPuddle() {
-  const geo = new CircleGeometry(0.62, 22).rotateX(-Math.PI / 2); geo.scale(1, 1, 0.72);
+  const geo = new CircleGeometry(0.8, 22).rotateX(-Math.PI / 2); geo.scale(1, 1, 0.72);
   const m = new Mesh(geo, new MeshStandardMaterial({ color: 0x8aa8b8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.55, depthWrite: false }));
   m.name = 'adv-puddle'; m.renderOrder = 2; m.position.y = 0.012; noRay(m);
   return m;
@@ -109,7 +109,7 @@ export function drawMemory(x, k, W = 480, H = 340) {
     E(hx - 20, hy - 4, 6, 7, ink); E(hx + 20, hy - 4, 6, 7, ink); E(hx - 18, hy - 6, 2, 2, pale); E(hx + 22, hy - 6, 2, 2, pale);   // kind dark eyes
     E(hx - 36, hy + 14, 10, 6, 'rgba(200,120,90,.45)'); E(hx + 36, hy + 14, 10, 6, 'rgba(200,120,90,.45)');                          // rosy cheeks
     line(4); x.beginPath();
-    if (mood === 'sad') { x.arc(hx, hy + 34, 14, Math.PI * 1.2, Math.PI * 1.8); x.stroke(); line(3); x.beginPath(); x.moveTo(hx - 30, hy - 20); x.lineTo(hx - 12, hy - 16); x.moveTo(hx + 30, hy - 20); x.lineTo(hx + 12, hy - 16); x.stroke(); }
+    if (mood === 'sad') { x.arc(hx, hy + 34, 14, Math.PI * 1.2, Math.PI * 1.8); x.stroke(); line(3); x.beginPath(); x.moveTo(hx - 32, hy - 15); x.lineTo(hx - 12, hy - 22); x.moveTo(hx + 32, hy - 15); x.lineTo(hx + 12, hy - 22); x.stroke(); }
     else { x.arc(hx, hy + 14, 18, 0.25, Math.PI - 0.25); x.stroke(); }
   };
   if (k === 0) {

@@ -36,12 +36,14 @@ export const SPOT = {
   diary: { x: 2.9, z: -2.0 },                                        // by the pool's near east corner
   fang: { x: 1.2, z: -0.9 },                                         // a small glowing fang on the floor near the diary
   ginny: { x: 3.4, z: -4.6 },                                        // asleep by the pool's east side
-  stand: { x: 1.4, z: 1.6 },                                         // a good place for Harry in step 5
+  stand: { x: -0.6, z: 2.2 },                                        // a good place for Harry in step 5 (the fang and the diary ahead-right)
 };
 export const SHADOW = { z: -HD / 2 + 0.06, y: 1.7, x0: -2.5, x1: 9.5 };   // the far wall: the soft shadow slides away to the east
 // the slide: from high outside the south wall down a curving pipe to the hall floor (room-local)
-export const SLIDE = [[0, 15.5, 40], [2.5, 12.5, 32], [-1.5, 9.0, 25], [1.0, 5.5, 19.5], [0, 2.6, 15.6], [0, 0.6, 12.6], [0, 0.25, HALL_SPAWN.z + 0.4]];
+export const SLIDE = [[0, 15.5, 40], [2.5, 12.5, 32], [-1.5, 9.0, 25], [1.0, 5.6, 19.8], [0, 3.4, 16.9], [0, 1.6, 14.2], [0, 0.25, HALL_SPAWN.z + 0.2]];
 export const slideCurve = () => new CatmullRomCurve3(SLIDE.map(([x, y, z]) => new Vector3(x, y, z)), false, 'catmullrom', 0.3);
+// the pipe itself ends at its mouth in the south wall (z 16.9); the last stretch is a soft hop out onto the floor
+const pipeCurve = () => new CatmullRomCurve3(SLIDE.slice(0, 5).map(([x, y, z]) => new Vector3(x, y, z)), false, 'catmullrom', 0.3);
 
 function floorTex() {
   const t = canvasTex(256, 256, (x) => {
@@ -93,7 +95,8 @@ export function buildChamberHall() {
     for (const y of [0.8, HH - 0.8]) PIL.push(paint(place(new SphereGeometry(0.13, 6, 4), x + 0.62 * (y < 1 ? 1 : Math.cos(2.5 * Math.PI * 2)), y, z + (y < 1 ? 0 : 0.62 * Math.sin(2.5 * Math.PI * 2))), COIL));
     cols.push({ type: 'circle', x, z, r: 0.8 });
   }
-  const pillars = add(merge(PIL), vc({ roughness: 0.7 })); pillars.name = 'chamber-pillars';
+  const stoneVC = vc({ roughness: 0.72 });
+  const pillars = add(merge(PIL), stoneVC); pillars.name = 'chamber-pillars';
   // the pool: a low stone rim round a long, still, green-gold water surface
   const RIM = [], P = POOL, rw = 0.45, rh = 0.3;
   RIM.push(paint(place(new BoxGeometry(P.w + 2 * rw, rh, rw), P.x, rh / 2, P.z - P.d / 2 - rw / 2), 0x9a9a78), paint(place(new BoxGeometry(P.w + 2 * rw, rh, rw), P.x, rh / 2, P.z + P.d / 2 + rw / 2), 0x9a9a78));
@@ -105,7 +108,8 @@ export function buildChamberHall() {
   for (const sx of [-1, 1]) RIM.push(paint(place(new BoxGeometry(0.4, 3.0, 0.4), 7.0 + sx * 1.1, 1.5, -HD / 2 + 0.2), 0x9a9670));
   RIM.push(paint(place(new BoxGeometry(2.6, 0.4, 0.4), 7.0, 3.1, -HD / 2 + 0.2), 0x9a9670));
   RIM.push(paint(place(new PlaneGeometry(1.8, 3.0).translate(0, 1.5, 0), 7.0, 0, -HD / 2 + 0.04), 0x2a3022));
-  const rim = add(merge(RIM), vc({ roughness: 0.75 })); rim.name = 'chamber-rim';
+  RIM.push(paint(new TorusGeometry(1.3, 0.22, 6, 18).translate(0, 3.4, 16.95), 0x9a9670));   // a carved stone collar round the pipe mouth
+  const rim = add(merge(RIM), stoneVC); rim.name = 'chamber-rim';
   cols.push({ type: 'box', x: P.x, z: P.z, hw: P.w / 2 + rw, hd: P.d / 2 + rw, angle: 0 });
   const water = add(new PlaneGeometry(P.w, P.d).rotateX(-Math.PI / 2).translate(P.x, 0.14, P.z), new MeshStandardMaterial({ color: 0x3a6a4a, emissive: new Color(0x2a5a34), emissiveIntensity: 0.45, roughness: 0.08, metalness: 0.3 }));
   water.name = 'chamber-water';
@@ -115,12 +119,12 @@ export function buildChamberHall() {
   // soft green-gold pools of light on the floor (baked by atmosphere.js from these markers)
   for (const [x, z, r, a] of [[0, 8, 5.5, 0.22], [0, 1, 5.5, 0.22], [0, -6, 5.5, 0.2], [0, -12.5, 5.0, 0.18], [-5.5, -2, 3.6, 0.14], [5.5, -2, 3.6, 0.14]]) { const o = new Group(); o.position.set(x, 0.1, z); o.userData.light = { k: 'glow', c: 0xe8e0a0, r, a }; g.add(o); }
   // the pipe slide: a big green-gold tube from outside the south wall down to the floor (seen from inside on the ride)
-  const curve = slideCurve();
-  const pipe = add(new TubeGeometry(curve, 64, 1.15, 12, false), new MeshStandardMaterial({ map: pipeTex(), color: 0xc8c8a0, emissive: new Color(0x3a4a24), emissiveIntensity: 0.55, roughness: 0.35, side: DoubleSide }));
+  const curve = pipeCurve();
+  const pipe = add(new TubeGeometry(curve, 56, 1.15, 12, false), new MeshStandardMaterial({ map: pipeTex(), color: 0xc8c8a0, emissive: new Color(0x3a4a24), emissiveIntensity: 0.55, roughness: 0.35, side: DoubleSide }));
   pipe.name = 'chamber-pipe';
   mergeStatic(g, g.children.filter(c => c !== pipe && c !== water));
   const light = bakeLight(g, cols);
-  noRay(g);
+  pipe.raycast = () => {}; water.raycast = () => {};   // the camera arm may sit in front of the pipe mouth
   return { g, cols, light, P: { pipe, water } };
 }
 
@@ -140,12 +144,12 @@ export function buildShadow() {
 
 // ---------------- the tiny snake curled on a bathroom tap (a carved bronze-green coil with a round head and a smile) ----------------
 export function buildTapSnake() {
-  const L = [], GREEN = 0x4a8a4a, GREEN2 = 0x3a6a3a;
+  const L = [], GREEN = 0x4aa84a, GREEN2 = 0x3a8a3a;
   const tube = new TubeGeometry(new Helix(0.045, 0.1, 2.2, 0), 30, 0.014, 5, false); L.push(paint(tube, GREEN));
   L.push(paint(place(new SphereGeometry(0.028, 8, 6), 0.05, 0.11, 0.0, 0, 0, 0, 1.2, 0.9, 1), GREEN2));
   for (const sz of [-1, 1]) L.push(paint(place(new SphereGeometry(0.007, 5, 4), 0.07, 0.122, sz * 0.012), 0x141410));
   const m = new Mesh(merge(L), vc({ roughness: 0.4, metalness: 0.3, emissive: new Color(0x1a3a1a), emissiveIntensity: 0.4 }));
-  m.name = 'adv-tap-snake'; noRay(m); m.scale.setScalar(1.6);
+  m.name = 'adv-tap-snake'; noRay(m); m.scale.setScalar(2.6);
   return m;
 }
 // the pipe mouth that opens where the sink was: a gold-green ring round a soft green glow
@@ -206,10 +210,9 @@ export function buildSword() {
   L.push(paint(place(new BoxGeometry(0.34, 0.05, 0.06), 0, 0.98, 0), 0xd0a040));
   L.push(paint(place(new CylinderGeometry(0.025, 0.025, 0.22, 8), 0, 1.11, 0), 0x6a4a2a));
   L.push(paint(place(new SphereGeometry(0.045, 8, 6), 0, 1.25, 0), 0xd0a040));
-  const sword = new Mesh(merge(L), vc({ roughness: 0.3, metalness: 0.6 }));
-  const ruby = new Mesh(new OctahedronGeometry(0.04, 0), new MeshStandardMaterial({ color: 0xa01020, emissive: new Color(0xd02030), emissiveIntensity: 0.8, roughness: 0.2 }));
-  ruby.position.set(0, 0.98, 0.04);
-  const g = new Group(); g.name = 'adv-sword'; g.add(sword, ruby); noRay(g);
+  L.push(paint(place(new OctahedronGeometry(0.045, 0), 0, 0.98, 0.04), 0xd02030));   // the ruby
+  const sword = new Mesh(merge(L), vc({ roughness: 0.3, metalness: 0.5, emissive: new Color(0x2a0a0a), emissiveIntensity: 0.6 }));
+  const g = new Group(); g.name = 'adv-sword'; g.add(sword); noRay(g);
   return g;
 }
 // ---------------- the fang: a small curved ivory tooth that glows softly ----------------
@@ -234,7 +237,20 @@ export function buildGinny() {
     const lid = new MeshStandardMaterial({ color: 0x5a3020, roughness: 0.8 });
     for (const sx of [-0.1, 0.1]) { const s = new Mesh(new TorusGeometry(0.04, 0.01, 4, 10, Math.PI), lid); s.position.set(sx, 0.01, 0.285); s.rotation.z = Math.PI; head.add(s); shut.push(s); }
   }
+  // fewer draw calls: she never walks, so the body merges per material, the head too (the eyes and the shut lids stay
+  // their own meshes so they can swap when she wakes)
+  let open = eyes, closed = shut;
+  try {
+    const whites = eyes.filter(e => e.geometry.parameters && e.geometry.parameters.radius > 0.04), pupils = eyes.filter(e => !whites.includes(e));
+    for (const e of whites) e.material = whites[0].material; for (const e of pupils) e.material = pupils[0].material;
+    mergeStatic(c, c.children.filter(o => o !== head), 'ginny-body');
+    if (head) {
+      mergeStatic(head, head.children.filter(o => o.isMesh && !eyes.includes(o) && !shut.includes(o)), 'ginny-head');
+      mergeStatic(head, whites, 'ginny-eyes'); mergeStatic(head, pupils, 'ginny-eyes'); mergeStatic(head, shut, 'ginny-lids');
+      open = head.children.filter(o => o.name === 'ginny-eyes' || eyes.includes(o)); closed = head.children.filter(o => o.name === 'ginny-lids' || shut.includes(o));
+    }
+  } catch { open = eyes; closed = shut; }
   const pivot = new Group(); pivot.name = 'adv-ginny'; c.position.y = -0.62; pivot.add(c);
   noRay(pivot);
-  return { root: pivot, chibi: c, head, eyes, shut, rig: c.userData.rig };
+  return { root: pivot, chibi: c, head, eyes: open, shut: closed, rig: c.userData.rig };
 }

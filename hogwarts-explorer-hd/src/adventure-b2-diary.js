@@ -84,6 +84,11 @@ function diaryScene(ctx) {
     const dl = Math.hypot(HUT.door[0], HUT.door[1]) || 1; const x = HUT.x + HUT.door[0] / dl * 5.4, z = HUT.z + HUT.door[1] / dl * 5.4;
     return out.set(x, (player.heightAt ? player.heightAt(x, z) : 0) + 2.6, z);
   }
+  // face Harry to a target and swing the lens behind-beside him, a little higher, so he never hides it (until he walks)
+  function frame(t, side = 0.5) {
+    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = 0.42; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
+  }
+  function frameDesk() { if (inCommon()) frame(RW(DESK.x + 0.12, 0, DESK.z, v2), 0.45); }
   function hutFront(out = { x: 0, z: 0, yaw: 0 }) { const dl = Math.hypot(HUT.door[0], HUT.door[1]) || 1, dx = HUT.door[0] / dl, dz = HUT.door[1] / dl; out.x = HUT.x + dx * 9.5; out.z = HUT.z + dz * 9.5; out.yaw = Math.atan2(-dx, -dz); return out; }
 
   // ---------------- the Entrance Hall door (our own copy + portal while step 1 runs) ----------------
@@ -101,7 +106,7 @@ function diaryScene(ctx) {
     const g = r.group, B = { g };
     B.my = buildMyrtle(); B.my.root.position.set(MYRTLE.x, MYRTLE.y, MYRTLE.z); B.my.root.rotation.y = Math.PI / 2; g.add(B.my.root);
     B.pud = buildPuddle(); B.pud.position.set(PUDDLE.x, 0.012, PUDDLE.z); g.add(B.pud);
-    B.book = buildDiary(false); B.book.position.set(PUDDLE.x + 0.05, 0.035, PUDDLE.z); B.book.rotation.y = 0.5; B.book.visible = !S.got; g.add(B.book);
+    B.book = buildDiary(false); B.book.scale.setScalar(1.7); B.book.position.set(PUDDLE.x + 0.05, 0.05, PUDDLE.z); B.book.rotation.y = 0.5; B.book.visible = !S.got; g.add(B.book);
     B.tris = triCount(B.pud) + triCount(B.book); B.myTris = triCount(B.my.root);
     S.B = B;
   }
@@ -260,6 +265,7 @@ function diaryScene(ctx) {
   function knockDoor() {
     if (ctx.step !== 3 || S.knock) return;
     S.knock = 0.001; ctx.poke(); knock();
+    setTimeout(() => { if (S.active) { try { fun.say(lanternW(new Vector3()).add(v2.set(0, 1.4, 0)), '🧔 זה לא הייתי אני! 💛', 6, 'adv-hagrid'); } catch { /* ok */ } } }, 1100);
     setTimeout(() => { if (S.active) ctx.say('הארי! זה לא הייתי אני, אף פעם! והעכביש הקטן שלי אף פעם לא פגע באף אחד. הוא רק היה צריך בית חם 🕷️💛', HAG, 6.5); }, 1100);
     setTimeout(() => { if (S.active) ctx.say('ידעתי! האגריד טוב לב. מישהו אחר פתח את החדר 🤔', '👧 הרמיוני', 4); }, 7800);
     setTimeout(() => { if (S.active) done(3); }, 11500);
@@ -285,6 +291,7 @@ function diaryScene(ctx) {
     if (S.active && inBath() && step === 0 && !S.B) dressBath();
     if (S.active && inCommon() && step >= 1 && step !== 3 && !S.C) dressCommon(step);
     if (S.C) dressCommon(step);
+    if (S.reframe && S.C && !busy) { S.reframe = false; frameDesk(); }
     if (S.hall) S.hall.door.visible = S.active && interiors.active === 'entrancehall' && step === 0;
     // casts: never on Myrtle or Hagrid; the diary is written by hand
     const n = casts();
@@ -324,7 +331,7 @@ function diaryScene(ctx) {
     if (S.phase === 'sink') {
       S.sinkT += dt;
       if (S.sinkT > 0.15 && !ink.classList.contains('sink')) ink.classList.add('sink');
-      if (S.sinkT > 1.6) { S.phase = 'answer'; S.ans = { text: ANSWERS[S.word], i: 0, t: 0 }; ink.className = 'ink ans'; ink.textContent = ''; ctx.speak(ANSWERS[S.word]); S.answers.push(ANSWERS[S.word]); tone(660, 0.5, 0, 'sine', 0.04, 880); }
+      if (S.sinkT > 1.6) { S.phase = 'answer'; S.ans = { text: ANSWERS[S.word], i: 0, t: 0 }; ink.className = 'ink ans'; ink.textContent = ''; hd.textContent = '📓 היומן עונה...'; ctx.speak(ANSWERS[S.word]); S.answers.push(ANSWERS[S.word]); tone(660, 0.5, 0, 'sine', 0.04, 880); }
     } else if (S.phase === 'answer' && S.ans) {
       const A = S.ans; A.t += dt;
       while (A.t > 0.11 && A.i < A.text.length) { A.t -= 0.11; A.i++; ink.textContent = A.text.slice(0, A.i); if (A.text[A.i - 1] !== ' ' && A.i % 2) tone(1200 + Math.random() * 300, 0.04, 0, 'sine', 0.015); }
@@ -380,11 +387,11 @@ function diaryScene(ctx) {
     if (step === 1) { S.word = 0; S.typed = 0; S.phase = 'write'; board = []; }
     if (step === 1 && !resumed) ctx.say('יש לנו את היומן! בוא נכתוב בו בחדר המועדון ✒️', '👧 הרמיוני', 4);
     if (step === 3) { closePage(false); if (!resumed) setTimeout(() => { if (S.active) ctx.say('אני לא מאמינה שזה האגריד! בוא נלך לבקתה שלו ונשאל אותו 🏡', '👧 הרמיוני', 4.5); }, 2400); }
-    if (step === 4 && !resumed) ctx.say('בוא נחזור לחדר המועדון ונספר ליומן... 📓', '👧 הרמיוני', 3.5);
+    if (step === 4 && !resumed) ctx.say('בוא נחזור לחדר המועדון. אולי היומן יגיד לנו עוד משהו 📓', '👧 הרמיוני', 3.5);
     if (!resumed) return;
     // a resume (reload / the book): go to the right place; the step starts over
     if (step === 0) { if (!inBath()) interiors.enter('trollroom', { ...SPAWN }); }
-    if (step === 1 || step === 2 || step === 4) { if (!inCommon()) interiors.enter('commonroom', { ...DESK_STAND }); else { player.yaw = DESK_STAND.yaw; player.teleport(DESK_STAND.x, DESK_STAND.z); } if (step !== 4) S.autoOpen = true; }
+    if (step === 1 || step === 2 || step === 4) { if (!inCommon()) interiors.enter('commonroom', { ...DESK_STAND }); else { player.yaw = DESK_STAND.yaw; player.teleport(DESK_STAND.x, DESK_STAND.z); } if (step !== 4) S.autoOpen = true; S.reframe = true; }
     if (step === 3) { const f = hutFront(); if (interiors.active) interiors.exit(); player.yaw = f.yaw; player.teleport(f.x, f.z); }
   }
   function glow(step, on) { S.glowHint = !!on; if (S.open) glowTiles(); }
@@ -423,7 +430,7 @@ function diaryScene(ctx) {
     myrtleW: () => (inBath() ? RW(MYRTLE.x, MYRTLE.y + 0.8, MYRTLE.z) : null),
     deskW: () => (inCommon() ? RW(DESK.x + 0.12, DESK.top, DESK.z) : null),
     ribbonW: () => (inCommon() ? RW(DESK.x + 0.12, DESK.top + 0.05, DESK.z + 0.05) : null),
-    lanternW: () => lanternW(new Vector3()), hutFront: () => hutFront(),
+    lanternW: () => lanternW(new Vector3()), hutFront: () => hutFront(), frameDesk: () => frameDesk(), frameLantern: () => frame(lanternW(new Vector3()), 0.35),
     want: () => (S.phase === 'write' ? WORDS[S.word][S.typed] : null), word: () => WORDS[S.word], desk: DESK, deskStand: DESK_STAND, puddle: PUDDLE,
   };
   return { begin, update, goal, tap, glow, together, end, state };

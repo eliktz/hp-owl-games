@@ -185,9 +185,9 @@ function chamberScene(ctx) {
     H.hat = buildHat(); H.hat.scale.setScalar(1.15); g.add(H.hat);
     H.sword = buildSword(); H.sword.visible = false; g.add(H.sword);
     H.shadow = buildShadow(); H.shadow.position.set(SHADOW.x0, SHADOW.y, SHADOW.z); g.add(H.shadow);
-    H.diary = buildDiary(false); H.diary.scale.setScalar(1.8); H.diary.position.set(SPOT.diary.x, 0.05, SPOT.diary.z); H.diary.rotation.y = 0.6; g.add(H.diary);
-    H.fang = buildFang(); H.fang.scale.setScalar(1.7); H.fang.position.set(SPOT.fang.x, 0.02, SPOT.fang.z); H.fang.rotation.y = 0.8; g.add(H.fang);
-    H.gin = buildGinny(); H.gin.root.position.set(SPOT.ginny.x, 0.42, SPOT.ginny.z); H.gin.root.rotation.set(-Math.PI / 2, Math.PI * 0.5, 0, 'YXZ'); g.add(H.gin.root);
+    H.diary = buildDiary(false); H.diary.scale.setScalar(2.6); H.diary.position.set(SPOT.diary.x, 0.05, SPOT.diary.z); H.diary.rotation.y = 0.6; g.add(H.diary);
+    H.fang = buildFang(); H.fang.scale.setScalar(2.3); H.fang.position.set(SPOT.fang.x, 0.02, SPOT.fang.z); H.fang.rotation.y = 0.8; g.add(H.fang);
+    H.gin = buildGinny(); H.gin.root.position.set(SPOT.ginny.x, 0.26, SPOT.ginny.z); H.gin.root.rotation.set(-Math.PI / 2, Math.PI * 0.5, 0, 'YXZ'); g.add(H.gin.root);
     H.fkTris = triCount(H.fk.root);
     S.H = H;
     // the step decides where everyone is (a fresh arrival, a resume)
@@ -195,13 +195,13 @@ function chamberScene(ctx) {
     H.fk.root.visible = step >= 3;
     H.hat.visible = step >= 3; H.hat.position.set(SPOT.hat.x, step === 3 ? 7 : 0, SPOT.hat.z);
     if (step >= 4) { S.hatT = 9; H.sword.visible = true; H.sword.position.set(SPOT.hat.x, 1.4, SPOT.hat.z); }
-    H.diary.visible = H.fang.visible = step >= 4 || step === 3;
+    H.diary.visible = H.fang.visible = step >= 4;
     setGinny(0);
   }
   function setGinny(k) {   // 0 asleep (lying, eyes shut) .. 1 awake, sitting up and then standing
     const G = S.H && S.H.gin; if (!G) return;
     const lie = Math.max(0, 1 - k * 1.25);
-    G.root.rotation.set(-Math.PI / 2 * lie, Math.PI * 0.5, 0, 'YXZ'); G.root.position.y = 0.42 + 0.2 * Math.min(1, k * 1.25);
+    G.root.rotation.set(-Math.PI / 2 * lie, Math.PI * 0.5, 0, 'YXZ'); G.root.position.y = 0.26 + 0.36 * Math.min(1, k * 1.25);
     const awake = k > 0.1; for (const e of G.eyes) e.visible = awake; for (const s of G.shut) s.visible = !awake;
   }
   function undressChamber() {
@@ -280,7 +280,7 @@ function chamberScene(ctx) {
     if (u >= 1) {
       burst(player.pos.x, player.pos.y + 0.3, player.pos.z, 0x9ae09a, 22, 2.0, 0.8, 0.22, -1); sfx('pop'); sfx('giggle', true);
       S.slide = null; endTakeover();
-      player.yaw = HALL_SPAWN.yaw; player.teleport(HALL_SPAWN.x, HALL_SPAWN.z);
+      player.yaw = HALL_SPAWN.yaw; player.teleport(HALL_SPAWN.x, HALL_SPAWN.z); S.reframe = 'hat';
     }
   }
   function tapHat() {
@@ -317,6 +317,7 @@ function chamberScene(ctx) {
     }
     if (S.active && inBath() && step <= 2 && !S.B) dressBath(step);
     if (S.active && inHall() && !S.H) dressChamber(step);
+    if (S.reframe && !busy && ((S.reframe === 'sink' && S.B) || (S.reframe !== 'sink' && S.H))) { const k = S.reframe; S.reframe = null; if (k === 'sink') faceSink(); else if (k === 'stand') standHall(); else frame(RW(SPOT.hat.x, 0, SPOT.hat.z, v3), 0.3); }
     if (S.hall) S.hall.door.visible = S.active && interiors.active === 'entrancehall' && step <= 2;
     // casts: never on Myrtle, Fawkes or Ginny (a kind word); the Glisseo of step 3 is ours (ourCast)
     const n = casts();
@@ -423,7 +424,7 @@ function chamberScene(ctx) {
         const k = Math.min(1, (t - 0.7) / 2.2), m = H.diary.material;
         if (m.emissive) { m.emissive.setRGB(1, 0.8, 0.35); m.emissiveIntensity = 1.4 * (1 - k * 0.3); }
         if (Math.random() < dt * 24) { RW(SPOT.diary.x + (Math.random() - 0.5) * 0.4, 0.2, SPOT.diary.z + (Math.random() - 0.5) * 0.4, v1); emit(v1.x, v1.y, v1.z, 0, 1.2 + Math.random(), 0, 1.0, 0.2, 0xffe8a0, 0.2); }
-        H.diary.scale.setScalar(1.8 * (1 - 0.9 * Math.max(0, (t - 2.2) / 1.0))); if (t > 3.2) H.diary.visible = false;
+        H.diary.scale.setScalar(2.6 * (1 - 0.9 * Math.max(0, (t - 2.2) / 1.0))); if (t > 3.2) H.diary.visible = false;
       }
       if (t > 3.4 && !S.wake) { S.wake = 0.001; }
     }
@@ -501,17 +502,23 @@ function chamberScene(ctx) {
     init(); S.active = true; BATH.myrtle = step <= 2;
     if (step === 1 && !resumed) setTimeout(() => { if (S.active && inBath() && ctx.step === 1) { faceSink(); ctx.say('עכשיו אומרים "פתח" בשפת הנחשים: לחץ על הטבעת והחזק 🐍', '👦 רון', 4.5); } }, 600);
     if (step === 2 && !resumed) ctx.say('הכיור זז! יש מגלשה למטה 🛝 הטל גליסאו או גע ב-🛝', '👦 רון', 4.5);
-    if (step === 3 && S.H && S.fk && S.fk.mode === 'off') { S.fk.mode = 'in'; S.fk.t = 0; S.H.fk.root.visible = true; S.H.hat.visible = true; S.H.diary.visible = S.H.fang.visible = true; }
+    if (step === 3 && S.H && S.fk && S.fk.mode === 'off') { S.fk.mode = 'in'; S.fk.t = 0; S.H.fk.root.visible = true; S.H.hat.visible = true; }
+    if (step === 4 && S.H) { S.H.diary.visible = S.H.fang.visible = true; }
     if (step === 3 && !resumed) ctx.say('וואו... חדר הסודות! הכל ירוק וזהוב. תראה, מישהו עף לכאן! 🐦‍🔥', '👦 רון', 4.5);
-    if (step === 4 && !resumed) { setTimeout(() => { if (S.active && inHall() && ctx.step === 4) { player.yaw = Math.atan2(SPOT.diary.x - SPOT.stand.x, SPOT.diary.z - SPOT.stand.z) + 0.35; player.teleport(SPOT.stand.x, SPOT.stand.z); ctx.say('הנה ג\'יני, היא ישנה! והיומן שם ליד הבריכה 📓', '👦 רון', 4.5); } }, 1200); }
+    if (step === 4 && !resumed) { setTimeout(() => { if (S.active && inHall() && ctx.step === 4) { standHall(); ctx.say('הנה ג\'יני, היא ישנה! והיומן שם ליד הבריכה 📓', '👦 רון', 4.5); } }, 1200); }
     if (!resumed) return;
     // a resume (reload / the book): go to the right place; the step starts over
-    if (step <= 2) { const at = step === 0 ? { ...SPAWN } : standAt(); if (!inBath()) interiors.enter('trollroom', at); else { player.yaw = at.yaw; player.teleport(at.x, at.z); } }
-    if (step >= 3) { const at = step === 4 ? { x: SPOT.stand.x, z: SPOT.stand.z, yaw: Math.atan2(SPOT.diary.x - SPOT.stand.x, SPOT.diary.z - SPOT.stand.z) + 0.35 } : { ...HALL_SPAWN }; if (!inHall()) interiors.enter('b2chamber', at); else { player.yaw = at.yaw; player.teleport(at.x, at.z); } }
+    if (step <= 2) { const at = step === 0 ? { ...SPAWN } : standAt(); if (!inBath()) interiors.enter('trollroom', at); else { player.yaw = at.yaw; player.teleport(at.x, at.z); } if (step >= 1) S.reframe = 'sink'; }
+    if (step >= 3) { const at = step === 4 ? { x: SPOT.stand.x, z: SPOT.stand.z, yaw: Math.PI } : { ...HALL_SPAWN }; if (!inHall()) interiors.enter('b2chamber', at); else { player.yaw = at.yaw; player.teleport(at.x, at.z); } S.reframe = step === 4 ? 'stand' : 'hat'; }
   }
   // in front of the snake's sink, a little to the side so Harry never hides it
-  function standAt() { const z = SINK_Z[S.sink]; return { x: SINK_X + 2.3, z: z + 1.3, yaw: Math.atan2(SINK_X - (SINK_X + 2.3), z - (z + 1.3)) + 0.25 }; }
-  function faceSink() { const at = standAt(); player.yaw = at.yaw; player.teleport(at.x, at.z); }
+  function standAt() { const z = SINK_Z[S.sink], sz = z > 2 ? -1 : 1; return { x: SINK_X + 2.6, z: z + 2.3 * sz, yaw: Math.atan2(-2.6, -2.3 * sz) + 0.62 * sz }; }
+  function faceSink() { const at = standAt(); player.teleport(at.x, at.z); frame(tapW(S.sink, v3)); }
+  // face Harry to a target and swing the lens behind-beside him, a little higher, so he never hides it (until he walks)
+  function frame(t, side = 0.5) {
+    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = 0.42; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
+  }
+  function standHall() { player.teleport(SPOT.stand.x, SPOT.stand.z); frame(RW((SPOT.fang.x + SPOT.diary.x) / 2, 0, (SPOT.fang.z + SPOT.diary.z) / 2, v3)); }
   function glow(step, on) { S.glowHint = !!on; }
   function together(step, fast) {
     const soon = (ok, fn, n = 0) => { if (!S.active) return; if (ok()) { try { fn(); } catch (e) { console.warn('[b2-chamber] together -', e && e.message || e); } return; } if (n < 80) setTimeout(() => soon(ok, fn, n + 1), 250); };   // waits for the room
@@ -550,7 +557,8 @@ function chamberScene(ctx) {
     myrtleW: () => (inBath() ? RW(MYRTLE.x, MYRTLE.y + 0.8, MYRTLE.z) : null), mouthW: () => (inBath() ? RW(SINK_X + 0.05, 0, SINK_Z[S.sink]) : null),
     hatW: () => (inHall() ? RW(SPOT.hat.x, 0.4, SPOT.hat.z) : null), fangW: () => (inHall() ? RW(SPOT.fang.x, 0.05, SPOT.fang.z) : null), diaryW: () => (inHall() ? RW(SPOT.diary.x, 0.1, SPOT.diary.z) : null),
     ginnyW: () => (inHall() ? RW(SPOT.ginny.x, 0.6, SPOT.ginny.z) : null), fawkesW: () => (S.H ? S.H.fk.root.getWorldPosition(new Vector3()) : null), shadowW: () => (S.H ? S.H.shadow.getWorldPosition(new Vector3()) : null),
-    standAt: () => standAt(), spawn: HALL_SPAWN, spot: SPOT, breakSlide: () => { S.slideBreak = true; }, faceSink,
+    standAt: () => standAt(), spawn: HALL_SPAWN, spot: SPOT, breakSlide: () => { S.slideBreak = true; }, faceSink, standHall, frameHat: () => frame(RW(SPOT.hat.x, 0, SPOT.hat.z, new Vector3()), 0.3),
+    frameAt: (x, z, side) => frame(RW(x, 0, z, new Vector3()), side),
   };
   return { begin, update, goal, tap, glow, together, end, state };
 }
