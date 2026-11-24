@@ -517,7 +517,7 @@ function chamberScene(ctx) {
   function faceSink() { const at = standAt(); player.teleport(at.x, at.z); frame(tapW(S.sink, v3)); }
   // face Harry to a target and swing the lens behind-beside him, a little higher, so he never hides it (until he walks)
   function frame(t, side = 0.5, pitch = 0.42) {
-    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = pitch; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
+    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; side *= Math.min(1, innerWidth / Math.max(1, innerHeight) / 1.2); /* a narrow phone lens: a smaller swing */ player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = pitch; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
   }
   function standHall() { player.teleport(SPOT.stand.x, SPOT.stand.z); frame(RW((SPOT.fang.x + SPOT.diary.x) / 2, 0, (SPOT.fang.z + SPOT.diary.z) / 2, v3)); }
   function glow(step, on) { S.glowHint = !!on; }

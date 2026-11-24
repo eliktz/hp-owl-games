@@ -86,7 +86,7 @@ function diaryScene(ctx) {
   }
   // face Harry to a target and swing the lens behind-beside him, a little higher, so he never hides it (until he walks)
   function frame(t, side = 0.5) {
-    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = 0.42; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
+    try { const yaw = Math.atan2(t.x - player.pos.x, t.z - player.pos.z), C = player.cam; side *= Math.min(1, innerWidth / Math.max(1, innerHeight) / 1.2); /* a narrow phone lens: a smaller swing */ player.yaw = yaw; if (player.model) player.model.rotation.y = yaw; if (C) { C.yaw = yaw + Math.PI + side; C.pitch = 0.42; C.userControlled = false; C.idle = 0; } } catch { /* ok */ }
   }
   function frameDesk() { if (inCommon()) frame(RW(DESK.x + 0.12, 0, DESK.z, v2), 0.45); }
   function hutFront(out = { x: 0, z: 0, yaw: 0 }) { const dl = Math.hypot(HUT.door[0], HUT.door[1]) || 1, dx = HUT.door[0] / dl, dz = HUT.door[1] / dl; out.x = HUT.x + dx * 9.5; out.z = HUT.z + dz * 9.5; out.yaw = Math.atan2(-dx, -dz); return out; }
@@ -430,7 +430,7 @@ function diaryScene(ctx) {
     myrtleW: () => (inBath() ? RW(MYRTLE.x, MYRTLE.y + 0.8, MYRTLE.z) : null),
     deskW: () => (inCommon() ? RW(DESK.x + 0.12, DESK.top, DESK.z) : null),
     ribbonW: () => (inCommon() ? RW(DESK.x + 0.12, DESK.top + 0.05, DESK.z + 0.05) : null),
-    lanternW: () => lanternW(new Vector3()), hutFront: () => hutFront(), frameDesk: () => frameDesk(), frameLantern: () => frame(lanternW(new Vector3()), 0.35),
+    lanternW: () => lanternW(new Vector3()), hutFront: () => hutFront(), frameDesk: () => frameDesk(), frameLantern: () => frame(lanternW(new Vector3()), 0.35), framePuddle: () => { if (inBath()) frame(RW(PUDDLE.x, 0, PUDDLE.z, new Vector3()), 0.4); },
     want: () => (S.phase === 'write' ? WORDS[S.word][S.typed] : null), word: () => WORDS[S.word], desk: DESK, deskStand: DESK_STAND, puddle: PUDDLE,
   };
   return { begin, update, goal, tap, glow, together, end, state };
