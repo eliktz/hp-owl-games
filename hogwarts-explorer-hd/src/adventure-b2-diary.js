@@ -161,6 +161,7 @@ function diaryScene(ctx) {
   body.b2page .gamebtn,body.b2page #camctl,body.b2page #fcBtn,body.b2page #wandBtn,body.b2page #bellBtn,body.b2page #enterBtn,body.b2page #joy,body.b2page #joyKnob,
   body.b2page #quest,body.b2page #bubble,body.b2page #funPrompt,body.b2page #fcWheel,body.b2page #advEdge{display:none !important}
   body.modalOn #b2Page{display:none !important}
+  body.b2page #advHint{top:auto !important;bottom:calc(78px + env(safe-area-inset-bottom)) !important}
   @media (max-width:700px){#b2Page{padding-top:calc(84px + env(safe-area-inset-top))} #b2Page .hd{font-size:20px} #b2Page .hd b{font-size:28px}
     #b2Page .ink{font-size:46px;min-height:74px} #b2Page .ink.ans{font-size:32px} #b2Page .tiles{gap:9px} #b2Page .card .cap{font-size:19px}}`;
   document.head.appendChild(css);
