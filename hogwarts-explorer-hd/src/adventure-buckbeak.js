@@ -110,6 +110,12 @@ function buckbeakScene(ctx) {
   body.advBB #quest,body.advBB #bubble,body.advBB #funPrompt,body.advBB #fcWheel{display:none !important}
   body.modalOn #bbAct,body.inSpell #bbAct,body.inMatch #bbAct,body.inFloo #bbAct{display:none !important}
   body:has(#advTogether.on) #bbAct{top:calc(186px + env(safe-area-inset-top))}
+  #bbCount{position:fixed;left:50%;top:calc(100px + env(safe-area-inset-top));transform:translateX(-50%);z-index:14;display:none;padding:3px 14px;border-radius:16px;border:2px solid #ffd76a;
+    background:rgba(40,22,10,.82);color:#ffe9a8;font:bold 20px ${FONT};direction:ltr;white-space:nowrap;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+  #bbCount.on{display:block} #bbCount.pop{animation:bbPop .5s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes bbPop{0%{transform:translateX(-50%) scale(1.5)}100%{transform:translateX(-50%) scale(1)}}
+  body.modalOn #bbCount{display:none !important}
+  @media (max-width:700px){#bbCount{font-size:17px;padding:2px 12px} body.advBB #bbAct,body.advBB:has(#advTogether.on) #bbAct{bottom:calc(30px + env(safe-area-inset-bottom))}}
   @media (max-width:700px){#bbAct,body:has(#advTogether.on) #bbAct{top:auto;bottom:calc(330px + env(safe-area-inset-bottom));width:112px;height:112px;margin-left:-56px} #bbAct .lab i{font-size:40px} #bbAct .lab{font-size:18px}}`;
   document.head.appendChild(css);
   const act = document.createElement('button'); act.id = 'bbAct';
@@ -133,6 +139,16 @@ function buckbeakScene(ctx) {
     for (const ev of ['pointerdown', 'touchstart', 'mousedown']) b.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
     b.addEventListener('click', (e) => { e.stopPropagation(); steer(dir); }); document.body.appendChild(b); return b; };
   const bL = mkBtn('bbL', '◀', -1), bR = mkBtn('bbR', '▶', 1);
+  // the feather count while flying: a small pill just under the tracker (a big toast covered the hint bubble on a phone)
+  const pill = document.createElement('div'); pill.id = 'bbCount'; document.body.appendChild(pill);
+  function showCount(on, popIt = false) {
+    if (!on) { pill.classList.remove('on'); return; }
+    pill.textContent = '🪶 ' + S.got + ' / ' + needF();
+    const tr = document.getElementById('advTrack'), b = tr && tr.classList.contains('on') ? tr.getBoundingClientRect() : null;
+    pill.style.top = b && b.height ? Math.round(b.bottom + 6) + 'px' : '';
+    pill.classList.add('on');
+    if (popIt) { pill.classList.remove('pop'); void pill.offsetWidth; pill.classList.add('pop'); }
+  }
   const cls = (k, on) => document.body.classList.toggle(k, !!on);
   const lanesOn = () => lv() > 1;
 
@@ -282,7 +298,7 @@ function buckbeakScene(ctx) {
   function setupFeathers() {
     const n = NFEATH[lv()] || 3, L = S.L, fr = n === 3 ? [0.2, 0.43, 0.64] : n === 4 ? [0.16, 0.34, 0.52, 0.7] : [0.14, 0.29, 0.44, 0.59, 0.74];
     S.feathers = fr.map((f, i) => ({ s: f * L, lane: lanesOn() ? [2, 0, 1, 2, 0][i] : 1, got: false, spin: Math.random() * 6 }));
-    S.got = 0; fe.count = 0; fe.visible = true;
+    S.got = 0; fe.count = 0; fe.visible = true; showCount(true);
   }
   const needF = () => NFEATH[lv()] || 3;
   const qTier = () => { try { return window.__game.stats().tier; } catch { return null; } };
@@ -310,7 +326,7 @@ function buckbeakScene(ctx) {
     lowTier(false);
     try { player.ride(false); } catch { /* ok */ }
     player.model.rotation.set(0, 0, 0); player.model.visible = true;
-    fe.visible = false; fe.count = 0;
+    fe.visible = false; fe.count = 0; showCount(false);
     if (put && had) { player.yaw = Math.atan2(BB.x - HOME.x, BB.z - HOME.z); player.teleport(HOME.x, HOME.z); }
     return had;
   }
@@ -411,7 +427,7 @@ function buckbeakScene(ctx) {
       if (S.s >= f.s - 0.6) {
         const inLane = !lanesOn() || Math.abs(S.lx - LANES[f.lane]) < 1.3;
         if (inLane) { f.got = true; S.got++; ctx.poke(); fPos(f, v3); burst(v3.x, v3.y, v3.z, 0xffd76a, 20, 2.2, 0.9, 0.28, -0.5); sfx('tink', S.got); sfx('sparkle');
-          try { fun.toast('🪶', S.got + ' / ' + needF(), 900); } catch { /* ok */ }
+          showCount(true, true);
           if (S.got >= needF()) ctx.say('כל נוצות הזהב! אבזם גאה בך 🪶', HAG, 2.8); continue; }
         // missed: it comes round again a little further on (near the end it waits right in Buckbeak's lane)
         const next = S.s + 46;
@@ -468,9 +484,10 @@ function buckbeakScene(ctx) {
       const rx = fz, rz = -fx, side = (CASTLE.x - p.x) * rx + (CASTLE.z - p.z) * rz >= 0 ? 1 : -1;
       if (!S.sideInit) { S.sideInit = true; S.camSide = side; }
       S.camSide += (side - S.camSide) * Math.min(1, dt * 0.8);
-      const off = 5 * S.camSide, away = 6.5 * S.camSide;
+      // a narrow phone: the look point is on the line through him, so he stays in the middle of the narrow frame
+      const off = 5 * S.camSide, away = narrow ? off * 9 / back : 6.5 * S.camSide;
       px = p.x - fx * back + rx * off; pz = p.z - fz * back + rz * off; py = p.y + up;
-      lx = p.x + fx * 9 - rx * away; ly = p.y + 0.4 * BB_SCALE; lz = p.z + fz * 9 - rz * away;
+      lx = p.x + fx * 9 - rx * away; ly = p.y + 0.4 * BB_SCALE + (narrow ? 2.4 : 0); lz = p.z + fz * 9 - rz * away;   // a phone: he sits lower, under the hint bubble
     }
     const g = groundAt(px, pz), fl = overLake(px, pz, g) ? Math.max(g, WATER) : g; py = Math.max(py, fl + 1.4);
     v1.set(px, py, pz); v2.set(lx, ly, lz);
@@ -622,7 +639,7 @@ function buckbeakScene(ctx) {
     if (S.bb) { if (S.bb.parent) S.bb.parent.remove(S.bb); try { S.mixer.stopAllAction(); S.mixer.uncacheRoot(S.bb); } catch { /* ok */ } }
     S.bb = null; S.mixer = null; S.acts = {};
     dropProps();
-    try { act.remove(); bL.remove(); bR.remove(); css.remove(); } catch { /* ok */ }
+    try { act.remove(); bL.remove(); bR.remove(); pill.remove(); css.remove(); } catch { /* ok */ }
     void finished;
   }
   function state() {
