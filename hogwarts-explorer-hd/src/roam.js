@@ -104,7 +104,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
     if (fig.col) { const arr = fig.colArr, i = arr ? arr.indexOf(fig.col) : -1; if (i >= 0) arr.splice(i, 1); fig.col = null; }
   }
   function dropFig(st) {
-    endBub(st.id);
+    endBub(st.id); st.cat = null;
     const fig = st.fig; if (!fig) return;
     st.fig = null; finishFig(fig);
   }
@@ -160,7 +160,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   // take a figure off the stage: in view -> fade over VANISH s (+ sparkles when `magic`); off view -> at once
   const fading = [];
   function vanish(st, magic) {
-    endBub(st.id);
+    endBub(st.id); st.cat = null;
     const fig = st.fig; if (!fig) return;
     if (!fig.ready || !fig.holder.visible || fig.dead || !fig.holder.parent) { dropFig(st); return; }
     st.fig = null;
