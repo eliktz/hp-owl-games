@@ -136,10 +136,10 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
     });
   }
   // a small sparkle puff: one InstancedMesh of tiny gold diamonds rising and shrinking (1 draw call, ~0.9 s)
-  const sparkGeo = new OctahedronGeometry(0.045, 0), sparks = [], dummy = new Object3D();
+  const sparkGeo = new OctahedronGeometry(0.07, 0), sparks = [], dummy = new Object3D();
   function sparkle(parent, x, y, z, h = 1.6) {
     if (!parent) return;
-    const N = 16, mat = new MeshBasicMaterial({ color: 0xffe7a0, transparent: true, depthWrite: false });
+    const N = 20, mat = new MeshBasicMaterial({ color: 0xfff0b8, transparent: true, depthWrite: false });
     const m = new InstancedMesh(sparkGeo, mat, N); m.userData.roamSpark = true; m.frustumCulled = false; m.name = 'roam-sparkle';
     const pts = [];
     for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, r = 0.25 + Math.random() * 0.35; pts.push({ x: Math.cos(a) * r, y: 0.2 + Math.random() * h, z: Math.sin(a) * r, v: 0.5 + Math.random() * 0.8, s: 0.6 + Math.random() * 0.8, a }); }
