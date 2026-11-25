@@ -37,7 +37,7 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   }
   reset();
   const log = { greets: [], holds: 0, built: 0, dropped: 0, spoke: [] };
-  let now = 0, lastGreet = -1e9, slow = 0, chipKey = '', busyT = 1, busy = null;
+  let now = 0, lastGreet = -1e9, slow = 0, chipKey = '', busyT = 1, busyN = 0, busy = null;
   let bub = null, bubOf = null;   // the greeting bubble (fun.say's handle) and whose it is: it ends when her figure leaves the stage
   const endBub = (id) => { if (bub && bubOf === id) { bub.t = Math.min(bub.t, 0); bub = null; bubOf = null; } };
 
@@ -215,7 +215,8 @@ export function createRoam({ scene, camera, player, interiors, lessons, map, env
   function step(dt) {
     now += dt; slow += dt; busyT += dt;
     sparkTick(dt); fadeTick(dt);
-    if (busyT > 0.25) { busyT = 0; busy = busyWhy(); }   // the hold rules are checked 4x a second (lessons' hook is instant)
+    busyN++;
+    if (busyT > 0.25 || busyN >= 3) { busyT = 0; busyN = 0; busy = busyWhy(); }   // the hold rules: 4x a second, or every 3rd frame on a slow device (lessons' hook is instant)
     pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(pm, camera.coordinateSystem);
     const room = interiors.active, rg = roomGroup();
     for (const id of P.ORDER) {
