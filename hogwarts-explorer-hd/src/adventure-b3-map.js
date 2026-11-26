@@ -126,8 +126,8 @@ function setSweets(B, list) {   // list: indices to show (the rest are hidden)
   for (let i = 0; i < SWEET_SPOTS.length; i++) { const on = list.includes(i); B.shown[i] = on; B.got[i] = !on; }
   B.dirty = true;
 }
-function freeSweets(B) { const idx = SWEET_SPOTS.map((_, i) => i).filter(i => i !== 9).sort(() => Math.random() - 0.5).slice(0, FREE_N);   // (not the barrel lid: right under the lens and the buttons in free play)
-  setSweets(B, idx); B.free = true; HS.got = 0; }
+// free play: FREE_N random spots, never the barrel lid (it sits right under the lens and the buttons there)
+function freeSweets(B) { const idx = SWEET_SPOTS.map((_, i) => i).filter(i => i !== 9).sort(() => Math.random() - 0.5).slice(0, FREE_N); setSweets(B, idx); B.free = true; HS.got = 0; }
 const _mat = { m: new Matrix4() };
 function honeyTick(B, dt) {
   installTap();
