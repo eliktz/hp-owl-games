@@ -74,7 +74,7 @@ function lakeTick(B, dt) {
   LK.T += dt; const T = LK.T, cam = window.__game.camera, pl = window.__game.player.pos;
   B.shimMat.map.offset.y = (T * 0.03) % 1;
   const s = LK.silver;   // the finale: the gold sun path turns silver and the water a little paler
-  B.shimMat.color.setRGB(1, 0.85 + 0.15 * s, 0.63 + 0.37 * s); B.shimMat.opacity = 0.7 + 0.25 * s; B.waterMat.color.setRGB(1 - 0.08 * s, 1 - 0.02 * s, 1);
+  B.shimMat.color.setRGB(1, 0.85 + 0.15 * s, 0.63 + 0.37 * s); B.shimMat.opacity = 0.7 + 0.3 * s; B.waterMat.color.setRGB(1 - 0.1 * s, 0.93 + 0.09 * s, 0.84 + 0.26 * s);   // a warm gold tint on the water; silver-blue in the finale
   // the lantern glow cards face the camera
   for (let i = 0; i < 2; i++) { _v.set(i ? 1.15 : -1.15, 2.1, -7.4); const k = 1.3 + Math.sin(T * 6 + i) * 0.08; _m4.compose(_v, cam.quaternion, _sc.set(k, k, k)); B.glows.setMatrixAt(i, _m4); }
   B.glows.instanceMatrix.needsUpdate = true;
@@ -90,7 +90,7 @@ function lakeTick(B, dt) {
   _base.set(0, 0, 0);   // (the wisp mesh is a child of the lake group: local coordinates)
   drawWisps(B.W, LK.wisps, cam, _base, T);
   // the silver finale: fireflies over the water and the reeds
-  if (LK.silver > 0 && Math.random() < dt * 14) { LK.flies++; fxEmit((Math.random() - 0.5) * 18, B.g.position.y + 0.2 + Math.random() * 1.6, -2 - Math.random() * 14, (Math.random() - 0.5) * 0.3, 0.15, (Math.random() - 0.5) * 0.3, 2.2, 0.16, Math.random() < 0.5 ? 0xfff2a0 : 0xd8f0ff, 0); }
+  if (LK.silver > 0 && Math.random() < dt * 24) { LK.flies++; fxEmit((Math.random() - 0.5) * 18, B.g.position.y + 0.2 + Math.random() * 1.8, -2 - Math.random() * 14, (Math.random() - 0.5) * 0.3, 0.15, (Math.random() - 0.5) * 0.3, 2.6, 0.22, Math.random() < 0.5 ? 0xfff2a0 : 0xd8f0ff, 0); }
 }
 const _m4 = new Matrix4();
 const _sc = new Vector3(1, 1, 1);
@@ -261,6 +261,7 @@ function patScene(ctx) {
     // the practice wisp
     if (step === 2 && inRoom('classrooms') && S.ward) {
       if (!S.prac) { S.prac = { x: WARD.x, y: 0.55, z: WARD.z, s: 0.95, ph: 1.3, alive: true, melt: 0, age: 0 }; ctx.say('הנה צל אפור קטן יצא מהארון. הוא רך כמו ערפל... הטל אקספקטו פטרונום! 🦌', TONKS_WHO, 4.5); }
+      if (S.prac.targeted && !S.prac.melt) { const st = stagState(); if (!st || !st.on) S.prac.targeted = false; }   // a stag cut short (a modal, a recast) never left the wisp waiting for it
       if (S.prac.alive && !S.prac.melt && !S.prac.targeted && S.prac.age > 1.6) {
         if (lv() === 1 || S.prac.age > 9) { try { fun.offer('adv-patronum', '🦌', 0.05, () => { castStag(); }); } catch { /* ok */ } }
         if (S.assist) { S.assistT += dt; if (S.assistT > 0.8) { S.assistT = 0; S.assist = false; castStag(); } }
@@ -269,10 +270,11 @@ function patScene(ctx) {
     }
     // the lake wisps
     if (step === 3 && inRoom('b3lake') && LK.wisps.length) {
-      const any = LK.wisps.some(w => w.alive && !(w.melt > 0) && !w.targeted);
       const st = stagState(), running = st && st.on;
+      if (!running) untarget();   // no stag on the water: no shadow is still waiting for one (a run cut short by a modal or a recast)
+      const any = LK.wisps.some(w => w.alive && !(w.melt > 0) && !w.targeted);
       if (any && !running && (lv() === 1 || S.t > 8)) { try { fun.offer('adv-patronum', '🦌', 0.05, () => { castStag(); }); } catch { /* ok */ } }
-      if (S.assist && any) { S.assistT += dt; if (S.assistT > 1.0) { S.assistT = 0; if (!running) castStag(); else { const w = nearestWisp(); if (w) { sendStag(w, lakeMelted); S.sent++; } } } }
+      if (S.assist && any) { S.assistT += dt; if (S.assistT > 1.0) { S.assistT = 0; if (!running) castStag(); else if (!LK.wisps.some(x => x.alive && !(x.melt > 0) && x.targeted)) { const w = nearestWisp(); if (w) { sendStag(w, lakeMelted); S.sent++; } } } }
       if ((lv() === 1 || S.glowHint) && Math.random() < dt * 3) { const w = nearestWisp(); if (w) { lakeWorld(w, v1, 0.4); emit(v1.x + (Math.random() - 0.5) * 2, v1.y - 1.0, v1.z + (Math.random() - 0.5) * 1.5, 0, 0.3, 0, 0.9, 0.3, 0xfff2b0, 0); } }
     }
     if (step === 4 && inRoom('b3lake')) { LK.silver = Math.min(1, LK.silver + dt / 2.5); if (S.finT > 0) { S.finT += dt; if (S.finT > 2.6) done(4); } }
@@ -401,6 +403,7 @@ export function startFreeLake() {
         F.spawnT -= dt; if (F.spawnT <= 0 && alive.length < 3) { F.spawnT = 7 + Math.random() * 5; const w = spawnWisp(Math.floor(Math.random() * 5), 5); w.i = F.i++; LK.wisps.push(w); }
         if (LK.wisps.length > 12) LK.wisps = LK.wisps.filter(w => w.alive);
         const st = stagState(), n = st ? st.casts : 0; if (F.pat0 < 0) F.pat0 = n;
+        if (!(st && st.on)) untarget();
         if (n !== F.pat0) { F.pat0 = n; untarget(); const w = nearestWisp(); if (w && st.on) sendStag(w, () => { F.melted++; if (!LK.paid) { LK.paid = true; try { window.HPLessons.progress.bonus(5); } catch { /* lessons not loaded */ } try { base.fun.toast('✨⭐', '+5 נקודות לבית!', 1600); } catch { /* ok */ } } }); }
         if (alive.some(w => !w.melt && !w.targeted) && !(st && st.on)) { try { base.fun.offer('free-patronum', '🦌', 0.05, () => castStag()); } catch { /* ok */ } }
       }
