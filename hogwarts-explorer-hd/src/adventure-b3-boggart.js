@@ -190,7 +190,7 @@ function freeTick(W, dt) {
     // the 😂 prompt while Harry is near; a shape nobody dresses goes back in by itself after a while
     let near = false; try { const p = window.__game.player.pos; near = Math.hypot(p.x - STAGE.x, p.z - STAGE.z) < 9; } catch { near = false; }
     if (near) { try { window.HPFun.offer('free-riddikulus', '😂', 0.06, () => freeDress()); } catch { /* ok */ } }
-    if ((W.waitT || 0) > 30) { W.ph = 'in'; W.t = 0; }
+    if ((W.waitT || 0) > 60) { W.ph = 'in'; W.t = 0; }
   }
   void dt;
 }
@@ -298,9 +298,12 @@ function bogScene(ctx) {
   // face Harry toward the stage and swing the lens behind-beside him, a little higher, so he never hides it
   function frame() {
     try {
-      const yaw = Math.atan2(STAGE.x - player.pos.x, STAGE.z - player.pos.z), C = player.cam, side = 0.5 * Math.min(1, innerWidth / Math.max(1, innerHeight) / 1.2);
+      // a portrait phone: a flatter, closer lens swung to the side, so the shape sits mid-screen under the hint bubble (which is
+      // pinned high on phones) and beside Harry, never behind him
+      const phone = innerWidth / Math.max(1, innerHeight) < 0.8;
+      const yaw = Math.atan2(STAGE.x - player.pos.x, STAGE.z - player.pos.z), C = player.cam, side = phone ? 0.35 : 0.5;
       player.yaw = yaw; if (player.model) player.model.rotation.y = yaw;
-      if (C) { C.yaw = yaw + Math.PI + side; C.pitch = 0.32; C.dist = Math.min(C.dist || 6, 5.4); C.userControlled = false; C.idle = 0; }
+      if (C) { C.yaw = yaw + Math.PI + side; C.pitch = phone ? 0.12 : 0.32; C.dist = phone ? 4.6 : Math.min(C.dist || 6, 5.4); C.userControlled = false; C.idle = 0; }
     } catch { /* ok */ }
   }
   function standAt() { player.yaw = Math.atan2(STAGE.x - SPOT.x, STAGE.z - SPOT.z); player.teleport(SPOT.x, SPOT.z); frame(); }
