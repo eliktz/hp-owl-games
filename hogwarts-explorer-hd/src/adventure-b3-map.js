@@ -154,6 +154,7 @@ function honeyTick(B, dt) {
   let n = -1; try { n = window.__game.freecast._internal.log.casts; } catch { n = -1; }
   if (HS.casts0 < 0) HS.casts0 = n;
   if (n !== HS.casts0) { HS.casts0 = n; castWord(); }
+  if (!HS.quest && !B.framed) { B.framed = true; try { const C = window.__game.player.cam; C.yaw = window.__game.player.yaw + Math.PI + 0.55; C.pitch = 0.3; C.dist = 4.2; C.userControlled = false; } catch { /* ok */ } }   // the lens beside Harry: the window stays in view
   if (!HS.quest) freeHoneyTick(B, dt);
   if (HS.honeyHook) { try { HS.honeyHook(B, dt); } catch (e) { if (!HS.err++) console.warn('[b3-map] honey hook -', e && e.message || e); } }
 }
@@ -167,7 +168,7 @@ function cam() { return window.__game.camera; }
 function freeHoneyTick(B, dt) {
   if (freeBusy()) return;
   // level-1-like sparkles on the free sweets
-  if (Math.random() < dt * 3) { const left = SWEET_SPOTS.map((s, i) => i).filter(i => B.shown[i] && !B.got[i]); if (left.length) { const s = SWEET_SPOTS[left[Math.floor(Math.random() * left.length)]]; fxEmit(s[0] + (Math.random() - 0.5) * 0.4, roomY() + s[1] + 0.3, s[2] + (Math.random() - 0.5) * 0.4, 0, 0.3, 0, 0.8, 0.18, 0xffe07a, 0); } }
+  if (Math.random() < dt * 3) { const i = Math.floor(Math.random() * SWEET_SPOTS.length); if (B.shown[i] && !B.got[i]) { const s = SWEET_SPOTS[i]; fxEmit(s[0] + (Math.random() - 0.5) * 0.4, roomY() + s[1] + 0.3, s[2] + (Math.random() - 0.5) * 0.4, 0, 0.3, 0, 0.8, 0.18, 0xffe07a, 0); } }   // (no allocation)
 }
 function collect(B, i, free) {
   if (!B.shown[i] || B.got[i]) return false;
@@ -222,7 +223,7 @@ const FREE_API = {
   sweetW: (i) => (curHoney() ? sweetW(i) : null),
   sweets: () => { const B = curHoney(); return B ? B.shown.map((on, i) => (on && !B.got[i] ? i : -1)).filter(i => i >= 0) : []; },
   filchW: () => { const B = curHoney(); return B ? new Vector3(B.filchX, roomY() + 1.5, FILCH_Z) : null; },
-  filchTo: (x) => { const B = curHoney(); if (B) { B.filchX = x; B.ducked = false; } return !!B; },
+  filchTo: (x) => { const B = curHoney(); if (B) { B.filchX = x; B.filchDir = x < 0 ? 1 : -1; B.ducked = false; } return !!B; },
   trapW: () => (curHoney() ? new Vector3(TRAP.x, roomY() + 0.3, TRAP.z) : null),
 };
 try { if (/[?&]debug=1/.test(location.search)) window.__b3honey = FREE_API; } catch { /* ok */ }
@@ -306,7 +307,7 @@ function mapScene(ctx) {
     S.duck = 0.001; S.ducks++; ctx.poke();
     S.back = { x: player.pos.x, z: player.pos.z, yaw: player.yaw };
     player.yaw = Math.atan2(WIN.x - HIDE.x, WIN.z - HIDE.z); player.teleport(HIDE.x, HIDE.z);
-    frame(WIN.x, WIN.z, { pitch: 0.2, dist: 3.0 });
+    frame(WIN.x, WIN.z, { pitch: 0.16, dist: 3.4, side: 0.75 });
     ctx.say('פססס, מתחבאים! 🤫 מאחורי החבית...', RON_WHO, 2.4); sfx('whoosh');
   }
   function questSweets(B) {

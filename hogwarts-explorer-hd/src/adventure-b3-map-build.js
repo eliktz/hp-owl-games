@@ -99,8 +99,8 @@ export const BARREL = { x: -1.7, z: -0.9 }, HIDE = { x: -1.8, z: -2.2 };
 export const WIN = { x: 0, z: 4.5, w: 4.2, y0: 0.95, y1: 2.65 };
 export const FILCH_Z = 5.5;
 // ten places for sweets (room-local x, y, z): shelves, the counter, the barrel lid
-export const SWEET_SPOTS = [[-4.85, 1.02, -1.4], [-4.85, 1.62, 0.6], [-4.85, 2.22, 2.4], [-4.85, 1.02, 2.6], [3.4, 1.12, -0.6], [3.4, 1.12, 0.7], [3.1, 1.12, 1.9],
-  [-3.4, 1.62, 4.0], [3.6, 1.62, 4.0], [-1.7, 1.08, -0.9]];
+export const SWEET_SPOTS = [[-5.2, 1.02, -1.4], [-5.2, 1.62, 0.6], [-5.2, 2.22, 2.4], [-5.2, 1.02, 2.6], [3.4, 1.12, -0.6], [3.4, 1.12, 0.7], [3.1, 1.12, 1.9],
+  [-3.4, 1.62, 4.22], [3.6, 1.62, 4.22], [-1.7, 1.01, -0.9]];
 const PASTEL = [0xe87aa8, 0x7ad8b8, 0xe8d06a, 0x7ab0e8, 0xb88ae0, 0xe89a5a, 0x8ae07a];
 export function buildHoney() {
   const { W, D, H } = HONEY, g = new Group(); g.name = 'b3honey';
@@ -159,7 +159,7 @@ export function buildHoney() {
   SWEET_SPOTS.forEach((p, i) => sweets.setColorAt(i, _c.setHex(PASTEL[i % PASTEL.length])));
   g.add(sweets);
   // warm round ceiling lamps (emissive)
-  const lamps = quiet(new Mesh(merge([[-2.6, -1.5], [1.5, -1.2], [-1.0, 2.2], [2.6, 2.4]].map(([x, z]) => paint(new SphereGeometry(0.2, 10, 7).translate(x, H - 0.45, z), 0xffffff))), new MeshStandardMaterial({ vertexColors: true, emissive: 0xffd890, emissiveIntensity: 1.6 })));
+  const lamps = quiet(new Mesh(merge([[-2.6, -1.5], [1.5, -1.2], [-1.0, 2.2], [2.6, 2.4]].map(([x, z]) => paint(new SphereGeometry(0.13, 10, 7).translate(x, H - 0.3, z), 0xffffff))), new MeshStandardMaterial({ vertexColors: true, emissive: 0xffd890, emissiveIntensity: 0.9 })));
   lamps.name = 'honey-lamps'; g.add(lamps);
   // the shop sign over the counter (canvas)
   const st = canvasTex(512, 128, (x, w, h) => { x.fillStyle = '#7a2a4a'; x.beginPath(); x.roundRect(4, 4, w - 8, h - 8, 24); x.fill(); x.strokeStyle = '#e8c860'; x.lineWidth = 6; x.stroke();
@@ -176,7 +176,7 @@ export function buildHoney() {
   const trapGlow = quiet(new Mesh(new PlaneGeometry(1.6, 1.6).rotateX(-Math.PI / 2).translate(TRAP.x, 0.08, TRAP.z), new MeshBasicMaterial({ map: soft, color: 0xffc070, transparent: true, depthWrite: false, blending: AdditiveBlending })));
   trapGlow.name = 'honey-trapglow'; g.add(trapGlow);
   // Filch outside the window + his lantern glow + the lantern light that falls in on the floor
-  const F = buildFilch(); F.g.position.set(-7, 0, FILCH_Z); g.add(F.g);
+  const F = buildFilch(); F.g.position.set(-7, 0, FILCH_Z); F.body.scale.setScalar(1.2); F.lantern.multiplyScalar(1.2); g.add(F.g);
   const lglow = quiet(new Mesh(new PlaneGeometry(1.1, 1.1), new MeshBasicMaterial({ map: soft, color: 0xffd070, transparent: true, depthWrite: false, blending: AdditiveBlending })));
   lglow.name = 'filch-lantern-glow'; g.add(lglow);
   const pool = quiet(new Mesh(new PlaneGeometry(2.6, 3.2).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: soft, color: 0xffc860, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending })));

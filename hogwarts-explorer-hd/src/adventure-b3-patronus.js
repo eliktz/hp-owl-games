@@ -83,7 +83,7 @@ function lakeTick(B, dt) {
     if (!w.alive) continue;
     w.age = (w.age || 0) + dt;
     if (w.melt > 0) { w.melt += dt / 1.3; if (Math.random() < dt * 30) fxEmit(B.g.position.x + w.x + (Math.random() - 0.5) * 1.2, B.g.position.y + w.y + Math.random() * 1.8, w.z + (Math.random() - 0.5) * 0.6, 0, 0.6, 0, 1.0, 0.26, Math.random() < 0.5 ? 0xffffff : 0xcfe8ff, -0.1); if (w.melt >= 1) { w.alive = false; LK.melted++; } continue; }
-    w.x += Math.sin(T * 0.25 + w.ph) * 0.35 * dt; w.x = Math.max(-14, Math.min(14, w.x));
+    const X = xMax() + 1.5; w.x += Math.sin(T * 0.25 + w.ph) * 0.35 * dt; w.x = Math.max(-X, Math.min(X, w.x));
     const dx = w.x - pl.x, dz = w.z - pl.z, d = Math.hypot(dx, dz);
     if (d < 12.5 && d > 0.01) { const k = (12.5 - d) / d; w.x += dx * k * Math.min(1, dt * 2); w.z += dz * k * Math.min(1, dt * 2); }
   }
@@ -94,9 +94,11 @@ function lakeTick(B, dt) {
 }
 const _m4 = new Matrix4();
 const _sc = new Vector3(1, 1, 1);
+// a narrow phone sees a narrow slice of the lake: the shadows spread less there (so every one stays on screen)
+const xMax = () => (innerWidth / Math.max(1, innerHeight) < 0.8 ? 3.2 : 10);
 function spawnWisp(i, n) {
-  const span = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
-  return { x: span * 10 + (Math.random() - 0.5) * 2, y: LAKE.water + 1.6 + Math.random() * 0.9, z: -20 - Math.random() * 12, s: 1.25 + Math.random() * 0.35, ph: Math.random() * 6, alive: true, melt: 0, age: 0, i };
+  const span = n > 1 ? (i / (n - 1)) * 2 - 1 : 0, X = xMax();
+  return { x: span * X + (Math.random() - 0.5) * (X / 5), y: LAKE.water + 1.6 + Math.random() * 0.9, z: -21 - Math.random() * 9, s: 1.25 + Math.random() * 0.35, ph: Math.random() * 6, alive: true, melt: 0, age: 0, i };
 }
 const lakeWorld = (w, out = new Vector3(), dy = 1.0) => out.set(w.x, FLOOR_Y + w.y + dy * w.s, w.z);
 function nearestWisp() {
@@ -118,6 +120,7 @@ function meltWisp(w) {
   fxBurst(_v.x, _v.y, _v.z, 0xe8f6ff, 30, 2.6, 1.1, 0.3, -0.3); fxBurst(_v.x, _v.y, _v.z, 0xfff2b0, 12, 1.8, 0.9, 0.24, -0.2);
   sfx('sparkle'); sfx('chime'); try { window.HPFun.sfx.noise(0.5, 0.05, 0, 900, 0.5); } catch { /* a soft whoosh */ }
 }
+function untarget() { for (const w of LK.wisps) if (w.alive && !(w.melt > 0)) w.targeted = false; }
 const stagState = () => { try { return fi().SP.patronum.state(); } catch { return null; } };
 const castStag = () => { try { const f = fi(); f.SP.patronum.cast(); return true; } catch { return false; } };   // the 🦌 prompt: the same stag as the wheel
 
@@ -198,7 +201,7 @@ function patScene(ctx) {
     } catch { /* ok */ }
   }
   const standSpot = () => { player.yaw = Math.atan2(STAGE.x - SPOT.x, STAGE.z - SPOT.z); player.teleport(SPOT.x, SPOT.z); frame(STAGE.x, STAGE.z); };
-  const standLake = () => { player.yaw = LSPAWN.yaw; player.teleport(LSPAWN.x, LSPAWN.z); frame(0, -26, { pitch: innerWidth / innerHeight < 0.8 ? 0.06 : 0.1, side: 0.25, dist: innerWidth / innerHeight < 0.8 ? 5.2 : 5.0 }); };
+  const standLake = () => { const ph = innerWidth / innerHeight < 0.8; player.yaw = LSPAWN.yaw; player.teleport(LSPAWN.x, LSPAWN.z); frame(0, -26, { pitch: ph ? 0.16 : 0.18, side: ph ? 0.1 : 0.22, dist: ph ? 5.4 : 5.0 }); };
 
   // ---- the memory cards ----
   const MEM = [['fly', 'עפים על מטאטא 🧹'], ['friends', 'עם החברים 💛'], ['cake', 'עוגת יום הולדת 🎂']];
@@ -227,6 +230,7 @@ function patScene(ctx) {
     for (let i = 0; i < S.N; i++) LK.wisps.push(spawnWisp(i, S.N));
   }
   function onLakeCast() {
+    untarget();   // a new cast starts a new stag: an earlier run (if any) is over
     const st = stagState(); if (!st || !st.on) return;
     let w = null;
     if (lv() === 1) w = nearestWisp();
@@ -267,7 +271,7 @@ function patScene(ctx) {
     if (step === 3 && inRoom('b3lake') && LK.wisps.length) {
       const any = LK.wisps.some(w => w.alive && !(w.melt > 0) && !w.targeted);
       const st = stagState(), running = st && st.on;
-      if (any && (lv() === 1 || S.t > 8)) { try { fun.offer('adv-patronum', '🦌', 0.05, () => { if (running && lv() > 1) ctx.say('גע בצל אפור, והאייל ירוץ אליו 🦌', TONKS_WHO, 2.5); else castStag(); }); } catch { /* ok */ } }
+      if (any && !running && (lv() === 1 || S.t > 8)) { try { fun.offer('adv-patronum', '🦌', 0.05, () => { castStag(); }); } catch { /* ok */ } }
       if (S.assist && any) { S.assistT += dt; if (S.assistT > 1.0) { S.assistT = 0; if (!running) castStag(); else { const w = nearestWisp(); if (w) { sendStag(w, lakeMelted); S.sent++; } } } }
       if ((lv() === 1 || S.glowHint) && Math.random() < dt * 3) { const w = nearestWisp(); if (w) { lakeWorld(w, v1, 0.4); emit(v1.x + (Math.random() - 0.5) * 2, v1.y - 1.0, v1.z + (Math.random() - 0.5) * 1.5, 0, 0.3, 0, 0.9, 0.3, 0xfff2b0, 0); } }
     }
@@ -276,7 +280,7 @@ function patScene(ctx) {
     const n = casts(), p = pats();
     if (p !== S.pat0) {
       S.pat0 = p; ctx.poke();
-      if (step === 2 && inRoom('classrooms') && S.prac && S.prac.alive && S.prac.age > 1.0) practiceSend();
+      if (step === 2 && inRoom('classrooms') && S.prac && S.prac.alive && S.prac.age > 1.0) { if (!S.prac.melt) S.prac.targeted = false; practiceSend(); }
       else if (step === 3 && inRoom('b3lake')) onLakeCast();
     }
     if (n !== S.casts0) {
@@ -389,7 +393,7 @@ export function startFreeLake() {
     const dt = Math.min(0.1, Math.max(0, (now - F.last) / 1000)); F.last = now;
     try {
       const inLake = G.interiors.active === 'b3lake' && !!LK.B;
-      if (inLake && !F.arrived) { F.arrived = true; const p = G.player, C = p.cam; p.yaw = LSPAWN.yaw; p.teleport(LSPAWN.x, LSPAWN.z); if (C) { C.yaw = LSPAWN.yaw + Math.PI + 0.25; C.pitch = 0.1; C.dist = 5; C.userControlled = false; } base.say('האגם בערב 🌙 צללים אפורים מרחפים לפעמים מעל המים. אקספקטו פטרונום מגרש אותם! 🦌', '🩷 טונקס', 4.5); }
+      if (inLake && !F.arrived) { F.arrived = true; const p = G.player, C = p.cam; p.yaw = LSPAWN.yaw; p.teleport(LSPAWN.x, LSPAWN.z); if (C) { const ph = innerWidth / innerHeight < 0.8; C.yaw = LSPAWN.yaw + Math.PI + (ph ? 0.1 : 0.22); C.pitch = ph ? 0.16 : 0.18; C.dist = ph ? 5.4 : 5; C.userControlled = false; } base.say('האגם בערב 🌙 צללים אפורים מרחפים לפעמים מעל המים. אקספקטו פטרונום מגרש אותם! 🦌', '🩷 טונקס', 4.5); }
       if (F.arrived && !inLake) { stop(false); return; }   // the child went somewhere else (the map, the Floo): the free lake simply ends
       if (inLake) {
         // a wisp drifts in now and then (up to 3)
@@ -397,7 +401,7 @@ export function startFreeLake() {
         F.spawnT -= dt; if (F.spawnT <= 0 && alive.length < 3) { F.spawnT = 7 + Math.random() * 5; const w = spawnWisp(Math.floor(Math.random() * 5), 5); w.i = F.i++; LK.wisps.push(w); }
         if (LK.wisps.length > 12) LK.wisps = LK.wisps.filter(w => w.alive);
         const st = stagState(), n = st ? st.casts : 0; if (F.pat0 < 0) F.pat0 = n;
-        if (n !== F.pat0) { F.pat0 = n; const w = nearestWisp(); if (w && st.on) sendStag(w, () => { F.melted++; if (!LK.paid) { LK.paid = true; try { window.HPLessons.progress.bonus(5); } catch { /* lessons not loaded */ } try { base.fun.toast('✨⭐', '+5 נקודות לבית!', 1600); } catch { /* ok */ } } }); }
+        if (n !== F.pat0) { F.pat0 = n; untarget(); const w = nearestWisp(); if (w && st.on) sendStag(w, () => { F.melted++; if (!LK.paid) { LK.paid = true; try { window.HPLessons.progress.bonus(5); } catch { /* lessons not loaded */ } try { base.fun.toast('✨⭐', '+5 נקודות לבית!', 1600); } catch { /* ok */ } } }); }
         if (alive.some(w => !w.melt && !w.targeted) && !(st && st.on)) { try { base.fun.offer('free-patronum', '🦌', 0.05, () => castStag()); } catch { /* ok */ } }
       }
     } catch (e) { if (!F.err++) console.warn('[b3-patronus] free lake -', e && e.message || e); }

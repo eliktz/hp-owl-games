@@ -18,18 +18,18 @@ const ROOMS = {
   commonroom: { r: [215, 64, 210, 128], t: 'חדר המועדון', half: [9, 9] },
   classrooms: { r: [18, 222, 180, 160], t: 'הכיתות', half: [16, 11] },
   staircase: { r: [214, 222, 212, 160], t: 'המדרגות הנעות', half: [10, 11] },
-  tower: { r: [442, 222, 180, 160], t: 'מגדל הכוכבים', half: [8, 8] },
+  tower: { r: [442, 222, 160, 160], t: 'מגדל הכוכבים', half: [8, 8] },
   greathall: { r: [18, 410, 196, 140], t: 'האולם הגדול', half: [11, 18] },
   entrancehall: { r: [228, 410, 184, 140], t: 'אולם הכניסה', half: [8, 12] },
-  library: { r: [426, 410, 196, 140], t: 'הספרייה', half: [11, 11] },
+  library: { r: [426, 410, 176, 140], t: 'הספרייה', half: [11, 11] },
   dungeon: { r: [18, 578, 180, 110], t: 'מרתף השיקויים', half: [10, 10] },
   courtyard: { r: [228, 578, 184, 110], t: 'החצר', world: [0, 30, 22, 12] },
   hut: { r: [18, 714, 180, 86], t: 'הבקתה של האגריד' },
   paddock: { r: [228, 714, 184, 86], t: 'יצורי הפלא' },
-  b3honey: { r: [446, 600, 176, 200], t: 'הוניידוקס', shop: true },
+  b3honey: { r: [446, 606, 176, 194], t: 'הוניידוקס', shop: true },
 };
 const STATUE = [404, 366];   // the one-eyed witch in the staircase hall (south-east corner of the hall)
-const PASSAGE = [STATUE, [470, 392], [628, 420], [632, 520], [560, 560], [534, 610]];
+const PASSAGE = [STATUE, [470, 394], [620, 398], [622, 540], [560, 572], [534, 612]];
 const NAMES = { harry: 'הארי', ron: 'רון', hermione: 'הרמיוני', hagrid: 'האגריד', buckbeak: 'אבזם', mcgon: 'מקגונגל', flitwick: 'פליטוויק', snape: 'סנייפ', defence: 'טונקס', sinistra: 'סיניסטרה' };
 const OATH = 'אני נשבע בחגיגיות שאני מתכנן רק שובבות!';
 
@@ -67,7 +67,7 @@ function build() {
   #mmBtn{right:calc(18px + env(safe-area-inset-right));bottom:calc(320px + env(safe-area-inset-bottom));font-size:38px;padding:0;cursor:pointer;touch-action:manipulation;
     background:radial-gradient(circle at 50% 35%,rgba(240,214,150,.97),rgba(150,96,36,.92))}
   body.modalOn #mmBtn,body.inAdv #mmBtn,body.inSpell #mmBtn,body.inMatch #mmBtn,body.inFloo #mmBtn,body.mmOn #mmBtn{display:none !important}
-  @media (max-width:700px){#mmOv.q{top:calc(104px + env(safe-area-inset-top))} #mmOv .tile{min-width:96px;font-size:28px;padding:10px 14px} #mmOv .hd{font-size:22px} #mmOv .line{font-size:20px} #mmOv .say{font-size:17px} #mmOv .mng{font-size:24px;padding:10px 20px}}`;
+  @media (max-width:700px){#mmOv.q{top:calc(104px + env(safe-area-inset-top))} #mmOv .paper{padding:6px 6px 8px;max-width:99vw;gap:4px} #mmOv .tile{min-width:96px;font-size:28px;padding:10px 14px} #mmOv .hd{font-size:22px} #mmOv .line{font-size:20px} #mmOv .say{font-size:17px} #mmOv .mng{font-size:24px;padding:10px 20px}}`;
   document.head.appendChild(css);
   const mk = (tag, cls, parent, id) => { const e = document.createElement(tag); if (cls) e.className = cls; if (id) e.id = id; parent.appendChild(e); return e; };
   ov = mk('div', null, document.body, 'mmOv');
@@ -158,7 +158,7 @@ function fit() {
   if (!S.built) return;
   const r = ov.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
   const used = head.offsetHeight + lineEl.offsetHeight + sayEl.offsetHeight + tilesEl.offsetHeight + 52;
-  const sc = Math.max(0.2, Math.min((Math.min(innerWidth * 0.94, 760) - 28) / LW, (r.height - used - 16) / LH));
+  const pad = innerWidth <= 700 ? 14 : 28, sc = Math.max(0.2, Math.min((Math.min(innerWidth * (innerWidth <= 700 ? 0.98 : 0.94), 760) - pad) / LW, (r.height - used - 16) / LH));
   S.scale = sc; cv.style.width = Math.round(LW * sc) + 'px'; cv.style.height = Math.round(LH * sc) + 'px';
   cv.width = Math.round(LW * sc * dpr); cv.height = Math.round(LH * sc * dpr); S.dpr = dpr;
 }
@@ -211,7 +211,13 @@ function tick(now) {
   } catch (e) { if (!S.err++) console.warn('[b3-map] draw failed -', e && e.message || e); }
   if (S.open) S.raf = requestAnimationFrame(tick);
 }
-function txt(s, x, y, size, col) { cx.save(); cx.direction = 'rtl'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.font = `bold ${size}px ${FONT}`; cx.fillStyle = col; cx.fillText(s, x, y); cx.restore(); }
+// on a small screen (a 390 px phone) the plan is drawn small: the words grow so they stay readable (and shrink to fit a room)
+const FB = () => Math.min(1.6, Math.max(1, 0.8 / (S.scale || 1)));
+function txt(s, x, y, size, col, maxW = 0) {
+  cx.save(); cx.direction = 'rtl'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.font = `bold ${Math.round(size * FB())}px ${FONT}`; cx.fillStyle = col;
+  if (maxW) { const m = cx.measureText(s).width; if (m > maxW) { cx.translate(x, y); cx.scale(maxW / m, 1); cx.translate(-x, -y); } }
+  cx.fillText(s, x, y); cx.restore();
+}
 function draw() {
   const k = S.scale * (S.dpr || 1), x = cx;
   x.setTransform(k, 0, 0, k, 0, 0);
@@ -228,7 +234,7 @@ function draw() {
   // rooms draw themselves: each wall line grows with the ink, in order
   const ids = Object.keys(ROOMS); let i = 0;
   for (const id of ids) {
-    const R = ROOMS[id], [rx, ry, rw, rh] = R.r, kk = Math.max(0, Math.min(1, ink * ids.length * 0.6 - i * 0.6)); i++;
+    const R = ROOMS[id], [rx, ry, rw, rh] = R.r, kk = Math.max(0, Math.min(1, (ink - (i / ids.length) * 0.7) / 0.3)); i++;
     if (kk <= 0) continue;
     x.strokeStyle = R.shop ? '#8a2a5a' : INK; x.lineWidth = 4; x.lineJoin = 'round';
     const per = 2 * (rw + rh), L = per * kk; x.beginPath(); x.moveTo(rx, ry);
@@ -236,7 +242,7 @@ function draw() {
     for (const [tx, ty, len] of seg) { if (left <= 0) break; const f = Math.min(1, left / len); x.lineTo(px + (tx - px) * f, py + (ty - py) * f); left -= len; px = tx; py = ty; }
     x.stroke();
     if (R.shop && kk > 0.95) { x.fillStyle = 'rgba(232,140,180,.18)'; x.fillRect(rx, ry, rw, rh); txt('🍬', rx + rw / 2, ry + rh * 0.62, 44, '#000'); }
-    if (kk > 0.9) txt(R.t, rx + rw / 2, ry + 22, R.t.length > 12 ? 19 : 22, R.shop ? '#7a1a4a' : INK);
+    if (kk > 0.9) txt(R.t, rx + rw / 2, ry + 16 + 8 * FB(), R.t.length > 12 ? 19 : 22, R.shop ? '#7a1a4a' : INK, rw - 10);
   }
   // corridors between rooms (little doorways)
   if (ink > 0.7) { x.strokeStyle = INK; x.lineWidth = 3; x.setLineDash([2, 6]); x.beginPath();
@@ -249,18 +255,22 @@ function draw() {
     x.beginPath(); PASSAGE.forEach(([px, py], j) => (j ? x.lineTo(px, py) : x.moveTo(px, py))); x.stroke(); x.restore();
     if (S.mode === 'quest' && S.phase === 'map') { x.fillStyle = `rgba(255,210,80,${0.25 * pu})`; x.beginPath(); x.arc(PASSAGE[3][0] - 30, PASSAGE[3][1] - 10, 46 + 10 * pu, 0, 7); x.fill(); }
     x.fillStyle = '#7a7470'; x.beginPath(); x.arc(STATUE[0], STATUE[1], 9, 0, 7); x.fill();   // the statue's dot
-    txt('פסל המכשפה', STATUE[0] - 50, STATUE[1] - 4, 15, '#5a5050');
-    txt('מעבר סודי', 600, 470, 17, '#9a1a5a');
+    txt('פסל המכשפה', STATUE[0] - 52, STATUE[1] - 14, 15, '#5a5050');
+    txt('מעבר סודי 🍬', 530, 590, 17, '#9a1a5a');
   }
   // footprints with little name labels (they step in place)
   if (ink >= 1) {
-    let j = 0;
+    let j = 0; const placed = [];
     for (const f of S.feet) {
       const p = spotOf(f, j++); f.at = p; if (!p) continue;
+      // friends in the same spot stand side by side (labels never pile up)
+      const R = ROOMS[roomFor(f.place)].r;
+      for (let t = 0; t < 8 && placed.some(q => Math.abs(q[0] - p[0]) < 56 * FB() && Math.abs(q[1] - p[1]) < 30 + 8 * FB()); t++) { p[0] += 58 * FB(); if (p[0] > R[0] + R[2] - 26) { p[0] = R[0] + 30; p[1] += 30 + 8 * FB(); } if (p[1] > R[1] + R[3] - 18) p[1] = R[1] + 44; }
+      placed.push(p);
       const step = Math.floor(S.t * 2 + j) % 2, col = f.id === 'harry' ? '#a0201a' : f.teacher ? '#3a2a6a' : INK;
       x.fillStyle = col;
       for (const sd of [-1, 1]) { const up = (sd > 0) === !!step ? -5 : 3; x.beginPath(); x.ellipse(p[0] + sd * 6, p[1] + up, 4.2, 7, sd * 0.15, 0, 7); x.fill(); x.beginPath(); x.arc(p[0] + sd * 6, p[1] + up - 9, 2.4, 0, 7); x.fill(); }
-      txt(NAMES[f.id] || f.id, p[0], p[1] + 20, 17, col);
+      txt(NAMES[f.id] || f.id, p[0], p[1] + 12 + 8 * FB(), 17, col, 64);
     }
   }
   x.globalAlpha = 1;
