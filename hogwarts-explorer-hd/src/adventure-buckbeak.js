@@ -27,6 +27,8 @@ const HERM = { ico: '👧', name: 'הרמיוני' };
 // taken out of the world FIRST (synchronously), so there is never more than one Buckbeak in the scene
 let questHook = null;
 export function onBuckbeakQuest(fn) { questHook = typeof fn === 'function' ? fn : null; }
+// a second quest that brings its own Buckbeak (book 3's finale 'b3-save') calls the same hand-over when its scene is created
+export function buckbeakHandOver() { try { if (questHook) questHook(); } catch (e) { console.warn('[buckbeak] free-play hand-over -', e && e.message || e); } }
 const HAG = '🧔 האגריד';
 export const BUCKBEAK = {
   id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', col: '#3a3a2a', col2: '#a0a070', helper: HERM, confetti: ['✨', '⭐', '🪶', '🦅'],

@@ -24,7 +24,8 @@ import { B3BUS } from './adventure-b3-bus.js';
 import { B3BOGGART } from './adventure-b3-boggart.js';
 import { B3MAP } from './adventure-b3-map.js';
 import { B3PATRONUS } from './adventure-b3-patronus.js';
-import { B3TIMETURNER, B3SAVE } from './adventure-b3-stubs.js';
+import { B3TIMETURNER } from './adventure-b3-timeturner.js';
+import { B3SAVE } from './adventure-b3-save.js';
 import { buildChambers, drawMirror, SPOTS, DOOR_Z, zc, sq, BOARD, COLOURS, FLOOR_Y, FONT, N } from './adventure-stone-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };

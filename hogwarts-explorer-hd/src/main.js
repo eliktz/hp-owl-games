@@ -39,6 +39,8 @@ import { createCorridorFree } from './corridor-free.js';
 import { createRoam } from './roam.js';
 import { createBuckbeakFree } from './buckbeak-free.js';
 import { initMarauder } from './marauder-map.js';
+import { createDogFree } from './dog-free.js';
+import { createTimeTurnerFree } from './timeturner-free.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -315,6 +317,18 @@ async function boot() {
     hooks.push((dt) => buckbeak.tick(dt));
   } catch (e) { console.warn('[buckbeak-free] disabled -', e && e.message || e); buckbeak = null; }
   try { initMarauder(); } catch (e) { console.warn('[marauder-map] disabled -', e && e.message || e); }   // book 3: the 📜 parchment in free play (marauder-map.js)
+  let dog = null;   // book 3: Sirius the big black dog in free play by the hut (dog-free.js): any failure -> simply no dog
+  try {
+    dog = createDogFree({ scene, camera, player, interiors, fun, freecast, lessons, isModal: () => modal, isTakeover: () => !!takeover,
+      adventures: () => (adventures ? adventures.api : null), floo: () => (floo ? floo.api : null) });
+    hooks.push((dt) => dog.tick(dt));
+  } catch (e) { console.warn('[dog-free] disabled -', e && e.message || e); dog = null; }
+  let timeturner = null;   // book 3: the ⏳ Time-Turner toy in free play (timeturner-free.js): any failure -> simply no ⏳ button
+  try {
+    timeturner = createTimeTurnerFree({ scene, camera, player, interiors, fun, freecast, lessons, isModal: () => modal, isTakeover: () => !!takeover,
+      adventures: () => (adventures ? adventures.api : null), floo: () => (floo ? floo.api : null) });
+    hooks.push((dt) => timeturner.tick(dt));
+  } catch (e) { console.warn('[timeturner-free] disabled -', e && e.message || e); timeturner = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -400,6 +414,8 @@ async function boot() {
     get corridor() { return corridor ? corridor.api : null; },   // corridor-free.js: state() screen(v) harpW() keyW() ...   // adventures.js: list() state() start(id) skipStep() hint(n) clock(s) hold() leave() reset()
     get roam() { return roam ? roam.api : null; },   // roam.js: state() fast(k) where(id) hold(on) seed(n) clock(id,t) plan(id) cooldown(id) cat()
     get buckbeak() { return buckbeak ? buckbeak.api : null; },   // buckbeak-free.js: state() fly() bow() nuzzle() hold(on) ctx() headScreen()
+    get dog() { return dog ? dog.api : null; },   // dog-free.js: state() tap() ball() come() hold(on) spots() headScreen() bodyScreen() fast(k) goSpot(i)
+    get timeturner() { return timeturner ? timeturner.api : null; },   // timeturner-free.js: state() spin() hold(on) path()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
