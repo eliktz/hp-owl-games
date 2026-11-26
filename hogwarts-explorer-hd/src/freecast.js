@@ -621,7 +621,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
       stag = new Mesh(stagGeo(), mat); stag.name = 'freecast-patronus'; stag.frustumCulled = false; stag.raycast = () => {}; stag.renderOrder = 3; stag.visible = false;
       scene.add(stag);
     }
-    patT = 0; patAcc = 0; patA0 = player.yaw; patCasts++;
+    patT = 0; patAcc = 0; patA0 = player.yaw; patCasts++; patRun = null;
     tip(); patPrev.copy(tipV);
     burst(tipV.x, tipV.y, tipV.z, 0xbfe6ff, 26, 2.4, 0.9, 0.3, 0);
     fun.sfx.chime(); fun.sfx.tune([523, 659, 784, 1047, 1319], 0.16, 'sine');
@@ -640,9 +640,11 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     tip();
     patP.set(gx, ground + leap * 0.45 * e + rise + (1 - e) * (tipV.y - ground - 1.0), gz);
     const s = (0.15 + 0.85 * e) * (0.9 + 0.1 * fade);
+    let head = ang + Math.PI / 2;
+    if (patRun) head = tickRun(dt, leap, rise, head);   // book 3 (adventure-b3-patronus.js): the stag runs to a point instead of circling
     stag.position.copy(patP); stag.scale.setScalar(s);
     // heading: along the circle (tangent), nose dips and lifts with each bound
-    stag.rotation.set(Math.cos(patT * 5.2) * 0.16 * Math.sign(Math.sin(patT * 5.2) || 1) - (1 - fade) * 0.5, ang + Math.PI / 2, 0, 'YXZ');
+    stag.rotation.set(Math.cos(patT * 5.2) * 0.16 * Math.sign(Math.sin(patT * 5.2) || 1) - (1 - fade) * 0.5, head, 0, 'YXZ');
     stag.material.opacity = 0.85 * fade * (0.85 + 0.15 * Math.sin(patT * 9));
     stag.visible = true;
     // the light trail: silver motes shed along its path, a few sparkles under the hooves at each landing
@@ -656,8 +658,25 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     if (leap < 0.12 && e > 0.9) emit(patP.x, ground + 0.08, patP.z, (Math.random() - 0.5) * 1.2, 0.8, (Math.random() - 0.5) * 1.2, 0.5, 0.18, 0xe8f6ff, -1.5, 1);
     patPrev.copy(patP);
   }
+  // book 3 piece B steering hook (adventure-b3-patronus.js): patronusRunTo(point, onArrive) sends the live stag running to
+  // a world point (a lake shadow); onArrive() fires once there and the stag fades on the spot. A plain free cast never calls it.
+  let patRun = null;
+  const runA = new Vector3(), runB = new Vector3();
+  function patronusRunTo(p, onArrive, dur = 2.0) {
+    if (patT < 0 || !stag || !p) return false;
+    runA.copy(patP); runB.set(p.x, p.y, p.z);
+    patRun = { t: 0, dur: Math.max(0.3, dur), cb: onArrive || null, fired: false }; patT = Math.min(patT, PAT.out); return true;
+  }
+  function tickRun(dt, leap, rise, head) {
+    const r = patRun; r.t += dt;
+    const u = Math.min(1, r.t / r.dur), eu = u * u * (3 - 2 * u);
+    patP.lerpVectors(runA, runB, eu); patP.y += leap * 0.45 + rise;
+    if (!r.fired && patT > PAT.dur - PAT.fade - 0.1) patT = PAT.dur - PAT.fade - 0.1;
+    if (u >= 1 && !r.fired) { r.fired = true; patT = Math.max(patT, PAT.dur - PAT.fade); if (r.cb) { try { r.cb(); } catch (e) { console.warn('[freecast] patronus run -', e && e.message || e); } } }
+    return Math.atan2(runB.x - runA.x, runB.z - runA.z) || head;
+  }
   SP.patronum = {
-    noFallback: true, lastId: 'patronus',
+    noFallback: true, lastId: 'patronus', runTo: patronusRunTo,
     cast() { patStart(); return true; },
     tick: tickPatronus,
     state: () => ({ on: patT >= 0, t: +Math.max(0, patT).toFixed(2), casts: patCasts, visible: !!(stag && stag.visible),
@@ -783,6 +802,7 @@ export function createFreecast({ scene, camera, player, interiors, heightAt, del
     castle: K ? K.api : null,
     batch10: B10 ? B10.api : null,
     real: RL ? RL.api : (RO || RT ? { objects: RO ? RO.api : null, things: RT ? RT.api : null } : null),
+    patronusRunTo,   // book 3 piece B: steer the live stag to a point (see the Patronus section)
   };
   api._internal = { scene, emit, burst, stream, tip, tipBurst, TARGETS, SP, st, persist, glowTex, log, D, K };
   return api;

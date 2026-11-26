@@ -38,6 +38,7 @@ import { createAdventures } from './adventures.js';
 import { createCorridorFree } from './corridor-free.js';
 import { createRoam } from './roam.js';
 import { createBuckbeakFree } from './buckbeak-free.js';
+import { initMarauder } from './marauder-map.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -127,6 +128,7 @@ async function boot() {
     onTravel: (id, kind) => {
       audio.resume();
       if (kind === 'bus') { import('./adventure-b3-bus.js').then(m => m.startFreeRide()).catch(e => console.warn('[bus ride] failed -', e && e.message || e)); return; }   // the Knight Bus free ride
+      if (kind === 'lake') { import('./adventure-b3-patronus.js').then(m => m.startFreeLake()).catch(e => console.warn('[lake] failed -', e && e.message || e)); return; }   // book 3: the dusk lake (adventure-b3-patronus.js)
       if (kind === 'interior') interiors.enter(id);
       else { if (interiors.active) interiors.exit(); const sp = SPOTS[id] || PLACES[id]; if (sp) player.teleport(sp.x, sp.z); }
     },
@@ -312,6 +314,7 @@ async function boot() {
       adventures: () => (adventures ? adventures.api : null), floo: () => (floo ? floo.api : null) });
     hooks.push((dt) => buckbeak.tick(dt));
   } catch (e) { console.warn('[buckbeak-free] disabled -', e && e.message || e); buckbeak = null; }
+  try { initMarauder(); } catch (e) { console.warn('[marauder-map] disabled -', e && e.message || e); }   // book 3: the 📜 parchment in free play (marauder-map.js)
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -467,7 +470,7 @@ async function boot() {
 
 function labelOf(id) {
   return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות הנעות', library: 'הספרייה', commonroom: 'חדר הטרקלין',
-    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', b3street: 'רחוב קטן בלונדון', ...SECRET_LABELS }[id] || id;
+    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', b3street: 'רחוב קטן בלונדון', b3honey: 'הוניידוקס', b3lake: 'האגם בערב', ...SECRET_LABELS }[id] || id;
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 
