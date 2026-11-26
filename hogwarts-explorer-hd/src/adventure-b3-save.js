@@ -367,7 +367,7 @@ function saveScene(ctx) {
     if (ctx.step !== 5 || S.fareOn || !inTower() || !S.bb || !S.dog) return false;
     showAct(null); S.fareOn = true; S.fare = 0; ctx.poke();
     S.waveSir = 1.8; ctx.say('תודה, הארי! נתראה בקרוב 💛', SIR, 3);
-    S.ftk = ftk; ctx.setTakeover(ftk);
+    S.ftk = ftk; ctx.setTakeover(ftk); document.body.classList.add('b3sFly');
     return true;
   }
   function fareStep(dt) {
@@ -387,7 +387,7 @@ function saveScene(ctx) {
     camera.position.copy(v1); camera.lookAt(v3); camera.updateMatrixWorld();
     if (S.fare > 10.8) { fareEnd(); done(5); }
   }
-  function fareEnd() { if (S.ftk) { S.ftk = null; try { if (window.__game && window.__game.takeover === ftk) ctx.setTakeover(null); } catch { ctx.setTakeover(null); } } }
+  function fareEnd() { document.body.classList.remove('b3sFly'); if (S.ftk) { S.ftk = null; try { if (window.__game && window.__game.takeover === ftk) ctx.setTakeover(null); } catch { ctx.setTakeover(null); } } }
 
   // ---------------- per frame ----------------
   function update(dt, step, busy) {

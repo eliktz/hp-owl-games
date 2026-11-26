@@ -26,6 +26,7 @@ export const DOG_SCALE = 1.4;      // the GLB is ~0.95 m to the top of the head;
 export const DOG_SPOTS = [[93.5, 49.5, -2.2], [96.0, 37.5, -1.9], [88.0, 30.5, -2.6]];
 const LOAD_R = 62, SHOW_R = 45, COME_R = 6, LEAVE_R = 14, PROMPT_R = 6.5, FADE = 0.45, TROT = 1.7, RUN = 4.6, THROWS = 3;
 const GATES = { x: 0, z: 74 };
+const ROUTE = [0, 1, 2, 1];   // there and back (the 2 -> 0 leg would brush the hut's eaves and the hearth behind it)
 let PAID = false;              // +5 for the first fetch: once per session (memory only)
 let handOver = null;           // set by createDogFree: drops the free dog at once (the finale calls it)
 export function dogHandOver() { try { if (handOver) handOver(); } catch (e) { console.warn('[dog-free] hand-over -', e && e.message || e); } }
@@ -63,7 +64,7 @@ export function createDogFree({ scene, camera, player, interiors, fun, freecast,
   const log = { builds: 0, drops: 0, holds: 0, held: null, taps: 0, barks: 0, comes: 0, throws: 0, fetches: 0, rests: 0, paid: 0, spellSays: 0, says: 0, lastSay: null, spoken: [], errors: 0, failed: false, trots: 0 };
   const D = { dog: null, loading: false, x: DOG_SPOTS[0][0], z: DOG_SPOTS[0][1], yaw: DOG_SPOTS[0][2], spot: 0, mode: 'sit', t: 0, wait: 22, tx: 0, tz: 0, cur: null,
     fade: 1, hidden: false, nod: 0, throwsLeft: THROWS, rest: 0, ball: null, bx: 0, by: 0, bz: 0, bvx: 0, bvy: 0, bvz: 0, ballOn: false, ballFly: false, carry: false,
-    casts0: 0, clk: 1, mats: null, bub: null, lastWhy: null, nearT: 0, gen: 0 };
+    casts0: 0, clk: 1, mats: null, bub: null, lastWhy: null, nearT: 0, gen: 0, seq: 0 };
   let busy = null, busyT = 1, busyN = 0, debugHold = false;
 
   // ---- the bubble: a world bubble over his head (no helper box in free play) ----
@@ -152,7 +153,7 @@ export function createDogFree({ scene, camera, player, interiors, fun, freecast,
     const solid = k >= 0.999;
     for (const m of ms) { const t = solid ? m.userData.dfT : true; if (m.transparent !== t) { m.transparent = t; m.needsUpdate = true; } m.opacity = m.userData.dfO * (solid ? 1 : k); }
   }
-  function nearestSpot() { let b = 0, bd = 1e9; for (let i = 0; i < DOG_SPOTS.length; i++) { const d = Math.hypot(D.x - DOG_SPOTS[i][0], D.z - DOG_SPOTS[i][1]); if (d < bd) { bd = d; b = i; } } D.spot = b; return b; }
+  function nearestSpot() { let b = 0, bd = 1e9; for (let i = 0; i < DOG_SPOTS.length; i++) { const d = Math.hypot(D.x - DOG_SPOTS[i][0], D.z - DOG_SPOTS[i][1]); if (d < bd) { bd = d; b = i; } } D.spot = b; D.seq = ROUTE.indexOf(b); return b; }
   const dHarry = () => Math.hypot(player.pos.x - D.x, player.pos.z - D.z);
   const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   // move toward (tx, tz) at speed v; true on arrival
@@ -255,7 +256,7 @@ export function createDogFree({ scene, camera, player, interiors, fun, freecast,
     if (D.mode === 'sit') {
       play('Sit_Wag', 0.4);
       if (dp < COME_R && o.visible) come();
-      else if (D.t > D.wait) { D.mode = 'trot'; D.spot = (D.spot + 1) % DOG_SPOTS.length; D.t = 0; log.trots++; }
+      else if (D.t > D.wait) { D.mode = 'trot'; D.seq = (D.seq + 1) % ROUTE.length; D.spot = ROUTE[D.seq]; D.t = 0; log.trots++; }
     } else if (D.mode === 'trot') {
       play('Run', 0.4, 0.5);
       const s = DOG_SPOTS[D.spot];
@@ -316,7 +317,7 @@ export function createDogFree({ scene, camera, player, interiors, fun, freecast,
     headScreen: () => { if (!D.dog) return null; headW(v1); const s = screen(v1); return { x: Math.round(s.x), y: Math.round(s.y), on: s.on }; },
     bodyScreen: () => { if (!D.dog) return null; v1.set(D.x, groundAt(D.x, D.z) + 0.6 * DOG_SCALE, D.z); const s = screen(v1); return { x: Math.round(s.x), y: Math.round(s.y), on: s.on }; },
     fast: (k) => { D.clk = Math.max(0.1, Math.min(20, +k || 1)); return D.clk; },
-    goSpot: (i) => { D.spot = ((i | 0) % DOG_SPOTS.length + DOG_SPOTS.length) % DOG_SPOTS.length; const s = DOG_SPOTS[D.spot]; D.x = s[0]; D.z = s[1]; D.yaw = s[2]; D.mode = 'sit'; D.t = 0; D.wait = 1e9; ballShow(false); place(); return D.spot; },
+    goSpot: (i) => { D.spot = ((i | 0) % DOG_SPOTS.length + DOG_SPOTS.length) % DOG_SPOTS.length; D.seq = ROUTE.indexOf(D.spot); const s = DOG_SPOTS[D.spot]; D.x = s[0]; D.z = s[1]; D.yaw = s[2]; D.mode = 'sit'; D.t = 0; D.wait = 1e9; ballShow(false); place(); return D.spot; },
     resetPaid: () => { PAID = false; },
   };
   return { tick: (dt) => { try { tick(dt); } catch (e) { log.errors++; if (log.errors < 4) console.warn('[dog-free] tick failed -', e && e.message || e); } }, api };
