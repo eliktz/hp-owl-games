@@ -344,7 +344,7 @@ function saveScene(ctx) {
     if (S.ph === 'mount' || S.ph === 'open') { const d = (narrow ? 11 : 8.5) * BB_SCALE, sa = S.yaw + 0.8; px = p.x + Math.sin(sa) * d; pz = p.z + Math.cos(sa) * d; py = p.y + 2.6 * BB_SCALE; }
     else { const d = (narrow ? 11.5 : 8.5) * BB_SCALE, side = 2.6; px = p.x + fx * d + fz * side; pz = p.z + fz * d - fx * side; py = p.y + (narrow ? 2.2 : 1.6) * BB_SCALE; }
     py = Math.max(py, groundAt(px, pz) + 1.4);
-    v1.set(px, py, pz); v2.set(p.x, p.y + 1.3 * BB_SCALE + (narrow ? -0.6 : 0), p.z);
+    v1.set(px, py, pz); v2.set(p.x, p.y + 1.3 * BB_SCALE + (narrow ? 2.4 : 0), p.z);   // a phone: he sits low in the frame, under the hint bubble
     if (!S.camInit) { S.camP.copy(v1); S.camL.copy(v2); S.camInit = true; }
     const k = Math.min(1, dt * 3); S.camP.lerp(v1, k); S.camL.lerp(v2, k);
     camera.position.copy(S.camP); camera.lookAt(S.camL); camera.updateMatrixWorld();
@@ -439,7 +439,7 @@ function saveScene(ctx) {
         if (S.bowT >= 3.4) { S.bowT = 0; S.bowed = true; }
         showAct(null); return;
       }
-      showAct(dBB < 9 ? (S.bowed ? 'fly' : 'bow') : null, lv() === 1 || S.glowHint || S.bowed);
+      showAct(dBB < 9 && !RW.on ? (S.bowed ? 'fly' : 'bow') : null, lv() === 1 || S.glowHint || S.bowed);   // (not over the rewind's clock)
       return;
     }
     // 4: on the ground before the flight (a resume / an abort): 🪽 starts it
