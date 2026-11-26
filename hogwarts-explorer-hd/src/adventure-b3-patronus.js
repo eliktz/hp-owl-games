@@ -201,7 +201,7 @@ function patScene(ctx) {
     } catch { /* ok */ }
   }
   const standSpot = () => { player.yaw = Math.atan2(STAGE.x - SPOT.x, STAGE.z - SPOT.z); player.teleport(SPOT.x, SPOT.z); frame(STAGE.x, STAGE.z); };
-  const standLake = () => { const ph = innerWidth / innerHeight < 0.8; player.yaw = LSPAWN.yaw; player.teleport(LSPAWN.x, LSPAWN.z); frame(0, -26, { pitch: ph ? 0.16 : 0.18, side: ph ? 0.1 : 0.22, dist: ph ? 5.4 : 5.0 }); };
+  const standLake = () => { const ph = innerWidth / innerHeight < 0.8; player.yaw = LSPAWN.yaw; player.teleport(LSPAWN.x, LSPAWN.z); frame(0, -26, { pitch: ph ? 0.22 : 0.18, side: ph ? 0.1 : 0.22, dist: ph ? 6.8 : 5.0 }); };
 
   // ---- the memory cards ----
   const MEM = [['fly', 'עפים על מטאטא 🧹'], ['friends', 'עם החברים 💛'], ['cake', 'עוגת יום הולדת 🎂']];
@@ -393,7 +393,7 @@ export function startFreeLake() {
     const dt = Math.min(0.1, Math.max(0, (now - F.last) / 1000)); F.last = now;
     try {
       const inLake = G.interiors.active === 'b3lake' && !!LK.B;
-      if (inLake && !F.arrived) { F.arrived = true; const p = G.player, C = p.cam; p.yaw = LSPAWN.yaw; p.teleport(LSPAWN.x, LSPAWN.z); if (C) { const ph = innerWidth / innerHeight < 0.8; C.yaw = LSPAWN.yaw + Math.PI + (ph ? 0.1 : 0.22); C.pitch = ph ? 0.16 : 0.18; C.dist = ph ? 5.4 : 5; C.userControlled = false; } base.say('האגם בערב 🌙 צללים אפורים מרחפים לפעמים מעל המים. אקספקטו פטרונום מגרש אותם! 🦌', '🩷 טונקס', 4.5); }
+      if (inLake && !F.arrived) { F.arrived = true; const p = G.player, C = p.cam; p.yaw = LSPAWN.yaw; p.teleport(LSPAWN.x, LSPAWN.z); if (C) { const ph = innerWidth / innerHeight < 0.8; C.yaw = LSPAWN.yaw + Math.PI + (ph ? 0.1 : 0.22); C.pitch = ph ? 0.22 : 0.18; C.dist = ph ? 6.8 : 5; C.userControlled = false; } base.say('האגם בערב 🌙 צללים אפורים מרחפים לפעמים מעל המים. אקספקטו פטרונום מגרש אותם! 🦌', '🩷 טונקס', 4.5); }
       if (F.arrived && !inLake) { stop(false); return; }   // the child went somewhere else (the map, the Floo): the free lake simply ends
       if (inLake) {
         // a wisp drifts in now and then (up to 3)
