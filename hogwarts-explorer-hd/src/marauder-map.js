@@ -28,7 +28,8 @@ const ROOMS = {
   paddock: { r: [228, 714, 184, 86], t: 'יצורי הפלא' },
   b3honey: { r: [446, 606, 176, 194], t: 'הוניידוקס', shop: true },
 };
-const STATUE = [404, 366];   // the one-eyed witch in the staircase hall (south-east corner of the hall)
+const STATUE = [404, 366];
+const SLOTS = [[0.2, 0.42], [0.5, 0.42], [0.8, 0.42], [0.2, 0.72], [0.5, 0.72], [0.8, 0.72], [0.35, 0.57], [0.65, 0.57]];   // free spots in a crowded room   // the one-eyed witch in the staircase hall (south-east corner of the hall)
 const PASSAGE = [STATUE, [470, 394], [620, 398], [622, 540], [560, 572], [534, 612]];
 const NAMES = { harry: 'הארי', ron: 'רון', hermione: 'הרמיוני', hagrid: 'האגריד', buckbeak: 'אבזם', mcgon: 'מקגונגל', flitwick: 'פליטוויק', snape: 'סנייפ', defence: 'טונקס', sinistra: 'סיניסטרה' };
 const OATH = 'אני נשבע בחגיגיות שאני מתכנן רק שובבות!';
@@ -66,6 +67,7 @@ function build() {
   @keyframes mmWob{0%,100%{transform:rotate(0)}25%{transform:rotate(-9deg)}75%{transform:rotate(9deg)}}
   #mmBtn{right:calc(18px + env(safe-area-inset-right));bottom:calc(320px + env(safe-area-inset-bottom));font-size:38px;padding:0;cursor:pointer;touch-action:manipulation;
     background:radial-gradient(circle at 50% 35%,rgba(240,214,150,.97),rgba(150,96,36,.92))}
+  body.mmOn #advHint{display:none !important}
   body.modalOn #mmBtn,body.inAdv #mmBtn,body.inSpell #mmBtn,body.inMatch #mmBtn,body.inFloo #mmBtn,body.mmOn #mmBtn{display:none !important}
   @media (max-width:700px){#mmOv.q{top:calc(104px + env(safe-area-inset-top))} #mmOv .paper{padding:6px 6px 8px;max-width:99vw;gap:4px} #mmOv .tile{min-width:96px;font-size:28px;padding:10px 14px} #mmOv .hd{font-size:22px} #mmOv .line{font-size:20px} #mmOv .say{font-size:17px} #mmOv .mng{font-size:24px;padding:10px 20px}}`;
   document.head.appendChild(css);
@@ -265,7 +267,8 @@ function draw() {
       const p = spotOf(f, j++); f.at = p; if (!p) continue;
       // friends in the same spot stand side by side (labels never pile up)
       const R = ROOMS[roomFor(f.place)].r;
-      for (let t = 0; t < 8 && placed.some(q => Math.abs(q[0] - p[0]) < 56 * FB() && Math.abs(q[1] - p[1]) < 30 + 8 * FB()); t++) { p[0] += 58 * FB(); if (p[0] > R[0] + R[2] - 26) { p[0] = R[0] + 30; p[1] += 30 + 8 * FB(); } if (p[1] > R[1] + R[3] - 18) p[1] = R[1] + 44; }
+      const clash = (a) => placed.some(q => Math.abs(q[0] - a[0]) < 54 && Math.abs(q[1] - a[1]) < 22 + 12 * FB());
+      if (clash(p)) { for (const [u, v] of SLOTS) { const a = [R[0] + R[2] * u, R[1] + R[3] * v]; if (!clash(a)) { p[0] = a[0]; p[1] = a[1]; break; } } }
       placed.push(p);
       const step = Math.floor(S.t * 2 + j) % 2, col = f.id === 'harry' ? '#a0201a' : f.teacher ? '#3a2a6a' : INK;
       x.fillStyle = col;

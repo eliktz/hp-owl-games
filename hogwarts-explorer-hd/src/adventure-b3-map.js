@@ -336,10 +336,9 @@ function mapScene(ctx) {
       if (S.sub === 'statue' && HS.questOpen && HS.slide > 0.85 && !S.slideT) S.slideT = 0.001;
       if (S.slideT) { S.slideT += dt; if (S.slideT > 0.6) done(2); }
       if (S.sub === 'statue' && curStatue() && !HS.questOpen && (lv() === 1 || S.glowHint) && Math.random() < dt * 5) { stW(v1, 0.6 + Math.random() * 1.4); emit(v1.x + (Math.random() - 0.5) * 1.0, v1.y, v1.z - 0.4, 0, 0.3, 0, 0.8, 0.2, 0xffe07a, 0); }
-      if (S.sub === 'map' && !MM.state().open && S.active) openMap();   // (a reload / a stray close: the map comes back)
+      if (ctx.step === 2 && S.sub === 'map' && !MM.state().open && S.active) openMap();   // (a reload / a stray close: the map comes back; ctx.step: this frame may have just finished the step)
     }
-    if (step === 4 && !S.managedOpen && !inRoom('b3honey') && interiors.active !== null) openManage();
-    if (step === 4 && !S.managedOpen && !interiors.active) openManage();
+    if (step === 4 && ctx.step === 4 && !S.managedOpen && !inRoom('b3honey')) openManage();
   }
 
   // ---- taps ----
@@ -367,7 +366,6 @@ function mapScene(ctx) {
   function begin(step, resumed) {
     if (!S.inited) { S.inited = true; S.N = NSWEETS[lv()] || 5; }   // the level: read at run time
     S.active = true; HS.quest = true; S.assist = false; S.assistT = 0; S.duck = 0; S.back = null; S.slideT = 0; S.tapT = 0; S.managedOpen = false; S.inited3 = false;
-    if (step !== 2) S.sub = 'map';
     HS.questOpen = step === 3 || (step === 2 && S.sub === 'statue' && HS.questOpen);
     if (step === 0) { if (inRoom('commonroom')) S.reframe = 'table'; return; }   // the child walks there (the arrow leads)
     if (step === 1) { openOath(); ctx.say('אני יודע את המילים הסודיות! גע בהן לפי הסדר ✨', RON_WHO, 4); return; }
