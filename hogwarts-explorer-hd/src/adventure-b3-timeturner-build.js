@@ -200,7 +200,7 @@ export function createRewind({ scene, camera, player, fun, emit }) {
     const f = R.onEnd; R.onEnd = null; if (f) { try { f(); } catch (e) { console.warn('[rewind] end -', e && e.message || e); } }
   }
   function fadeOut(sec = 0.9) { if (!R.ghost || !R.ghost.visible) return; R.hold = false; R.fadeOut = sec; R.fadeT = sec; burstAt(R.gx, R.gy + 1, R.gz, 26); }
-  function wave() { if (R.ghost && R.ghost.visible) { R.gcur = 'Idle'; gplay('Wave', 0.2); R.waveT = 2.4; } }
+  function wave() { if (R.ghost && R.ghost.visible) { R.gyaw = Math.atan2(player.pos.x - R.gx, player.pos.z - R.gz); placeGhost(); R.gcur = 'Idle'; gplay('Wave', 0.2); R.waveT = 2.4; } }   // (he turns to the real Harry and waves)
   function drop() { R.on = false; R.hold = false; R.fadeOut = 0; overlay(false); if (R.ghost) { R.ghost.visible = false; if (R.ghost.parent) R.ghost.parent.remove(R.ghost); } }
   function burstAt(x, y, z, n = 18) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, u = Math.random() * 2 - 1, s = 1.2 + Math.random() * 1.4; emit(x, y, z, Math.cos(a) * s * 0.7, u * s * 0.6 + 0.6, Math.sin(a) * s * 0.7, 0.9 + Math.random() * 0.5, 0.22, Math.random() < 0.6 ? 0xffd76a : 0xfff4c8, -0.4); } }
   // sparkles that run BACKWARDS: born on a ring round Harry, they fly inward (an un-burst) and up
@@ -214,6 +214,7 @@ export function createRewind({ scene, camera, player, fun, emit }) {
     if (R.ghost && R.gmix && R.ghost.visible) { try { R.gmix.update(dt); } catch { /* ok */ } }
     if (R.on) {
       R.t += dt; const k = Math.min(1, R.t / R.secs);
+      if (!R.sepiaOnly && R.ghost && !R.ghost.visible && R.t < R.secs * 0.6 && attachGhost(R.parent)) { R.ghost.visible = true; R.mat.opacity = 0; gplay('Walk', 0.1, -1); }   // (loaded just now)
       backSparks(dt);
       if (!R.sepiaOnly && R.ghost && R.ghost.visible) {
         if (R.mat.opacity < 0.68) R.mat.opacity = Math.min(0.68, R.mat.opacity + dt * 2);

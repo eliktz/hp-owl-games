@@ -19,6 +19,7 @@ export function createTimeTurnerFree({ scene, camera, player, interiors, fun, fr
   const FI = freecast && freecast._internal;
   const emit = (...a) => { try { FI.emit(...a); } catch { /* no particles */ } };
   const RW = getRewind({ scene, camera, player, fun, emit });
+  setTimeout(() => { try { RW.ensureGhost(); } catch { /* ok */ } }, 4000);   // the gold Harry is a clone of the (already loaded) hero: ready before the first tap
   const log = { spins: 0, refused: 0, holds: 0, held: null, errors: 0, lastWhy: null, locked: 0 };
   const S = { cool: 0, run: false, t: 0, prop: null, lockedInput: false, debugHold: false, busyT: 1, busy: null };
   const v1 = new Vector3();

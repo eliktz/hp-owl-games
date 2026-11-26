@@ -5,7 +5,7 @@
 // ball in a small arc, the dog runs, brings it back and drops it at Harry's feet (three throws, then he lies down for a rest;
 // +5 house points for the first fetch, once per session). Spells never act on him (a kind bubble). Never a growl, never a fail.
 // The model is "Dog from Lamps" by Flightyfelon (CC-BY-4.0, models.json 'blackdog': 6,009 tris, 2 materials, clips Idle /
-// Sit_Wag / Run; no walk clip: Run at a slow time scale is his trot), shown at 1.3x: a BIG dog. Loaded lazily (first time
+// Sit_Wag / Run; no walk clip: Run at a slow time scale is his trot), shown at 1.4x: a BIG dog. Loaded lazily (first time
 // Harry comes within LOAD_R of his spots outdoors), never at game start; a load failure is silent (simply no dog).
 // Holds: while ANY adventure runs he is out of the world at once (the finale 'b3-save' has its own dog on the tower: never
 // two; adventure-b3-save.js calls dogHandOver() synchronously when its scene is created). A lesson, a course, Quidditch, a
@@ -20,7 +20,7 @@ import { loadAnimated } from './models.js';
 import { speak as voiceSpeak } from './voice.js';
 
 export const DOG_FREE_ON = true;   // the single switch: false = no free-play dog at all (the finale is unaffected)
-export const DOG_SCALE = 1.3;      // the GLB is ~0.95 m to the top of the head; 1.3x = a big, soft dog beside Harry
+export const DOG_SCALE = 1.4;      // the GLB is ~0.95 m to the top of the head; 1.4x (~1.3 m) = a big, soft dog beside Harry (1.82 m)
 // three spots by the hut, clear of the Creatures course (x < 75 at z < 61), the paddock / Buckbeak (79.5, 50.5), the hut
 // path (ends at 76.8, 34.4), the Floo hearth behind the hut and the trees; [x, z, yaw]
 export const DOG_SPOTS = [[93.5, 49.5, -2.2], [96.0, 37.5, -1.9], [88.0, 30.5, -2.6]];
@@ -165,7 +165,12 @@ export function createDogFree({ scene, camera, player, interiors, fun, freecast,
   }
   function faceHarry(dt) { const yaw = Math.atan2(player.pos.x - D.x, player.pos.z - D.z); D.yaw = wrapA(D.yaw + wrapA(yaw - D.yaw) * Math.min(1, dt * 4)); }
   // where he sits for Harry: 1.7 m in front of Harry, on the side the dog came from
-  function besideHarry(out) { const a = Math.atan2(D.x - player.pos.x, D.z - player.pos.z); return out.set(player.pos.x + Math.sin(a) * 1.7, 0, player.pos.z + Math.cos(a) * 1.7); }
+  // (in front of Harry as the lens sees him, a little to one side, so Harry never hides him: the side nearer the dog)
+  function besideHarry(out) {
+    const c = Math.atan2(player.pos.x - camera.position.x, player.pos.z - camera.position.z), d = Math.atan2(D.x - player.pos.x, D.z - player.pos.z);
+    const side = wrapA(d - c) >= 0 ? 1 : -1, a = c + side * 0.95;
+    return out.set(player.pos.x + Math.sin(a) * 1.9, 0, player.pos.z + Math.cos(a) * 1.9);
+  }
 
   // ---- actions ----
   function ready() { return !!(D.dog && outdoors() && !D.hidden && !busy && !adventureOn() && D.dog.obj.visible); }
