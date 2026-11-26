@@ -60,7 +60,7 @@ export function createBuckbeakFree({ scene, camera, player, interiors, fun, free
   #bbfPrompts i{font-style:normal;font-size:44px;line-height:1} #bbfPrompts span{font:bold 17px ${FONT};color:#5a2a00;line-height:1.1;direction:rtl}
   @keyframes bbfIn{0%{transform:scale(.3)}100%{transform:scale(1)}}
   body.modalOn #bbfPrompts,body.inSpell #bbfPrompts,body.inMatch #bbfPrompts,body.inFloo #bbfPrompts,body.inAdv #bbfPrompts,body.advBB #bbfPrompts{display:none !important}
-  @media (max-width:700px){#bbfPrompts{bottom:calc(330px + env(safe-area-inset-bottom));gap:14px} #bbfPrompts button{width:88px;height:88px} #bbfPrompts i{font-size:40px} #bbfPrompts span{font-size:16px}}`;
+  @media (max-width:700px){#bbfPrompts{left:44%;bottom:calc(330px + env(safe-area-inset-bottom));gap:14px} #bbfPrompts button{width:88px;height:88px} #bbfPrompts i{font-size:40px} #bbfPrompts span{font-size:16px}}`;
   document.head.appendChild(css);
   const wrap = document.createElement('div'); wrap.id = 'bbfPrompts';
   const mk = (id, ico, lab, fn) => { const b = document.createElement('button'); b.id = id; b.innerHTML = '<i>' + ico + '</i><span>' + lab + '</span>'; b.setAttribute('aria-label', lab);
