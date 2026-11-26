@@ -29,7 +29,7 @@ const ROOMS = {
   b3honey: { r: [446, 606, 176, 194], t: 'הוניידוקס', shop: true },
 };
 const STATUE = [404, 366];
-const SLOTS = [[0.2, 0.42], [0.5, 0.42], [0.8, 0.42], [0.2, 0.72], [0.5, 0.72], [0.8, 0.72], [0.35, 0.57], [0.65, 0.57]];   // free spots in a crowded room   // the one-eyed witch in the staircase hall (south-east corner of the hall)
+const SLOTS = [[0.2, 0.4], [0.5, 0.4], [0.8, 0.4], [0.2, 0.62], [0.5, 0.62], [0.8, 0.62], [0.2, 0.84], [0.5, 0.84], [0.8, 0.84]];   // free spots in a crowded room   // the one-eyed witch in the staircase hall (south-east corner of the hall)
 const PASSAGE = [STATUE, [470, 394], [620, 398], [622, 540], [560, 572], [534, 612]];
 const NAMES = { harry: 'הארי', ron: 'רון', hermione: 'הרמיוני', hagrid: 'האגריד', buckbeak: 'אבזם', mcgon: 'מקגונגל', flitwick: 'פליטוויק', snape: 'סנייפ', defence: 'טונקס', sinistra: 'סיניסטרה' };
 const OATH = 'אני נשבע בחגיגיות שאני מתכנן רק שובבות!';
@@ -267,13 +267,13 @@ function draw() {
       const p = spotOf(f, j++); f.at = p; if (!p) continue;
       // friends in the same spot stand side by side (labels never pile up)
       const R = ROOMS[roomFor(f.place)].r;
-      const clash = (a) => placed.some(q => Math.abs(q[0] - a[0]) < 54 && Math.abs(q[1] - a[1]) < 22 + 12 * FB());
+      const clash = (a) => placed.some(q => Math.abs(q[0] - a[0]) < 52 && Math.abs(q[1] - a[1]) < 26);
       if (clash(p)) { for (const [u, v] of SLOTS) { const a = [R[0] + R[2] * u, R[1] + R[3] * v]; if (!clash(a)) { p[0] = a[0]; p[1] = a[1]; break; } } }
       placed.push(p);
       const step = Math.floor(S.t * 2 + j) % 2, col = f.id === 'harry' ? '#a0201a' : f.teacher ? '#3a2a6a' : INK;
       x.fillStyle = col;
       for (const sd of [-1, 1]) { const up = (sd > 0) === !!step ? -5 : 3; x.beginPath(); x.ellipse(p[0] + sd * 6, p[1] + up, 4.2, 7, sd * 0.15, 0, 7); x.fill(); x.beginPath(); x.arc(p[0] + sd * 6, p[1] + up - 9, 2.4, 0, 7); x.fill(); }
-      txt(NAMES[f.id] || f.id, p[0], p[1] + 12 + 8 * FB(), 17, col, 64);
+      txt(NAMES[f.id] || f.id, p[0], p[1] + 12 + 8 * FB(), 17, col, 50);
     }
   }
   x.globalAlpha = 1;
