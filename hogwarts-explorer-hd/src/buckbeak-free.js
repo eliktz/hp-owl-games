@@ -18,7 +18,7 @@ import { buckbeakScene, onBuckbeakQuest } from './adventure-buckbeak.js';
 import { BB, BB_SCALE } from './adventure-buckbeak-build.js';
 
 export const BB_FREE_ON = true;   // the single switch: false = no free-play Buckbeak at all (the quest is unaffected)
-const LOAD_R = 75, PROMPT_R = 5, FADE = 0.45, BOW_LEAN = 1.3, BOW_BACK = 2.6;
+const LOAD_R = 75, PROMPT_R = 6, FADE = 0.45, BOW_LEAN = 1.3, BOW_BACK = 2.6;
 let PAID = false;   // +5 for the first free flight: once per session (memory only)
 
 export function createBuckbeakFree({ scene, camera, player, interiors, fun, freecast, lessons, setTakeover, isModal, isTakeover, adventures, floo }) {
