@@ -202,7 +202,9 @@ function saveScene(ctx) {
       if (o.parent !== g) { if (o.parent) o.parent.remove(o); g.add(o); }
       const gp = g.position;
       if (S.dogMode === 'come') {   // trot to Harry and sit before him
-        const a = Math.atan2(S.dogX - (player.pos.x - gp.x), S.dogZ - (player.pos.z - gp.z)), tx = player.pos.x - gp.x + Math.sin(a) * 1.6, tz = player.pos.z - gp.z + Math.cos(a) * 1.6;
+        // in front of Harry as the lens sees him, a little to the side nearer the dog (Harry never hides him; on a phone not under the buttons)
+        const c = Math.atan2(player.pos.x - camera.position.x, player.pos.z - camera.position.z), d0 = Math.atan2(S.dogX - (player.pos.x - gp.x), S.dogZ - (player.pos.z - gp.z));
+        const a = c + (wrapA(d0 - c) >= 0 ? 1 : -1) * (innerWidth < innerHeight ? 0.55 : 0.85), tx = player.pos.x - gp.x + Math.sin(a) * 2.0, tz = player.pos.z - gp.z + Math.cos(a) * 2.0;
         const dx = tx - S.dogX, dz = tz - S.dogZ, d = Math.hypot(dx, dz);
         if (d < 0.2) { S.dogMode = 'by'; woof(fun, 1); S.nod = 1; hearts(); }
         else { const s = Math.min(d, 1.8 * dt); S.dogX += dx / d * s; S.dogZ += dz / d * s; S.dogYaw = Math.atan2(dx, dz); dplay('Run', 0.3, 0.55); }
