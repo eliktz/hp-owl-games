@@ -61,8 +61,8 @@ BUILDERS.b3street = () => {
   return { group: g, colliders: [], portals: [], spawn: { x: 0, z: 30, y: FLOOR_Y, yaw: 0 }, update() {} };
 };
 
-const SPEED = { 1: 8, 2: 9.5, 3: 11 }, NTIX = { 1: 5, 2: 6, 3: 7 }, GAP = { 1: 3.0, 2: 2.6, 3: 2.2 }, NOBS = { 1: 3, 2: 4, 3: 4 };
-const SHOW = { 1: 0, 2: 1.6, 3: 99 }, START_Z = { 1: -62, 2: -58, 3: -54 };
+const SPEED = { 1: 8, 2: 9.5, 3: 11 }, NTIX = { 1: 5, 2: 6, 3: 7 }, GAP = { 1: 2.4, 2: 2.2, 3: 1.9 }, NOBS = { 1: 3, 2: 4, 3: 4 };
+const SHOW = { 1: 0, 2: 1.2, 3: 99 }, START_Z = { 1: -46, 2: -44, 3: -42 };
 const KINDS = ['sign', 'lamp', 'birds', 'sign'];
 const KID = { ron: { x: 5.0, z: -0.8 }, harry: { x: 5.5, z: 0.5 } };   // Harry and Ron wait on the kerb by the bus door
 const ease = (k) => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
@@ -186,14 +186,15 @@ function busScene(ctx) {
     const half = NLAMP / 2;
     for (let i = 0; i < NLAMP; i++) {
       const side = i < half ? 1 : -1, k = i % half, z = -LAMP_GAP * (half - 2) + k * LAMP_GAP + S.lampZ + (side > 0 ? LAMP_GAP / 2 : 0);
-      M4.makeRotationY(0); M4.setPosition(side * 6.5, 0, z); P.lamps.setMatrixAt(i, M4);
-      M4.makeScale(2.6, 2.6, 2.6); M4.setPosition(side * 6.5, 4.45, z); P.glows.setMatrixAt(i, M4);
+      const hide = side > 0 && ctx.step === 4 ? 0.001 : 1;   // at the Leaky Cauldron its own lanterns light the kerb (no post in front of the door)
+      M4.makeScale(hide, hide, hide); M4.setPosition(side * 6.5, 0, z); P.lamps.setMatrixAt(i, M4);
+      M4.makeScale(2.6 * hide, 2.6 * hide, 2.6 * hide); M4.setPosition(side * 6.5, 4.45, z); P.glows.setMatrixAt(i, M4);
     }
     P.lamps.instanceMatrix.needsUpdate = true;
   }
   function faceGlows() {   // the lamp glow cards face the camera
     const P = S.B.P; Q.copy(camera.quaternion);
-    for (let i = 0; i < NLAMP; i++) { P.glows.getMatrixAt(i, M4); v1.setFromMatrixPosition(M4); M4.compose(v1, Q, SC.set(2.6, 2.6, 2.6)); P.glows.setMatrixAt(i, M4); }
+    for (let i = 0; i < NLAMP; i++) { P.glows.getMatrixAt(i, M4); v1.setFromMatrixPosition(M4); const k = i < NLAMP / 2 && ctx.step === 4 ? 0.001 : 2.6; M4.compose(v1, Q, SC.set(k, k, k)); P.glows.setMatrixAt(i, M4); }
     P.glows.instanceMatrix.needsUpdate = true; SC.set(1, 1, 1);
   }
 
@@ -304,14 +305,14 @@ function busScene(ctx) {
     if (!S.offOn) { S.offOn = 1; P.ron.visible = P.harry.visible = false; vroom(); ctx.say('דינג-דינג! יוצאים לדרך! 🚌💨', '🎩 סטן הכרטיסן', 2.6); }
     if (t > 1.6 && t < 2.2) { const u = (t - 1.6) / 0.6; b.body.scale.set(1, 1 + Math.sin(u * Math.PI) * 0.12, 1 - Math.sin(u * Math.PI) * 0.06); b.body.rotation.x = Math.sin(u * Math.PI) * 0.06; }   // a little jump before it goes
     if (t > 2.2) { b.body.scale.set(1, 1, 1); b.body.rotation.x = 0; P.stop.visible = t < 3.0; }
-    if (t > 3.6) done(1);
+    if (t > 3.2) done(1);
   }
   function stepTickets(dt, spd) {
     const P = S.B.P, L = lv();
     S.spawnT -= dt;
     if (S.got < need() && S.spawnT <= 0 && S.tix.length < 3) {
       let lane = Math.floor(Math.random() * 3); if (lane === S.lastLane) lane = (lane + 1 + Math.floor(Math.random() * 2)) % 3;
-      S.lastLane = lane; S.tix.push({ lane, z: -66, rot: Math.random() * 6 }); S.spawnT = GAP[L];
+      S.lastLane = lane; S.tix.push({ lane, z: -50, rot: Math.random() * 6 }); S.spawnT = GAP[L];
     }
     for (let i = S.tix.length - 1; i >= 0; i--) {
       const t = S.tix[i], z0 = t.z; t.z += spd * dt; t.rot += dt * 2.5;
@@ -337,7 +338,7 @@ function busScene(ctx) {
       }
       return;
     }
-    const ob = S.ob; ob.t += dt; const z0 = ob.z; ob.z += spd * 0.85 * dt;
+    const ob = S.ob; ob.t += dt; const z0 = ob.z; ob.z += spd * dt;
     // show this kind in the blocked lanes
     O.sign.visible = ob.kind === 'sign'; O.lamp.visible = ob.kind === 'lamp';
     if (ob.kind === 'sign') { O.sign.position.z = ob.z; O.boards.forEach((bd, i) => { bd.visible = i !== ob.safe; bd.rotation.x = Math.sin(S.t * 2.2 + i) * 0.12; }); }
@@ -364,7 +365,7 @@ function busScene(ctx) {
       if (li !== ob.safe) { ob.hit = true; S.bounce = 1.2; S.bounces++; sfx('boing'); setTimeout(() => sfx('boing'), 220); ctx.oops('אופס! 😄 בום רך! המיטות החליקו... ננסה שוב בנתיב הפנוי'); S.nextKind = ob.kind; S.nextSafe = ob.safe; }
       else { S.passed++; ctx.poke(); sfx('sparkle'); W(S.x, 2.6, -2, v1); burst(v1.x, v1.y, v1.z, 0x9cffa0, 18, 2.2, 0.9, 0.28, -0.4); try { fun.toast('😮', S.passed + ' / ' + want, 900); } catch { /* ok */ } if (S.passed < want) ctx.say(['נדחקנו! 😄', 'וּוּש! עברנו!', 'כמעט נגענו! 😂'][S.passed % 3], '👦 רון', 1.8); }
     }
-    if (ob.z > 9) { S.ob = null; S.obGap = 1.2; if (S.passed >= want && !S.done[3]) { ctx.say('עברנו הכל! עכשיו לקלחת הדולפת ☕', '👦 רון', 2.6); setTimeout(() => done(3), 600); } }
+    if (ob.z > 9) { S.ob = null; S.obGap = 0.8; if (S.passed >= want && !S.done[3]) { ctx.say('עברנו הכל! עכשיו לקלחת הדולפת ☕', '👦 רון', 2.6); setTimeout(() => done(3), 600); } }
   }
   function pickSafe() { let s = Math.floor(Math.random() * 3); if (s === S.lastSafe) s = (s + 1 + Math.floor(Math.random() * 2)) % 3; S.lastSafe = s; return s; }
   function autopilot(step) {
@@ -375,7 +376,7 @@ function busScene(ctx) {
   }
   function stepPub(dt) {
     const P = S.B.P, pub = P.pub.g, b = P.bus;
-    if (S.pubT < 1) { S.pubT = Math.min(1, S.pubT + dt / 4.5); pub.position.z = -70 * (1 - ease(S.pubT)); if (S.pubT >= 1 && !S.saidPub) { S.saidPub = 1; ctx.say('הנה הקלחת הדולפת! גע בשלט כדי לעצור 🛑', '👦 רון', 3.5); } }
+    if (S.pubT < 1) { S.pubT = Math.min(1, S.pubT + dt / 3.5); pub.position.z = -70 * (1 - ease(S.pubT)); if (S.pubT >= 1 && !S.saidPub) { S.saidPub = 1; ctx.say('הנה הקלחת הדולפת! גע בשלט כדי לעצור 🛑', '👦 רון', 3.5); } }
     else if (!S.stopped) pub.position.z = 0;
     S.sq += (0 - S.sq) * Math.min(1, dt * 5);
     // the sign glows (level 1 / the glow hint), then the door
@@ -403,7 +404,7 @@ function busScene(ctx) {
     if (step <= 1) {   // the kerb from the street, a little in front: the bus's face, its door side, the sign and the kids
       const d = dFor(4.2, 9, 22); px = 5.0; py = 2.6 + d * 0.26; pz = -1.6 - d * 0.88; lx = 3.0; ly = 1.5; lz = -1.2;
     } else if (step === 4) {   // from behind-left, high: the bus, the pub's sign and door ahead on the right
-      const d = dFor(4.2, 11, 30), tall = aspect < 1, ty = tall ? 4.0 : 2.9; px = Math.max(-6.0, 5.0 - 0.6 * d); py = ty + 0.36 * d; pz = -9.6 + 0.7 * d; lx = 5.0; ly = ty; lz = -9.6;
+      const d = dFor(5.6, 13, 32), tall = aspect < 1, ty = tall ? 3.9 : 2.6; px = Math.max(-6.0, 4.2 - 0.62 * d); py = ty + 0.36 * d; pz = -7.4 + 0.72 * d; lx = 4.2; ly = ty; lz = -7.4;
     } else { const d = dFor(5.0, 9, 26); px = S.x * 0.35; py = 5.0 + d * 0.3; pz = d + 3; lx = S.x * 0.2; ly = 1.4; lz = -16; }
     v1.set(px, py, pz).add(g); v2.set(lx, ly, lz).add(g);
     if (!S.camInit) { S.camP.copy(v1); S.camL.copy(v2); S.camInit = true; }
