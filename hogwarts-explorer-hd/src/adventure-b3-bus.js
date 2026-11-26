@@ -42,7 +42,7 @@ function drawBusCard(x, cx, cy) {
   x.fillStyle = '#fff6d8'; for (const [a, b] of [[-90, -110], [-40, -80], [70, -120], [95, -60], [-100, -30], [20, -128]]) { x.beginPath(); x.arc(cx + a, cy + b, 2.4, 0, 7); x.fill(); }
   x.fillStyle = '#fff2c0'; x.beginPath(); x.arc(cx + 70, cy - 95, 20, 0, 7); x.fill(); x.fillStyle = '#26357a'; x.beginPath(); x.arc(cx + 80, cy - 101, 18, 0, 7); x.fill();
   x.fillStyle = '#6a6a86'; x.fillRect(cx - 120, cy + 96, 240, 44);
-  x.save(); x.translate(cx - 6, cy + 10); x.rotate(-0.06);
+  x.save(); x.translate(cx - 6, cy - 14); x.rotate(-0.06); x.scale(0.9, 0.9);
   const R = (a, b, w, h, r, c) => { x.fillStyle = c; x.beginPath(); x.roundRect(a, b, w, h, r); x.fill(); };
   R(-62, -112, 124, 196, 22, '#5a2a9a');
   for (const y of [-38, 18]) R(-64, y, 128, 6, 3, '#c8a040');
@@ -72,6 +72,7 @@ function busScene(ctx) {
   const S = { B: null, lastRoom: null, entering: false, reT: 0, tk: null, lit: null, from: null, lane: STOP.lane, x: LANES[STOP.lane], y: 0, axPrev: 0, t: 0,
     arrive: 0, arrived: 0, hop: 0, tix: [], lastLane: -1, got: 0, spawnT: 1, ob: null, obGap: 1, passed: 0, bounce: 0, bounces: 0, sq: 0,
     pubT: 0, stopT: 0, stopped: 0, room: 0, autop: false, glowHint: false, done: {}, camP: new Vector3(), camL: new Vector3(), camInit: false, puffT: 0, lampZ: 0 };
+  const FK = ctx.free ? FROM_KEY + 'Free' : FROM_KEY;   // the free ride keeps its own start spot
   const lv = () => ctx.level;
   const sfx = (k, ...a) => { try { fun.sfx[k](...a); } catch { /* no audio */ } };
   const tone = (f, d, w = 0, type = 'triangle', v = 0.1, to) => { try { fun.sfx.tone(f, d, type, v, w, to); } catch { /* no audio */ } };
@@ -116,15 +117,15 @@ function busScene(ctx) {
   function saveFrom() {
     if (interiors.active === 'b3street') return;
     const f = { room: interiors.active || null, x: player.pos.x, z: player.pos.z, yaw: player.yaw };
-    S.from = f; try { localStorage.setItem(FROM_KEY, JSON.stringify(f)); } catch { /* private mode */ }
+    S.from = f; try { localStorage.setItem(FK, JSON.stringify(f)); } catch { /* private mode */ }
   }
   function readFrom() {
     if (S.from) return S.from;
-    try { const f = JSON.parse(localStorage.getItem(FROM_KEY)); if (f && Number.isFinite(f.x) && Number.isFinite(f.z)) return { room: typeof f.room === 'string' ? f.room : null, x: f.x, z: f.z, yaw: +f.yaw || 0 }; } catch { /* corrupt */ }
+    try { const f = JSON.parse(localStorage.getItem(FK)); if (f && Number.isFinite(f.x) && Number.isFinite(f.z)) return { room: typeof f.room === 'string' ? f.room : null, x: f.x, z: f.z, yaw: +f.yaw || 0 }; } catch { /* corrupt */ }
     return null;
   }
   function goHome() {
-    const f = readFrom(); S.from = null; try { localStorage.removeItem(FROM_KEY); } catch { /* ok */ }
+    const f = readFrom(); S.from = null; try { localStorage.removeItem(FK); } catch { /* ok */ }
     if (f && f.room && f.room !== 'b3street') { interiors.enter(f.room, { x: f.x, z: f.z, yaw: f.yaw }); return; }
     if (interiors.active || S.entering) interiors.exit();
     if (f) { player.yaw = f.yaw; player.teleport(f.x, f.z); }
@@ -402,9 +403,9 @@ function busScene(ctx) {
     const hh = Math.atan(Math.tan(vf / 2) * aspect), dFor = (half, lo, hi) => Math.max(lo, Math.min(hi, half / Math.tan(hh)));
     let px, py, pz, lx, ly, lz;
     if (step <= 1) {   // the kerb from the street, a little in front: the bus's face, its door side, the sign and the kids
-      const d = dFor(4.2, 9, 22); px = 5.0; py = 2.6 + d * 0.26; pz = -1.6 - d * 0.88; lx = 3.0; ly = 1.5; lz = -1.2;
+      const d = dFor(4.2, 9, 22), tall = aspect < 1; px = 5.0; py = 2.6 + d * 0.26; pz = -1.6 - d * 0.88; lx = tall ? (step === 0 && !S.arrive ? 5.4 : 2.9) : 3.0; ly = 1.5; lz = -1.2;   // a narrow phone: the sign + kids first, then the door + kids
     } else if (step === 4) {   // from behind-left, high: the bus, the pub's sign and door ahead on the right
-      const d = dFor(5.6, 13, 32), tall = aspect < 1, ty = tall ? 3.9 : 2.6; px = Math.max(-6.0, 4.2 - 0.62 * d); py = ty + 0.36 * d; pz = -7.4 + 0.72 * d; lx = 4.2; ly = ty; lz = -7.4;
+      const d = dFor(5.6, 13, 32), tall = aspect < 1, ty = tall ? 5.2 : 2.6; px = Math.max(-6.0, 4.2 - 0.62 * d); py = ty + 0.36 * d; pz = -7.4 + 0.72 * d; lx = 4.2; ly = ty; lz = -7.4;
     } else { const d = dFor(5.0, 9, 26); px = S.x * 0.35; py = 5.0 + d * 0.3; pz = d + 3; lx = S.x * 0.2; ly = 1.4; lz = -16; }
     v1.set(px, py, pz).add(g); v2.set(lx, ly, lz).add(g);
     if (!S.camInit) { S.camP.copy(v1); S.camL.copy(v2); S.camInit = true; }
@@ -477,7 +478,7 @@ function busScene(ctx) {
     S.ended = true; S.active = false;
     const wasIn = interiors.active === 'b3street' || S.entering;
     leaveSt(); S.B = null; S.lastRoom = null;
-    if (wasIn) goHome(); else { S.from = null; try { localStorage.removeItem(FROM_KEY); } catch { /* ok */ } }
+    if (wasIn) goHome(); else { S.from = null; try { localStorage.removeItem(FK); } catch { /* ok */ } }
     S.entering = false;
     try { bL.remove(); bR.remove(); roomEl.remove(); css.remove(); } catch { /* ok */ }
   }
@@ -502,6 +503,55 @@ function busScene(ctx) {
     nextLane: () => { if (ctx.step === 2) { const n = S.tix.filter(t => t.z < -3.3).sort((a, b) => b.z - a.z)[0]; return n ? n.lane : null; } return S.ob ? S.ob.safe : null; },
   };
   return { begin, update, goal, tap, glow, together, end, state };
+}
+
+// ---------------- the free ride (the map card "האוטובוס הלילי"): the same scene code, no quest, no tracker ----------------
+// Steps reused: 0 the stop sign -> 1 the door -> 3 the squeeze (obstacles, the soft bounce; no tickets) -> 4 the Leaky
+// Cauldron; then a 🏠 button takes Harry back where he came from (the button is there the whole ride, too).
+// Debug: window.__game.busRide (the state, or null when no ride runs).
+let RIDE = null;
+export function freeRideState() { return RIDE ? { step: RIDE.step, ended: RIDE.ended, scene: (() => { try { return RIDE.sc.state(); } catch { return null; } })(), ctx: RIDE.ctx } : null; }
+export function startFreeRide() {
+  if (RIDE) return false;
+  const A = window.__game && window.__game.adventures, base = A && A._ctx; if (!base) return false;
+  const busy = () => { const c = document.body.classList; return c.contains('inSpell') || c.contains('inMatch') || c.contains('inFloo') || c.contains('inAdv'); };
+  try { if (A.state().quest || base.isModal() || base.isTakeover() || busy()) { base.fun.toast('🚌', 'האוטובוס יחכה לך אחר כך', 1800); return false; } } catch { return false; }
+  const R = { step: 0, ended: false, sc: null, ctx: null, raf: 0, last: performance.now() };
+  const ctx = Object.create(base);
+  Object.defineProperty(ctx, 'step', { get: () => R.step }); Object.defineProperty(ctx, 'level', { get: () => 1 });
+  ctx.free = true; ctx.poke = () => {};
+  ctx.done = (i) => {
+    if (R.ended || i !== R.step) return false;
+    try { base.fun.sfx.chime(); } catch { /* no audio */ }
+    if (i === 4) { back.classList.add('end'); base.say('איזה טיול! רוצה לחזור? גע ב-🏠', '👦 רון', 4); return true; }
+    R.step = { 0: 1, 1: 3, 3: 4 }[i]; try { R.sc.begin(R.step, false); } catch (e) { console.warn('[b3-bus] free ride -', e && e.message || e); }
+    return true;
+  };
+  R.ctx = ctx;
+  const back = document.createElement('button'); back.id = 'b3Back'; back.textContent = '🏠 חזרה'; back.setAttribute('aria-label', 'חזרה');
+  const css = document.createElement('style'); css.id = 'b3BackCss';
+  css.textContent = `#b3Back{position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:15;padding:10px 26px;border-radius:24px;border:3px solid #ffd76a;
+    background:rgba(60,30,110,.9);color:#ffe9a8;font:bold 24px 'Rubik','Arial Hebrew',Arial,sans-serif;cursor:pointer;touch-action:manipulation;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+    #b3Back.end{animation:enterPulse 1.2s ease-in-out infinite;background:linear-gradient(#ffe48a,#ffb020);color:#4a2400}`;
+  document.head.appendChild(css); document.body.appendChild(back);
+  for (const ev of ['pointerdown', 'touchstart', 'mousedown']) back.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+  const view = document.getElementById('view'); let down = null;
+  const pd = (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; };
+  const pu = (e) => { const d0 = down; down = null; if (!d0 || d0.id !== e.pointerId || R.ended || base.isModal()) return; if (Math.hypot(e.clientX - d0.x, e.clientY - d0.y) > 18 || performance.now() - d0.t > 900) return; try { R.sc.tap(e.clientX, e.clientY, R.step); } catch (er) { console.warn('[b3-bus] free tap -', er && er.message || er); } };
+  if (view) { view.addEventListener('pointerdown', pd, { passive: true }); view.addEventListener('pointerup', pu, { passive: true }); }
+  function stop() {
+    if (R.ended) return; R.ended = true; cancelAnimationFrame(R.raf);
+    try { R.sc.end(true); } catch (e) { console.warn('[b3-bus] free end -', e && e.message || e); }
+    if (view) { view.removeEventListener('pointerdown', pd); view.removeEventListener('pointerup', pu); }
+    try { back.remove(); css.remove(); } catch { /* ok */ }
+    RIDE = null;
+  }
+  back.addEventListener('click', (e) => { e.stopPropagation(); stop(); });
+  const tick = (now) => { if (R.ended) return; const dt = Math.min(0.1, Math.max(0, (now - R.last) / 1000)); R.last = now; try { R.sc.update(dt, R.step); } catch (e) { if (!R.err++) console.warn('[b3-bus] free update -', e && e.message || e); } R.raf = requestAnimationFrame(tick); };
+  R.err = 0; R.stop = stop;
+  try { R.sc = busScene(ctx); R.sc.begin(0, false); } catch (e) { console.warn('[b3-bus] free ride failed -', e && e.message || e); R.ended = true; try { back.remove(); css.remove(); } catch { /* ok */ } return false; }
+  RIDE = R; R.raf = requestAnimationFrame(tick);
+  return true;
 }
 
 // the tiny warm room card: a fire, a round table, a big mug of hot chocolate with steam

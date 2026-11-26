@@ -125,6 +125,7 @@ async function boot() {
   const map = createMap({
     onTravel: (id, kind) => {
       audio.resume();
+      if (kind === 'bus') { import('./adventure-b3-bus.js').then(m => m.startFreeRide()).catch(e => console.warn('[bus ride] failed -', e && e.message || e)); return; }   // the Knight Bus free ride
       if (kind === 'interior') interiors.enter(id);
       else { if (interiors.active) interiors.exit(); const sp = SPOTS[id] || PLACES[id]; if (sp) player.teleport(sp.x, sp.z); }
     },
