@@ -227,6 +227,13 @@ function saveScene(ctx) {
     }
     if (S.swirl > 0) { S.swirl -= dt; const c = S.swirlAt; for (let i = 0; i < 3; i++) { const a = S.t * 7 + i * 2.1, r = 0.4 + S.swirl * 0.5; ctx.emit(c.x + Math.cos(a) * r, c.y + 0.2 + (1.6 - S.swirl) * 1.0 + i * 0.2, c.z + Math.sin(a) * r, -Math.sin(a) * 1.2, 0.6, Math.cos(a) * 1.2, 0.8, 0.24, i ? 0xffd76a : 0xfff4c8, 0); } }
   }
+  // the tower lens: Harry faces a room-local point; a longer arm on a phone, so the dog / Sirius are in the narrow frame
+  function frameTower(tx, tz) {
+    if (!inTower()) return; const gp = interiors.room.group.position;
+    player.yaw = Math.atan2(gp.x + tx - player.pos.x, gp.z + tz - player.pos.z);
+    const C = player.cam; if (!C) return; const ph = innerWidth < innerHeight;
+    try { C.reset(player.yaw); C.yaw += ph ? 0.12 : 0.3; C.pitch = ph ? 0.2 : 0.24; C.dist = ph ? 6.4 : 5.2; C.userControlled = false; C.idle = 0; } catch { /* ok */ }
+  }
   function hearts() { dogW(v1); for (let i = 0; i < 12; i++) ctx.emit(v1.x + (Math.random() - 0.5) * 0.5, v1.y + 0.3 + Math.random() * 0.3, v1.z + (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.6, 0.9 + Math.random() * 0.5, (Math.random() - 0.5) * 0.6, 1.3, 0.24, Math.random() < 0.5 ? 0xff7aa8 : 0xffb0cc, 0.1); }
   function dogW(out) { if (S.dog && S.dog.bones.head && S.dog.obj.parent) { S.dog.bones.head.getWorldPosition(out); return out; } const gp = interiors.room ? interiors.room.group.position : v3.set(0, 0, 0); return out.set(gp.x + S.dogX, gp.y + 1.0, gp.z + S.dogZ); }
   function siriusW(out) { if (!S.sirius || !S.sirius.parent) return null; S.sirius.getWorldPosition(out); out.y += 1.4; return out; }
@@ -236,7 +243,7 @@ function saveScene(ctx) {
     ctx.poke(); S.dogTaps++;
     if (S.dogTaps === 1) { S.dogMode = 'come'; woof(fun, 2); hearts(); ctx.say('הכלב השחור הגדול שמח לראות אותך! 🐾 גע בו עוד פעם...', HERM_WHO, 3.5); return true; }
     if (S.siriusOn) return true;
-    const gp = interiors.room.group.position; swirl(gp.x + T_SIRIUS.x, gp.y, gp.z + T_SIRIUS.z, 'in');
+    const gp = interiors.room.group.position; swirl(gp.x + T_SIRIUS.x, gp.y, gp.z + T_SIRIUS.z, 'in'); frameTower((S.dogX + T_SIRIUS.x) / 2, (S.dogZ + T_SIRIUS.z) / 2);
     S.dogMode = 'by'; S.nod = 1; woof(fun, 1);
     setTimeout(() => { if (!S.active) return; S.siriusOn = 1; S.sirFade = 0; S.waveSir = 2.5; sfx('heart'); ctx.say('אני סיריוס, חבר של אבא שלך 😊 חיכיתי לך כאן למעלה', SIR, 5); }, 900);
     setTimeout(() => done(4), 5200);
@@ -359,7 +366,7 @@ function saveScene(ctx) {
     release(false); S.ph = 'ground'; S.inTowerArr = true;
     bplay('Idle', 0.3);
     interiors.enter('tower', T_HARRY);
-    soon(() => inTower(), () => { placeBB(); veil.style.opacity = '0'; done(3); });
+    soon(() => inTower(), () => { placeBB(); frameTower(T_DOG.x, T_DOG.z); veil.style.opacity = '0'; done(3); });
   }
   function soon(test, fn, n = 0) { if (test()) { try { fn(); } catch (e) { console.warn('[b3-save]', e && e.message || e); } return; } if (n < 80 && S.active) setTimeout(() => soon(test, fn, n + 1), 150); }
 
@@ -465,7 +472,7 @@ function saveScene(ctx) {
     if (!resumed) return;
     if (step === 5) S.dogTaps = 2;
     // a resume (reload / the book): the step starts over at its place
-    if (step >= 4) { if (!inTower()) interiors.enter('tower', T_HARRY); S.dogX = step === 5 ? T_HARRY.x + 1.4 : T_DOG.x; S.dogZ = step === 5 ? T_HARRY.z - 1.4 : T_DOG.z; return; }
+    if (step >= 4) { if (!inTower()) interiors.enter('tower', T_HARRY); S.dogX = step === 5 ? T_HARRY.x + 1.4 : T_DOG.x; S.dogZ = step === 5 ? T_HARRY.z - 1.4 : T_DOG.z; soon(() => inTower(), () => frameTower(step === 5 ? (T_SIRIUS.x + T_BB.x) / 2 : T_DOG.x, step === 5 ? -1 : T_DOG.z)); return; }
     if (step >= 1) {
       if (interiors.active) interiors.exit();
       const at = step === 1 ? { x: POST.x - 2.4, z: POST.z + 1.2 } : step === 2 ? { x: BOW.x, z: BOW.z } : HOME;
