@@ -95,6 +95,7 @@ function saveScene(ctx) {
   @keyframes b3sPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,230,120,0)}50%{box-shadow:0 0 0 12px rgba(255,230,120,.8),0 0 36px rgba(255,220,100,.95)}}
   body.modalOn #b3sAct,body.inSpell #b3sAct,body.inMatch #b3sAct,body.inFloo #b3sAct{display:none !important}
   body:has(#advTogether.on) #b3sAct{top:calc(186px + env(safe-area-inset-top))}
+  @media (min-width:701px){body.inAdv:has(#funPrompt.on) #advHint{bottom:calc(236px + env(safe-area-inset-bottom))}}
   #b3sVeil{position:fixed;inset:0;z-index:12;pointer-events:none;opacity:0;background:radial-gradient(circle,#fff6d8,#e8c070);transition:none}
   body.b3sFly .gamebtn,body.b3sFly #camctl,body.b3sFly #fcBtn,body.b3sFly #wandBtn,body.b3sFly #bellBtn,body.b3sFly #enterBtn,body.b3sFly #joy,body.b3sFly #joyKnob,body.b3sFly #funPrompt,body.b3sFly #fcWheel{display:none !important}
   @media (max-width:700px){#b3sAct,body:has(#advTogether.on) #b3sAct{top:auto;bottom:calc(330px + env(safe-area-inset-bottom));width:108px;height:108px;margin-left:-54px} #b3sAct i{font-size:40px} #b3sAct span{font-size:17px}}`;
@@ -163,10 +164,11 @@ function saveScene(ctx) {
   }
   function dropProps() { for (const o of [S.post, S.rope]) if (o) { if (o.parent) o.parent.remove(o); try { o.geometry.dispose(); } catch { /* ok */ } } S.post = null; S.rope = null; }
   const knotW = (out) => out.set(POST.x, groundAt(POST.x, POST.z) + KNOT_Y, POST.z);
-  // the wheel target on the knot (Alohomora / Diffindo): never on Buckbeak
+  // the wheel target on the knot (Alohomora / Diffindo): never on Buckbeak. (b10: Diffindo's handler in freecast-batch10.js only
+  // takes targets flagged so; it then also gives its usual once-per-session +5 for a first cut)
   const T = [];
   if (FI && Array.isArray(FI.TARGETS)) {
-    T.push({ id: 'b3save-knot', spells: ['alohomora', 'diffindo'], at: (o) => knotW(o), ok: () => S.active && ctx.step === 1 && !S.untied && outdoors(), cast: () => { S.castHit = true; untie('spell'); } });
+    T.push({ id: 'b3save-knot', spells: ['alohomora', 'diffindo'], b10: true, at: (o) => knotW(o), ok: () => S.active && ctx.step === 1 && !S.untied && outdoors(), cast: () => { S.castHit = true; untie('spell'); } });
     for (const t of T) FI.TARGETS.push(t);
   }
   function untie(how) {
