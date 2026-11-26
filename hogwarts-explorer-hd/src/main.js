@@ -458,7 +458,7 @@ async function boot() {
 
 function labelOf(id) {
   return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות הנעות', library: 'הספרייה', commonroom: 'חדר הטרקלין',
-    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', ...SECRET_LABELS }[id] || id;
+    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל הכוכבים', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', b3street: 'רחוב קטן בלונדון', ...SECRET_LABELS }[id] || id;
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 

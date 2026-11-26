@@ -26,7 +26,7 @@ const KEY = 'hpAdventures1';
 const FONT = "'Rubik','Arial Hebrew','Noto Sans Hebrew','Heebo',Arial,sans-serif";
 const HINT_T = { 1: [15, 30, 45, 60], 2: [25, 45, 65, 85], 3: [25, 45, 65, 85] };
 const BYID = Object.fromEntries(QUESTS.map(q => [q.id, q]));
-const BOOKS = { 1: '📕 ספר 1: אבן החכמים', 2: '📗 ספר 2: חדר הסודות' };
+const BOOKS = { 1: '📕 ספר 1: אבן החכמים', 2: '📗 ספר 2: חדר הסודות', 3: '📘 ספר 3: האסיר מאזקבאן' };
 
 // ---------------- save (versioned; never throws, never trusts what it reads) ----------------
 const empty = () => ({ v: 1, done: {}, cur: null });

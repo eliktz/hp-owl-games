@@ -20,6 +20,9 @@ import { B2WALL } from './adventure-b2-wall.js';
 import { B2POLY } from './adventure-b2-polyjuice.js';
 import { B2DIARY } from './adventure-b2-diary.js';
 import { B2CHAMBER } from './adventure-b2-chamber.js';
+import { B3BUS } from './adventure-b3-bus.js';
+import { B3BOGGART } from './adventure-b3-boggart.js';
+import { B3MAP, B3PATRONUS, B3TIMETURNER, B3SAVE } from './adventure-b3-stubs.js';
 import { buildChambers, drawMirror, SPOTS, DOOR_Z, zc, sq, BOARD, COLOURS, FLOOR_Y, FONT, N } from './adventure-stone-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };
@@ -52,6 +55,13 @@ export const QUESTS = [
   B2POLY,
   B2DIARY,
   B2CHAMBER,
+  // book 3: "האסיר מאזקבאן" (briefs/2026-11-26-book3-azkaban-quests.md); the bus is open from the start, the rest in order
+  B3BUS,
+  B3BOGGART,
+  B3MAP,
+  B3PATRONUS,
+  B3TIMETURNER,
+  B3SAVE,
 ];
 
 // The chambers interior: always registered (built from the quest's progress at build time, or for free play).
