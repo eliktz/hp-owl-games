@@ -62,7 +62,10 @@ const _v = new Vector3(), _base = new Vector3();
 BUILDERS.b3lake = () => {
   const B = buildLake(); const g = B.g; g.position.y = FLOOR_Y; g.userData.lake = B;
   B.L = roomLight(g, { amb: 1.0, ambC: 0xffe6c8, hemi: 1.15, sky: 0xd8d0ff, ground: 0xb89a70, fogC: 0xe8c4a0, fogD: 0.0022, bg: 0xe8c0a0 });
-  const marker = g.children.find(o => o.name === 'b3-light'); if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { r0(); if (LK.B === B) { LK.B = null; LK.room = null; } }; }
+  const marker = g.children.find(o => o.name === 'b3-light'); if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { r0(); document.body.classList.remove('b3lakeOn'); if (LK.B === B) { LK.B = null; LK.room = null; } }; }
+  // on a phone the helper bubble sits high, just under the tracker, so it never hides the stag's run over the water
+  if (!document.getElementById('b3lakeHintCss')) { const st = document.createElement('style'); st.id = 'b3lakeHintCss'; st.textContent = '@media (max-width:700px){body.b3lakeOn #advHint{top:calc(96px + env(safe-area-inset-top));font-size:16px;padding-top:6px;padding-bottom:6px}}'; document.head.appendChild(st); }
+  document.body.classList.add('b3lakeOn');
   LK.B = B; LK.silver = 0; LK.wisps = [];
   B.tris = triCount(g);
   const room = { group: g, colliders: B.cols, portals: [], spawn: { x: LSPAWN.x, z: LSPAWN.z, y: FLOOR_Y, yaw: LSPAWN.yaw }, update(dt) { try { lakeTick(B, dt); } catch (e) { if (!LK.err++) console.warn('[b3-patronus] lake tick failed -', e && e.message || e); } } };
