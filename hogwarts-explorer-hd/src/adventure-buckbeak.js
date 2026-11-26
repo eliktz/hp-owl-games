@@ -313,7 +313,7 @@ export function buckbeakScene(ctx, opts = {}) {
   }
   function setupFeathers() {
     const n = NFEATH[lv()] || 3, L = S.L, fr = n === 3 ? [0.2, 0.43, 0.64] : n === 4 ? [0.16, 0.34, 0.52, 0.7] : [0.14, 0.29, 0.44, 0.59, 0.74];
-    S.feathers = fr.map((f, i) => ({ s: f * L, lane: lanesOn() ? [2, 0, 1, 2, 0][i] : 1, got: false, spin: Math.random() * 6 }));
+    S.feathers = FREE ? [] : fr.map((f, i) => ({ s: f * L, lane: lanesOn() ? [2, 0, 1, 2, 0][i] : 1, got: false, spin: Math.random() * 6 }));
     S.got = 0; fe.count = 0; fe.visible = !FREE; if (!FREE) showCount(true);
   }
   const needF = () => (FREE ? 0 : NFEATH[lv()] || 3);
