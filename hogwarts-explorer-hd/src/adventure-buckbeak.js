@@ -23,6 +23,10 @@ import { loadAnimated } from './models.js';
 import { BB, BB_SCALE, BOW, LAND, HOME, WATER, SPEED, LANES, flightCurve, overLake, buildBowSpot, buildFeathers, triCount } from './adventure-buckbeak-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };
+// free play (buckbeak-free.js) registers a hand-over here: when this quest's scene is created, the free-play Buckbeak is
+// taken out of the world FIRST (synchronously), so there is never more than one Buckbeak in the scene
+let questHook = null;
+export function onBuckbeakQuest(fn) { questHook = typeof fn === 'function' ? fn : null; }
 const HAG = '🧔 האגריד';
 export const BUCKBEAK = {
   id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', col: '#3a3a2a', col2: '#a0a070', helper: HERM, confetti: ['✨', '⭐', '🪶', '🦅'],
@@ -39,7 +43,7 @@ export const BUCKBEAK = {
     { line: 'טוס על אבזם ואסוף נוצות זהב 🪶', hints: ['לחץ על הכפתור 🪽 כדי לעלות על הגב של אבזם', 'הנוצות הזהובות מחכות בדרך 🪶', 'זוז עם ◀ ▶ אל הנוצה הזהובה 🪶'] },
     { line: 'נוחתים ליד המכלאה 🛬', hints: ['אבזם נוחת. תחזיק חזק! 🛬', 'עוד רגע על הדשא', 'כמעט שם!'] },
   ],
-  create: (ctx) => buckbeakScene(ctx),
+  create: (ctx) => { try { if (questHook) questHook(); } catch (e) { console.warn('[buckbeak] free-play hand-over -', e && e.message || e); } return buckbeakScene(ctx); },
   art: drawCard,
 };
 
@@ -71,7 +75,12 @@ const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const CROWNS = [{ x: -56, z: 40 }, { x: 34.3, z: 66.7 }];
 const laneK = (x, z) => { let d = 1e9; for (const c of CROWNS) d = Math.min(d, Math.hypot(x - c.x, z - c.z)); return 0.14 + 0.86 * ease((d - 12.6) / 7.4); };
 
-function buckbeakScene(ctx) {
+// opts.free (buckbeak-free.js): the same Buckbeak, flight, camera, takeover and safe aborts for free play: no feathers,
+// no props, no steps (the free module drives the ground: prompts, the bow, the nuzzle), its own DOM ids and object name,
+// a silent load failure. Without opts the quest behaves exactly as before.
+export function buckbeakScene(ctx, opts = {}) {
+  const FREE = !!opts.free;
+  const ID = (id) => (FREE ? id.replace(/^bb/, 'bbf') : id);
   const { interiors, player, fun, freecast, burst, emit, camera, scene } = ctx;
   const S = { active: false, ended: false, bb: null, mixer: null, acts: {}, cur: null, loading: false, failed: false, bones: {}, t: 0,
     arrived: 0, onSpot: false, camSet: -1, bowing: false, bow: 0, bowAuto: false, bowBack: 0, pats: 0, patT: 0, glowHint: false, said: {},
@@ -97,7 +106,7 @@ function buckbeakScene(ctx) {
 
   // ---------------- DOM: the big action button (🙇 with its ring, 🪽, 🙌), the lane buttons ----------------
   const FONT = "'Rubik','Arial Hebrew','Noto Sans Hebrew',Arial,sans-serif";
-  const css = document.createElement('style'); css.id = 'bbCss';
+  const css = document.createElement('style'); css.id = ID('bbCss');
   css.textContent = `#bbAct{position:fixed;left:50%;top:calc(98px + env(safe-area-inset-top));width:128px;height:128px;margin-left:-64px;z-index:14;display:none;border-radius:50%;border:none;padding:0;
     background:none;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
   #bbAct.on{display:block} #bbAct svg{width:100%;height:100%;display:block;pointer-events:none}
@@ -122,8 +131,9 @@ function buckbeakScene(ctx) {
   body.modalOn #bbCount{display:none !important}
   @media (max-width:700px){#bbCount{font-size:17px;padding:2px 12px} body.advBB #bbAct,body.advBB:has(#advTogether.on) #bbAct{bottom:calc(30px + env(safe-area-inset-bottom))}}
   @media (max-width:700px){#bbAct,body:has(#advTogether.on) #bbAct{top:auto;bottom:calc(330px + env(safe-area-inset-bottom));width:112px;height:112px;margin-left:-56px} #bbAct .lab i{font-size:40px} #bbAct .lab{font-size:18px}}`;
+  if (FREE) css.textContent = css.textContent.replace(/#bb(Act|L|R|Count)\b/g, '#bbf$1');
   document.head.appendChild(css);
-  const act = document.createElement('button'); act.id = 'bbAct';
+  const act = document.createElement('button'); act.id = ID('bbAct');
   act.innerHTML = '<svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="60" fill="rgba(70,46,20,.78)"/><circle class="bg" cx="66" cy="66" r="52" fill="none" stroke="rgba(255,230,140,.35)" stroke-width="12"/>'
     + '<circle class="fg" cx="66" cy="66" r="52" fill="none" stroke="#ffd76a" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" transform="rotate(-90 66 66)"/></svg><div class="lab"><i></i><span></span></div>';
   document.body.appendChild(act);
@@ -140,12 +150,12 @@ function buckbeakScene(ctx) {
     act.classList.add('on', 'pulse'); drawRing(kind === 'bow' ? S.bow : 0);
   }
   const drawRing = (k) => ring.setAttribute('stroke-dashoffset', (326.7 * (1 - Math.max(0, Math.min(1, k)))).toFixed(1));
-  const mkBtn = (id, txt, dir) => { const b = document.createElement('button'); b.id = id; b.textContent = txt; b.setAttribute('aria-label', dir < 0 ? 'שמאלה' : 'ימינה');
+  const mkBtn = (id, txt, dir) => { const b = document.createElement('button'); b.id = ID(id); b.textContent = txt; b.setAttribute('aria-label', dir < 0 ? 'שמאלה' : 'ימינה');
     for (const ev of ['pointerdown', 'touchstart', 'mousedown']) b.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
     b.addEventListener('click', (e) => { e.stopPropagation(); steer(dir); }); document.body.appendChild(b); return b; };
   const bL = mkBtn('bbL', '◀', -1), bR = mkBtn('bbR', '▶', 1);
   // the feather count while flying: a small pill just under the tracker (a big toast covered the hint bubble on a phone)
-  const pill = document.createElement('div'); pill.id = 'bbCount'; document.body.appendChild(pill);
+  const pill = document.createElement('div'); pill.id = ID('bbCount'); document.body.appendChild(pill);
   function showCount(on, popIt = false) {
     if (!on) { pill.classList.remove('on'); return; }
     pill.textContent = '🪶 ' + S.got + ' / ' + needF();
@@ -172,7 +182,7 @@ function buckbeakScene(ctx) {
       S.loading = false;
       if (!S.active || S.ended) return;
       if (!r || !r.clips || !r.clips.find(c => c.name === 'Idle')) { modelFailed(); return; }
-      const obj = r.obj; obj.name = 'adv-buckbeak'; obj.scale.setScalar(BB_SCALE);
+      const obj = r.obj; obj.name = FREE ? 'bbfree-buckbeak' : 'adv-buckbeak'; obj.scale.setScalar(BB_SCALE);
       obj.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.receiveShadow = false; o.raycast = () => {}; } if (o.isBone) S.bones[o.name] = o; });
       const mixer = new AnimationMixer(obj), acts = {};
       for (const c of r.clips) acts[c.name] = mixer.clipAction(c);
@@ -186,6 +196,7 @@ function buckbeakScene(ctx) {
   }
   function modelFailed() {
     if (S.failed) return; S.failed = true;
+    if (FREE) return;   // free play: silent (no Buckbeak, nothing breaks)
     ctx.say('אוי, אבזם לא הצליח להגיע היום... ננסה שוב בפעם אחרת 💛', HAG, 5);
     setTimeout(() => { try { if (S.active && !S.ended && window.__game && window.__game.adventures) window.__game.adventures.leave(); } catch { /* ok */ } }, 2500);
   }
@@ -303,9 +314,9 @@ function buckbeakScene(ctx) {
   function setupFeathers() {
     const n = NFEATH[lv()] || 3, L = S.L, fr = n === 3 ? [0.2, 0.43, 0.64] : n === 4 ? [0.16, 0.34, 0.52, 0.7] : [0.14, 0.29, 0.44, 0.59, 0.74];
     S.feathers = fr.map((f, i) => ({ s: f * L, lane: lanesOn() ? [2, 0, 1, 2, 0][i] : 1, got: false, spin: Math.random() * 6 }));
-    S.got = 0; fe.count = 0; fe.visible = true; showCount(true);
+    S.got = 0; fe.count = 0; fe.visible = !FREE; if (!FREE) showCount(true);
   }
-  const needF = () => NFEATH[lv()] || 3;
+  const needF = () => (FREE ? 0 : NFEATH[lv()] || 3);
   const qTier = () => { try { return window.__game.stats().tier; } catch { return null; } };
   // nature LOW (half the trees, no reeds) + a shorter far plane for the flight; given back after
   function lowTier(on) {
@@ -522,6 +533,7 @@ function buckbeakScene(ctx) {
     const n = casts();
     if (n !== S.casts0) { S.casts0 = n; if (S.bb && outdoors() && Math.hypot(player.pos.x - S.bb.position.x, player.pos.z - S.bb.position.z) < 16) { S.spellSays = (S.spellSays || 0) + 1; ctx.say('לא מטילים לחשים על אבזם 🙂 קדים לו ומלטפים אותו!', HAG, 3.2); } }
     if (S.patT > 0) S.patT -= dt;
+    if (FREE) return;   // free play: the ground is driven by buckbeak-free.js
     if (busy || S.tk) { if (S.tk && step === 3 && S.ph === 'fly') { /* the action button is driven by the flight */ } return; }
     if (!outdoors() || !S.bb) { if (actKind) showAct(null); return; }
     const p = player.pos, dBB = Math.hypot(p.x - S.bb.position.x, p.z - S.bb.position.z);
@@ -573,7 +585,7 @@ function buckbeakScene(ctx) {
 
   // ---------------- framework hooks ----------------
   function begin(step, resumed) {
-    S.active = true; S.ended = false; addProps(); ensureModel();
+    S.active = true; S.ended = false; if (!FREE) addProps(); ensureModel();
     S.bowing = false; S.bowBack = 0; S.bow = 0; S.bowAuto = false; S.camSet = -1; S.onSpot = false; S.arrived = 0; S.pats = 0; S.finalT = step === 4 && !S.tk ? 0 : S.finalT;
     if (!S.tk) S.ph = 'ground';
     if (step === 1 && !resumed) ctx.say('עמוד על העיגול הזוהר מול אבזם, ולחץ 🙇', HAG, 4);
@@ -671,5 +683,13 @@ function buckbeakScene(ctx) {
     logStart: () => { S.log = []; S.ft = 0; }, log: () => S.log, logStop: () => { const l = S.log; S.log = null; return l; },
     path: () => { if (!S.curve) S.curve = flightCurve(groundAt); const L = S.curve.getLength(), out = []; for (let i = 0; i <= 80; i++) { const p = S.curve.getPointAt(i / 80); out.push([+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1), +groundAt(p.x, p.z).toFixed(1)]); } return { L, pts: out }; },
   };
+  if (FREE) {   // the pieces buckbeak-free.js drives the ground with (the flight itself stays in here)
+    const free = {
+      obj: () => S.bb, phase: () => S.ph, flying: () => !!S.tk, finalT: () => S.finalT, clearFinal: () => { S.finalT = 0; },
+      play, replay, faceBB, bowCamera, leanHarry, headW, chirp, placeStanding, abort,
+      fly: () => startFlight(false), syncCasts: () => { S.casts0 = casts(); },
+    };
+    return { begin, update, end, state, free };
+  }
   return { begin, update, goal, tap, glow, together, end, state, hintText };
 }

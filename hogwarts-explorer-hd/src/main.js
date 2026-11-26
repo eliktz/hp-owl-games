@@ -37,6 +37,7 @@ import { createFloo } from './floo.js';
 import { createAdventures } from './adventures.js';
 import { createCorridorFree } from './corridor-free.js';
 import { createRoam } from './roam.js';
+import { createBuckbeakFree } from './buckbeak-free.js';
 import { kitStats } from './interior-kit.js';
 import { FLOOR_Y } from './rooms.js';
 
@@ -305,6 +306,12 @@ async function boot() {
       adventures: () => (adventures ? adventures.api : null), floo: () => (floo ? floo.api : null) });
     hooks.push((dt) => roam.tick(dt));
   } catch (e) { console.warn('[roam] disabled -', e && e.message || e); roam = null; }
+  let buckbeak = null;   // Buckbeak in free play by the paddock (buckbeak-free.js): any failure -> simply no free-play Buckbeak
+  try {
+    buckbeak = createBuckbeakFree({ scene, camera, player, interiors, fun, freecast, lessons, setTakeover, isModal: () => modal, isTakeover: () => !!takeover,
+      adventures: () => (adventures ? adventures.api : null), floo: () => (floo ? floo.api : null) });
+    hooks.push((dt) => buckbeak.tick(dt));
+  } catch (e) { console.warn('[buckbeak-free] disabled -', e && e.message || e); buckbeak = null; }
   const shadow = blobShadow(scene);
   let wasInside = null;
   let last = performance.now(), frames = 0, facc = 0, fps = 0;
@@ -389,6 +396,7 @@ async function boot() {
     get adventures() { return adventures ? adventures.api : null; },
     get corridor() { return corridor ? corridor.api : null; },   // corridor-free.js: state() screen(v) harpW() keyW() ...   // adventures.js: list() state() start(id) skipStep() hint(n) clock(s) hold() leave() reset()
     get roam() { return roam ? roam.api : null; },   // roam.js: state() fast(k) where(id) hold(on) seed(n) clock(id,t) plan(id) cooldown(id) cat()
+    get buckbeak() { return buckbeak ? buckbeak.api : null; },   // buckbeak-free.js: state() fly() bow() nuzzle() hold(on) ctx() headScreen()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
     registerOutdoor: (o) => outdoorRoots.push(o),
