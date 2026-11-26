@@ -308,7 +308,8 @@ function mapScene(ctx) {
     S.duck = 0.001; S.ducks++; ctx.poke();
     S.back = { x: player.pos.x, z: player.pos.z, yaw: player.yaw };
     player.yaw = Math.atan2(WIN.x - HIDE.x, WIN.z - HIDE.z); player.teleport(HIDE.x, HIDE.z);
-    frame(WIN.x, WIN.z, { pitch: 0.16, dist: 3.4, side: 0.75 });
+    const phone = innerWidth / Math.max(1, innerHeight) < 0.8;   // a narrow phone looks almost straight at the window (Filch passes in view)
+    frame(WIN.x, WIN.z, phone ? { pitch: 0.1, dist: 4.0, side: 0.3 } : { pitch: 0.16, dist: 3.4, side: 0.75 });
     ctx.say('פססס, מתחבאים! 🤫 מאחורי החבית...', RON_WHO, 2.4); sfx('whoosh');
   }
   function questSweets(B) {
