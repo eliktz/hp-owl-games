@@ -4,7 +4,7 @@
 // ridiculous (a curly moustache, a pink tutu, a flowered bonnet, clown shoes, a party hat) and a big grin.
 // Room-local frame: the wardrobe stands at WARD, turned toward the class (yaw toward SPOT, where Harry stands);
 // its doors open toward +z (local). A shape lives in the wardrobe's local frame: base at y 0, facing +z.
-// Draw calls: wardrobe body + two doors (3) + one shape (body, face, silly item: 3). Each shape < 1.2k triangles.
+// Draw calls: wardrobe body + two doors (3) + one shape (body, silly item: 2). Each shape < 1.2k triangles.
 import {
   Group, Mesh, BoxGeometry, SphereGeometry, CylinderGeometry, ConeGeometry, TorusGeometry, LatheGeometry, CapsuleGeometry,
   Vector2, Vector3, Matrix4, Quaternion, Euler, Color, BufferAttribute, MeshStandardMaterial,
@@ -71,8 +71,9 @@ function eyes(P, y, z, gap, r, ink = 0x2a2030) {
     P.push(paint(place(S(r * 0.16, 4, 3), sx * gap + sx * 0.05 * r, y + 0.12 * r, z + r * 0.98), 0xd4d0c8));
   }
 }
-const ooh = (y, z, r = 0.055) => paint(place(new TorusGeometry(r, r * 0.4, 4, 10), 0, y, z), 0x5a2020);            // a round "ooh" mouth
+const ooh = (y, z, r = 0.055) => paint(place(new TorusGeometry(r, r * 0.4, 4, 8), 0, y, z), 0x5a2020);            // a round "ooh" mouth
 const grin = (y, z, r = 0.11) => paint(place(new TorusGeometry(r, r * 0.22, 4, 9, Math.PI), 0, y, z, 0, 0, Math.PI), 0x5a2020);
+const cover = (y, z, hex) => paint(place(new CylinderGeometry(0.09, 0.09, 0.012, 8), 0, y, z + 0.03, Math.PI / 2, 0, 0), hex);   // hides the "ooh" mouth under the grin
 const cheeks = (P, y, z, gap) => { for (const sx of [-1, 1]) P.push(paint(place(S(0.05, 6, 4), sx * gap, y, z, 0, 0, 0, 1, 0.6, 0.4), 0xe88a8a)); };
 function flower(P, x, y, z, petal = 0xe86aa0) { for (let k = 0; k < 5; k++) { const a = k * 1.2566; P.push(paint(place(S(0.045, 5, 3), x + Math.cos(a) * 0.05, y + Math.sin(a) * 0.05, z), petal)); } P.push(paint(place(S(0.035, 5, 3), x, y, z + 0.01), 0xe8c84a)); }
 
@@ -87,10 +88,10 @@ function hat() {   // a giant grumpy wizard hat with bushy eyebrows
   B.push(paint(place(S(0.06, 8, 5), 0.42, 1.36, -0.2), 0xe0c060));
   eyes(B, 0.42, 0.38, 0.14, 0.11);
   for (const sx of [-1, 1]) B.push(paint(place(new BoxGeometry(0.2, 0.05, 0.05), sx * 0.15, 0.58, 0.4, 0, 0, sx * 0.28), 0x3a2418));   // grumpy brows
-  F.push(ooh(0.25, 0.43));
+  B.push(ooh(0.25, 0.43));
   // silly: a big curly moustache + a pink flower on the brim + a grin
   for (const sx of [-1, 1]) { X.push(paint(place(new TorusGeometry(0.09, 0.03, 4, 8, Math.PI * 1.4), sx * 0.11, 0.3, 0.47, 0, sx < 0 ? Math.PI : 0, -0.6), 0x3a2418)); }
-  X.push(grin(0.24, 0.46, 0.08));
+  X.push(cover(0.25, 0.43, 0x7a5aaa), grin(0.25, 0.48, 0.08));
   flower(X, -0.5, 0.11, 0.5); flower(X, 0.52, 0.11, 0.45, 0xe8c84a);
   return { B, F, X, h: 1.4 };
 }
@@ -103,11 +104,11 @@ function pumpkin() {   // a wobbly pumpkin on little feet
   B.push(paint(place(S(0.12, 8, 5), 0.16, 0.98, 0.02, 0, 0, 0.5, 1, 0.3, 0.6), 0x5a8a3a));
   for (const sx of [-1, 1]) B.push(paint(place(S(0.12, 8, 6), sx * 0.2, 0.08, 0.12, 0, 0, 0, 1, 0.7, 1.4), 0x3a6a3a));   // little green boots
   eyes(B, 0.68, 0.4, 0.15, 0.12); cheeks(B, 0.52, 0.45, 0.27);
-  F.push(ooh(0.46, 0.46));
+  B.push(ooh(0.46, 0.46));
   // silly: a pink tutu + a bow + a grin
   X.push(paint(place(new CylinderGeometry(0.62, 0.78, 0.18, 16, 1, true), 0, 0.3, 0), 0xe87ab0));
   X.push(paint(place(new CylinderGeometry(0.5, 0.62, 0.1, 16, 1, true), 0, 0.42, 0), 0xf09ac8));
-  X.push(grin(0.47, 0.45, 0.1));
+  X.push(cover(0.46, 0.46, 0xd87a1a), grin(0.47, 0.5, 0.1));
   for (const sx of [-1, 1]) X.push(paint(place(S(0.07, 8, 5), sx * 0.08, 1.06, 0.06, 0, 0, 0, 1.2, 0.7, 0.6), 0xe87ab0));
   return { B, F, X, h: 1.15 };
 }
@@ -119,13 +120,13 @@ function ghost() {   // a friendly bedsheet with a hiccup: soft lavender-white, 
   sheet.computeVertexNormals(); B.push(paint(sheet, SH));
   for (const sx of [-1, 1]) { B.push(paint(place(S(0.1, 8, 6), sx * 0.15, 0.94, 0.4, 0, 0, 0, 0.9, 1.25, 0.5), 0x3a5aa8)); B.push(paint(place(S(0.032, 6, 4), sx * 0.15 + 0.02, 0.99, 0.46), 0xd4d0c8)); }
   cheeks(B, 0.82, 0.44, 0.27);
-  F.push(ooh(0.74, 0.45, 0.045));
+  B.push(ooh(0.74, 0.45, 0.045));
   // silly: a yellow flowered bonnet with a ribbon bow + a grin
   X.push(paint(place(new SphereGeometry(0.4, 12, 5, 0, Math.PI * 2, 0, Math.PI * 0.55), 0, 1.02, -0.06, -0.5, 0, 0), 0xe8c84a));
   X.push(paint(place(new TorusGeometry(0.38, 0.05, 4, 14), 0, 1.07, 0.1, -0.5, 0, 0), 0xf0d870));
   flower(X, -0.2, 1.33, 0.17); flower(X, 0.2, 1.33, 0.17, 0x9a7ae0);
   for (const sx of [-1, 1]) X.push(paint(place(S(0.07, 6, 4), sx * 0.08, 0.66, 0.44, 0, 0, 0, 1.3, 0.7, 0.5), 0xe87ab0));
-  X.push(grin(0.76, 0.46, 0.08));
+  X.push(cover(0.74, 0.45, 0xccc8dc), grin(0.75, 0.5, 0.08));
   return { B, F, X, h: 1.3 };
 }
 function cupboard() {   // a little round-footed cupboard with bushy eyebrows
@@ -136,11 +137,11 @@ function cupboard() {   // a little round-footed cupboard with bushy eyebrows
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) B.push(paint(place(S(0.07, 8, 5), sx * 0.34, 0.07, sz * 0.18), 0x3a5a56));
   eyes(B, 0.92, 0.27, 0.17, 0.1);
   for (const sx of [-1, 1]) B.push(paint(place(new CapsuleGeometry(0.035, 0.18, 3, 6), sx * 0.18, 1.06, 0.3, 0, 0, Math.PI / 2 + sx * 0.25), 0x4a2a18));   // bushy brows
-  F.push(ooh(0.73, 0.27));
+  B.push(ooh(0.73, 0.27));
   // silly: big red clown shoes + a round red nose + a grin
   for (const sx of [-1, 1]) X.push(paint(place(S(0.16, 8, 5), sx * 0.3, 0.09, 0.2, 0, 0, 0, 1, 0.6, 1.7), 0xd83a3a));
   X.push(paint(place(S(0.07, 8, 5), 0, 0.82, 0.3), 0xe03030));
-  X.push(grin(0.72, 0.27, 0.09));
+  X.push(cover(0.73, 0.27, 0x5a9a96), grin(0.72, 0.31, 0.09));
   return { B, F, X, h: 1.2 };
 }
 function sock() {   // a huge red-and-cream striped sock standing on its foot
@@ -150,13 +151,13 @@ function sock() {   // a huge red-and-cream striped sock standing on its foot
   B.push(paint(place(S(0.3, 10, 6), 0, 0.26, 0.14, 0, 0, 0, 0.95, 0.75, 1.5), 0xc83a3a));                 // the foot
   B.push(paint(place(S(0.16, 8, 6), 0, 0.22, 0.52), 0xd8d0c0));                                          // the toe
   eyes(B, 1.0, 0.27, 0.12, 0.1);
-  F.push(ooh(0.8, 0.29));
+  B.push(ooh(0.8, 0.29));
   // silly: a party hat with a pom-pom + a big polka bow + a grin
   X.push(paint(place(new ConeGeometry(0.17, 0.42, 12), 0.05, 1.56, 0, 0, 0, -0.22), 0x3a8ad8));
   X.push(paint(place(S(0.06, 8, 5), 0.1, 1.78, 0), 0xe8c84a));
   for (const sx of [-1, 1]) X.push(paint(place(S(0.1, 8, 5), sx * 0.12, 0.62, 0.28, 0, 0, 0, 1.2, 0.75, 0.5), 0xe8c84a));
   X.push(paint(place(S(0.05, 6, 4), 0, 0.62, 0.32), 0xe87ab0));
-  X.push(grin(0.8, 0.29, 0.08));
+  X.push(cover(0.8, 0.29, 0xc83a3a), grin(0.8, 0.335, 0.08));
   return { B, F, X, h: 1.45 };
 }
 const MAKERS = { hat, pumpkin, ghost, cupboard, sock };
@@ -166,14 +167,14 @@ export const NAMES = { hat: 'כובע ענק ועצבני', pumpkin: 'דלעת �
 export function buildShape(kind) {
   const d = (MAKERS[kind] || hat)();
   const g = new Group(); g.name = 'b3-shape-' + kind;
-  const body = mesh(d.B, 'b3-shape-body'), face = mesh(d.F, 'b3-shape-face'), silly = mesh(d.X, 'b3-shape-silly');
-  silly.visible = false; g.add(body, face, silly);
-  return { g, body, face, silly, kind, h: d.h };
+  const body = mesh(d.B, 'b3-shape-body'), silly = mesh(d.X, 'b3-shape-silly');
+  silly.visible = false; g.add(body, silly);
+  return { g, body, silly, kind, h: d.h };
 }
 export function disposeShape(s) {
   if (!s) return;
   if (s.g.parent) s.g.parent.remove(s.g);
-  for (const m of [s.body, s.face, s.silly]) { try { m.geometry.dispose(); } catch { /* backend quirk */ } }
+  for (const m of [s.body, s.silly]) { try { m.geometry.dispose(); } catch { /* backend quirk */ } }
 }
 export function disposeWardrobe(W) {
   if (!W) return;

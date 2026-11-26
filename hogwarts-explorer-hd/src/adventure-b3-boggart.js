@@ -9,8 +9,10 @@
 // Steps: 1 go to the Defence corner -> 2 Tonks explains; tap the wardrobe to knock -> 3 shapes come out one at a time
 // (2 / 3 / 4 by level): Riddikulus (wheel target or 😂) turns each silly and it giggles back in -> 4 the last shape needs
 // two casts (it sneezes confetti first) -> 5 tap the wardrobe to say thanks; Tonks cheers. Reward: card + star.
-// Free play (after the quest is done): the wardrobe stays in the corner and answers Riddikulus with one random silly
-// shape; +5 house points once per session (memory only, like corridor-free.js).
+// Free play (from a fresh save on, Elik's ask 26 Nov): the wardrobe always stands in the corner of `classrooms`, hidden only
+// while another adventure, a lesson / course (body.inSpell, a modal) or Quidditch runs. A tap on it (a knock) or a
+// Riddikulus cast brings one random silly shape; Riddikulus (or the 😂 prompt nearby) dresses it and it giggles back in.
+// Endless; +5 house points once per session (memory only, like corridor-free.js).
 import { Vector3 } from 'three';
 import { BUILDERS } from './rooms.js';
 import { buildWardrobe, buildShape, disposeShape, disposeWardrobe, triCount, SPOT, WARD, STAGE, STAGE_D, TONKS, KINDS, NAMES } from './adventure-b3-boggart-build.js';
@@ -57,7 +59,7 @@ function drawBogCard(x, cx, cy) {
 // ---------------- the wardrobe in the classroom (shared by the quest and free play) ----------------
 const KEY = 'hpAdventures1';
 const QUEST = { on: false };
-const FREE = { done: false, paid: false, casts: 0, T: null, err: 0, last: null };
+const FREE = { done: false, paid: false, casts: 0, knocks: 0, T: null, err: 0, last: null, tap: false };
 function readDone() { try { const o = JSON.parse(localStorage.getItem(KEY)); return !!(o && o.done && o.done['b3-boggart']); } catch { return false; } }
 const sfx = (k, ...a) => { try { const s = window.HPFun && window.HPFun.sfx; if (s && s[k]) s[k](...a); } catch { /* no audio */ } };
 const tone = (f, d, w = 0, type = 'triangle', v = 0.1, to) => { try { window.HPFun.sfx.tone(f, d, type, v, w, to); } catch { /* no audio */ } };
@@ -79,14 +81,18 @@ function hookRoom(r) {
     try { roomTick(r, dt); } catch (e) { if (!FREE.err++) console.warn('[b3-boggart] tick failed -', e && e.message || e); }
   };
 }
+// free play gives way to anything else that uses the room (another quest, a lesson / course, Quidditch, a Floo trip)
+function freeBusy() {
+  const c = document.body.classList;
+  return c.contains('inSpell') || c.contains('inMatch') || c.contains('inFloo') || c.contains('inAdv') || c.contains('modalOn') || !!(window.__game && window.__game.takeover);
+}
 function roomTick(r, dt) {
-  const want = QUEST.on || FREE.done;
   let W = r.group.userData.bog;
-  if (want && !W) W = addWard(r);
-  else if (!want && W) { dropWard(r, W); W = null; }
-  if (!W) return;
+  if (!W) W = addWard(r);
+  const show = QUEST.on || !freeBusy();
+  if (W.g.visible !== show) { W.g.visible = show; if (!show && !QUEST.on) dropShape(W); }
   tickWard(W, dt);
-  if (!QUEST.on) freeTick(W);
+  if (!QUEST.on) freeTick(W, dt);
 }
 function addWard(r) {
   const W = buildWardrobe();
@@ -115,7 +121,7 @@ function showShape(W, kind, auto = false) {
 }
 function makeSilly(W) {
   if (!W.shape || W.ph !== 'wait') return false;
-  W.ph = 'silly'; W.t = 0; W.shape.silly.visible = true; W.shape.face.visible = false;
+  W.ph = 'silly'; W.t = 0; W.shape.silly.visible = true;
   sfx('giggle', true); setTimeout(() => sfx('giggle', false), 700); sfx('sparkle');
   stageW(_w, 0.8); fxBurst(_w.x, _w.y, _w.z, 0xff9ad8, 26, 2.4, 0.9, 0.26, -0.8); fxBurst(_w.x, _w.y + 0.4, _w.z, 0xffe27a, 14, 1.8, 0.8, 0.22, -0.6);
   return true;
@@ -168,27 +174,64 @@ function tickWard(W, dt) {
 
 // ---------------- free play: Riddikulus at the wardrobe -> one random silly shape (+5 once per session) ----------------
 function curW() { try { const r = window.__game.interiors.room; return window.__game.interiors.active === 'classrooms' && r && r.group ? r.group.userData.bog || null : null; } catch { return null; } }
-function freeTick(W) {
-  if (FREE.T) return;
-  let fi = null; try { fi = window.__game && window.__game.freecast && window.__game.freecast._internal; } catch { fi = null; }
-  if (!fi || !Array.isArray(fi.TARGETS)) return;
-  FREE.T = { id: 'b3-wardrobe', spells: ['riddikulus'], at: (o) => (curW() ? wardW(o, 1.0) : o.set(0, -9999, 0)),
-    ok: () => { const w = curW(); return !QUEST.on && FREE.done && !!w && w.ph === 'none'; }, cast: () => freeCast() };
-  fi.TARGETS.push(FREE.T);
-  void W;
-}
-function freeCast() {
-  const W = curW(); if (!W || W.ph !== 'none' || QUEST.on) return;
-  let k = KINDS[Math.floor(Math.random() * KINDS.length)]; if (k === FREE.last) k = KINDS[(KINDS.indexOf(k) + 1) % KINDS.length]; FREE.last = k;
-  FREE.casts++; showShape(W, k, true);
-  if (!FREE.paid) {
-    FREE.paid = true;
-    try { window.HPLessons.progress.bonus(5); } catch { /* lessons not loaded */ }
-    try { window.HPFun.toast('✨⭐', '+5 נקודות לבית!', 1600); } catch { /* ok */ }
+const freeOn = (W) => !!W && W.g.visible && !QUEST.on && !freeBusy();
+function freeTick(W, dt) {
+  installTap();
+  if (!FREE.T) {
+    let fi = null; try { fi = window.__game && window.__game.freecast && window.__game.freecast._internal; } catch { fi = null; }
+    if (fi && Array.isArray(fi.TARGETS)) {
+      FREE.T = { id: 'b3-wardrobe', spells: ['riddikulus'], at: (o) => { const w = curW(); return w && w.shape ? stageW(o, 0.7) : w ? wardW(o, 1.0) : o.set(0, -9999, 0); },
+        ok: () => { const w = curW(); return freeOn(w) && (w.ph === 'none' || w.ph === 'wait'); }, cast: () => freeCast() };
+      fi.TARGETS.push(FREE.T);
+    }
   }
+  if (!freeOn(W)) return;
+  if (W.ph === 'wait') {
+    // the 😂 prompt while Harry is near; a shape nobody dresses goes back in by itself after a while
+    let near = false; try { const p = window.__game.player.pos; near = Math.hypot(p.x - STAGE.x, p.z - STAGE.z) < 9; } catch { near = false; }
+    if (near) { try { window.HPFun.offer('free-riddikulus', '😂', 0.06, () => freeDress()); } catch { /* ok */ } }
+    if ((W.waitT || 0) > 30) { W.ph = 'in'; W.t = 0; }
+  }
+  void dt;
 }
+function pickKind() { let k = KINDS[Math.floor(Math.random() * KINDS.length)]; if (k === FREE.last) k = KINDS[(KINDS.indexOf(k) + 1) % KINDS.length]; FREE.last = k; return k; }
+function pay() {
+  if (FREE.paid) return; FREE.paid = true;
+  try { window.HPLessons.progress.bonus(5); } catch { /* lessons not loaded */ }
+  try { window.HPFun.toast('✨⭐', '+5 נקודות לבית!', 1600); } catch { /* ok */ }
+}
+function freeKnock() {
+  const W = curW(); if (!freeOn(W) || W.ph !== 'none') return false;
+  FREE.knocks++; W.knock = 1.2; for (let i = 0; i < 3; i++) tone(190, 0.07, i * 0.2, 'square', 0.08, 150);
+  showShape(W, pickKind(), false); return true;
+}
+function freeDress() { const W = curW(); if (!freeOn(W) || W.ph !== 'wait') return false; if (makeSilly(W)) { FREE.casts++; pay(); } return true; }
+function freeCast() {   // Riddikulus at the wardrobe: dresses the shape that is out, or brings one out already dressed
+  const W = curW(); if (!freeOn(W)) return;
+  if (W.ph === 'wait') { freeDress(); return; }
+  if (W.ph !== 'none') return;
+  FREE.casts++; showShape(W, pickKind(), true); pay();
+}
+// taps in free play: adventures.js routes taps only to a running quest, so the wardrobe listens itself (a short tap)
+function installTap() {
+  if (FREE.tap) return; const view = document.getElementById('view'); if (!view) return;
+  FREE.tap = true; let down = null;
+  view.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; }, { passive: true });
+  view.addEventListener('pointerup', (e) => {
+    const d0 = down; down = null;
+    try {
+      if (!d0 || d0.id !== e.pointerId || Math.hypot(e.clientX - d0.x, e.clientY - d0.y) > 18 || performance.now() - d0.t > 900) return;
+      const W = curW(); if (!freeOn(W) || W.ph !== 'none') return;
+      const c = window.__game.adventures && window.__game.adventures._ctx; if (!c) return;
+      const s = c.screen(wardW(_t, 1.1)); if (!s.on) return;
+      if (Math.hypot(s.x - e.clientX, s.y - e.clientY) < Math.max(46, Math.min(innerWidth, innerHeight) * 0.08) * 2.2) freeKnock();
+    } catch { /* never break the game's own taps */ }
+  }, { passive: true });
+}
+const _t = new Vector3();
 const FREE_API = {
-  state: () => { const W = curW(); return { done: FREE.done, paid: FREE.paid, casts: FREE.casts, target: !!FREE.T, quest: QUEST.on, ward: W ? { visible: W.g.visible && !!W.g.parent, ph: W.ph, kind: W.shape ? W.shape.kind : null, silly: !!(W.shape && W.shape.silly.visible) } : null }; },
+  knock: () => freeKnock(),
+  state: () => { const W = curW(); return { done: FREE.done, paid: FREE.paid, casts: FREE.casts, knocks: FREE.knocks, busy: freeBusy(), target: !!FREE.T, quest: QUEST.on, ward: W ? { visible: W.g.visible && !!W.g.parent, ph: W.ph, kind: W.shape ? W.shape.kind : null, silly: !!(W.shape && W.shape.silly.visible) } : null }; },
   wardW: () => (curW() ? wardW(new Vector3(), 1.1) : null),
   shapeW: () => { const W = curW(); return W && W.shape ? stageW(new Vector3(), 0.7) : null; },
 };
