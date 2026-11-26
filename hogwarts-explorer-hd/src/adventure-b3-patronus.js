@@ -61,7 +61,7 @@ const sfx = (k, ...a) => { try { const s = window.HPFun && window.HPFun.sfx; if 
 const _v = new Vector3(), _base = new Vector3();
 BUILDERS.b3lake = () => {
   const B = buildLake(); const g = B.g; g.position.y = FLOOR_Y; g.userData.lake = B;
-  B.L = roomLight(g, { amb: 1.0, ambC: 0xffe6c8, hemi: 1.15, sky: 0xd8d0ff, ground: 0xb89a70, fogC: 0xe0bca8, fogD: 0.0035, bg: 0xe8c0a0 });
+  B.L = roomLight(g, { amb: 1.0, ambC: 0xffe6c8, hemi: 1.15, sky: 0xd8d0ff, ground: 0xb89a70, fogC: 0xe8c4a0, fogD: 0.0022, bg: 0xe8c0a0 });
   const marker = g.children.find(o => o.name === 'b3-light'); if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { r0(); if (LK.B === B) { LK.B = null; LK.room = null; } }; }
   LK.B = B; LK.silver = 0; LK.wisps = [];
   B.tris = triCount(g);
@@ -83,7 +83,7 @@ function lakeTick(B, dt) {
     if (!w.alive) continue;
     w.age = (w.age || 0) + dt;
     if (w.melt > 0) { w.melt += dt / 1.3; if (Math.random() < dt * 30) fxEmit(B.g.position.x + w.x + (Math.random() - 0.5) * 1.2, B.g.position.y + w.y + Math.random() * 1.8, w.z + (Math.random() - 0.5) * 0.6, 0, 0.6, 0, 1.0, 0.26, Math.random() < 0.5 ? 0xffffff : 0xcfe8ff, -0.1); if (w.melt >= 1) { w.alive = false; LK.melted++; } continue; }
-    const X = xMax() + 1.5; w.x += Math.sin(T * 0.25 + w.ph) * 0.35 * dt; w.x = Math.max(-X, Math.min(X, w.x));
+    const X = xMax() + 0.6; w.x += Math.sin(T * 0.25 + w.ph) * 0.35 * dt; w.x = Math.max(-X, Math.min(X, w.x));
     const dx = w.x - pl.x, dz = w.z - pl.z, d = Math.hypot(dx, dz);
     if (d < 12.5 && d > 0.01) { const k = (12.5 - d) / d; w.x += dx * k * Math.min(1, dt * 2); w.z += dz * k * Math.min(1, dt * 2); }
   }
@@ -95,7 +95,7 @@ function lakeTick(B, dt) {
 const _m4 = new Matrix4();
 const _sc = new Vector3(1, 1, 1);
 // a narrow phone sees a narrow slice of the lake: the shadows spread less there (so every one stays on screen)
-const xMax = () => (innerWidth / Math.max(1, innerHeight) < 0.8 ? 3.2 : 10);
+const xMax = () => (innerWidth / Math.max(1, innerHeight) < 0.8 ? 3.0 : 6.5);
 function spawnWisp(i, n) {
   const span = n > 1 ? (i / (n - 1)) * 2 - 1 : 0, X = xMax();
   return { x: span * X + (Math.random() - 0.5) * (X / 5), y: LAKE.water + 1.6 + Math.random() * 0.9, z: -21 - Math.random() * 9, s: 1.25 + Math.random() * 0.35, ph: Math.random() * 6, alive: true, melt: 0, age: 0, i };

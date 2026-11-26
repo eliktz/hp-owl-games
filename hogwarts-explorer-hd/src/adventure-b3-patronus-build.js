@@ -43,7 +43,7 @@ export function buildLake() {
   const hills = quiet(new Mesh(merge(HP), new MeshStandardMaterial({ vertexColors: true, roughness: 1 }))); hills.name = 'lake-hills'; g.add(hills);
   // the water: a calm plane, deeper blue near, gold-rose far (vertex colours), never black
   const wg = new PlaneGeometry(220, 150, 1, 12).rotateX(-Math.PI / 2).translate(0, LAKE.water, -70), wp = wg.attributes.position, wa = new Float32Array(wp.count * 3);
-  const NEAR = new Color(0x4a6aa0), FAR = new Color(0xd8a890);
+  const NEAR = new Color(0x3a5c9a), FAR = new Color(0xe0a878);
   for (let i = 0; i < wp.count; i++) { const k = Math.max(0, Math.min(1, (-wp.getZ(i) - 4) / 120)); _c.copy(NEAR).lerp(FAR, Math.pow(k, 0.7)); wa[i * 3] = _c.r; wa[i * 3 + 1] = _c.g; wa[i * 3 + 2] = _c.b; }
   wg.setAttribute('color', new BufferAttribute(wa, 3));
   const waterMat = new MeshBasicMaterial({ vertexColors: true, color: 0xffffff });
