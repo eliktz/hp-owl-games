@@ -125,6 +125,9 @@ async function buildStreet(mode, src) {
     const blk = new Group(); blk.name = 'hm-cam-blockers';
     const bm = new MeshBasicMaterial();
     for (const c of side.colliders) { const b = new Mesh(new BoxGeometry(c.hw * 2, 9, c.hd * 2), bm); b.position.set(c.x, 4.5, c.z); b.visible = false; blk.add(b); }
+    // and two long walls just behind both rows of house fronts (from the walk box), so the lens never slips into a house
+    const L = (w.x1 - w.x0) + 12;
+    for (const [z, d] of [[w.z0 - 1.5, 3], [w.z1 + 1.5, 3]]) { const b = new Mesh(new BoxGeometry(L, 12, d), bm); b.position.set((w.x0 + w.x1) / 2, 6, z); b.visible = false; blk.add(b); }
     g.add(blk);
     // one Filch strolling the far pavement (he never reacts to spells; never two Filches)
     const F = buildFilch(); F.body.scale.setScalar(1.2); F.lantern.multiplyScalar(1.2); F.g.position.set(FILCH_FAR.x0, 0, FILCH_FAR.z); g.add(F.g); S.F = F; S.fx = -6; S.fdir = 1;
