@@ -185,7 +185,15 @@ export function buildSigns(side) {
     const m = quiet(new Mesh(new PlaneGeometry(s.w, s.h), new MeshBasicMaterial({ map: tex, side: two ? DoubleSide : undefined, transparent: !!two, alphaTest: two ? 0.5 : 0 })));
     m.name = 'hm-sign-' + key; m.position.set(s.x, s.y, s.z); m.rotation.y = s.ry || 0; g.add(m); out[key] = m;
   };
-  add('honeydukes_fascia', fascia, false); add('honeydukes_hanging', hang, true);
+  add('honeydukes_fascia', fascia, false);
+  // the hanging sign: one face on each side of the board (a plane in its middle would hide inside the board's thickness)
+  const hs = S.honeydukes_hanging;
+  if (hs) {
+    const hg = new Group(); hg.name = 'hm-sign-honeydukes_hanging'; hg.position.set(hs.x, hs.y, hs.z); hg.rotation.y = hs.ry || 0;
+    const mat = new MeshBasicMaterial({ map: hang, transparent: true, alphaTest: 0.5 });
+    for (const sd of [1, -1]) { const m = quiet(new Mesh(new PlaneGeometry(Math.min(hs.w, hs.h) * 0.92, Math.min(hs.w, hs.h) * 0.92), mat)); m.position.z = sd * 0.06; m.rotation.y = sd > 0 ? 0 : Math.PI; hg.add(m); }
+    g.add(hg); out.honeydukes_hanging = hg;
+  }
   return { g, out };
 }
 export { canvasTex, quiet };

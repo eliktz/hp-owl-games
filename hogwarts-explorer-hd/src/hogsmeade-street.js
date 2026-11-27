@@ -358,6 +358,7 @@ export const HM_API = {
   start: () => startStreet(),
   home: () => { goHome(); return true; },
   side: () => (ST.cur ? ST.cur.side : null),
+  bow: (on) => { const S = ST.cur; if (S && S.bow) S.bow.visible = !!on; return !!(S && S.bow); },   // (review: the bow display seen from inside)
 };
 window.__hmApi = HM_API;   // (main.js: window.__game.hogsmeade)
 try { if (/[?&]debug=1/.test(location.search)) window.__b3hogsmeade = HM_API; } catch { /* ok */ }
