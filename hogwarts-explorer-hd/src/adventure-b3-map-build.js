@@ -163,7 +163,7 @@ export function buildHoney() {
   lamps.name = 'honey-lamps'; g.add(lamps);
   // the shop sign over the counter (canvas)
   const st = canvasTex(512, 128, (x, w, h) => { x.fillStyle = '#7a2a4a'; x.beginPath(); x.roundRect(4, 4, w - 8, h - 8, 24); x.fill(); x.strokeStyle = '#e8c860'; x.lineWidth = 6; x.stroke();
-    x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 60px ' + FONT; x.fillStyle = '#ffe8a8'; x.fillText('🍬 הוניידוקס 🍭', w / 2, h / 2 + 4); });
+    x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 60px ' + FONT; x.fillStyle = '#ffe8a8'; x.fillText('🍬 הדובשנרייה 🍭', w / 2, h / 2 + 4); });
   const sign = quiet(new Mesh(new PlaneGeometry(2.6, 0.65).rotateY(-Math.PI / 2).translate(W / 2 - 0.02, 2.55, 0.6), new MeshBasicMaterial({ map: st, toneMapped: false, alphaTest: 0.5 })));
   sign.name = 'honey-sign'; g.add(sign);
   // glass, and the snowy street outside (one canvas card)

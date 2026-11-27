@@ -8,17 +8,17 @@ export const DESTS = [
   { id: 'bridge',    kind: 'spot',     ico: '🌉', label: 'הגשר' },
   { id: 'hut',       kind: 'spot',     ico: '🏡', label: 'הבקתה של האגריד' },
   { id: 'greathall', kind: 'interior', ico: '🕯️', label: 'האולם הגדול' },
-  { id: 'staircase', kind: 'interior', ico: '🪜', label: 'המדרגות הנעות' },
+  { id: 'staircase', kind: 'interior', ico: '🪜', label: 'המדרגות המשתנות' },
   { id: 'library',   kind: 'interior', ico: '📚', label: 'הספרייה' },
-  { id: 'commonroom',kind: 'interior', ico: '🔥', label: 'חדר הטרקלין' },
+  { id: 'commonroom',kind: 'interior', ico: '🔥', label: 'חדר המועדון' },
   { id: 'classrooms',kind: 'interior', ico: '🪄', label: 'הכיתות' },
   { id: 'dungeon',   kind: 'interior', ico: '⚗️', label: 'מרתף השיקויים' },
-  { id: 'tower',     kind: 'interior', ico: '🔭', label: 'מגדל הכוכבים' },
+  { id: 'tower',     kind: 'interior', ico: '🔭', label: 'מגדל האסטרונומיה' },
   { id: 'showers',   kind: 'interior', ico: '🚿', label: 'המקלחות' },
   { id: 'greenhouse',kind: 'spot',     ico: '🌿', label: 'החממה' },
   { id: 'paddock',   kind: 'spot',     ico: '🐉', label: 'יצורי הפלא' },
   { id: 'pitch',     kind: 'spot',     ico: '🧹', label: 'מגרש הקווידיץ׳' },
-  { id: 'b3bus',     kind: 'bus',      ico: '🚌', label: 'האוטובוס הלילי' },   // a free ride on the Knight Bus (adventure-b3-bus.js)
+  { id: 'b3bus',     kind: 'bus',      ico: '🚌', label: 'אוטונוס הלילה' },   // a free ride on the Knight Bus (adventure-b3-bus.js)
   { id: 'b3lake',    kind: 'lake',     ico: '🦌', label: 'האגם בערב' },        // book 3: chase grey shadows with the Patronus (adventure-b3-patronus.js)
 ];
 

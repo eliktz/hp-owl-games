@@ -476,8 +476,8 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   // ---------------- position picker ----------------
   const PICK = {
     chaser: { emoji: '🔴', he: 'רוֹדֵף' }, beater: { emoji: '🏏', he: 'חוֹבֵט' },
-    keeper: { emoji: '🧤', he: 'שׁוֹעֵר' }, seeker: { emoji: '✨', he: 'מְחַפֵּשׂ' },
-    snitch: { emoji: '🌟', he: 'סְנִיץ׳', say: 'הַסְּנִיץ׳ הַזָּהוֹב' }, bludger: { emoji: '⚫', he: 'מְרַבִּיצָן', say: 'מְרַבִּיצָן, הַכַּדּוּר הַשָּׁחֹר' },
+    keeper: { emoji: '🧤', he: 'שׁוֹמֵר' }, seeker: { emoji: '✨', he: 'מְחַפֵּשׂ' },
+    snitch: { emoji: '🌟', he: 'סְנִיץ׳', say: 'הַסְּנִיץ׳ הַמֻּזְהָב' }, bludger: { emoji: '⚫', he: 'מְרַבִּיצָן', say: 'מְרַבִּיצָן, הַכַּדּוּר הַשָּׁחֹר' },
   };
   let pickSel = null;
   const pickOpen = () => pickOv.classList.contains('on');
@@ -564,7 +564,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
   function releaseSnitch() {
     if (S.snitchOn || S.over) return; S.snitchOn = true; snitch.visible = true;
     snitch.position.set(C.x + (Math.random() - 0.5) * 20, gy + 12, C.z + (Math.random() - 0.5) * 16); S.snTarget.copy(snitch.position);
-    elSn.classList.add('on'); fun.toast('✨', 'הַסְּנִיץ׳ הַזָּהוֹב!', 1600); fun.sfx.tune([1568, 2093, 2637, 3136], 0.09, 'sine');
+    elSn.classList.add('on'); fun.toast('✨', 'הַסְּנִיץ׳ הַמֻּזְהָב!', 1600); fun.sfx.tune([1568, 2093, 2637, 3136], 0.09, 'sine');
   }
   // The end of every match: trophy screen, stars, bonus, save. `stars` per position are kept (best).
   function endScreen(win, stars, levelUp) {
@@ -680,7 +680,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
         const s = S.shot; s.t += dt; const k = Math.min(1, s.t / s.dur);
         quaffle.position.lerpVectors(s.from, s.to, k); quaffle.position.y += Math.sin(k * Math.PI) * 1.6;
         if (k >= 1) {
-          if (s.by === 'me') { if (Math.abs(keepA.position.z - s.to.z) < 2.4) { S.shot = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); fun.sfx.boing(); fun.toast('🧤', '', 800); S.saves++; setHint('הַשּׁוֹעֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; } else goal(true); }
+          if (s.by === 'me') { if (Math.abs(keepA.position.z - s.to.z) < 2.4) { S.shot = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); fun.sfx.boing(); fun.toast('🧤', '', 800); S.saves++; setHint('הַשּׁוֹמֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; } else goal(true); }
           else if (Math.random() < S.save) { S.shot = null; quaffle.position.set(HOME_X + 7, gy + 8, C.z); fun.sfx.boing(); S.kick = 0.5; } else goal(false);
         }
       } else if (S.holder === 'me') {
@@ -823,7 +823,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
     dots.instanceMatrix.needsUpdate = true;
   }
   ROLES.keeper = {
-    id: 'keeper', he: 'שׁוֹעֵר', emoji: '🧤', hint0: '🧤 עִצְרוּ אֶת הַכַּדּוּר!', cast: [rival, mate, keepA],
+    id: 'keeper', he: 'שׁוֹמֵר', emoji: '🧤', hint0: '🧤 עִצְרוּ אֶת הַכַּדּוּר!', cast: [rival, mate, keepA],
     action: null, fly: false,
     setup() {
       P.set(KEEPER.x, gy + 11.5, C.z); yaw = Math.PI / 2;
@@ -953,7 +953,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
             if (S.stun <= 0) { S.holder = 'me'; S.catches++; fun.sfx.pop(); fun.toast('🙌', '', 700); }
             else { S.kick = 0.8; quaffle.position.set(P.x + 2, P.y + 1, P.z + 2); clampArena(quaffle.position); }
           } else if (s.by === 'me') {
-            if (Math.abs(keepA.position.z - s.to.z) < 2.4) { S.shot = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); fun.sfx.boing(); fun.toast('🧤', '', 800); S.saves++; setHint('הַשּׁוֹעֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; }
+            if (Math.abs(keepA.position.z - s.to.z) < 2.4) { S.shot = null; quaffle.position.set(GOAL_X - 6, gy + 8, C.z + (Math.random() - 0.5) * 10); fun.sfx.boing(); fun.toast('🧤', '', 800); S.saves++; setHint('הַשּׁוֹמֵר עָצַר! כַּוְּנוּ לְטַבַּעַת רֵיקָה'); S.kick = 0.6; }
             else { S.myGoals++; goal(true); }
           } else if (Math.random() < S.save) { S.shot = null; quaffle.position.set(HOME_X + 7, gy + 8, C.z); fun.sfx.boing(); S.kick = 0.5; }
           else goal(false);
@@ -1095,7 +1095,7 @@ export function createQuidditch({ scene, camera, player, heightAt, interiors, re
       poseBat(S.swing);
       const near = bludgers.some(b => b.state !== 'fly' && bludgerReach(b) < BEATER.reach);
       throwB.classList.toggle('ready', near && !S.over);
-      if (!S.over) setHint(near ? '🏏 עַכְשָׁו! חִבְטוּ!' : db ? (db.victim === mate ? '❗ הַכַּדּוּר הַשָּׁחֹר טָס לָרוֹדֵף!' : '❗ הַכַּדּוּר הַשָּׁחֹר טָס לַשּׁוֹעֵר!') : '🏏 שִׁמְרוּ עַל הַקְּבוּצָה!');
+      if (!S.over) setHint(near ? '🏏 עַכְשָׁו! חִבְטוּ!' : db ? (db.victim === mate ? '❗ הַכַּדּוּר הַשָּׁחֹר טָס לָרוֹדֵף!' : '❗ הַכַּדּוּר הַשָּׁחֹר טָס לַשּׁוֹמֵר!') : '🏏 שִׁמְרוּ עַל הַקְּבוּצָה!');
     },
   };
 

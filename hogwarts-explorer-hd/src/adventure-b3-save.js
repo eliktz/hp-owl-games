@@ -1,4 +1,4 @@
-// Book 3, adventure 6 (the finale): "מצילים את אבזם וסיריוס", helper Hermione. Data for adventures.js + the scene code.
+// Book 3, adventure 6 (the finale): "מצילים את בקביק וסיריוס", helper Hermione. Data for adventures.js + the scene code.
 // Decisions: briefs/2026-11-26-book3-piece-c.md. Kid-safe: NO executioner, axe, block, chains, cell or fear anywhere: the
 // urgency is only in bubbles ("הם בדרך"), and a child who waits gets Hermione's Time-Turner (a sepia rewind: the step simply
 // continues), never a fail. Spells act on the KNOT only (never on Buckbeak, the dog, Sirius, Hagrid: a kind bubble).
@@ -27,20 +27,20 @@ const HERM = { ico: '👧', name: 'הרמיוני' };
 const HERM_WHO = '👧 הרמיוני', HAG = '🧔 האגריד', SIR = '🖤 סיריוס';
 const LATE = 60, FLY_TIMEOUT = 120, T_MOUNT = 1.2, T_OPEN = 1.5;
 export const B3SAVE = {
-  id: 'b3-save', book: 3, title: 'מצילים את אבזם וסיריוס', ico: '🦅', col: '#2a3a2a', col2: '#9ac8a0', helper: HERM, bonus: 25, confetti: ['✨', '⭐', '🦅', '🐾', '💛'],
+  id: 'b3-save', book: 3, title: 'מצילים את בקביק וסיריוס', ico: '🦅', col: '#2a3a2a', col2: '#9ac8a0', helper: HERM, bonus: 25, confetti: ['✨', '⭐', '🦅', '🐾', '💛'],
   pic: [['🦅', 0.36, 0.56, 58], ['🐕', 0.72, 0.62, 44], ['⭐', 0.8, 0.26, 26]],
   intro: [
-    'האגריד מודאג מאוד... רוצים לקחת את אבזם הלילה 😟',
-    'אבל להרמיוני יש תוכנית, ויש לה גם מחזיר זמן ⏳',
-    'נשחרר את אבזם, נטוס אל מגדל הכוכבים, ושם מחכה לנו חבר מיוחד מאוד 🐾✨',
+    'האגריד מודאג מאוד... רוצים לקחת את בקביק הלילה 😟',
+    'אבל להרמיוני יש תוכנית, ויש לה גם מחולל זמן ⏳',
+    'נשחרר את בקביק, נטוס אל מגדל האסטרונומיה, ושם מחכה לנו חבר מיוחד מאוד 🐾✨',
   ],
   steps: [
     { line: 'לך אל המכלאה של האגריד 🐾', hints: ['האגריד מחכה ליד המכלאה, ליד הבקתה 🏡', 'לך אחרי החץ הזהוב', 'אפשר גם לטוס ברשת הפלו אל הבקתה 🔥'], glowL1: true },
-    { line: 'שחרר את אבזם: גע בקשר או הטל לחש על הקשר 🪢', hints: ['החבל של אבזם קשור לעמוד. גע בקשר 🪢', 'אפשר גם אלוהומורה או דיפינדו על הקשר', 'הקשר על העמוד זוהר. גע בו, או לחץ ✂️'], spell: 'alohomora', glowL1: true },
-    { line: 'קוד לאבזם ועלה על הגב שלו 🙇🪽', hints: ['קודם קידה: לחץ 🙇', 'אחרי שאבזם קד בחזרה, לחץ 🪽', 'הכפתור הזוהר מחכה לך 🪽'], glowL1: true },
-    { line: 'טסים אל מגדל הכוכבים 🌙', hints: ['תחזיק חזק! אבזם יודע את הדרך 🌙', 'המגדל כבר קרוב', 'עוד רגע מגיעים ✨'] },
+    { line: 'שחרר את בקביק: גע בקשר או הטל לחש על הקשר 🪢', hints: ['החבל של בקביק קשור לעמוד. גע בקשר 🪢', 'אפשר גם אלוהומורה או דיפינדו על הקשר', 'הקשר על העמוד זוהר. גע בו, או לחץ ✂️'], spell: 'alohomora', glowL1: true },
+    { line: 'קוד לבקביק ועלה על הגב שלו 🙇🪽', hints: ['קודם קידה: לחץ 🙇', 'אחרי שבקביק קד בחזרה, לחץ 🪽', 'הכפתור הזוהר מחכה לך 🪽'], glowL1: true },
+    { line: 'טסים אל מגדל האסטרונומיה 🌙', hints: ['תחזיק חזק! בקביק יודע את הדרך 🌙', 'המגדל כבר קרוב', 'עוד רגע מגיעים ✨'] },
     { line: 'גע בכלב השחור הגדול 🐾', hints: ['כלב שחור וגדול מחכה ליד הטלסקופ 🐾', 'גע בו! הוא ידידותי מאוד', 'גע בכלב עוד פעם... משהו קסום יקרה ✨'], glowL1: true },
-    { line: 'עזור להם לעוף אל החופש: לחץ 🪽', hints: ['סיריוס ואבזם מוכנים לעוף 🪽', 'לחץ על הכפתור 🪽', 'נופפים לשלום! 👋'] },
+    { line: 'עזור להם לעוף אל החופש: לחץ 🪽', hints: ['סיריוס ובקביק מוכנים לעוף 🪽', 'לחץ על הכפתור 🪽', 'נופפים לשלום! 👋'] },
   ],
   create: (ctx) => { buckbeakHandOver(); dogHandOver(); return saveScene(ctx); },
   art: drawCard,
@@ -176,7 +176,7 @@ function saveScene(ctx) {
     S.untied = true; S.untieT = 0.001; S.untieHow = how; ctx.poke(); sfx('pop'); setTimeout(() => sfx('sparkle'), 150);
     knotW(v1); ctx.burst(v1.x, v1.y, v1.z, 0xffd76a, 24, 2.2, 0.9, 0.24, -0.8);
     if (S.bb) breplay('Nuzzle', 0.25);
-    ctx.say('החבל נפתח! אבזם חופשי 🦅💛', HAG, 3.2);
+    ctx.say('החבל נפתח! בקביק חופשי 🦅💛', HAG, 3.2);
     setTimeout(() => done(1), 1700);
   }
 
@@ -261,7 +261,7 @@ function saveScene(ctx) {
   function faceBB() { if (!S.bb) return; player.yaw = Math.atan2(S.bb.position.x - player.pos.x, S.bb.position.z - player.pos.z); }
   function press() {
     ctx.poke();
-    if (S.act === 'bow') { if (ctx.step !== 2 || S.bowT > 0 || S.bowed) return; S.bowT = 0.001; faceBB(); sfx('soft'); ctx.say('קידה יפה... מחכים שאבזם יקוד בחזרה 🙇', HAG, 2.6); }
+    if (S.act === 'bow') { if (ctx.step !== 2 || S.bowT > 0 || S.bowed) return; S.bowT = 0.001; faceBB(); sfx('soft'); ctx.say('קידה יפה... מחכים שבקביק יקוד בחזרה 🙇', HAG, 2.6); }
     else if (S.act === 'fly') { if (ctx.step === 2) { done(2); } else if (ctx.step === 3) startFlight(); }
     else if (S.act === 'free') farewell();
   }
@@ -283,7 +283,7 @@ function saveScene(ctx) {
     S.from.copy(player.pos); lowTier(true);
     player.ride(true); player._moving = false;
     S.tk = tk; ctx.setTakeover(tk); document.body.classList.add('b3sFly');
-    sfx('pop'); ctx.say('תחזיק חזק! טסים אל מגדל הכוכבים! 🌙', HERM_WHO, 3);
+    sfx('pop'); ctx.say('תחזיק חזק! טסים אל מגדל האסטרונומיה! 🌙', HERM_WHO, 3);
     return true;
   }
   function release(put) {
@@ -301,7 +301,7 @@ function saveScene(ctx) {
     S.aborts++; S.lastAbort = why;
     if (interiors.active) { try { interiors.exit(); } catch { /* ok */ } }
     release(true); S.ph = 'ground'; placeBB(); bplay('Idle', 0.3);
-    if (!S.ended) ctx.say('אבזם נחת לנוח רגע ליד המכלאה. אפשר לטוס שוב! 🪽', HAG, 4);
+    if (!S.ended) ctx.say('בקביק נחת לנוח רגע ליד המכלאה. אפשר לטוס שוב! 🪽', HAG, 4);
   }
   function sim(dt) {
     if (!S.tk) return;
@@ -385,7 +385,7 @@ function saveScene(ctx) {
     const gp = g.position;
     if (t0 < 1.8 && S.fare >= 1.8) { swirl(gp.x + T_SIRIUS.x, gp.y, gp.z + T_SIRIUS.z, 'back'); S.siriusOn = 2; S.sirFade = 0; }
     if (t0 < 2.8 && S.fare >= 2.8) { S.onRider = true; dplay('Sit_Wag', 0.3); sfx('boing'); breplay('WingsOpen', 0.3); }
-    if (t0 < 4.2 && S.fare >= 4.2) { bplay('Fly', 0.4); try { player.play('Wave'); } catch { /* ok */ } ctx.say('הם חופשיים! להתראות, סיריוס! להתראות, אבזם! 👋💛', HERM_WHO, 5); sfx('fanfare'); }
+    if (t0 < 4.2 && S.fare >= 4.2) { bplay('Fly', 0.4); try { player.play('Wave'); } catch { /* ok */ } ctx.say('הם חופשיים! להתראות, סיריוס! להתראות, בקביק! 👋💛', HERM_WHO, 5); sfx('fanfare'); }
     // Buckbeak rises out of the open tower toward the stars, the dog sitting on his back
     if (S.fare > 4.2) { const k = Math.min(1, (S.fare - 4.2) / 6); S.bb.position.set(T_BB.x + k * 4, ease(k) * 16 + Math.sin(S.t * 5) * 0.08, T_BB.z - k * 10); S.bb.rotation.set(-0.15, T_BB.yaw - 0.6 * k, 0, 'YXZ'); S.yaw = T_BB.yaw - 0.6 * k;
       if (Math.random() < dt * 20) { S.bb.getWorldPosition(v1); ctx.emit(v1.x, v1.y + 1, v1.z, 0, -0.3, 0, 1.2, 0.26, 0xfff4c8, 0); } }
@@ -415,14 +415,14 @@ function saveScene(ctx) {
     dogTick(dt, step);
     // a spell near Buckbeak / the dog / Sirius: a kind word (only the knot takes a spell)
     const n = casts();
-    if (n !== S.casts0) { S.casts0 = n; if (S.castHit) S.castHit = false; else if ((outdoors() && S.bb && Math.hypot(player.pos.x - BB.x, player.pos.z - BB.z) < 18) || inTower()) { S.spellSays++; ctx.say(inTower() ? 'לא מטילים לחשים על חברים 🙂 מלטפים את הכלב!' : 'לא מטילים לחשים על אבזם 🙂 רק על הקשר!', HERM_WHO, 3); } }
+    if (n !== S.casts0) { S.casts0 = n; if (S.castHit) S.castHit = false; else if ((outdoors() && S.bb && Math.hypot(player.pos.x - BB.x, player.pos.z - BB.z) < 18) || inTower()) { S.spellSays++; ctx.say(inTower() ? 'לא מטילים לחשים על חברים 🙂 מלטפים את הכלב!' : 'לא מטילים לחשים על בקביק 🙂 רק על הקשר!', HERM_WHO, 3); } }
     if (busy || S.tk || S.fareOn) { if (S.tk || S.fareOn) showAct(null); return; }
     const p = player.pos, dBB = outdoors() ? Math.hypot(p.x - BB.x, p.z - BB.z) : 1e9;
     // 1: Hagrid's worried bubble, then Hermione's plan (urgency only in words: "הם בדרך")
     if (step === 0) {
       showAct(null);
       if (outdoors() && dBB < 16) { S.arrive += dt;
-        if (S.arrive > 0.8 && !S.said.hag) { S.said.hag = 1; ctx.say('הם רוצים לקחת את אבזם הלילה... 😟 הם בדרך.', HAG, 4.2); sfx('soft'); }
+        if (S.arrive > 0.8 && !S.said.hag) { S.said.hag = 1; ctx.say('הם רוצים לקחת את בקביק הלילה... 😟 הם בדרך.', HAG, 4.2); sfx('soft'); }
         if (S.arrive > 4.6 && !S.said.plan) { S.said.plan = 1; ctx.say('אל דאגה, האגריד! יש לי תוכנית! ⏳', HERM_WHO, 3.4); }
         if (S.arrive > 7.2) done(0); }
       return;
@@ -468,7 +468,7 @@ function saveScene(ctx) {
     if (step === 2 && !resumed) ctx.say('עכשיו קידה קטנה, ואז עולים 🙇🪽', HAG, 3.5);
     if (step === 3 && !resumed && !S.tk) { setTimeout(() => { if (S.active && ctx.step === 3 && !S.tk) startFlight(); }, 400); }
     if (step === 4 && !resumed) ctx.say('שששש... תראה מי מחכה ליד הטלסקופ 🐾', HERM_WHO, 4);
-    if (step === 5) { S.siriusOn = 1; S.sirFade = 1; S.dogMode = 'by'; if (!resumed) ctx.say('הגיע הזמן שסיריוס ואבזם יעופו אל החופש 🪽', HERM_WHO, 4); }
+    if (step === 5) { S.siriusOn = 1; S.sirFade = 1; S.dogMode = 'by'; if (!resumed) ctx.say('הגיע הזמן שסיריוס ובקביק יעופו אל החופש 🪽', HERM_WHO, 4); }
     if (!resumed) return;
     if (step === 5) S.dogTaps = 2;
     // a resume (reload / the book): the step starts over at its place

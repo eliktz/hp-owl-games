@@ -15,21 +15,21 @@ import { buildHallDoor, HALL_DOOR, SPAWN, STALL_Z } from './adventure-troll-buil
 import { buildMyrtle, buildCauldronSet, buildJars, buildRecipe, buildSnakeDoor, triCount, MYRTLE, CAULDRON, BENCH, SLOT_X, FIND, ING, SDOOR, FONT } from './adventure-b2-polyjuice-build.js';
 
 const RON = { ico: '👦', name: 'רון' };
-const MYR = '👻 מיילי';
+const MYR = '👻 מירטל';
 export const B2POLY = {
   id: 'b2-polyjuice', book: 2, title: 'שיקוי פולימיצי', ico: '🧪', col: '#2a4a3a', col2: '#7ab09a', helper: RON, confetti: ['✨', '⭐', '🧪', '👻'],
   pic: [['🧪', 0.5, 0.55, 66], ['👻', 0.8, 0.3, 32], ['🐍', 0.2, 0.3, 28]],
   intro: [
     'הרמיוני מצאה בספר מתכון לשיקוי פולימיצי! 🧪',
     'מי ששותה אותו נראה כמו מישהו אחר... לשעה אחת בלבד.',
-    'נבשל אותו בשירותי הבנות, איפה שאף אחד לא בא. חוץ ממיילי! אני רון, ואני אעזור לך ✨',
+    'נבשל אותו בשירותי הבנות, איפה שאף אחד לא בא. חוץ ממירטל! אני רון, ואני אעזור לך ✨',
   ],
   steps: [
-    { line: 'לך לשירותי הבנות ופגוש את מיילי 👻', hints: ['השירותים ליד אולם הכניסה, דרך הדלת החדשה 🚪', 'מיילי מרחפת ליד הכיורים. גע בה!', 'לך אחרי החץ הזהוב 👻'] },
+    { line: 'לך לשירותי הבנות ופגוש את מירטל 👻', hints: ['השירותים ליד אולם הכניסה, דרך הדלת החדשה 🚪', 'מירטל מרחפת ליד הכיורים. גע בה!', 'לך אחרי החץ הזהוב 👻'] },
     { line: 'מצא שלושה מרכיבים בחדר 🌿', hints: ['שלוש צנצנות צבעוניות מחכות בחדר 🫙', 'חפש ליד הכיורים, ליד החלון וליד הדלת', 'הצנצנות זוהרות עכשיו. גע בהן!'] },
     { line: 'בשל את השיקוי לפי המתכון 🧪', hints: ['הסתכל במתכון: איזה צבע ראשון? 🧪', 'גע בצנצנת בצבע של העיגול הראשון (מימין)', 'אחרי כל הצנצנות: גע בכף שלוש פעמים כדי לערבב 🥄'] },
     { line: 'שתה את השיקוי! 🥤', hints: ['השיקוי מוכן! גע בקלחת 🥤', 'גע בקלחת כדי לשתות', 'אל תדאג, זה רק לשעה! גע בקלחת 😄'], glowL1: true },
-    { line: 'לך למרתף ואמור את הסיסמה 🐍', hints: ['הדלת עם הנחש נמצאת במרתף השיקויים 🐍', 'מה מיילי לחשה לך? משהו על נחש... 🤫', 'אפשר לטוס במפה אל מרתף השיקויים 🗺️'] },
+    { line: 'לך למרתף ואמור את הסיסמה 🐍', hints: ['הדלת עם הנחש נמצאת במרתף השיקויים 🐍', 'מה מירטל לחשה לך? משהו על נחש... 🤫', 'אפשר לטוס במפה אל מרתף השיקויים 🗺️'] },
   ],
   create: (ctx) => polyScene(ctx),
   art: drawPolyCard,
@@ -165,14 +165,14 @@ function polyScene(ctx) {
   for (const ev of ['pointerdown', 'touchstart', 'mousedown']) pw.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
 
   // ---------------- step actions ----------------
-  const GIG = ['היי-היי-היי! 😄 אף אחד לא בא לבקר אותי אף פעם!', 'הי-הי! אני מיילי. אתם מבשלים פה משהו? 🤭', 'היי-היי! הכיור הזה הוא הכיור שלי 😄'];
+  const GIG = ['היי-היי-היי! 😄 אף אחד לא בא לבקר אותי אף פעם!', 'הי-הי! אני מירטל. אתם מבשלים פה משהו? 🤭', 'היי-היי! הכיור הזה הוא הכיור שלי 😄'];
   function meet() {
     if (!S.B) return;
     S.giggles++; sfx('giggle', true); ctx.poke();
     RW(MYRTLE.x, MYRTLE.y + 1.3, MYRTLE.z, v1); burst(v1.x, v1.y, v1.z, 0xbfe0ff, 12, 1.2, 0.8, 0.18, -0.2);
     if (ctx.step === 0 && !S.met) {
       S.met = 0.001;
-      ctx.say('היי-היי! 😄 אני מיילי. אתם רוצים להיכנס למרתף של סלית\'רין? הסיסמה היא: "' + PASS + '". ששש! 🤫', MYR, 6);
+      ctx.say('היי-היי! 😄 אני מירטל המייללת. אתם רוצים להיכנס למרתף של סלית\'רין? הסיסמה היא: "' + PASS + '". ששש! 🤫', MYR, 6);
       return;
     }
     ctx.say(GIG[S.giggles % GIG.length], MYR, 3);
@@ -217,7 +217,7 @@ function polyScene(ctx) {
   function say(w) {
     if (S.pw || ctx.step !== 4 || !inDungeon()) return;
     ctx.poke();
-    if (w !== PASS) { S.wrong++; sfx('soft'); ctx.oops('הנחש מנמנם... זאת לא הסיסמה 🙂 מה מיילי לחשה? משהו על נחש 🐍'); return; }
+    if (w !== PASS) { S.wrong++; sfx('soft'); ctx.oops('הנחש מנמנם... זאת לא הסיסמה 🙂 מה מירטל לחשה? משהו על נחש 🐍'); return; }
     S.pw = 0.001; pw.classList.remove('on'); sfx('chime'); tone(392, 0.4, 0, 'sine', 0.06, 523);
     ctx.say('"' + PASS + '"... הדלת נפתחת! 🐍✨', '🐍 הדלת', 3);
   }
@@ -241,7 +241,7 @@ function polyScene(ctx) {
     const n = casts();
     if (n !== S.casts0) {
       S.casts0 = n;
-      if (inBath() && S.B) { const g = S.B.g.position; if (Math.hypot(player.pos.x - g.x - MYRTLE.x, player.pos.z - g.z - MYRTLE.z) < 6 || step === 0) ctx.say('לא מטילים לחשים על מיילי 🙂 היא רק רוצה שיצחקו איתה! גע בה', null, 3.5); else ctx.say('שיקוי מבשלים ביד, בלי שרביט 🙂', null, 3); }
+      if (inBath() && S.B) { const g = S.B.g.position; if (Math.hypot(player.pos.x - g.x - MYRTLE.x, player.pos.z - g.z - MYRTLE.z) < 6 || step === 0) ctx.say('לא מטילים לחשים על מירטל 🙂 היא רק רוצה שיצחקו איתה! גע בה', null, 3.5); else ctx.say('שיקוי מבשלים ביד, בלי שרביט 🙂', null, 3); }
       else if (inDungeon() && step === 4 && !S.pw) ctx.say('הדלת לא נפתחת בלחש 🙂 היא רוצה את הסיסמה 🐍', null, 3);
     }
     // the password cards: by the door in the dungeon

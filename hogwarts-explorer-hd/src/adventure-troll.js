@@ -26,7 +26,7 @@ export const TROLL = {
     { line: 'לך אל האולם הגדול לסעודה 🎃', hints: ['האולם הגדול נמצא ליד אולם הכניסה 🎃', 'לך אחרי החץ הזהוב אל הדלת הגדולה', 'אפשר גם לטוס ברשת הפלו אל האולם הגדול 🔥'], glowL1: true },
     { line: 'עקוב אחרי העקבות הגדולות 👣', hints: ['ראית את עקבות הבוץ הגדולות? 👣', 'העקבות מובילות אל דלת חדשה באולם הכניסה', 'לך אל הדלת "שירותי הבנות" 🚪'], glowL1: true },
     { line: 'עשה רעש כדי שהטרול יסתובב 🚰', hints: ['גע בברזים של הכיורים כדי לעשות רעש 🚰', 'הכיורים ליד המראה הגדולה. גע בהם!', 'עוד כיור ועוד כיור... הטרול יסתובב!'], glowL1: true },
-    { line: 'הטל וינגרדיום לביוסה על האלה 🪶', hints: ['האלה של הטרול על הרצפה. בוא נרים אותה! 🪶', 'בחר וינגרדיום לביוסה בגלגל ונופף בשרביט', 'הלחש הזוהר בגלגל: וינגרדיום לביוסה 🪶'], spell: 'leviosa' },
+    { line: 'הטל וינגארדיום לביוסה על האלה 🪶', hints: ['האלה של הטרול על הרצפה. בוא נרים אותה! 🪶', 'בחר וינגארדיום לביוסה בגלגל ונופף בשרביט', 'הלחש הזוהר בגלגל: וינגארדיום לביוסה 🪶'], spell: 'leviosa' },
     { line: 'פתח את הדלת להרמיוני 🚪', hints: ['הרמיוני מסתתרת באחד התאים 🚪', 'הקשב: מאיזה תא מגיע הקול?', 'גע בדלת של התא, או הטל אלוהומורה 🔓'], spell: 'alohomora' },
   ],
   create: (ctx) => trollScene(ctx),
@@ -126,7 +126,7 @@ function trollScene(ctx) {
   function squirt(i) { squirts.push({ i, t: 2.2 }); }
   function liftClub() {
     if (S.club) return; S.club = 0.001; sfx('sparkle'); tone(660, 0.4, 0, 'sine', 0.1, 1320);
-    ctx.say('וינגרדיום לביוסה! האלה עפה למעלה! 🪶', null, 3);
+    ctx.say('וינגארדיום לביוסה! האלה עפה למעלה! 🪶', null, 3);
   }
   function openStall(i) {
     if (S.out || S.opened[i] && i === S.herm) return;
@@ -187,7 +187,7 @@ function trollScene(ctx) {
     const n = casts();
     if (n !== S.casts0) {
       S.casts0 = n; const k = freecast && freecast.selected ? freecast.selected() : null, hit = S.castHit; S.castHit = false;
-      if (inRoom() && step === 3 && !S.club && !hit) { if (k === 'leviosa') liftClub(); else ctx.oops('האלה כבדה מדי לזה... נסה וינגרדיום לביוסה 🪶'); }
+      if (inRoom() && step === 3 && !S.club && !hit) { if (k === 'leviosa') liftClub(); else ctx.oops('האלה כבדה מדי לזה... נסה וינגארדיום לביוסה 🪶'); }
       else if (inRoom() && step === 4 && !S.out && !hit) ctx.say('גע בדלת של התא, או הטל אלוהומורה 🔓', null, 3);
       else if (inRoom() && step === 2 && !hit) ctx.say('קודם רעש! גע בברזים של הכיורים 🚰', null, 3);
     }

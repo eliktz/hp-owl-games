@@ -1,13 +1,13 @@
-// Book 3, adventure 3: "מפת הטרדנים" (the Marauder's Map), helper Ron. Data for adventures.js + the scene code.
+// Book 3, adventure 3: "מפת הקונדסאים" (the Marauder's Map), helper Ron. Data for adventures.js + the scene code.
 // Decisions: briefs/2026-11-26-book3-piece-b.md. The parchment itself is marauder-map.js (a DOM overlay, shared with free play).
 // Steps: 1 the common room: a folded parchment glows on a little side table: tap it -> 2 say the words: big tiles spell
-// "אני נשבע" (level 1: the next tile glows; levels 2-3: shuffled, plus "בחגיגיות"); the oath is read aloud and the castle
+// "הנני נשבע" (level 1: the next tile glows; levels 2-3: shuffled, plus "חגיגית"); the oath is read aloud and the castle
 // plan draws itself -> 3 the map: little labelled footprints (Harry, Ron, Hermione, the roaming teachers at their places,
 // Hagrid, Buckbeak) and a pulsing secret passage: tap it; the map closes and the arrow leads to the staircase hall, where a
 // round one-eyed witch statue slides aside on a tap -> 4 Honeydukes ('b3honey', a small bright sweet shop): collect 5 / 7 / 9
 // glowing sweets; Filch shuffles past the window on a slow loop: when his lantern light falls in, "פססס, מתחבאים!" and Harry
 // ducks behind the barrel by himself for 2 s (taps wait; never a fail; Filch never chases, never catches, no spell ever acts
-// on him: a cast in the shop gets a kind bubble) -> 5 back through the trapdoor; the map opens: tap "השובבות הסתיימה".
+// on him: a cast in the shop gets a kind bubble) -> 5 back through the trapdoor; the map opens: tap "תם ונשלם הקונדס".
 // Free play (from a fresh save): the statue in the staircase hall slides aside on a tap and the passage leads to Honeydukes,
 // where sweets can be collected any time (+5 once per session); Filch only passes the window. Hidden / inactive while an
 // adventure, a lesson / course, Quidditch or the Floo runs. Debug: window.__b3honey (state, sweetW, statueW, ...).
@@ -20,19 +20,19 @@ const RON = { ico: '👦', name: 'רון' };
 const RON_WHO = '👦 רון', FILCH_WHO = '🏮 פילץ\'';
 const NSWEETS = { 1: 5, 2: 7, 3: 9 }, FREE_N = 5;
 export const B3MAP = {
-  id: 'b3-map', book: 3, title: 'מפת הטרדנים', ico: '🗺️', col: '#4a3418', col2: '#d8b878', helper: RON, confetti: ['✨', '👣', '🍬', '📜'],
+  id: 'b3-map', book: 3, title: 'מפת הקונדסאים', ico: '🗺️', col: '#4a3418', col2: '#d8b878', helper: RON, confetti: ['✨', '👣', '🍬', '📜'],
   pic: [['🗺️', 0.5, 0.56, 66], ['👣', 0.22, 0.3, 28], ['🍬', 0.8, 0.3, 28]],
   intro: [
     'הפעם רון גילה סוד: קלף ישן ומקופל בחדר המועדון 📜',
-    'זו מפת הטרדנים! מי שאומר את המילים הנכונות רואה את כל הטירה... ואת כל מי שבה 👣',
+    'זו מפת הקונדסאים! מי שאומר את המילים הנכונות רואה את כל הטירה... ואת כל מי שבה 👣',
     'ויש בה מעבר סודי לחנות הממתקים הכי טעימה! בוא נלך 🍬',
   ],
   steps: [
     { line: 'מצא את הקלף בחדר המועדון וגע בו 📜', hints: ['הקלף המקופל מחכה בחדר המועדון 📜', 'הוא מונח על שולחן קטן ועגול. גע בו!', 'לך אחרי החץ הזהוב אל השולחן 📜'], glowL1: true },
-    { line: 'אמור את המילים: גע במילים לפי הסדר ✨', hints: ['מתחילים ב"אני" ✨', 'גע במילים לפי הסדר: אני... נשבע...', 'המילה הבאה זוהרת. גע בה!'] },
-    { line: 'גע במעבר הסודי, ואז בפסל במדרגות 🗿', hints: ['רואה את הקו הוורוד המהבהב במפה? גע בו ✨', 'המעבר מתחיל בפסל המכשפה במדרגות הנעות 🗿', 'גע בפסל העגול, והוא יזוז הצידה!'], glowL1: true },
-    { line: 'אסוף ממתקים זוהרים בהוניידוקס 🍬', hints: ['הקופסאות הזוהרות הן הממתקים. גע בהן 🍬', 'יש ממתקים על המדפים ועל הדלפק', 'הקופסה הזוהרת הבאה מחכה לך! 🍭'], glowL1: true },
-    { line: 'חוזרים במעבר וסוגרים את המפה 🤫', hints: ['לך אל דלת הרצפה הפתוחה בפינה 🕳️', 'המפה נפתחת: גע ב"השובבות הסתיימה" 🤫', 'גע בכפתור הזהוב במפה 🤫'], glowL1: true },
+    { line: 'אמור את המילים: גע במילים לפי הסדר ✨', hints: ['מתחילים ב"הנני" ✨', 'גע במילים לפי הסדר: הנני... נשבע...', 'המילה הבאה זוהרת. גע בה!'] },
+    { line: 'גע במעבר הסודי, ואז בפסל במדרגות 🗿', hints: ['רואה את הקו הוורוד המהבהב במפה? גע בו ✨', 'המעבר מתחיל בפסל המכשפה במדרגות המשתנות 🗿', 'גע בפסל העגול, והוא יזוז הצידה!'], glowL1: true },
+    { line: 'אסוף ממתקים זוהרים בדובשנרייה 🍬', hints: ['הקופסאות הזוהרות הן הממתקים. גע בהן 🍬', 'יש ממתקים על המדפים ועל הדלפק', 'הקופסה הזוהרת הבאה מחכה לך! 🍭'], glowL1: true },
+    { line: 'חוזרים במעבר וסוגרים את המפה 🤫', hints: ['לך אל דלת הרצפה הפתוחה בפינה 🕳️', 'המפה נפתחת: גע ב"תם ונשלם הקונדס" 🤫', 'גע בכפתור הזהוב במפה 🤫'], glowL1: true },
   ],
   create: (ctx) => mapScene(ctx),
   art: drawMapCard,
@@ -271,13 +271,13 @@ function mapScene(ctx) {
   function passage() {
     if (ctx.step !== 2 || S.sub !== 'map') return;
     S.passage++; S.sub = 'statue'; ctx.poke(); sfx('sparkle');
-    sayLine('המעבר מתחיל בפסל המכשפה במדרגות הנעות! 🗿');
+    sayLine('המעבר מתחיל בפסל המכשפה במדרגות המשתנות! 🗿');
     setTimeout(() => { if (S.active && ctx.step === 2) { closeParchment(); ctx.say('ראית? המעבר הסודי מתחיל בפסל המכשפה במדרגות! בוא 🗿', RON_WHO, 4); } }, 1600);
   }
   function openManage() {
     S.managedOpen = true;
     openParchment({ mode: 'quest', phase: 'manage', level: lv(), speak: (t) => ctx.speak(t), onManaged: () => { ctx.poke(); setTimeout(() => { closeParchment(); done(4); }, 300); } });
-    ctx.say('עכשיו סוגרים את המפה בסוד: גע ב"השובבות הסתיימה" 🤫', RON_WHO, 4);
+    ctx.say('עכשיו סוגרים את המפה בסוד: גע ב"תם ונשלם הקונדס" 🤫', RON_WHO, 4);
   }
 
   // ---- framing (Harry turns toward the thing; the lens behind-beside him so he never hides it) ----
@@ -380,7 +380,7 @@ function mapScene(ctx) {
       const B = curHoney();
       if (B) { questSweets(B); S.inited3 = true; player.yaw = HSPAWN.yaw; player.teleport(HSPAWN.x, HSPAWN.z); faceNext(); }
       else { interiors.enter('b3honey', { ...HSPAWN }); S.reframe = 'honey'; }
-      ctx.say('הוניידוקס! איזה ממתקים! 🍬 אסוף את הקופסאות הזוהרות... ושים לב לפילץ\' בחלון 🏮', RON_WHO, 5);
+      ctx.say('הדובשנרייה! איזה ממתקים! 🍬 אסוף את הקופסאות הזוהרות... ושים לב לפילץ\' בחלון 🏮', RON_WHO, 5);
       return;
     }
     if (step === 4) {

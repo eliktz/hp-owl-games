@@ -1,4 +1,4 @@
-// Book 3, adventure 5 "מחזיר הזמן" (the Time-Turner): the code-built props and the shared REWIND effect.
+// Book 3, adventure 5 "מחולל הזמן" (the Time-Turner): the code-built props and the shared REWIND effect.
 // Used by the quest (adventure-b3-timeturner.js), the free ⏳ toy (timeturner-free.js) and the finale's "late" retry
 // (adventure-b3-save.js). Kid-safe and warm: the rewind is gold / sepia with sparkles that run backwards and a soft chime
 // run; the "other Harry" is a translucent GOLD copy of the hero model (the same GLB clone, glowing, smiling) that walks his

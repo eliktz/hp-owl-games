@@ -1,12 +1,12 @@
-// The Marauder's Map parchment ("מפת הטרדנים"), book 3 piece B (briefs/2026-11-26-book3-piece-b.md). One DOM overlay
+// The Marauder's Map parchment ("מפת הקונדסאים"), book 3 piece B (briefs/2026-11-26-book3-piece-b.md). One DOM overlay
 // (a parchment card + a 2D canvas, no 3D mesh, no GPU texture) shared by the `b3-map` quest and free play:
-//   * oath: big tiles spell "אני נשבע" (quest level 1: the next tile glows; levels 2-3: shuffled, plus "בחגיגיות");
-//     in free play one tap on "אני נשבע בחגיגיות..." is enough. The oath is read aloud (voice.js), then ink lines
+//   * oath: big tiles spell "הנני נשבע" (quest level 1: the next tile glows; levels 2-3: shuffled, plus "חגיגית");
+//     in free play one tap on "הנני נשבע בזאת חגיגית..." is enough. The oath is read aloud (voice.js), then ink lines
 //     spread and the castle plan draws itself.
 //   * map: rooms as a simple hand-drawn plan with little labelled footprints: Harry where he is, the roaming teachers at
 //     their logical places (roam.js state()), Ron and Hermione in the courtyard, Hagrid by the hut, Buckbeak by the
 //     paddock; a pulsing dotted secret passage from the statue in the staircase hall to Honeydukes.
-//   * manage: "השובבות הסתיימה" (Mischief managed): the ink fades and the parchment closes.
+//   * manage: "תם ונשלם הקונדס" (Mischief managed): the ink fades and the parchment closes.
 // Free play: a round 📜 button above the 📖 one opens it (hidden while an adventure, a lesson / course, Quidditch, the Floo
 // or a modal runs). The existing 🗺️ travel map is untouched. Debug: window.__b3mm (state(), feet(), passageScreen(), ...).
 import { speak as voiceSpeak } from './voice.js';
@@ -17,8 +17,8 @@ const LW = 640, LH = 820;   // the plan's logical size (north up, east right)
 const ROOMS = {
   commonroom: { r: [215, 64, 210, 128], t: 'חדר המועדון', half: [9, 9] },
   classrooms: { r: [18, 222, 180, 160], t: 'הכיתות', half: [16, 11] },
-  staircase: { r: [214, 222, 212, 160], t: 'המדרגות הנעות', half: [10, 11] },
-  tower: { r: [442, 222, 160, 160], t: 'מגדל הכוכבים', half: [8, 8] },
+  staircase: { r: [214, 222, 212, 160], t: 'המדרגות המשתנות', half: [10, 11] },
+  tower: { r: [442, 222, 160, 160], t: 'מגדל האסטרונומיה', half: [8, 8] },
   greathall: { r: [18, 410, 196, 140], t: 'האולם הגדול', half: [11, 18] },
   entrancehall: { r: [228, 410, 184, 140], t: 'אולם הכניסה', half: [8, 12] },
   library: { r: [426, 410, 176, 140], t: 'הספרייה', half: [11, 11] },
@@ -26,13 +26,13 @@ const ROOMS = {
   courtyard: { r: [228, 578, 184, 110], t: 'החצר', world: [0, 30, 22, 12] },
   hut: { r: [18, 714, 180, 86], t: 'הבקתה של האגריד' },
   paddock: { r: [228, 714, 184, 86], t: 'יצורי הפלא' },
-  b3honey: { r: [446, 606, 176, 194], t: 'הוניידוקס', shop: true },
+  b3honey: { r: [446, 606, 176, 194], t: 'הדובשנרייה', shop: true },
 };
 const STATUE = [404, 366];
 const SLOTS = [[0.2, 0.4], [0.5, 0.4], [0.8, 0.4], [0.2, 0.62], [0.5, 0.62], [0.8, 0.62], [0.2, 0.84], [0.5, 0.84], [0.8, 0.84]];   // free spots in a crowded room   // the one-eyed witch in the staircase hall (south-east corner of the hall)
 const PASSAGE = [STATUE, [470, 394], [620, 398], [622, 540], [560, 572], [534, 612]];
-const NAMES = { harry: 'הארי', ron: 'רון', hermione: 'הרמיוני', hagrid: 'האגריד', buckbeak: 'אבזם', mcgon: 'מקגונגל', flitwick: 'פליטוויק', snape: 'סנייפ', defence: 'טונקס', sinistra: 'סיניסטרה' };
-const OATH = 'אני נשבע בחגיגיות שאני מתכנן רק שובבות!';
+const NAMES = { harry: 'הארי', ron: 'רון', hermione: 'הרמיוני', hagrid: 'האגריד', buckbeak: 'בקביק', mcgon: 'מקגונגל', flitwick: 'פליטיק', snape: 'סנייפ', defence: 'טונקס', sinistra: 'סיניסטרה' };
+const OATH = 'הנני נשבע בזאת חגיגית שאני מחפש צרות!';
 
 const S = { open: false, mode: 'free', phase: 'oath', lv: 1, opts: {}, typed: 0, words: [], tiles: [], ink: 0, fade: 0, t: 0, raf: 0, last: 0, feet: [], passTap: 0, wrong: 0, opens: 0, closes: 0, managed: 0,
   oaths: 0, scale: 1, built: false, btn: null, inited: false, deps: null, glow: false, err: 0 };
@@ -75,14 +75,14 @@ function build() {
   ov = mk('div', null, document.body, 'mmOv');
   for (const ev of ['pointerdown', 'touchstart', 'mousedown', 'wheel']) ov.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
   paper = mk('div', 'paper', ov);
-  head = mk('div', 'hd', paper); head.textContent = '📜 מפת הטרדנים';
+  head = mk('div', 'hd', paper); head.textContent = '📜 מפת הקונדסאים';
   closeX = mk('button', 'x', paper); closeX.textContent = '✕'; closeX.setAttribute('aria-label', 'סגירה');
   closeX.addEventListener('click', (e) => { e.stopPropagation(); if (S.mode === 'free') close(); });
   cv = mk('canvas', null, paper); cx = cv.getContext('2d');
   lineEl = mk('div', 'line', paper);
   sayEl = mk('div', 'say', paper);
   tilesEl = mk('div', 'tiles', paper);
-  mBtn = document.createElement('button'); mBtn.className = 'mng'; mBtn.textContent = '🤫 השובבות הסתיימה';
+  mBtn = document.createElement('button'); mBtn.className = 'mng'; mBtn.textContent = '🤫 תם ונשלם הקונדס';
   mBtn.addEventListener('click', (e) => { e.stopPropagation(); manage(); });
   cv.addEventListener('pointerup', (e) => { try { canvasTap(e); } catch { /* never break */ } });
   addEventListener('resize', () => { if (S.open) fit(); });
@@ -105,9 +105,9 @@ export function setPhase(ph) {
   S.phase = ph; tilesEl.innerHTML = ''; sayEl.textContent = '';
   if (ph === 'oath') {
     S.ink = 0; S.typed = 0;
-    if (S.mode === 'free') { S.words = [OATH]; lineEl.textContent = 'מה אומרים כדי שהמפה תתגלה?'; const b = tile('אני נשבע בחגיגיות... ✨', 0); b.classList.add('big', 'next'); }
+    if (S.mode === 'free') { S.words = [OATH]; lineEl.textContent = 'מה אומרים כדי שהמפה תתגלה?'; const b = tile('הנני נשבע בזאת חגיגית... ✨', 0); b.classList.add('big', 'next'); }
     else {
-      S.words = S.lv === 1 ? ['אני', 'נשבע'] : ['אני', 'נשבע', 'בחגיגיות'];
+      S.words = S.lv === 1 ? ['הנני', 'נשבע'] : ['הנני', 'נשבע', 'חגיגית'];
       const order = S.words.map((w, i) => i); if (S.lv > 1) { for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } if (order[0] === 0) order.push(order.shift()); }
       for (const i of order) tile(S.words[i], i);
       lineEl.textContent = '...'; markNext();
@@ -144,7 +144,7 @@ function oathDone() {
 }
 function manage() {
   if (S.fade > 0) return;
-  S.fade = 0.001; S.managed++; speak('השובבות הסתיימה!'); sfx('soft'); mBtn.remove(); lineEl.textContent = 'השובבות הסתיימה 🤫';
+  S.fade = 0.001; S.managed++; speak('תם ונשלם הקונדס!'); sfx('soft'); mBtn.remove(); lineEl.textContent = 'תם ונשלם הקונדס 🤫';
 }
 export function close() {
   if (!S.open) return;
@@ -300,7 +300,7 @@ function canvasTap(e) {
   const [lx, ly] = toLogical(e);
   if (nearPassage(lx, ly) < 44) {
     if (S.mode === 'quest' && S.phase === 'map') { S.passTap++; sfx('sparkle'); const f = S.opts.onPassage; if (f) { try { f(); } catch (er) { console.warn('[b3-map] passage -', er && er.message || er); } } }
-    else sayEl.textContent = 'המעבר הסודי מתחיל ליד הפסל במדרגות הנעות! 🍬';
+    else sayEl.textContent = 'המעבר הסודי מתחיל ליד הפסל במדרגות המשתנות! 🍬';
   }
 }
 
@@ -315,7 +315,7 @@ export function openFree() {
 }
 export function initMarauder() {
   if (S.inited) return; S.inited = true; build();
-  const b = document.createElement('button'); b.id = 'mmBtn'; b.className = 'gamebtn'; b.textContent = '📜'; b.setAttribute('aria-label', 'מפת הטרדנים');
+  const b = document.createElement('button'); b.id = 'mmBtn'; b.className = 'gamebtn'; b.textContent = '📜'; b.setAttribute('aria-label', 'מפת הקונדסאים');
   for (const ev of ['pointerdown', 'touchstart', 'mousedown']) b.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
   b.addEventListener('click', (e) => { e.stopPropagation(); openFree(); });
   document.body.appendChild(b); S.btn = b;

@@ -30,7 +30,7 @@ export function createTimeTurnerFree({ scene, camera, player, interiors, fun, fr
   #ttBtn.cool{filter:grayscale(.6) brightness(.85)}
   body.modalOn #ttBtn,body.inAdv #ttBtn,body.inSpell #ttBtn,body.inMatch #ttBtn,body.inFloo #ttBtn,body.mmOn #ttBtn,body.advBB #ttBtn,body.ttHide #ttBtn{display:none !important}`;
   document.head.appendChild(css);
-  const btn = document.createElement('button'); btn.id = 'ttBtn'; btn.className = 'gamebtn'; btn.textContent = '⏳'; btn.setAttribute('aria-label', 'מחזיר הזמן');
+  const btn = document.createElement('button'); btn.id = 'ttBtn'; btn.className = 'gamebtn'; btn.textContent = '⏳'; btn.setAttribute('aria-label', 'מחולל הזמן');
   for (const ev of ['pointerdown', 'touchstart', 'mousedown']) btn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
   btn.addEventListener('click', (e) => { e.stopPropagation(); try { spin(); } catch (er) { log.errors++; console.warn('[timeturner-free]', er && er.message || er); } });
   document.body.appendChild(btn);
@@ -64,7 +64,7 @@ export function createTimeTurnerFree({ scene, camera, player, interiors, fun, fr
   function spin() {
     if (S.run || RW.on) return false;
     if (S.busy || busyWhy()) { log.refused++; return false; }
-    if (S.cool > 0) { log.refused++; try { fun.toast('⏳', 'מחזיר הזמן נח רגע...', 1200); } catch { /* ok */ } return false; }
+    if (S.cool > 0) { log.refused++; try { fun.toast('⏳', 'מחולל הזמן נח רגע...', 1200); } catch { /* ok */ } return false; }
     const ok = RW.start({ secs: SECS, back: BACK, mode: 'free', parent: interiors.active && interiors.room ? interiors.room.group : null, onEnd: () => { S.run = false; lock(false); prop(false); S.cool = COOL; } });
     if (!ok) return false;
     S.run = true; S.t = 0; log.spins++; lock(true); prop(true); btn.classList.add('cool');

@@ -1,4 +1,4 @@
-// Book 1 adventure "קידה לאבזם" (Buckbeak the hippogriff): data for adventures.js + the scene code
+// Book 1 adventure "קידה לבקביק" (Buckbeak the hippogriff): data for adventures.js + the scene code
 // (brief: briefs/2026-11-24-quest-buckbeak.md in the art repo). Played outdoors in the REAL grounds by Hagrid's paddock.
 // Buckbeak is the rigged GLB 'buckbeak' (models.json; KTX2 with a WebP fallback), loaded lazily when the quest begins
 // and taken out of the world when it ends; if it cannot load, Hagrid says so kindly and the quest pauses (nothing breaks).
@@ -31,19 +31,19 @@ export function onBuckbeakQuest(fn) { questHook = typeof fn === 'function' ? fn 
 export function buckbeakHandOver() { try { if (questHook) questHook(); } catch (e) { console.warn('[buckbeak] free-play hand-over -', e && e.message || e); } }
 const HAG = '🧔 האגריד';
 export const BUCKBEAK = {
-  id: 'buckbeak', title: 'קידה לאבזם', ico: '🦅', col: '#3a3a2a', col2: '#a0a070', helper: HERM, confetti: ['✨', '⭐', '🪶', '🦅'],
+  id: 'buckbeak', title: 'קידה לבקביק', ico: '🦅', col: '#3a3a2a', col2: '#a0a070', helper: HERM, confetti: ['✨', '⭐', '🪶', '🦅'],
   pic: [['🦅', 0.5, 0.55, 72], ['🙇', 0.8, 0.3, 30], ['🪶', 0.2, 0.3, 28]],
   intro: [
     'האגריד מלמד היום שיעור מיוחד ליד המכלאה! 🐾',
-    'הוא הביא את אבזם, ההיפוגריף: חצי סוס, חצי נשר, ומאוד מאוד גאה.',
+    'הוא הביא את בקביק, ההיפוגריף: חצי סוס, חצי נשר, ומאוד מאוד גאה.',
     'עם היפוגריף צריך להיות מנומסים: קודם קדים לו, ומחכים שיקוד בחזרה. בוא! ✨',
   ],
   steps: [
-    { line: 'לך אל המכלאה של האגריד 🐾', hints: ['אבזם מחכה ליד המכלאה, ליד הבקתה של האגריד 🏡', 'לך אחרי החץ הזהוב', 'אפשר גם לטוס ברשת הפלו אל הבקתה 🔥'], glowL1: true },
-    { line: 'עמוד על העיגול הזוהר וקוד לאבזם 🙇', hints: ['עמוד על העיגול הזהוב מול אבזם 🙇', 'לחץ על הכפתור 🙇 ועמוד בשקט', 'מחכים בשקט עד שאבזם קד בחזרה 🙇'], glowL1: true },
-    { line: 'לטף את אבזם: גע במקור שלו 3 פעמים 🤚', hints: ['אבזם קד לך! עכשיו אפשר ללטף אותו 🤚', 'גע בראש או בצוואר של אבזם', 'גע במקור של אבזם, שלוש פעמים 💗'], glowL1: true },
-    { line: 'טוס על אבזם ואסוף נוצות זהב 🪶', hints: ['לחץ על הכפתור 🪽 כדי לעלות על הגב של אבזם', 'הנוצות הזהובות מחכות בדרך 🪶', 'זוז עם ◀ ▶ אל הנוצה הזהובה 🪶'] },
-    { line: 'נוחתים ליד המכלאה 🛬', hints: ['אבזם נוחת. תחזיק חזק! 🛬', 'עוד רגע על הדשא', 'כמעט שם!'] },
+    { line: 'לך אל המכלאה של האגריד 🐾', hints: ['בקביק מחכה ליד המכלאה, ליד הבקתה של האגריד 🏡', 'לך אחרי החץ הזהוב', 'אפשר גם לטוס ברשת הפלו אל הבקתה 🔥'], glowL1: true },
+    { line: 'עמוד על העיגול הזוהר וקוד לבקביק 🙇', hints: ['עמוד על העיגול הזהוב מול בקביק 🙇', 'לחץ על הכפתור 🙇 ועמוד בשקט', 'מחכים בשקט עד שבקביק קד בחזרה 🙇'], glowL1: true },
+    { line: 'לטף את בקביק: גע במקור שלו 3 פעמים 🤚', hints: ['בקביק קד לך! עכשיו אפשר ללטף אותו 🤚', 'גע בראש או בצוואר של בקביק', 'גע במקור של בקביק, שלוש פעמים 💗'], glowL1: true },
+    { line: 'טוס על בקביק ואסוף נוצות זהב 🪶', hints: ['לחץ על הכפתור 🪽 כדי לעלות על הגב של בקביק', 'הנוצות הזהובות מחכות בדרך 🪶', 'זוז עם ◀ ▶ אל הנוצה הזהובה 🪶'] },
+    { line: 'נוחתים ליד המכלאה 🛬', hints: ['בקביק נוחת. תחזיק חזק! 🛬', 'עוד רגע על הדשא', 'כמעט שם!'] },
   ],
   create: (ctx) => { try { if (questHook) questHook(); } catch (e) { console.warn('[buckbeak] free-play hand-over -', e && e.message || e); } return buckbeakScene(ctx); },
   art: drawCard,
@@ -199,7 +199,7 @@ export function buckbeakScene(ctx, opts = {}) {
   function modelFailed() {
     if (S.failed) return; S.failed = true;
     if (FREE) return;   // free play: silent (no Buckbeak, nothing breaks)
-    ctx.say('אוי, אבזם לא הצליח להגיע היום... ננסה שוב בפעם אחרת 💛', HAG, 5);
+    ctx.say('אוי, בקביק לא הצליח להגיע היום... ננסה שוב בפעם אחרת 💛', HAG, 5);
     setTimeout(() => { try { if (S.active && !S.ended && window.__game && window.__game.adventures) window.__game.adventures.leave(); } catch { /* ok */ } }, 2500);
   }
   function play(name, fade = 0.35) {
@@ -355,7 +355,7 @@ export function buckbeakScene(ctx, opts = {}) {
     release(true);
     S.ph = 'ground'; S.phT = 0; placeStanding(); play('Idle', 0.3);
     if (ctx.step === 4) { setTimeout(() => done(4), 400); return; }
-    if (!S.ended) ctx.say('אבזם נחת לנוח רגע ליד המכלאה. אפשר לטוס שוב! 🪽', HAG, 4);
+    if (!S.ended) ctx.say('בקביק נחת לנוח רגע ליד המכלאה. אפשר לטוס שוב! 🪽', HAG, 4);
   }
 
   function sim(dt, axis) {
@@ -426,7 +426,7 @@ export function buckbeakScene(ctx, opts = {}) {
     const lake = wet && S.bb.position.y < WATER + 1.0;
     if (lake) {
       for (let i = 0; i < 2; i++) { const back = -Math.random() * 1.2; emit(S.bb.position.x + Math.sin(S.yaw) * back + (Math.random() - 0.5) * 0.5, WATER + 0.06, S.bb.position.z + Math.cos(S.yaw) * back + (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.4, 0.5 + Math.random() * 0.6, (Math.random() - 0.5) * 0.4, 0.9, 0.22, Math.random() < 0.5 ? 0xffffff : 0xbfe8ff, -1.4); }
-      if (!S.lakeOn) { S.lakeOn = true; S.cheerUntil = S.ft + 6; sfx('sparkle'); ctx.say('רואה? הרגליים של אבזם נוגעות במים! ✨', HAG, 3); }
+      if (!S.lakeOn) { S.lakeOn = true; S.cheerUntil = S.ft + 6; sfx('sparkle'); ctx.say('רואה? הרגליים של בקביק נוגעות במים! ✨', HAG, 3); }
     } else S.lakeOn = false;
     if (S.ph === 'fly') showAct((lake || S.ft < (S.cheerUntil || 0)) && !S.cheered ? 'cheer' : null);   // the 🙌 stays a few seconds after the skim
     // feathers
@@ -447,7 +447,7 @@ export function buckbeakScene(ctx, opts = {}) {
         const inLane = !lanesOn() || Math.abs(S.lx - LANES[f.lane]) * (S.lk || 1) < 1.3;   // in metres (the lanes narrow by the crown)
         if (inLane) { f.got = true; S.got++; ctx.poke(); fPos(f, v3); burst(v3.x, v3.y, v3.z, 0xffd76a, 20, 2.2, 0.9, 0.28, -0.5); sfx('tink', S.got); sfx('sparkle');
           showCount(true, true);
-          if (S.got >= needF()) ctx.say('כל נוצות הזהב! אבזם גאה בך 🪶', HAG, 2.8); continue; }
+          if (S.got >= needF()) ctx.say('כל נוצות הזהב! בקביק גאה בך 🪶', HAG, 2.8); continue; }
         // missed: it comes round again a little further on (near the end it waits right in Buckbeak's lane)
         const next = S.s + 46;
         f.s = Math.min(next, L - 50); f.lane = f.s >= L - 60 ? S.lane : (f.lane + 1 + Math.floor(Math.random() * 2)) % 3;
@@ -533,14 +533,14 @@ export function buckbeakScene(ctx, opts = {}) {
     if (bowSpot.visible) { bowSpot.position.set(BOW.x, groundAt(BOW.x, BOW.z) + 0.06, BOW.z); const s = 1 + Math.sin(S.t * 4) * 0.06; bowSpot.scale.set(s, 1, s); bowSpot.material.opacity = 0.75 + Math.sin(S.t * 4) * 0.25; }
     // a spell near Buckbeak: a kind word (he is bowed to and patted, never charmed)
     const n = casts();
-    if (n !== S.casts0) { S.casts0 = n; if (S.bb && outdoors() && Math.hypot(player.pos.x - S.bb.position.x, player.pos.z - S.bb.position.z) < 16) { S.spellSays = (S.spellSays || 0) + 1; ctx.say('לא מטילים לחשים על אבזם 🙂 קדים לו ומלטפים אותו!', HAG, 3.2); } }
+    if (n !== S.casts0) { S.casts0 = n; if (S.bb && outdoors() && Math.hypot(player.pos.x - S.bb.position.x, player.pos.z - S.bb.position.z) < 16) { S.spellSays = (S.spellSays || 0) + 1; ctx.say('לא מטילים לחשים על בקביק 🙂 קדים לו ומלטפים אותו!', HAG, 3.2); } }
     if (S.patT > 0) S.patT -= dt;
     if (FREE) return;   // free play: the ground is driven by buckbeak-free.js
     if (busy || S.tk) { if (S.tk && step === 3 && S.ph === 'fly') { /* the action button is driven by the flight */ } return; }
     if (!outdoors() || !S.bb) { if (actKind) showAct(null); return; }
     const p = player.pos, dBB = Math.hypot(p.x - S.bb.position.x, p.z - S.bb.position.z);
     // 1: arriving by the paddock
-    if (step === 0) { if (dBB < 15) { S.arrived += dt; if (S.arrived > 1.0 && !S.done[0]) { ctx.say('הנה אבזם! 🦅 הוא גאה מאוד. תמיד מתחילים בקידה', HAG, 4); done(0); } } else S.arrived = 0; return; }
+    if (step === 0) { if (dBB < 15) { S.arrived += dt; if (S.arrived > 1.0 && !S.done[0]) { ctx.say('הנה בקביק! 🦅 הוא גאה מאוד. תמיד מתחילים בקידה', HAG, 4); done(0); } } else S.arrived = 0; return; }
     // 2: the bow
     if (step === 1) {
       const dS = Math.hypot(p.x - BOW.x, p.z - BOW.z), on = dS < 1.5;
@@ -551,7 +551,7 @@ export function buckbeakScene(ctx, opts = {}) {
         const moved = Math.hypot(p.x - S.lastP.x, p.z - S.lastP.z) > 0.02;
         const paused = lv() > 1 && (moved || !on);
         if (!paused) S.bow = Math.min(1, S.bow + dt / (BOW_T[lv()] || 3));
-        else if (!S.said.still || S.t - S.said.still > 4) { S.said.still = S.t; ctx.say('עומדים בשקט... אבזם מחכה 🙇', HAG, 2.2); }
+        else if (!S.said.still || S.t - S.said.still > 4) { S.said.still = S.t; ctx.say('עומדים בשקט... בקביק מחכה 🙇', HAG, 2.2); }
         drawRing(S.bow);
         if (!paused) faceBB();
         if (S.bow >= 1) bowedBack();
@@ -580,7 +580,7 @@ export function buckbeakScene(ctx, opts = {}) {
       if (!S.finalT) { S.finalT = 0.001; bowCamera(); }
       const t0 = S.finalT; S.finalT += dt;
       if (t0 < 0.5 && S.finalT >= 0.5) { replay('Bow', 0.35); sfx('chime'); }
-      if (t0 < 1.6 && S.finalT >= 1.6) { ctx.say('כל הכבוד! טסת על היפוגריף! אבזם קד לך שוב, הוא גאה בך 🦅💛', HAG, 5); sfx('heart'); }
+      if (t0 < 1.6 && S.finalT >= 1.6) { ctx.say('כל הכבוד! טסת על היפוגריף! בקביק קד לך שוב, הוא גאה בך 🦅💛', HAG, 5); sfx('heart'); }
       if (S.finalT >= 4.2) done(4);
     }
   }
@@ -590,9 +590,9 @@ export function buckbeakScene(ctx, opts = {}) {
     S.active = true; S.ended = false; if (!FREE) addProps(); ensureModel();
     S.bowing = false; S.bowBack = 0; S.bow = 0; S.bowAuto = false; S.camSet = -1; S.onSpot = false; S.arrived = 0; S.pats = 0; S.finalT = step === 4 && !S.tk ? 0 : S.finalT;
     if (!S.tk) S.ph = 'ground';
-    if (step === 1 && !resumed) ctx.say('עמוד על העיגול הזוהר מול אבזם, ולחץ 🙇', HAG, 4);
+    if (step === 1 && !resumed) ctx.say('עמוד על העיגול הזוהר מול בקביק, ולחץ 🙇', HAG, 4);
     if (step === 2 && !resumed) S.lastP.copy(player.pos);
-    if (step === 3 && !resumed) ctx.say('אבזם מרשה לך לעלות על הגב שלו! לחץ 🪽', HAG, 4);
+    if (step === 3 && !resumed) ctx.say('בקביק מרשה לך לעלות על הגב שלו! לחץ 🪽', HAG, 4);
     if (step === 4 && S.tk) ctx.say('עכשיו נוחתים בעדינות ליד המכלאה 🛬', HAG, 3);
     if (!resumed) return;
     // a resume (reload / the book): go to the paddock; the step starts over
@@ -620,10 +620,10 @@ export function buckbeakScene(ctx, opts = {}) {
       headW(v1); const dh = near(v1);
       v2.copy(v1).lerp(S.bb.position, 0.35); v2.y = v1.y - 0.5; const dn = near(v2);   // the neck, a little lower and back
       if (Math.min(dh, dn) < R() * 2.0) {
-        if (Math.hypot(player.pos.x - S.bb.position.x, player.pos.z - S.bb.position.z) > 7.5) { ctx.say('בוא קרוב יותר לאבזם כדי ללטף אותו 🤚', HAG, 2.4); return true; }
+        if (Math.hypot(player.pos.x - S.bb.position.x, player.pos.z - S.bb.position.z) > 7.5) { ctx.say('בוא קרוב יותר לבקביק כדי ללטף אותו 🤚', HAG, 2.4); return true; }
         pat(); return true;
       }
-      v2.copy(S.bb.position); v2.y += 1.2; if (near(v2) < R() * 2.6) { ctx.say('גע בראש או במקור של אבזם 🤚', HAG, 2.2); return true; }
+      v2.copy(S.bb.position); v2.y += 1.2; if (near(v2) < R() * 2.6) { ctx.say('גע בראש או במקור של בקביק 🤚', HAG, 2.2); return true; }
       return false;
     }
     if (step === 1 && !S.bowing && !S.bowBack) { v2.copy(S.bb.position); v2.y += 1.2; if (near(v2) < R() * 2.6) { ctx.say('קודם קדים לו! עמוד על העיגול הזוהר 🙇', HAG, 2.6); return true; } }
@@ -633,7 +633,7 @@ export function buckbeakScene(ctx, opts = {}) {
   // hints while flying are about the feathers (the 🪽 hint is for the ground)
   function hintText(step, n) {
     if (step !== 3 || !S.tk) return null;
-    return ['', 'הנוצות הזהובות מחכות בדרך 🪶', lanesOn() ? 'זוז עם ◀ ▶ אל הנוצה הזהובה 🪶' : 'אבזם עף אל הנוצות בעצמו 🪶', 'החץ הזהוב מראה איפה הנוצה 🪶'][n] || null;
+    return ['', 'הנוצות הזהובות מחכות בדרך 🪶', lanesOn() ? 'זוז עם ◀ ▶ אל הנוצה הזהובה 🪶' : 'בקביק עף אל הנוצות בעצמו 🪶', 'החץ הזהוב מראה איפה הנוצה 🪶'][n] || null;
   }
   function together(step, fast) {
     if (step === 0) { if (interiors.active) interiors.exit(); player.yaw = Math.atan2(BB.x - BOW.x + 2, 0); player.teleport(BOW.x - 3, BOW.z + 1); if (fast) done(0); return; }

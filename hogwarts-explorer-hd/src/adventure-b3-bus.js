@@ -1,4 +1,4 @@
-// Book 3, adventure 1: "אוטובוס האבירים" (the Knight Bus). Data for adventures.js + the scene code.
+// Book 3, adventure 1: "אוטונוס הלילה" (the Knight Bus). Data for adventures.js + the scene code.
 // Played in its own on-rails night street 'b3street' (an interior-style room built by adventure-b3-bus-build.js, so it
 // adds no outdoor triangles), like the flying car's 'b2sky'. The quest drives the bus and the camera through an
 // adventure-owned takeover ({ adv: true }), so hints, taps and the arrow stay alive. Kid-safe: bouncy and funny, no
@@ -18,12 +18,12 @@ import { buildStreet, LANES, STOP, SIGN, DOOR, PUB, PUB_SIGN, NLAMP, LAMP_GAP, t
 const RON = { ico: '👦', name: 'רון' };
 const FROM_KEY = 'hpAdvB3Bus';
 export const B3BUS = {
-  id: 'b3-bus', book: 3, title: 'אוטובוס האבירים', ico: '🚌', col: '#2a1a5a', col2: '#8a6ae0', helper: RON, confetti: ['✨', '⭐', '🚌', '🎫'],
+  id: 'b3-bus', book: 3, title: 'אוטונוס הלילה', ico: '🚌', col: '#2a1a5a', col2: '#8a6ae0', helper: RON, confetti: ['✨', '⭐', '🚌', '🎫'],
   pic: [['🌙', 0.18, 0.26, 30], ['🚌', 0.5, 0.58, 72], ['🎫', 0.82, 0.3, 30], ['✨', 0.84, 0.74, 26]],
   intro: [
     'לילה שקט ברחוב קטן בלונדון. הפנסים דולקים והכוכבים מנצנצים 🌙',
     'מי שצריך טרמפ קסום מרים את השרביט... ואוטובוס סגול ענק מגיע! 🚌✨',
-    'אני רון. בוא נעלה על אוטובוס האבירים! תחזיק חזק, הוא קופצני! 😄',
+    'אני רון. בוא נעלה על אוטונוס הלילה! תחזיק חזק, הוא קופצני! 😄',
   ],
   steps: [
     { line: 'הרם את השרביט: גע בשלט הזוהר 🪄', hints: ['רואה את השלט הזוהר ליד המדרכה? גע בו 🪄', 'השלט עם השרביט זוהר. גע בו, והאוטובוס יגיע!', 'גע בשלט העגול על המדרכה 🪄'], glowL1: true },
@@ -284,7 +284,7 @@ function busScene(ctx) {
       if (!S.banged) { S.banged = 1; bang(); W(LANES[STOP.lane], 1.0, -3.4, v1); burst(v1.x, v1.y, v1.z, 0xffe8a0, 30, 3, 1.0, 0.34, -1); try { fun.toast('💥', 'בַּאנְג!', 1200); } catch { /* ok */ } }
       const u = t - 1.3, a = Math.exp(-3.2 * u) * 0.22;
       b.root.position.set(LANES[STOP.lane], 0, 0); b.body.scale.set(1 + Math.sin(u * 16) * a * 0.6, 1 - Math.sin(u * 16) * a, 1); b.body.rotation.x = Math.sin(u * 10) * a * 0.3;
-      if (t > 2.4 && !S.saidArr) { S.saidArr = 1; ctx.say('ברוכים הבאים לאוטובוס האבירים! 🚌', '🎩 סטן הכרטיסן', 3); honk(); }
+      if (t > 2.4 && !S.saidArr) { S.saidArr = 1; ctx.say('ברוכים הבאים לאוטונוס הלילה! 🚌', '🎩 סטן הכרטיסן', 3); honk(); }
       if (t > 3.6) { b.body.scale.set(1, 1, 1); b.body.rotation.x = 0; done(0); }
     }
   }
@@ -394,7 +394,7 @@ function busScene(ctx) {
       b.root.position.set(S.x, 0, 0); b.root.rotation.set(0, 0, 0); b.body.scale.set(1 + Math.sin(u * 16) * a * 0.6, 1 - Math.sin(u * 16) * a, 1); b.body.rotation.x = -Math.sin(u * 10) * a * 0.3;
       if (!S.room && glowOn && Math.random() < dt * 6) { W(PUB.x - 0.1, PUB.y + (Math.random() - 0.5) * 2.2, PUB.z + (Math.random() - 0.5) * 1.2, v1); emit(v1.x, v1.y, v1.z, -0.2, 0.3, 0, 0.8, 0.24, 0xffe07a, 0); }
     }
-    if (S.room) { S.room += dt; if (Math.random() < dt * 8) { W(PUB.x - 0.2, PUB.y + 0.6, PUB.z, v1); emit(v1.x, v1.y, v1.z, -0.3, 0.6, 0, 1.0, 0.3, 0xffc070, 0); } if (S.room > 3.6 && !S.saidRoom) { S.saidRoom = 1; ctx.say('איזה שוקו חם! איזו נסיעה! 😄 תודה, אוטובוס האבירים!', '👦 רון', 4.5); honk(); } if (S.room > 4.6) done(4); }
+    if (S.room) { S.room += dt; if (Math.random() < dt * 8) { W(PUB.x - 0.2, PUB.y + 0.6, PUB.z, v1); emit(v1.x, v1.y, v1.z, -0.3, 0.6, 0, 1.0, 0.3, 0xffc070, 0); } if (S.room > 3.6 && !S.saidRoom) { S.saidRoom = 1; ctx.say('איזה שוקו חם! איזו נסיעה! 😄 תודה, אוטונוס הלילה!', '👦 רון', 4.5); honk(); } if (S.room > 4.6) done(4); }
   }
 
   // ---- the camera (our own takeover camera; the distance grows on a narrow phone so everything fits) ----
@@ -505,7 +505,7 @@ function busScene(ctx) {
   return { begin, update, goal, tap, glow, together, end, state };
 }
 
-// ---------------- the free ride (the map card "האוטובוס הלילי"): the same scene code, no quest, no tracker ----------------
+// ---------------- the free ride (the map card "אוטונוס הלילה"): the same scene code, no quest, no tracker ----------------
 // Steps reused: 0 the stop sign -> 1 the door -> 3 the squeeze (obstacles, the soft bounce; no tickets) -> 4 the Leaky
 // Cauldron; then a 🏠 button takes Harry back where he came from (the button is there the whole ride, too).
 // Debug: window.__game.busRide (the state, or null when no ride runs).

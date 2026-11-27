@@ -57,19 +57,20 @@ const heWord = (w, out) => [new RegExp(`(^|[^\\p{L}\\p{M}])([והבלמשכ]?)${
 const enWord = (w, out) => [new RegExp(`(^|[^\\p{L}])${w}(?![\\p{L}])`, 'giu'), `$1${out}`];
 // Spell names: Latin spellings and unpointed Hebrew spellings -> pointed Hebrew Carmit reads well. Pointed text passes as is.
 export const PRONOUNCE = [
-  enWord('expecto\\s+patronum', 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם'), enWord('wingardium\\s+leviosa', 'וִינְגַּרְדְיוּם לֵבְיוֹסָה'),
+  enWord('expecto\\s+patronum', 'אֶקְסְפֶּקְטוֹ פַּטְרוֹנוּם'), enWord('wingardium\\s+leviosa', 'וִינְגַּארְדְיוּם לֵבְיוֹסָה'),
   enWord('alohomora', 'אָלוֹהוֹמוֹרָה'), enWord('glisseo', 'גְּלִיסֵאוֹ'), enWord('diffindo', 'דִּיפִינְדוֹ'),
-  enWord('finite\\s+incantatem', 'פִינִיטֶה אִינְקַנְטָטֶם'), enWord('sonorus', 'סוֹנוֹרוּס'), enWord('point\\s+me', 'פּוֹינְט מִי'),
+  enWord('finite\\s+incantatem', 'פִינִיטֶה אִינְקַנְטָטֶם'), enWord('sonorus', 'סוֹנוֹרוּס'), enWord('point\\s+me', 'כַּוֵּן אוֹתִי'),
   enWord('herbivicus', 'הֶרְבִּיוִיקוּס'), enWord('lumos', 'לוּמוֹס'), enWord('nox', 'נוֹקְס'), enWord('accio', 'אַצְיוֹ'),
-  enWord('reparo', 'רֶפָּארוֹ'), enWord('incendio', 'אִינְסֶנְדְיוֹ'), enWord('aguamenti', 'אָגוּאָמֶנְטִי'),
+  enWord('reparo', 'רֶפָּארוֹ'), enWord('incendio', 'אִינְסֶנְדְיוֹ'), enWord('aguamenti', 'אָגֶוַאמֶנטִי'),
   enWord('expelliarmus', 'אֶקְסְפֶּלְיַארְמוּס'), enWord('riddikulus', 'רִידִיקוּלוּס'), enWord('protego', 'פְּרוֹטֶגוֹ'),
-  enWord('petrificus\\s+totalus', 'פֶּטְרִיפִיקוּס טוֹטָלוּס'), enWord('stupefy', 'סְטוּפֶּפַיי'),
-  heWord('אקספקטו', 'אֶקְסְפֶּקְטוֹ'), heWord('פטרונום', 'פַּטְרוֹנוּם'), heWord('וינגרדיום', 'וִינְגַּרְדְיוּם'),
+  enWord('petrificus\\s+totalus', 'פֶּטְרִיפִיקוּס טוֹטָלוּס'), enWord('stupefy', 'שְׁתֹק'),
+  heWord('אקספקטו', 'אֶקְסְפֶּקְטוֹ'), heWord('פטרונום', 'פַּטְרוֹנוּם'), heWord('וינגארדיום', 'וִינְגַּארְדְיוּם'),
   heWord('לביוסה', 'לֵבְיוֹסָה'), heWord('אלוהומורה', 'אָלוֹהוֹמוֹרָה'), heWord('גליסאו', 'גְּלִיסֵאוֹ'),
   heWord('דיפינדו', 'דִּיפִינְדוֹ'), heWord('פיניטה', 'פִינִיטֶה'), heWord('אינקנטטם', 'אִינְקַנְטָטֶם'),
   heWord('סונורוס', 'סוֹנוֹרוּס'), heWord('הרביוויקוס', 'הֶרְבִּיוִיקוּס'), heWord('אקספליארמוס', 'אֶקְסְפֶּלְיַארְמוּס'),
-  heWord('רפארו', 'רֶפָּארוֹ'), heWord('אינסנדיו', 'אִינְסֶנְדְיוֹ'), heWord('אגואמנטי', 'אָגוּאָמֶנְטִי'),
-  heWord('הוגוורטס', 'הוֹגְוָורְטְס'), heWord('דמבלדור', 'דַּמְבֶּלְדוֹר'), heWord('פליטוויק', 'פְלִיטְוִויק'),
+  heWord('רפארו', 'רֶפָּארוֹ'), heWord('אינסנדיו', 'אִינְסֶנְדְיוֹ'), heWord('אגואמנטי', 'אָגֶוַאמֶנטִי'),
+  heWord('הוגוורטס', 'הוֹגְוָורְטְס'), heWord('דמבלדור', 'דַּמְבֶּלְדוֹר'), heWord('פליטיק', 'פְלִיטִיק'), heWord('בקביק', 'בַּקְבִּיק'), heWord('אוטונוס', 'אוֹטוֹנוֹס'), heWord('דובשנרייה', 'דֻּבְשָׁנֶרִיָּה'),
+  heWord('דודאים', 'דּוּדָאִים'), heWord('דודא', 'דּוּדָא'), heWord('מירטל', 'מִירְטֶל'), heWord('קונדסאים', 'קוּנְדֵסָאִים'), heWord('קונדס', 'קוּנְדֵס'), heWord('מחולל', 'מְחוֹלֵל'),
 ];
 const RE_EMOJI = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}︎️‍⃣]/gu;
 export function cleanText(text) {

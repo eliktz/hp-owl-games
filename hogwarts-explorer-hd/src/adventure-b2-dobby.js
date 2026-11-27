@@ -24,11 +24,11 @@ export const B2DOBBY = {
     'בוא נלך לחדר של גריפינדור. אני הרמיוני, ואני אעזור לך! ✨',
   ],
   steps: [
-    { line: 'לך אל חדר המועדון של גריפינדור 🦁', hints: ['חדר המועדון נמצא למעלה, ליד המדרגות הנעות 🦁', 'לך אחרי החץ הזהוב', 'אפשר גם לטוס ברשת הפלו או במפה 🔥🗺️'], glowL1: true },
+    { line: 'לך אל חדר המועדון של גריפינדור 🦁', hints: ['חדר המועדון נמצא למעלה, ליד המדרגות המשתנות 🦁', 'לך אחרי החץ הזהוב', 'אפשר גם לטוס ברשת הפלו או במפה 🔥🗺️'], glowL1: true },
     { line: 'גע בדובי שקופץ על הספה 🧝', hints: ['מי זה קופץ על הספה? גע בו! 🧝', 'דובי רוצה להגיד משהו. גע בו', 'גע בדובי, היצור הקטן עם האוזניים הגדולות'], glowL1: true },
     { line: 'מצא את המכתבים שדובי החביא 💌', hints: ['דובי החביא מכתבים בחדר. חפש אותם! 💌', 'המכתבים זוהרים עכשיו. גע בהם', 'בדוק ליד הכורסאות, השולחן והקיר 💌'] },
     { line: 'לך אל החממה ושים את מחממי האוזניים 🎧', hints: ['שיעור צמחי מרפא בחממה, בחוץ 🌿', 'מחממי האוזניים הוורודים על הספסל. גע בהם!', 'לך אחרי החץ הזהוב אל החממה 🌿'], glowL1: true },
-    { line: 'העבר את המנדרייקים לעציצים הגדולים 🌱', hints: ['גע במנדרייק כדי לשלוף אותו, ואז בעציץ גדול 🌱', 'המנדרייק זוהר? שלוף אותו! אחר כך גע בעציץ', 'עציץ גדול וריק מחכה. גע בו 🪴'] },
+    { line: 'העבר את הדודאים לעציצים הגדולים 🌱', hints: ['גע בדודא כדי לשלוף אותו, ואז בעציץ גדול 🌱', 'הדודא זוהר? שלוף אותו! אחר כך גע בעציץ', 'עציץ גדול וריק מחכה. גע בו 🪴'] },
   ],
   create: (ctx) => dobbyScene(ctx),
   art: drawDobbyCard,
@@ -148,19 +148,19 @@ function dobbyScene(ctx) {
   }
   function takeMuffs() {
     if (S.muffsOn || ctx.step !== 3 || !S.herb) return; S.muffsOn = 1; wearMuffs(); S.muffsT = 0.001; sfx('pop');
-    ctx.say('מחממי אוזניים ורודים ופרוותיים! עכשיו אפשר לשלוף מנדרייקים 🎧', '🌿 פרופסור ספראוט', 4);
+    ctx.say('מחממי אוזניים ורודים ופרוותיים! עכשיו אפשר לשלוף דודאים 🎧', '🌿 פרופסור ספראוט', 4);
   }
   function pull(k) {
     const M = S.mand[k]; if (!M || M.st !== 'pot') return;
-    if (S.held >= 0) { ctx.say('קודם שים את המנדרייק שביד בעציץ גדול 🪴', null, 2.5); return; }
+    if (S.held >= 0) { ctx.say('קודם שים את הדודא שביד בעציץ גדול 🪴', null, 2.5); return; }
     S.held = k; M.st = 'up'; M.t = 0; M.from.copy(M.g.position); wah(); S.wahT = 1.3; ctx.poke();
     if (S.mand.filter(m => m.st !== 'pot').length === 1) ctx.say('ואה! 😄 הוא צווח - אבל עם מחממי האוזניים זה רק ציוץ קטן. עכשיו לעציץ גדול!', null, 4);
   }
   function plant(j) {
-    if (S.held < 0) { ctx.say('קודם גע במנדרייק כדי לשלוף אותו 🌱', null, 2.5); return; }
-    if (S.potFull[j] >= 0) { ctx.oops('בעציץ הזה כבר יש מנדרייק 🙂 נסה עציץ ריק'); return; }
+    if (S.held < 0) { ctx.say('קודם גע בדודא כדי לשלוף אותו 🌱', null, 2.5); return; }
+    if (S.potFull[j] >= 0) { ctx.oops('בעציץ הזה כבר יש דודא 🙂 נסה עציץ ריק'); return; }
     const k = S.held, M = S.mand[k];
-    if (lv() > 1 && order[j] !== k) { S.wrong++; ctx.oops('הסרט של העציץ ' + RIB_NAME[order[j]] + ' 🎀 והמנדרייק עם סרט ' + RIB_NAME[k] + '. נסה עציץ אחר!'); return; }
+    if (lv() > 1 && order[j] !== k) { S.wrong++; ctx.oops('הסרט של העציץ ' + RIB_NAME[order[j]] + ' 🎀 והדודא עם סרט ' + RIB_NAME[k] + '. נסה עציץ אחר!'); return; }
     S.held = -1; S.potFull[j] = k; M.st = 'fly'; M.t = 0; M.pot = j; M.from.copy(M.g.position); M.to.set(S.herb.bigX[j], 0.2, 0.95); ctx.poke(); sfx('pop');
   }
 
@@ -178,7 +178,7 @@ function dobbyScene(ctx) {
     const n = casts();
     if (n !== S.casts0) { S.casts0 = n;
       if (inCommon() && step >= 1 && step <= 2 && S.dob) ctx.say('לא מטילים לחשים על דובי 🙂 רק נוגעים בו!', null, 3);
-      else if (outdoors() && step >= 3 && S.herb && Math.hypot(player.pos.x - HERB.x, player.pos.z - HERB.z) < 14) ctx.say('את המנדרייקים לא מכשפים 🙂 שולפים אותם ביד!', null, 3);
+      else if (outdoors() && step >= 3 && S.herb && Math.hypot(player.pos.x - HERB.x, player.pos.z - HERB.z) < 14) ctx.say('את הדודאים לא מכשפים 🙂 שולפים אותם ביד!', null, 3);
     }
     animDobby(dt, step);
     animLetters(dt, step);
@@ -245,8 +245,8 @@ function dobbyScene(ctx) {
       } else if (M.st === 'fly') {   // into the big pot
         const k1 = Math.min(1, M.t / 0.7); M.g.position.lerpVectors(M.from, M.to, k1); M.g.position.y += Math.sin(k1 * Math.PI) * 0.5; M.g.rotation.set(0, 0, 0); M.mouth.scale.set(1, 2, 1);
         if (k1 >= 1) { M.st = 'in'; M.t = 0; burst(...HWo(M.to.x, 0.5, M.to.z, v1).toArray(), 0x9ad070, 14, 1.4, 0.7, 0.18, -1); sfx('chime'); const left = need() - S.mand.filter(m => m.st === 'in').length;
-          if (left > 0) ctx.say(left === 1 ? 'יופי! עוד מנדרייק אחד 🌱' : 'יופי! עוד ' + left + ' מנדרייקים 🌱', null, 2.2);
-          else { S.snore = 0.001; ctx.say('ששש... המנדרייקים נרדמים בעציצים החדשים 😴', null, 4); } }
+          if (left > 0) ctx.say(left === 1 ? 'יופי! עוד דודא אחד 🌱' : 'יופי! עוד ' + left + ' דודאים 🌱', null, 2.2);
+          else { S.snore = 0.001; ctx.say('ששש... הדודאים נרדמים בעציצים החדשים 😴', null, 4); } }
       } else if (M.st === 'in') {   // tucked in: only the leaves and the face peek out; asleep at the end
         M.g.position.set(M.to.x, 0.2 + Math.sin(S.t * 1.2 + k) * 0.01, M.to.z); M.mouth.scale.set(1, S.snore ? 1.6 + Math.sin(S.t * 1.3 + k) * 0.6 : 1, 1); asleep++;
       }
@@ -328,7 +328,7 @@ function dobbyScene(ctx) {
     if (step === 3 && S.muffsOn === 0) dropMuffs();
     if (step === 4 && !resumed) { /* fresh: the arrow goes to the first mandrake */ }
     if (step === 3 && !resumed) ctx.say('עכשיו לשיעור צמחי מרפא בחממה! 🌿 בחוץ, ליד הבקתות', null, 4);
-    if (step === 4 && !resumed) ctx.say('שלוף מנדרייק ושים אותו בעציץ גדול 🌱' + (lv() > 1 ? ' - עם סרט באותו צבע 🎀' : ''), '🌿 פרופסור ספראוט', 4.5);
+    if (step === 4 && !resumed) ctx.say('שלוף דודא ושים אותו בעציץ גדול 🌱' + (lv() > 1 ? ' - עם סרט באותו צבע 🎀' : ''), '🌿 פרופסור ספראוט', 4.5);
     if (!resumed) return;
     // a resume (reload / the book): go to the right place; the step starts over
     if (step >= 1 && step <= 2) { if (!inCommon()) interiors.enter('commonroom'); else dressCommon(step); }

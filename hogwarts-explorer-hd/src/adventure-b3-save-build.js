@@ -1,4 +1,4 @@
-// Book 3, adventure 6 "מצילים את אבזם וסיריוס" (the finale): the places, the flight path and the small code-built props
+// Book 3, adventure 6 "מצילים את בקביק וסיריוס" (the finale): the places, the flight path and the small code-built props
 // (adventure-b3-save.js runs it). Buckbeak is the live rigged GLB 'buckbeak'; the dog is 'blackdog' (dog-free.js loadDog).
 // Here: the rope post + knot by the paddock (one vertex-coloured mesh) and the rope (one thin mesh stretched each frame),
 // and the kind stand-in for Sirius: the game's chibi builder (long dark hair, a warm smile, a worn brown coat) MERGED into

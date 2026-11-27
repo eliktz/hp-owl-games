@@ -352,7 +352,7 @@ const DF_PHONE = { gate: { cam: { pos: [8.5, 1.8, 0.4], look: [10.3, 0.5, 1.5] }
 
 export const COURSES = {
   charms: {
-    spell: { he: 'וִינְגַרְדְיוּם לֶבִיּוֹסָה', icon: '🪶', gesture: 'up' },
+    spell: { he: 'וִינְגַארְדְיוּם לֶבִיּוֹסָה', icon: '🪶', gesture: 'up' },
     title: 'אֶתְגַּר הַנּוֹצָה', name: 'אֶתְגָּר: לְחָשִׁים',
     teacher: 'flitwick', room: 'classrooms', station: 'charms',
     build: buildCharms,
@@ -361,7 +361,7 @@ export const COURSES = {
       cam: { pos: [-5.6, 2.3, -2.9], look: [-9.3, 1.1, -5.0] },
       intro: [
         { pose: 'talk', line: 'שָׁלוֹם! הַיּוֹם נִלְמַד לְהָרִים דְּבָרִים בְּקֶסֶם!', t: 3.4 },
-        { pose: 'cast', line: 'וִינְגַרְדְיוּם לֶבִיּוֹסָה!', t: 3.0, burst: [-9, 1.2, -4.75] },
+        { pose: 'cast', line: 'וִינְגַארְדְיוּם לֶבִיּוֹסָה!', t: 3.0, burst: [-9, 1.2, -4.75] },
         { pose: 'talk', line: 'עַכְשָׁו אַתָּה! גַּע בַּנּוֹצָה וְהַחְלֵק לְמַעְלָה!', t: 3.2 },
       ],
       lifts: [0, 1, 2].map(i => ({ m: 'feather' + i, flutter: true,

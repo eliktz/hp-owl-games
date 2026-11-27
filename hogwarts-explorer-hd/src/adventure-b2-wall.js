@@ -22,9 +22,9 @@ export const B2WALL = {
     'בוא נגלה מה קרה. אני הרמיוני, ואני אעזור לך! ✨',
   ],
   steps: [
-    { line: 'לך אל אולם המדרגות הנעות 🪜', hints: ['אולם המדרגות נמצא ליד אולם הכניסה 🪜', 'לך אחרי החץ הזהוב', 'אפשר גם לטוס במפה אל המדרגות הנעות 🗺️'], glowL1: true },
+    { line: 'לך אל אולם המדרגות המשתנות 🪜', hints: ['אולם המדרגות נמצא ליד אולם הכניסה 🪜', 'לך אחרי החץ הזהוב', 'אפשר גם לטוס במפה אל המדרגות המשתנות 🗺️'], glowL1: true },
     { line: 'הטל לומוס על הקיר החשוך 💡', hints: ['הקיר חשוך מדי לקרוא. צריך אור! 💡', 'בחר לומוס בגלגל הלחשים ונופף בשרביט', 'הלחש הזוהר בגלגל: לומוס 💡'], spell: 'lumos', glowL1: true },
-    { line: 'עזור לגברת נוריס להפשיר 🐈', hints: ['פרופסור ספראוט השאירה בקבוק של שיקוי מנדרייק 🧴', 'קודם גע בבקבוק הירוק, ואז בחתולה', 'הבקבוק זוהר על הרצפה. גע בו, ואז בגברת נוריס 🐈'], glowL1: true },
+    { line: 'עזור לגברת נוריס להפשיר 🐈', hints: ['פרופסור ספראוט השאירה בקבוק של שיקוי דודאים 🧴', 'קודם גע בבקבוק הירוק, ואז בחתולה', 'הבקבוק זוהר על הרצפה. גע בו, ואז בגברת נוריס 🐈'], glowL1: true },
     { line: 'לך אחרי העכבישים הקטנים 🕷️', hints: ['העכבישים הקטנים מחכים לך. לך אליהם! 🕷️', 'הטל לומוס או "הצבע לי" כדי לראות את השביל ✨', 'לך אחרי החץ הזהוב, העכבישים מחכים'], glowL1: true },
     { line: 'מצא בספרייה את ספר השיקויים 📕', hints: ['ספר השיקויים נמצא במדף בספרייה 📚', 'חפש את הספר עם הקלחת על הגב', 'גע בספר הגדול עם הקלחת הזהובה 📕'] },
   ],
@@ -166,12 +166,12 @@ function wallScene(ctx) {
   function takeTonic() {
     if (S.tonic || ctx.step !== 2) return; S.tonic = 1; ctx.poke(); sfx('pop'); sfx('chime');
     if (S.D && S.D.tonic) { RW(TONIC.x, 0.4, TONIC.z, v1); burst(v1.x, v1.y, v1.z, 0x8ad08a, 16, 1.4, 0.8, 0.2, -0.6); S.D.tonic.visible = false; }
-    try { fun.toast('🧴', 'יש לך את שיקוי המנדרייק!', 1600); } catch { /* ok */ }
-    ctx.say('שיקוי מנדרייק של פרופסור ספראוט! עכשיו גע בגברת נוריס 🐈', null, 3.5);
+    try { fun.toast('🧴', 'יש לך את שיקוי הדודאים!', 1600); } catch { /* ok */ }
+    ctx.say('שיקוי דודאים של פרופסור ספראוט! עכשיו גע בגברת נוריס 🐈', null, 3.5);
   }
   function thaw() {
     if (S.thaw || ctx.step !== 2) return;
-    if (!S.tonic) { ctx.say('גברת נוריס קפואה כמו פסל קטן 🧊 צריך את שיקוי המנדרייק! הבקבוק הירוק על הרצפה 🧴', null, 3.5); return; }
+    if (!S.tonic) { ctx.say('גברת נוריס קפואה כמו פסל קטן 🧊 צריך את שיקוי הדודאים! הבקבוק הירוק על הרצפה 🧴', null, 3.5); return; }
     S.thaw = 0.001; ctx.poke(); sfx('sparkle'); tone(880, 0.6, 0, 'sine', 0.06, 440);
     if (S.D && S.D.tonic) { S.D.tonic.visible = true; S.D.tonic.position.set(NORRIS.x - 0.3, 0.9, NORRIS.z); S.D.tonic.rotation.set(0, 0, 0); }
   }
@@ -198,7 +198,7 @@ function wallScene(ctx) {
     if (n !== S.casts0) {
       S.casts0 = n; const k = freecast && freecast.selected ? freecast.selected() : null;
       if (inHall() && step === 1 && !S.lit) { if (k === 'lumos' || k === 'maxima') light(); else ctx.oops('הקיר עדיין חשוך... נסה לחש של אור 💡'); }
-      else if (inHall() && step === 2 && S.D && S.D.cat) { const g = S.D.g.position; if (Math.hypot(player.pos.x - g.x - NORRIS.x, player.pos.z - g.z - NORRIS.z) < 9) ctx.say('לא מטילים לחשים על חתולים 🙂 גברת נוריס צריכה את שיקוי המנדרייק 🧴', null, 3.5); }
+      else if (inHall() && step === 2 && S.D && S.D.cat) { const g = S.D.g.position; if (Math.hypot(player.pos.x - g.x - NORRIS.x, player.pos.z - g.z - NORRIS.z) < 9) ctx.say('לא מטילים לחשים על חתולים 🙂 גברת נוריס צריכה את שיקוי הדודאים 🧴', null, 3.5); }
       else if (inHall() && step === 3) { if (k === 'lumos' || k === 'maxima' || k === 'pointme') { S.trail = 8; ctx.say('השביל של העכבישים זוהר! ✨ לך אחריו', null, 3); } else ctx.say('לא מכשפים עכבישים 🙂 רק הולכים אחריהם!', null, 3); }
       else if (inLib() && step === 4 && S.picked < 0) ctx.say('כאן לא צריך לחשים 🙂 גע בספר עם הקלחת על הגב', null, 3);
     }
@@ -307,7 +307,7 @@ function wallScene(ctx) {
     init(); S.active = true;
     if (step === 3 && S.D) { dropCat(); addSpiders(); }
     if (step === 1 && !resumed) { /* the arrow sits under the writing */ }
-    if (step === 2 && !resumed) ctx.say('גברת נוריס קפואה! 🧊 אבל היא רק ישנה עמוק. פרופסור ספראוט השאירה כאן שיקוי מנדרייק 🧴', null, 4.5);
+    if (step === 2 && !resumed) ctx.say('גברת נוריס קפואה! 🧊 אבל היא רק ישנה עמוק. פרופסור ספראוט השאירה כאן שיקוי דודאים 🧴', null, 4.5);
     if (step === 3 && !resumed) ctx.say('תראה! עכבישים קטנים יוצאים מהשלולית... בוא נלך אחריהם 🕷️', null, 4);
     if (step === 4 && !resumed) ctx.say('העכבישים ברחו. בוא נחפש בספרייה ספר שיסביר מה קורה 📚', null, 4);
     if (!resumed) return;

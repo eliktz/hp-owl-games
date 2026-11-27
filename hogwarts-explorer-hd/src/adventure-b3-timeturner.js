@@ -1,4 +1,4 @@
-// Book 3, adventure 5: "מחזיר הזמן" (the Time-Turner), helper Hermione. Data for adventures.js + the scene code.
+// Book 3, adventure 5: "מחולל הזמן" (the Time-Turner), helper Hermione. Data for adventures.js + the scene code.
 // Decisions: briefs/2026-11-26-book3-piece-c.md. Played in the staircase hall (quest props on its west side, only while the
 // quest runs). Steps: 1 meet Hermione's bubble in the staircase hall: she shows the Time-Turner (a small gold hourglass in
 // rings on a chain, spinning above Harry's hand) and a ⏳ button appears -> 2 a big oak door swings shut by itself unless
@@ -22,17 +22,17 @@ const LOOP = { x: -3.6, z: 7.2, rx: 2.6, rz: 1.5 };   // the ball's circuit out 
 const FREE = { x: -2.3, z: 4.5 };                       // where the real Harry waits for the ball
 const LEVER_AT = { x: -5.75, z: 4.05 };                  // levels 2-3: beside the other Harry
 export const B3TIMETURNER = {
-  id: 'b3-timeturner', book: 3, title: 'מחזיר הזמן', ico: '⏳', col: '#4a3a10', col2: '#e8c860', helper: HERM, confetti: ['✨', '⏳', '⭐', '🌀'],
+  id: 'b3-timeturner', book: 3, title: 'מחולל הזמן', ico: '⏳', col: '#4a3a10', col2: '#e8c860', helper: HERM, confetti: ['✨', '⏳', '⭐', '🌀'],
   pic: [['⏳', 0.5, 0.56, 66], ['✨', 0.2, 0.3, 30], ['🔄', 0.8, 0.3, 28]],
   intro: [
     'להרמיוני יש סוד קטן ונוצץ... ⏳',
-    'זה מחזיר זמן! מסובבים אותו, והזמן חוזר קצת אחורה.',
+    'זה מחולל זמן! מסובבים אותו, והזמן חוזר קצת אחורה.',
     'בוא נפגוש אותה באולם המדרגות ונראה מה הוא יודע לעשות ✨',
   ],
   steps: [
-    { line: 'לך אל אולם המדרגות ופגוש את הרמיוני ⏳', hints: ['הרמיוני מחכה באולם המדרגות הנעות ⏳', 'לך אחרי החץ הזהוב', 'אולם המדרגות נמצא מעבר לאולם הכניסה 🏰'], glowL1: true },
+    { line: 'לך אל אולם המדרגות ופגוש את הרמיוני ⏳', hints: ['הרמיוני מחכה באולם המדרגות המשתנות ⏳', 'לך אחרי החץ הזהוב', 'אולם המדרגות נמצא מעבר לאולם הכניסה 🏰'], glowL1: true },
     { line: 'גע בידית של הדלת והחזק אותה 🚪', hints: ['הדלת נסגרת לבד! גע בידית הזהובה 🚪', 'הידית העגולה על הדלת זוהרת', 'גע בידית, והארי יחזיק את הדלת פתוחה'], glowL1: true },
-    { line: 'סובב את מחזיר הזמן: לחץ ⏳', hints: ['אי אפשר להחזיק את הדלת וגם לתפוס. יש לנו מחזיר זמן! ⏳', 'לחץ על הכפתור ⏳ הזוהר', 'הכפתור ⏳ מחזיר את הזמן אחורה'] },
+    { line: 'סובב את מחולל הזמן: לחץ ⏳', hints: ['אי אפשר להחזיק את הדלת וגם לתפוס. יש לנו מחולל זמן! ⏳', 'לחץ על הכפתור ⏳ הזוהר', 'הכפתור ⏳ מחזיר את הזמן אחורה'] },
     { line: 'תפוס את הכדור הזהוב כשהוא עובר 🌀', hints: ['הכדור הזהוב עף מסביב. גע בו כשהוא עובר! 🌀', 'חכה שהכדור יעבור לידך, ואז גע בו', 'הכדור זוהר. גע בו!'], glowL1: true },
     { line: 'נופפו ביחד לשלום 👋', hints: ['שני הארי מנופפים! 👋', 'עוד רגע...', 'כמעט!'] },
   ],
@@ -85,7 +85,7 @@ function ttScene(ctx) {
   body.modalOn #ttRing{display:none !important}
   @media (max-width:700px){#ttRing{top:auto;bottom:calc(330px + env(safe-area-inset-bottom));width:104px;height:104px;margin-left:-52px}}`;
   document.head.appendChild(css);
-  const qb = document.createElement('button'); qb.id = 'ttQBtn'; qb.className = 'gamebtn'; qb.textContent = '⏳'; qb.setAttribute('aria-label', 'מחזיר הזמן');
+  const qb = document.createElement('button'); qb.id = 'ttQBtn'; qb.className = 'gamebtn'; qb.textContent = '⏳'; qb.setAttribute('aria-label', 'מחולל הזמן');
   for (const ev of ['pointerdown', 'touchstart', 'mousedown']) qb.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
   qb.addEventListener('click', (e) => { e.stopPropagation(); spinPressed(); });
   document.body.appendChild(qb);
@@ -155,7 +155,7 @@ function ttScene(ctx) {
   }
   function endHold(full) {
     S.holding = false; ringEl.classList.remove('on'); S.openTo = 0;
-    if (full) { S.held = true; sfx('soft'); ctx.say('אי אפשר להחזיק את הדלת וגם לתפוס את הכדור... אבל יש לנו מחזיר זמן! ⏳', HERM_WHO, 4.5); setTimeout(() => done(1), 1600); }
+    if (full) { S.held = true; sfx('soft'); ctx.say('אי אפשר להחזיק את הדלת וגם לתפוס את הכדור... אבל יש לנו מחולל זמן! ⏳', HERM_WHO, 4.5); setTimeout(() => done(1), 1600); }
     else ctx.say('הדלת נסגרה. זה בסדר! גע שוב בידית 🚪', HERM_WHO, 3);
   }
   function spinPressed() {
@@ -209,9 +209,9 @@ function ttScene(ctx) {
     qb.classList.toggle('pulse', btnOn && ((step === 2 && !RW.on) || (step === 3 && lv() >= 2 && !S.leverDown && !RW.on)) && (lv() === 1 || S.glowHint || S.t - (S.stepT || 0) > 6));
     if (!here) { ringEl.classList.remove('on'); if (S.holding) { S.holding = false; S.openTo = 0; } return; }
     // a spell here: a kind word (spells never act on Harry or the other Harry)
-    const n = casts(); if (n !== S.casts0) { S.casts0 = n; S.spellSays++; ctx.say(RW.holding ? 'לא מטילים לחשים על הארי השני 🙂 הוא חבר!' : 'כאן לא צריך לחש. מחזיר הזמן יעזור לנו ⏳', HERM_WHO, 3); }
+    const n = casts(); if (n !== S.casts0) { S.casts0 = n; S.spellSays++; ctx.say(RW.holding ? 'לא מטילים לחשים על הארי השני 🙂 הוא חבר!' : 'כאן לא צריך לחש. מחולל הזמן יעזור לנו ⏳', HERM_WHO, 3); }
     // 1: arriving: Hermione's bubble, the Time-Turner over Harry's hand, the ⏳ button
-    if (step === 0) { S.arrive += dt; if (S.arrive > 1.0 && !S.shown) { S.shown = true; S.showT = 0; sfx('sparkle'); ctx.say('תראה מה יש לי! מחזיר זמן ⏳ מסובבים אותו, והזמן חוזר אחורה', HERM_WHO, 4.5); } if (S.shown) { S.showT += dt; if (S.showT > 3.2) done(0); } }
+    if (step === 0) { S.arrive += dt; if (S.arrive > 1.0 && !S.shown) { S.shown = true; S.showT = 0; sfx('sparkle'); ctx.say('תראה מה יש לי! מחולל זמן ⏳ מסובבים אותו, והזמן חוזר אחורה', HERM_WHO, 4.5); } if (S.shown) { S.showT += dt; if (S.showT > 3.2) done(0); } }
     // the Time-Turner floats and spins above Harry's hand (steps 1-4)
     if (S.turner) {
       const show = S.shown && step <= 3;
@@ -304,7 +304,7 @@ function ttScene(ctx) {
   }
   function glow(step, on) { S.glowHint = !!on; }
   function hintText(step, n) {
-    if (step === 3 && lv() >= 2 && !S.leverDown) return ['', 'צריך עוד יד אחת למשוך את הידית ⏳', 'סובב שוב את מחזיר הזמן: לחץ ⏳', 'הכפתור ⏳ זוהר. לחץ עליו!'][n] || null;
+    if (step === 3 && lv() >= 2 && !S.leverDown) return ['', 'צריך עוד יד אחת למשוך את הידית ⏳', 'סובב שוב את מחולל הזמן: לחץ ⏳', 'הכפתור ⏳ זוהר. לחץ עליו!'][n] || null;
     return null;
   }
   function together(step, fast) {

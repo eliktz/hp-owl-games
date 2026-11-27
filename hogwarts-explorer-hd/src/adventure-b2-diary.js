@@ -19,12 +19,12 @@ import { HUT } from './grounds-film.js';
 import { buildDiary, buildPuddle, buildDesk, buildRibbon, drawMemory, triCount, PUDDLE, DESK, DESK_STAND, FONT } from './adventure-b2-diary-build.js';
 
 const HERM = { ico: '👧', name: 'הרמיוני' };
-const MYR = '👻 מיילי', HAG = '🧔 האגריד';
+const MYR = '👻 מירטל', HAG = '🧔 האגריד';
 export const B2DIARY = {
   id: 'b2-diary', book: 2, title: 'היומן של טום רידל', ico: '📓', col: '#2a2a3a', col2: '#8a8ab0', helper: HERM, confetti: ['✨', '⭐', '📓', '✒️'],
   pic: [['📓', 0.5, 0.56, 66], ['✒️', 0.8, 0.3, 30], ['✨', 0.2, 0.3, 28]],
   intro: [
-    'בשירותים של מיילי מישהו השאיר ספר קטן ושחור... 📓',
+    'בשירותים של מירטל מישהו השאיר ספר קטן ושחור... 📓',
     'זה יומן קסום: כשכותבים בו, הוא עונה!',
     'בוא נגלה מה הוא יודע. אני הרמיוני, ואני אעזור לך ✨',
   ],
@@ -298,7 +298,7 @@ function diaryScene(ctx) {
     const n = casts();
     if (n !== S.casts0) {
       S.casts0 = n;
-      if (inBath() && S.B) ctx.say('לא מטילים לחשים על מיילי 🙂 הספר שוכב בשלולית. גע בו!', null, 3.5);
+      if (inBath() && S.B) ctx.say('לא מטילים לחשים על מירטל 🙂 הספר שוכב בשלולית. גע בו!', null, 3.5);
       else if (step === 3 && outdoors()) { const L = lanternW(v1); if (Math.hypot(player.pos.x - L.x, player.pos.z - L.z) < 14) ctx.say('לא צריך לחש 🙂 פשוט דופקים בדלת של האגריד. גע בפנס 🏮', null, 3.5); }
       else if (inCommon() && (step === 1 || step === 2)) ctx.say('ביומן כותבים ביד, בלי שרביט ✒️ גע ביומן', null, 3);
     }

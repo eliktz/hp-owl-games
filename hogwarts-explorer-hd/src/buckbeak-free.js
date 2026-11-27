@@ -131,7 +131,7 @@ export function createBuckbeakFree({ scene, camera, player, interiors, fun, free
   }
   function nuzzle() {
     if (!ready() || nuzT > 0) return false;
-    if (dist() > 7.5) { say('בוא קרוב יותר לאבזם כדי ללטף אותו 🤚'); return true; }
+    if (dist() > 7.5) { say('בוא קרוב יותר לבקביק כדי ללטף אותו 🤚'); return true; }
     log.nuzzles++; nuzT = 0.7; F.replay('Nuzzle', 0.25); F.chirp();
     F.headW(v1); for (let i = 0; i < 10; i++) emit(v1.x + (Math.random() - 0.5) * 0.5, v1.y + 0.2 + Math.random() * 0.3, v1.z + (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.6, 0.9 + Math.random() * 0.5, (Math.random() - 0.5) * 0.6, 1.3, 0.24, Math.random() < 0.5 ? 0xff7aa8 : 0xffb0cc, 0.1);
     return true;
@@ -215,14 +215,14 @@ export function createBuckbeakFree({ scene, camera, player, interiors, fun, free
     if (bowT > 0) {
       const t0 = bowT; bowT += dt;
       if (bowT < BOW_LEAN + 1.0) F.leanHarry(bowT < BOW_LEAN ? Math.min(1, bowT * 3) : Math.max(0, 1 - (bowT - BOW_LEAN)));
-      if (t0 < BOW_LEAN && bowT >= BOW_LEAN) { F.replay('Bow', 0.35); sfx('chime'); say('אבזם אומר שלום 🦅💛'); }
+      if (t0 < BOW_LEAN && bowT >= BOW_LEAN) { F.replay('Bow', 0.35); sfx('chime'); say('בקביק אומר שלום 🦅💛'); }
       if (bowT >= BOW_LEAN + BOW_BACK) bowT = 0;
     }
     // after the landing: Buckbeak bows once more
     if (finalT > 0) {
       const t0 = finalT; finalT += dt;
       if (t0 < 0.5 && finalT >= 0.5) { F.replay('Bow', 0.35); sfx('chime'); }
-      if (t0 < 1.2 && finalT >= 1.2) { say('איזו טיסה! אבזם גאה בך 🦅💛'); sfx('heart'); }
+      if (t0 < 1.2 && finalT >= 1.2) { say('איזו טיסה! בקביק גאה בך 🦅💛'); sfx('heart'); }
       if (finalT >= 3.6) finalT = 0;
     }
     prompts(near && bowT === 0 && finalT === 0);

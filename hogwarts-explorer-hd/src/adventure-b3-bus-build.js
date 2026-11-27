@@ -90,7 +90,7 @@ function sideTex() {
         }
       });
       // the gold title band between decks 1 and 2 (always reads right to left)
-      rtlText(x, 'אוטובוס האבירים', 256, y0 + 154, 26, '#ffd76a', 380, '#3a1060');
+      rtlText(x, 'אוטונוס הלילה', 256, y0 + 154, 26, '#ffd76a', 380, '#3a1060');
       if (half === 0) {   // the door (open, warm light inside) with the conductor waving in it
         busWindow(x, 404, y0 + 160, 84, 92, 'stan');
         x.strokeStyle = '#ffd76a'; x.lineWidth = 4; x.strokeRect(402, y0 + 158, 88, 96);

@@ -1,4 +1,4 @@
-// Book 1, quest "קידה לאבזם" (Buckbeak): the places, the flight path and the small code-built props
+// Book 1, quest "קידה לבקביק" (Buckbeak): the places, the flight path and the small code-built props
 // (adventure-buckbeak.js runs it). Buckbeak himself is the rigged GLB 'buckbeak' (assets/models/, loaded lazily by the
 // quest; 6,249 tris, 3 draw calls); everything here is pooled and tiny: the bow spot on the lawn (one quad), the gold
 // feathers (one InstancedMesh of 5) and nothing else (sparkles, hearts and the water line use the framework's pool).
