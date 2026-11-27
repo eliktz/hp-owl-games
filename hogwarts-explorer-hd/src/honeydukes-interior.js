@@ -15,7 +15,7 @@ import { loadModel, modelInfo } from './models.js';
 import { triCount, drawCount } from './adventure-b3-map-build.js';
 
 const CODE_BUILT = ['honey-floor', 'honey-jars', 'honey-lamps'];
-const SIGN_OFF = 0.06;   // the counter sign moves this far off the east wall (along its normal) in the 'model' state
+const SIGN_OFF = 0.03;   // the counter sign moves this far off the east wall (along its normal) in the 'model' state
 const LAMP_MAX = 1.1;   // the model's EMI_Honey_Lamp comes with emissiveStrength 2.5: too much bloom beside the old 0.9 lamps
 const ST = { cur: null, loads: 0, builds: 0, errors: 0, lastErr: '', reason: '' };
 const warn = (what, e) => { ST.errors++; ST.lastErr = what + ': ' + String(e && e.message || e); if (ST.errors < 5) console.warn('[honey-interior]', what, '-', String(e && e.message || e)); };
@@ -62,7 +62,7 @@ function apply(H, model) {
     H.g.add(model);
     for (const n of CODE_BUILT) { const o = H.g.getObjectByName(n); if (o) o.visible = false; }
     const shell = H.g.getObjectByName('honey-shell'); if (shell && shell.material) shell.material.visible = false;
-    // the counter sign on the east wall: the model's cream picture rail stands proud of the plaster and cut through it; 6 cm off the wall
+    // the counter sign on the east wall: the model's cream picture rail stands proud of the plaster and cut through it; 3 cm more off the wall (the final file moved the rail up to y 3.05, so this is only a safety margin)
     const sign = H.g.getObjectByName('honey-sign'); if (sign && !sign.userData.hiMoved) { sign.userData.hiMoved = true; sign.position.x -= SIGN_OFF; }
     H.model = model; H.root = root; H.state = 'model';
     H.tris = triCount(model); H.draws = drawCount(model);
