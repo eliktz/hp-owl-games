@@ -25,6 +25,7 @@ const RECT = {
   hogshead_hanging: { x: 684, y: 356, w: 340, h: 340 },
 };
 const HANGING = (k) => /_hanging$/.test(k);
+export const HANG_FRONT = 0.02, HANG_BACK = 0.072;   // hanging-board faces: in front of / behind the sidecar point (metres)
 const CREAM = '#d4c69e', GOLD = '#c8a04e', GOLD_D = '#8a6a36', INK = '#1a0e08';
 
 // ---------------- painting ----------------
@@ -131,8 +132,10 @@ export function buildShopSigns(side) {
     const s = S[k]; if (!s || ![s.x, s.y, s.z, s.w, s.h].every(Number.isFinite)) continue;
     const ry = s.ry || 0;
     if (HANGING(k)) {
-      const sz = Math.min(s.w, s.h) * 0.94, t = s.t || 0.05;   // square art, a little inset so the model's board edge frames it
-      parts.push(quad(k, sz, sz, s.x, s.y, s.z, ry, t), quad(k, sz, sz, s.x, s.y, s.z, ry + Math.PI, t));
+      // square art, a little inset so the model's board edge frames it. The sidecar point is the board's FRONT face, not its centre:
+      // the v2 boards span -0.061..+0.009 m along the normal from it, so the faces go 1 cm outside each side (never inside the board)
+      const sz = Math.min(s.w, s.h) * 0.94, tf = s.tf ?? HANG_FRONT, tb = s.tb ?? HANG_BACK;
+      parts.push(quad(k, sz, sz, s.x, s.y, s.z, ry, tf), quad(k, sz, sz, s.x, s.y, s.z, ry + Math.PI, tb));
     } else parts.push(quad(k, s.w * 0.98, s.h * 0.94, s.x, s.y, s.z, ry, 0.012));
     keys.push(k);
   }
