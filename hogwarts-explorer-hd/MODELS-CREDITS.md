@@ -77,6 +77,10 @@ downloaded but **dropped** (a lone window frame / an exact duplicate) to keep th
 set small.
 
 
+## CC0 models (no attribution required; credited anyway)
+
+- `hm_street_01.glb` (+ `hm_street_01_webp.glb`, sidecar `hm_street_01.json`): the Hogsmeade High Street, an original assembly made in our own art workspace from CC0 parts: village buildings ("Fantasy Inn", "Fantasy House" x3, "Blacksmith", "Fantasy Sawmill", "Fantasy Stable", "House" x4, "Hut", "Shack") by Quaternius and lanterns ("Lantern", "Post Lantern", "Hanging Lantern") by Kay Lousberg, via poly.pizza; lamps and props from Poly Haven; Poly Haven CC0 textures. Re-textured, slate roofs, snow caps, a new Honeydukes bow window, AO baked into vertex colours. Optimised to Meshopt geometry + KTX2 (Basis) textures, with a WebP copy as fallback. See `CREDITS.md`.
+
 ## Not published
 
 "Hagrid's hut" by Katydid ([Sketchfab](https://sketchfab.com/3d-models/hagrids-hut-915ea9ebeda44e08b3f9957e31b66b85)) is under the **Sketchfab Standard** licence, which does not allow redistributing the model file, so it is **not** in this repository. An optimised copy is kept only locally in `private-assets/optimized/` (gitignored); the public game runs without it.

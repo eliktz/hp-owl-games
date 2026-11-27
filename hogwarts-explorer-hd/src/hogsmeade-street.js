@@ -25,6 +25,7 @@ const SHOP_SPOT = { x: 3.6, z: 5.15, r: 0.55 };             // the shop door on 
 const FILCH_FAR = { z: 11.4, x0: -12, x1: 12 };
 const QUEST_LINE = 'אחרי המשימה נצא לרחוב הוגסמיד 🏘️';
 const SIDECAR = 'hm_street_01.json';
+const NEAR_Z = 5.05;
 
 const ST = { promise: null, loaded: false, fallback: false, failed: null, mode: null, cur: null, errors: 0, lastErr: '', from: null, tap: false, emi: null, mats: [], visits: 0, door: null, bubbles: 0, going: false };
 const _v = new Vector3(), _w = new Vector3(), _m = new Matrix4(), _q = new Quaternion(), _s = new Vector3(), _c = new Color();
@@ -74,7 +75,7 @@ function prepare(model) {
         if (!ST.emi) { ST.emi = m; if (m.emissive && m.emissive.getHex() === 0) m.emissive.setHex(0xffc870); m.emissiveIntensity = Math.max(1.2, m.emissiveIntensity || 1); m.toneMapped = true; }
         m = ST.emi; if (Array.isArray(o.material)) o.material[i] = m; else o.material = m;
       }
-      if (o.geometry && o.geometry.attributes.color && !m.vertexColors) { m.vertexColors = true; m.needsUpdate = true; }
+      if (!m.vertexColors) { m.vertexColors = true; m.needsUpdate = true; }   // COLOR_0 carries the baked AO and the sweets / board colours (every mesh has it)
       if (!seen.has(m)) { seen.add(m); if (m.color && !m.userData.hmBase) m.userData.hmBase = m.color.getHex(); }
     }
   });
@@ -124,8 +125,11 @@ async function buildStreet(mode, src) {
     if (S.dropped) console.warn('[hogsmeade] skipped', S.dropped, 'street colliders that reach into the street');
     const cols = good.map(c => ({ type: 'box', x: c.x, z: c.z, hw: c.hw, hd: c.hd, angle: c.angle || 0 }));
     cols.push({ type: 'box', x: w.x0 - 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 }, { type: 'box', x: w.x1 + 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 });
-    cols.push({ type: 'box', x: (w.x0 + w.x1) / 2, z: w.z0 - 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 }, { type: 'box', x: (w.x0 + w.x1) / 2, z: w.z1 + 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 });
+    const zn = Math.max(w.z0, NEAR_Z);   // the near-side snow drifts stand within z 4.8..5.0: Harry walks from z 5.05
+    cols.push({ type: 'box', x: (w.x0 + w.x1) / 2, z: zn - 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 }, { type: 'box', x: (w.x0 + w.x1) / 2, z: w.z1 + 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 });
     S.cols = cols;
+    // one thin pane of glass in the bow (the model has none): a faint cool sheen, cheap (1 draw)
+    if (kind === 'glb' && bow) { const gl = quiet(new Mesh(new PlaneGeometry(4.1, 1.66), new MeshBasicMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.12, depthWrite: false }))); gl.name = 'hm-bow-glass'; gl.position.set(0, 1.8, 5.2); g.add(gl); }
     // the camera's spring arm stops on simple invisible boxes (not on the merged 70k-triangle street)
     const blk = new Group(); blk.name = 'hm-cam-blockers';
     const bm = new MeshBasicMaterial();

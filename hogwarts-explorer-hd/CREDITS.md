@@ -46,6 +46,15 @@ Fetched + optimised by `tools/fetch-assets.mjs`. Total ~7.5 MB.
 
 Poly Haven assets are CC0 (public domain). Credit is a courtesy, not a requirement.
 
+## Hogsmeade High Street (`assets/models/hm_street_01.glb`, CC0 parts; assembled in our own art workspace)
+The street model (milestone 1, `src/hogsmeade-street.js`) is an original assembly of CC0 parts, re-textured, snow-capped and
+AO-baked in our workspace. CC0 needs no credit; these lines are a courtesy.
+- Village buildings: "Fantasy Inn", "Fantasy House" (three), "Blacksmith", "Fantasy Sawmill", "Fantasy Stable", "House" (four), "Hut", "Shack" by Quaternius, CC0, via poly.pizza.
+- Lanterns: "Lantern", "Post Lantern", "Hanging Lantern" by Kay Lousberg, CC0, via poly.pizza.
+- Props and lamps: street_lamp_01, street_lamp_02, wooden_lantern_01, vintage_oil_lamp, lantern_chandelier_01, wine_barrel_01, wooden_crate_01, wooden_crate_02, large_castle_door from Poly Haven, CC0.
+- Textures (Poly Haven, CC0; 1K colour, 512 normal maps): stone_wall_04, white_rough_plaster, wood_trunk_wall, roof_slates_03, weathered_planks, cobblestone_floor_08, snow_02, metal_plate_02 (https://polyhaven.com/a/<slug>).
+- The Hebrew signs (הדובשנרייה), the sky, hills, snow, smoke and glow cards are drawn in code.
+
 ## Procedural (our own code — MIT, part of this repo)
 - Terrain heightfield, castle geometry (towers/walls/Great Hall/keep), the player wizard,
   and all fallback textures (stone, slate, wood, grass, water normal, gradient sky) in
