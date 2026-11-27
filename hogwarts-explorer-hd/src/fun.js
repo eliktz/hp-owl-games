@@ -91,6 +91,7 @@ css.textContent = `
   display:flex;align-items:center;justify-content:center;box-shadow:0 0 26px rgba(255,210,90,.9);cursor:pointer;
   transition:transform .25s cubic-bezier(.3,1.7,.5,1);touch-action:manipulation;-webkit-tap-highlight-color:transparent;padding:0}
 #funPrompt.on{transform:translateX(-50%) scale(1)}
+@media (max-width:560px){#funPrompt{left:calc(138px + env(safe-area-inset-left));bottom:calc(226px + env(safe-area-inset-bottom));width:88px;height:88px;font-size:46px}}
 body.modalOn #funPrompt,body.modalOn .funBub,body.inMatch #funPrompt{display:none}`;
 document.head.appendChild(css);
 

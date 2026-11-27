@@ -262,18 +262,26 @@ function draw() {
   }
   // footprints with little name labels (they step in place)
   if (ink >= 1) {
-    let j = 0; const placed = [];
+    let j = 0; const placed = [], seen = {};
     for (const f of S.feet) {
       const p = spotOf(f, j++); f.at = p; if (!p) continue;
       // friends in the same spot stand side by side (labels never pile up)
       const R = ROOMS[roomFor(f.place)].r;
+      // a small plan (a phone): the names are drawn bigger, so everyone in a room takes a tidy place in a grid (one or two rows
+      // under the room's title), and a name never runs into its neighbour
+      const big = FB() > 1.2; let maxW = 50;
+      if (big) {
+        const room = roomFor(f.place), n = S.feet.filter(q => roomFor(q.place) === room).length, k = (seen[room] = (seen[room] || 0) + 1) - 1;
+        const y1 = R[1] + 36 + 14 * FB(), rowH = 30 + 16 * FB(), rows = (y1 + rowH + 14 + 8 * FB() < R[1] + R[3]) && n > 2 ? 2 : 1, cols = Math.ceil(n / rows);
+        p[0] = R[0] + R[2] * ((k % cols) + 0.5) / cols; p[1] = Math.min(y1, R[1] + R[3] - 16 - 8 * FB()) + Math.floor(k / cols) * rowH; maxW = Math.min(96, R[2] / cols - 6);
+      }
       const clash = (a) => placed.some(q => Math.abs(q[0] - a[0]) < 52 && Math.abs(q[1] - a[1]) < 26);
-      if (clash(p)) { for (const [u, v] of SLOTS) { const a = [R[0] + R[2] * u, R[1] + R[3] * v]; if (!clash(a)) { p[0] = a[0]; p[1] = a[1]; break; } } }
+      if (!big && clash(p)) { for (const [u, v] of SLOTS) { const a = [R[0] + R[2] * u, R[1] + R[3] * v]; if (!clash(a)) { p[0] = a[0]; p[1] = a[1]; break; } } }
       placed.push(p);
       const step = Math.floor(S.t * 2 + j) % 2, col = f.id === 'harry' ? '#a0201a' : f.teacher ? '#3a2a6a' : INK;
       x.fillStyle = col;
       for (const sd of [-1, 1]) { const up = (sd > 0) === !!step ? -5 : 3; x.beginPath(); x.ellipse(p[0] + sd * 6, p[1] + up, 4.2, 7, sd * 0.15, 0, 7); x.fill(); x.beginPath(); x.arc(p[0] + sd * 6, p[1] + up - 9, 2.4, 0, 7); x.fill(); }
-      txt(NAMES[f.id] || f.id, p[0], p[1] + 12 + 8 * FB(), 17, col, 50);
+      txt(NAMES[f.id] || f.id, p[0], p[1] + 12 + 8 * FB(), big ? 15 : 17, col, maxW);
     }
   }
   x.globalAlpha = 1;

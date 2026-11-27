@@ -26,7 +26,7 @@ function gradSky(geo, stops) {   // vertex colours by height (y normalised -1..1
 export function buildLake() {
   const g = new Group(); g.name = 'b3lake'; const cols = [];
   // the sky: gold at the horizon, rose, then a soft lavender-blue overhead
-  const sky = quiet(new Mesh(gradSky(new SphereGeometry(160, 24, 14), [[-1, 0xb89a8a], [0.0, 0xf0c890], [0.12, 0xe8a8a0], [0.4, 0xa8a0d0], [1, 0x7a88c8]]), new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false })));
+  const sky = quiet(new Mesh(gradSky(new SphereGeometry(160, 24, 14), [[-1, 0xc0a088], [0.0, 0xf6d096], [0.12, 0xf0bc94], [0.4, 0xdcb8a4], [1, 0xa8a8bc]]), new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false })));
   sky.name = 'lake-sky'; sky.renderOrder = -2; g.add(sky);
   // a low warm sun glow and a pale early moon (light sources: these may glow)
   const soft = softTex();
@@ -36,14 +36,14 @@ export function buildLake() {
   moon.name = 'lake-moon'; g.add(moon);
   // far hills all round (soft dusk violet, a little lighter far away) + a few dark-green pine silhouettes on the shores
   const HP = [];
-  for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2, r = 92 + (i % 3) * 8, hgt = 9 + ((i * 7) % 5) * 3.2; HP.push(paint(place(new ConeGeometry(18 + (i % 4) * 4, hgt, 7), Math.sin(a) * r, hgt / 2 - 1.2, Math.cos(a) * r), i % 2 ? 0x7a6a9a : 0x8a7aa4)); }
+  for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2, r = 92 + (i % 3) * 8, hgt = 9 + ((i * 7) % 5) * 3.2; HP.push(paint(place(new ConeGeometry(18 + (i % 4) * 4, hgt, 7), Math.sin(a) * r, hgt / 2 - 1.2, Math.cos(a) * r), i % 2 ? 0x9a7c74 : 0xa88a7c)); }
   for (const [x, z, s] of [[-26, -18, 1.2], [-30, -10, 1.0], [-22, 4, 0.9], [24, -16, 1.1], [30, -6, 1.3], [21, 6, 0.8], [-34, -30, 1.4], [36, -28, 1.2]]) {
     HP.push(paint(place(new ConeGeometry(1.6 * s, 4.6 * s, 7), x, 2.6 * s, z), 0x3a5a44)); HP.push(paint(place(new ConeGeometry(1.2 * s, 3.4 * s, 7), x, 4.4 * s, z), 0x4a6a4e)); HP.push(paint(place(new CylinderGeometry(0.2 * s, 0.25 * s, 1, 5), x, 0.4, z), 0x5a3e2a));
   }
   const hills = quiet(new Mesh(merge(HP), new MeshStandardMaterial({ vertexColors: true, roughness: 1 }))); hills.name = 'lake-hills'; g.add(hills);
   // the water: a calm plane, deeper blue near, gold-rose far (vertex colours), never black
   const wg = new PlaneGeometry(220, 150, 1, 12).rotateX(-Math.PI / 2).translate(0, LAKE.water, -70), wp = wg.attributes.position, wa = new Float32Array(wp.count * 3);
-  const NEAR = new Color(0x3a5c9a), FAR = new Color(0xe0a878);
+  const NEAR = new Color(0x6e879c), FAR = new Color(0xf2c48a);
   for (let i = 0; i < wp.count; i++) { const k = Math.max(0, Math.min(1, (-wp.getZ(i) - 4) / 120)); _c.copy(NEAR).lerp(FAR, Math.pow(k, 0.7)); wa[i * 3] = _c.r; wa[i * 3 + 1] = _c.g; wa[i * 3 + 2] = _c.b; }
   wg.setAttribute('color', new BufferAttribute(wa, 3));
   const waterMat = new MeshBasicMaterial({ vertexColors: true, color: 0xffffff });

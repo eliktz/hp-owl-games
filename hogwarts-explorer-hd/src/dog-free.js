@@ -24,7 +24,7 @@ export const DOG_SCALE = 1.4;      // the GLB is ~0.95 m to the top of the head;
 // three spots by the hut, clear of the Creatures course (x < 75 at z < 61), the paddock / Buckbeak (79.5, 50.5), the hut
 // path (ends at 76.8, 34.4), the Floo hearth behind the hut and the trees; [x, z, yaw]
 export const DOG_SPOTS = [[93.5, 49.5, -2.2], [96.0, 37.5, -1.9], [88.0, 30.5, -2.6]];
-const LOAD_R = 62, SHOW_R = 45, COME_R = 6, LEAVE_R = 14, PROMPT_R = 6.5, FADE = 0.45, TROT = 1.7, RUN = 4.6, THROWS = 3;
+const LOAD_R = 62, SHOW_R = 45, COME_R = 9, LEAVE_R = 14, PROMPT_R = 6.5, FADE = 0.45, TROT = 1.7, RUN = 4.6, THROWS = 3;
 const GATES = { x: 0, z: 74 };
 const ROUTE = [0, 1, 2, 1];   // there and back (the 2 -> 0 leg would brush the hut's eaves and the hearth behind it)
 let PAID = false;              // +5 for the first fetch: once per session (memory only)
@@ -33,13 +33,15 @@ export function dogHandOver() { try { if (handOver) handOver(); } catch (e) { co
 
 // The rigged dog, ready to place: { obj, mixer, acts, bones, tris } (shared by free play and the finale). `alive()` is
 // checked after the load. Meshes: never frustum-culled, no raycast, shadows on.
-export async function loadDog(name, alive) {
+export const DOG_FREE_SCALE = 1.65; // free play: he is met from the default camera distance on open grass, so a little bigger still
+const FUR_LIFT = 1.8;                // the coat texture is near-black: lifted so his shape, face and shaggy fur read in daylight
+export async function loadDog(name, alive, scale = DOG_SCALE) {
   const r = await loadAnimated('blackdog', alive);
   if (!r || !r.obj || !r.clips || !r.clips.find(c => c.name === 'Sit_Wag')) return null;
-  const obj = r.obj; obj.name = name; obj.scale.setScalar(DOG_SCALE);
+  const obj = r.obj; obj.name = name; obj.scale.setScalar(scale);
   const bones = {}; let tris = 0;
   obj.traverse(o => {
-    if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.receiveShadow = false; o.raycast = () => {}; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; }
+    if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.receiveShadow = false; o.raycast = () => {}; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && m.color && !m.userData.furLift) { m.userData.furLift = true; m.color.multiplyScalar(FUR_LIFT); if (m.roughness !== undefined) m.roughness = Math.max(m.roughness, 0.85); } const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; }
     if (o.isBone) { if (/^Head/i.test(o.name)) bones.head = o; else if (/^Neck/i.test(o.name)) bones.neck = o; }
   });
   const mixer = new AnimationMixer(obj), acts = {};
@@ -109,7 +111,7 @@ export function createDogFree({ scene, camera, player, interiors, fun, freecast,
   function build() {
     if (D.dog || D.loading || log.failed) return;
     D.loading = true; const gen = ++D.gen;
-    loadDog('dogfree-blackdog', () => D.gen === gen && !adventureOn()).then((r) => {
+    loadDog('dogfree-blackdog', () => D.gen === gen && !adventureOn(), DOG_FREE_SCALE).then((r) => {
       D.loading = false;
       if (D.gen !== gen || adventureOn()) return;
       if (!r) { log.failed = true; return; }
@@ -307,7 +309,7 @@ export function createDogFree({ scene, camera, player, interiors, fun, freecast,
     return { on: true, built: !!o, loading: D.loading, failed: log.failed, visible: !!(o && o.visible), onScreen, mode: !o ? (log.held === 'adventure' ? 'adventure' : 'none') : D.hidden || log.held ? 'held' : D.mode,
       held: log.held, hidden: D.hidden, fade: +D.fade.toFixed(2), clip: D.cur, pos: o ? { x: +D.x.toFixed(2), y: +o.position.y.toFixed(2), z: +D.z.toFixed(2), yaw: +D.yaw.toFixed(2) } : null,
       ground: o ? +groundAt(D.x, D.z).toFixed(2) : null, dist: o ? +dHarry().toFixed(1) : null, spot: D.spot, throwsLeft: D.throwsLeft, rest: +Math.max(0, D.rest).toFixed(1), ball: D.ballOn ? { fly: D.ballFly, carry: D.carry, x: +D.bx.toFixed(2), z: +D.bz.toFixed(2) } : null,
-      prompt: (() => { try { return fun.promptId ? fun.promptId() === 'dog-ball' : null; } catch { return null; } })(), tris: D.dog ? D.dog.tris : null, scale: DOG_SCALE, paid: PAID, skinnedInScene: skinned, minGateDist: +gate.toFixed(1),
+      prompt: (() => { try { return fun.promptId ? fun.promptId() === 'dog-ball' : null; } catch { return null; } })(), tris: D.dog ? D.dog.tris : null, scale: DOG_FREE_SCALE, paid: PAID, skinnedInScene: skinned, minGateDist: +gate.toFixed(1),
       log: { ...log, spoken: log.spoken.slice() } };
   }
   const api = {

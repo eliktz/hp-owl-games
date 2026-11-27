@@ -61,7 +61,7 @@ const sfx = (k, ...a) => { try { const s = window.HPFun && window.HPFun.sfx; if 
 const _v = new Vector3(), _base = new Vector3();
 BUILDERS.b3lake = () => {
   const B = buildLake(); const g = B.g; g.position.y = FLOOR_Y; g.userData.lake = B;
-  B.L = roomLight(g, { amb: 1.0, ambC: 0xffe6c8, hemi: 1.15, sky: 0xd8d0ff, ground: 0xb89a70, fogC: 0xe8c4a0, fogD: 0.0022, bg: 0xe8c0a0 });
+  B.L = roomLight(g, { amb: 1.0, ambC: 0xffe6c8, hemi: 1.15, sky: 0xffe8cc, ground: 0xb89a70, fogC: 0xe8c4a0, fogD: 0.0022, bg: 0xe8c0a0 });
   const marker = g.children.find(o => o.name === 'b3-light'); if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { r0(); document.body.classList.remove('b3lakeOn'); if (LK.B === B) { LK.B = null; LK.room = null; } }; }
   // on a phone the helper bubble sits high, just under the tracker, so it never hides the stag's run over the water
   if (!document.getElementById('b3lakeHintCss')) { const st = document.createElement('style'); st.id = 'b3lakeHintCss'; st.textContent = '@media (max-width:700px){body.b3lakeOn #advHint{top:calc(96px + env(safe-area-inset-top));font-size:16px;padding-top:6px;padding-bottom:6px}}'; document.head.appendChild(st); }
@@ -381,7 +381,8 @@ export function startFreeLake() {
   const back = document.createElement('button'); back.id = 'b3LakeBack'; back.textContent = '🏠 חזרה'; back.setAttribute('aria-label', 'חזרה');
   const css = document.createElement('style'); css.id = 'b3LakeBackCss';
   css.textContent = `#b3LakeBack{position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:15;padding:10px 26px;border-radius:24px;border:3px solid #ffd76a;
-    background:rgba(40,60,120,.9);color:#ffe9a8;font:bold 24px ${FONT};cursor:pointer;touch-action:manipulation;box-shadow:0 4px 14px rgba(0,0,0,.45)}`;
+    background:rgba(40,60,120,.9);color:#ffe9a8;font:bold 24px ${FONT};cursor:pointer;touch-action:manipulation;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+    @media (max-width:560px){#b3LakeBack{top:calc(132px + env(safe-area-inset-top));left:calc(14px + env(safe-area-inset-left));transform:none;width:78px;font-size:17px;line-height:1.2;padding:6px 4px;border-radius:18px}}`;
   document.head.appendChild(css); document.body.appendChild(back);
   for (const ev of ['pointerdown', 'touchstart', 'mousedown']) back.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
   back.addEventListener('click', (e) => { e.stopPropagation(); stop(true); });

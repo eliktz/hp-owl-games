@@ -106,7 +106,7 @@ export function buildHoney() {
   const { W, D, H } = HONEY, g = new Group(); g.name = 'b3honey';
   const cols = [], S = [];
   // floor: a cheerful pink-and-cream checker (canvas 256)
-  const ft = canvasTex(256, 256, (x) => { for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { x.fillStyle = (i + j) % 2 ? '#e8b8c8' : '#f4e6d0'; x.fillRect(i * 32, j * 32, 32, 32); } });
+  const ft = canvasTex(256, 256, (x) => { for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { x.fillStyle = (i + j) % 2 ? '#e0aabc' : '#ecdcc4'; x.fillRect(i * 32, j * 32, 32, 32); } });
   ft.wrapS = ft.wrapT = RepeatWrapping; ft.repeat.set(W / 4, D / 4);
   const floor = new Mesh(new PlaneGeometry(W, D).rotateX(-Math.PI / 2), new MeshStandardMaterial({ map: ft, roughness: 0.8 })); floor.name = 'honey-floor'; floor.raycast = () => {}; g.add(floor);
   // walls (mint above a raspberry wainscot), the ceiling, the window wall built round its hole
@@ -164,7 +164,7 @@ export function buildHoney() {
   // the shop sign over the counter (canvas)
   const st = canvasTex(512, 128, (x, w, h) => { x.fillStyle = '#7a2a4a'; x.beginPath(); x.roundRect(4, 4, w - 8, h - 8, 24); x.fill(); x.strokeStyle = '#e8c860'; x.lineWidth = 6; x.stroke();
     x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 60px ' + FONT; x.fillStyle = '#ffe8a8'; x.fillText('🍬 הוניידוקס 🍭', w / 2, h / 2 + 4); });
-  const sign = quiet(new Mesh(new PlaneGeometry(2.6, 0.65).rotateY(-Math.PI / 2).translate(W / 2 - 0.02, 2.55, 0.6), new MeshBasicMaterial({ map: st, toneMapped: false })));
+  const sign = quiet(new Mesh(new PlaneGeometry(2.6, 0.65).rotateY(-Math.PI / 2).translate(W / 2 - 0.02, 2.55, 0.6), new MeshBasicMaterial({ map: st, toneMapped: false, alphaTest: 0.5 })));
   sign.name = 'honey-sign'; g.add(sign);
   // glass, and the snowy street outside (one canvas card)
   const glass = quiet(new Mesh(new PlaneGeometry(WIN.w, WIN.y1 - WIN.y0).translate(WIN.x, (WIN.y0 + WIN.y1) / 2, WIN.z + 0.05), new MeshBasicMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.18, depthWrite: false })));

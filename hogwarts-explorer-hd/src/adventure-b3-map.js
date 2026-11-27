@@ -109,7 +109,7 @@ const stW = (out, y = 1.2) => out.set(STATUE.x + HS.slide * STATUE.slide * 0, ro
 // ---------------- Honeydukes (always registered) ----------------
 BUILDERS.b3honey = () => {
   const B = buildHoney(); const g = B.g; g.position.y = FLOOR_Y; g.userData.honey = B;
-  const L = roomLight(g, { amb: 1.15, ambC: 0xfff0e0, hemi: 1.05, sky: 0xfff4fa, ground: 0x9a7a6a, fogC: 0xf0d8e0, fogD: 0.004, bg: 0xe8c8d0 });
+  const L = roomLight(g, { amb: 0.82, ambC: 0xfff0e0, hemi: 0.7, sky: 0xfff4fa, ground: 0x9a7a6a, fogC: 0xf0d8e0, fogD: 0.004, bg: 0xe8c8d0 });
   const marker = g.children.find(o => o.name === 'b3-light'); if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { r0(); document.body.classList.remove('b3honeyOn'); HS.leftHoney = performance.now(); if (HS.room === room) HS.room = null; }; }
   // on a phone the helper bubble sits high, just under the tracker, so Filch's window stays in view
   if (!document.getElementById('b3honeyHintCss')) { const st = document.createElement('style'); st.id = 'b3honeyHintCss'; st.textContent = '@media (max-width:700px){body.b3honeyOn #advHint{top:calc(96px + env(safe-area-inset-top));font-size:16px;padding-top:6px;padding-bottom:6px}}'; document.head.appendChild(st); }
