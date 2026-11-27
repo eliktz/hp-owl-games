@@ -109,7 +109,8 @@ async function buildStreet(mode, src) {
   // dressing
   const sky = buildSky(); g.add(sky.g); S.sky = sky;
   const glows = buildGlows(side, mode); g.add(glows.glows, glows.pools); S.glows = glows;
-  const smoke = buildSmoke(side, mode === 'window' ? 6 : 8);   // (M2) the list's first entries only, as in milestone 1 (the v2 sidecar appends a few that are not real chimneys): at most 8 g.add(smoke.mesh); S.smoke = smoke;
+  // (M2) smoke from the list's first entries only, as in milestone 1 (the v2 sidecar appends a few that are not real chimneys): at most 8
+  const smoke = buildSmoke(side, mode === 'window' ? 6 : 8); g.add(smoke.mesh); S.smoke = smoke;
   const low = tier() === 'low';
   const hi = tier() === 'high' ? SNOW_HIGH : 1;
   const nSnow = low ? 0 : Math.round((mode === 'window' ? 90 : (tier() === 'medium' ? 140 : 220)) * hi);
