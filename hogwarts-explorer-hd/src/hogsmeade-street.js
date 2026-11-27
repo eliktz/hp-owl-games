@@ -16,7 +16,7 @@ import { BUILDERS, FLOOR_Y } from './rooms.js';
 import { loadModel, modelInfo, MODELS_BASE } from './models.js';
 import { roomLight, buildFilch, triCount, drawCount, place, paint, merge, softTex, FONT } from './adventure-b3-map-build.js';
 import { fallbackStreet, buildSky, buildGlows, buildSmoke, buildSnow, buildSigns, canvasTex, quiet, PUFFS } from './hogsmeade-street-build.js';
-import { buildShopSigns } from './hogsmeade-signs.js';                  // (M2) the three named shops' Hebrew signs (one atlas, one mesh)
+import { buildShopSigns, signAtlas } from './hogsmeade-signs.js';                  // (M2) the three named shops' Hebrew signs (one atlas, one mesh)
 import { HONEY_INT_API } from './honeydukes-interior.js';               // (M2) the interior model's state, for state()
 
 export const HM_DOOR = { x: 2.4, z: -4.5 };                 // the door in the Honeydukes north wall (room frame)
@@ -435,6 +435,7 @@ export const HM_API = {
   start: () => startStreet(),
   home: () => { goHome(); return true; },
   side: () => (ST.cur ? ST.cur.side : null),
+  signAtlasPng: () => signAtlas().image.toDataURL('image/png'),                    // (M2 review) the sign atlas as a PNG data URL
   shopRect: (k) => shopRect(k),                                                     // (M2) a named shop's tap box on screen, or null
   shopTapW: (k) => { const d = ST.cur && ST.cur.doors && ST.cur.doors[k]; return d ? new Vector3(d.x, roomY() + 1.4, (d.z + (d.far ? FAR_FRONT : NEAR_FRONT)) / 2) : null; },
   bow: (on) => { const S = ST.cur; if (S && S.bow) S.bow.visible = !!on; return !!(S && S.bow); },   // (review: the bow display seen from inside)
