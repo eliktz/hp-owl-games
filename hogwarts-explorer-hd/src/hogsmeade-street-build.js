@@ -210,7 +210,7 @@ export function buildSigns(side) {
   if (hs) {
     const hg = new Group(); hg.name = 'hm-sign-honeydukes_hanging'; hg.position.set(hs.x, hs.y, hs.z); hg.rotation.y = hs.ry || 0;
     const mat = new MeshBasicMaterial({ map: hang, transparent: true, alphaTest: 0.5 });
-    for (const sd of [1, -1]) { const m = quiet(new Mesh(new PlaneGeometry(Math.min(hs.w, hs.h) * 0.92, Math.min(hs.w, hs.h) * 0.92), mat)); m.position.z = sd > 0 ? 0.02 : -0.072; /* (M2) the v2 board spans -0.061..+0.009 from the sidecar point: the back face sat inside it */ m.rotation.y = sd > 0 ? 0 : Math.PI; hg.add(m); }
+    for (const sd of [1, -1]) { const m = quiet(new Mesh(new PlaneGeometry(Math.min(hs.w, hs.h) * 0.92, Math.min(hs.w, hs.h) * 0.92), mat)); m.position.z = sd > 0 ? 0.009 : -0.061; /* (M2) 1 cm outside both faces of the v2 board (-0.051..-0.001 from the sidecar point): the back face sat inside it */ m.rotation.y = sd > 0 ? 0 : Math.PI; hg.add(m); }
     g.add(hg); out.honeydukes_hanging = hg;
   }
   return { g, out };

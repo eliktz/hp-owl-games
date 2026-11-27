@@ -25,7 +25,7 @@ const RECT = {
   hogshead_hanging: { x: 684, y: 356, w: 340, h: 340 },
 };
 const HANGING = (k) => /_hanging$/.test(k);
-export const HANG_FRONT = 0.02, HANG_BACK = 0.072;   // hanging-board faces: in front of / behind the sidecar point (metres)
+export const HANG_FRONT = 0.009, HANG_BACK = 0.061;   // hanging-board faces: in front of / behind the sidecar point (metres): 1 cm outside the v2 board's two faces (-0.051 and -0.001)
 const CREAM = '#d4c69e', GOLD = '#c8a04e', GOLD_D = '#8a6a36', INK = '#1a0e08';
 
 // ---------------- painting ----------------
@@ -125,22 +125,27 @@ function quad(key, w, h, cx, cy, cz, ry, off) {
   _q.setFromEuler(_e.set(0, ry, 0)); _o.set(0, 0, off).applyQuaternion(_q);
   return g.applyMatrix4(_m.compose(_v.set(cx + _o.x, cy, cz + _o.z), _q, _s));
 }
-// side.signs -> { mesh (or null), keys }
+// where a painted face sits (for the test): its centre, its normal, and the world direction in which the art's u grows (the reading
+// direction of the painting: from the viewer's left to right when it is not mirrored)
+const r3 = (v) => Math.round(v * 1000) / 1000;
+function face(s, ry, off, w) { const nx = Math.sin(ry), nz = Math.cos(ry); return { x: r3(s.x + nx * off), y: r3(s.y), z: r3(s.z + nz * off), n: [r3(nx), r3(nz)], u: [r3(Math.cos(ry)), r3(-Math.sin(ry))], w: r3(w) }; }
+// side.signs -> { mesh (or null), keys, faces }
 export function buildShopSigns(side) {
-  const S = (side && side.signs) || {}, parts = [], keys = [];
+  const S = (side && side.signs) || {}, parts = [], keys = [], faces = {};
   for (const k of SHOP_SIGN_KEYS) {
     const s = S[k]; if (!s || ![s.x, s.y, s.z, s.w, s.h].every(Number.isFinite)) continue;
     const ry = s.ry || 0;
     if (HANGING(k)) {
       // square art, a little inset so the model's board edge frames it. The sidecar point is the board's FRONT face, not its centre:
-      // the v2 boards span -0.061..+0.009 m along the normal from it, so the faces go 1 cm outside each side (never inside the board)
+      // the v2 board (5 cm thick) spans -0.051..-0.001 m along the normal from it, so the faces go 1 cm outside each face (never inside the board)
       const sz = Math.min(s.w, s.h) * 0.94, tf = s.tf ?? HANG_FRONT, tb = s.tb ?? HANG_BACK;
       parts.push(quad(k, sz, sz, s.x, s.y, s.z, ry, tf), quad(k, sz, sz, s.x, s.y, s.z, ry + Math.PI, tb));
-    } else parts.push(quad(k, s.w * 0.98, s.h * 0.94, s.x, s.y, s.z, ry, 0.012));
+      faces[k] = [face(s, ry, tf, sz), face(s, ry + Math.PI, tb, sz)];
+    } else { parts.push(quad(k, s.w * 0.98, s.h * 0.94, s.x, s.y, s.z, ry, 0.012)); faces[k] = [face(s, ry, 0.012, s.w * 0.98)]; }
     keys.push(k);
   }
-  if (!parts.length) return { mesh: null, keys };
+  if (!parts.length) return { mesh: null, keys, faces };
   const mesh = new Mesh(mergeGeometries(parts, false), new MeshBasicMaterial({ map: signAtlas() }));
   mesh.name = 'hm-shop-signs'; mesh.frustumCulled = false; mesh.raycast = () => {};
-  return { mesh, keys };
+  return { mesh, keys, faces };
 }

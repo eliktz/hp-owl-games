@@ -157,13 +157,13 @@ async function buildStreet(mode, src) {
   return S;
 }
 
-// per frame (both modes): glow cards face the camera, smoke rises, snow falls, Filch strolls (street)
+// per frame (both modes): glow cards face the camera (and shrink away within 3.5 m of the lens, so one never fills the screen), smoke rises, snow falls, Filch strolls (street)
 function tickStreet(S, dt, roomGroup) {
   S.T += dt; const T = S.T, cam = G().camera;
   const ox = roomGroup.position.x, oy = roomGroup.position.y, oz = roomGroup.position.z;
   const cx = cam.position.x - ox, cy = cam.position.y - oy, cz = cam.position.z - oz;
   const Gl = S.glows, gm = Gl.glows;
-  for (let i = 0; i < Gl.pts.length; i++) { const o = Gl.pts[i], k = o.s * (1 + Math.sin(T * 5 + i * 1.7) * 0.05); _m.compose(_v.set(o.p[0], o.p[1], o.p[2]), cam.quaternion, _s.set(k, k, k)); gm.setMatrixAt(i, _m); }
+  for (let i = 0; i < Gl.pts.length; i++) { const o = Gl.pts[i], dc = Math.hypot(o.p[0] - cx, o.p[1] - cy, o.p[2] - cz), near = Math.min(1, Math.max(0, (dc - 1.2) / 2.3)), k = o.s * (1 + Math.sin(T * 5 + i * 1.7) * 0.05) * near * near * (3 - 2 * near) + 1e-4; _m.compose(_v.set(o.p[0], o.p[1], o.p[2]), cam.quaternion, _s.set(k, k, k)); gm.setMatrixAt(i, _m); }
   gm.instanceMatrix.needsUpdate = true;
   const Sm = S.smoke;
   if (Sm.mesh.visible) {
@@ -420,7 +420,7 @@ export const HM_API = {
       snow: S ? (S.snow.mesh.visible ? S.snow.n : 0) : 0, smoke: S ? S.smoke.mesh.visible : false, filch: S && S.F ? { x: +S.fx.toFixed(2), z: FILCH_FAR.z, visible: S.F.g.visible } : null,
       colliders: S && S.cols ? S.cols.length : 0, dropped: S ? S.dropped || 0 : 0, from: ST.from, visits: ST.visits, bubbles: ST.bubbles, busy: freeBusy(), quest: questOn(),
       door: ST.door ? { on: !!ST.door.door && !!ST.door.door.parent, armed: ST.door.armed } : null, button: !!document.getElementById('hmBack'),
-      shopSigns: S && S.shopSigns ? { mesh: !!S.shopSigns.mesh && !!S.shopSigns.mesh.parent, keys: S.shopSigns.keys.slice() } : null,
+      shopSigns: S && S.shopSigns ? { mesh: !!S.shopSigns.mesh && !!S.shopSigns.mesh.parent, keys: S.shopSigns.keys.slice(), faces: S.shopSigns.faces || {} } : null,
       doors: S && S.doors ? JSON.parse(JSON.stringify(S.doors)) : null, walking: ST.walk ? ST.walk.k : null, shopTaps: ST.shopTaps, lastShop: ST.lastShop, lastBubble: ST.lastBubble,
       pools: S && S.glows && S.glows.pools ? { n: S.glows.pools.userData.n, opacity: S.glows.pools.material.opacity, visible: S.glows.pools.visible } : null,
       interior: (() => { try { return HONEY_INT_API.state(); } catch { return null; } })(),
