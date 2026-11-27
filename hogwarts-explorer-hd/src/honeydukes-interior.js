@@ -15,6 +15,7 @@ import { loadModel, modelInfo } from './models.js';
 import { triCount, drawCount } from './adventure-b3-map-build.js';
 
 const CODE_BUILT = ['honey-floor', 'honey-jars', 'honey-lamps'];
+const LAMP_MAX = 1.1;   // the model's EMI_Honey_Lamp comes with emissiveStrength 2.5: too much bloom beside the old 0.9 lamps
 const ST = { cur: null, loads: 0, builds: 0, errors: 0, lastErr: '', reason: '' };
 const warn = (what, e) => { ST.errors++; ST.lastErr = what + ': ' + String(e && e.message || e); if (ST.errors < 5) console.warn('[honey-interior]', what, '-', String(e && e.message || e)); };
 
@@ -54,6 +55,7 @@ function apply(H, model) {
       o.userData.sharedGeo = true;   // shared with the models.js cache: never disposed by the room teardown
       o.raycast = () => {};          // the lens keeps stopping on the (invisible) code-built shell, exactly as before
       for (const m of [].concat(o.material)) if (m && !m.vertexColors && o.geometry && o.geometry.attributes.color) { m.vertexColors = true; m.needsUpdate = true; }   // COLOR_0 = baked AO + paint
+      for (const m of [].concat(o.material)) if (m && /^EMI_/.test(m.name || '') && !m.userData.hiLamp) { m.userData.hiLamp = true; m.emissiveIntensity = Math.min(m.emissiveIntensity || 1, LAMP_MAX); }   // the globes glow, modestly (the old code lamps: 0.9)
     });
     model.name = 'honey-interior-model';
     H.g.add(model);

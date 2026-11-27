@@ -1,5 +1,5 @@
 // Hogsmeade High Street, milestone 1 (briefs/2026-11-27-hogsmeade-film-look.md + 2026-11-27-hogsmeade-m1-decisions.md):
-// one static street model, hm_street_01.glb (+ its sidecar hm_street_01.json: colliders, lanterns, windows, chimneys, signs,
+// one static street model, hm_street_02.glb (v2; + its sidecar hm_street_02.json: colliders, lanterns, windows, chimneys, signs,
 // door, walk), authored in the Honeydukes room's own frame, shown in two ways and never both at once:
 //  - 'window': behind the Honeydukes bow window in 'b3honey' (quest and free play): the house itself (Hm_Honeydukes_Body)
 //    hidden, the street tinted cool so it reads blue-cold against the warm shop; the old painted card 'honey-street' stays
@@ -26,7 +26,7 @@ export const HM_OUT = { x: 3.6, z: 5.9, yaw: 0.7 };         // on the pavement i
 const SHOP_SPOT = { x: 3.6, z: 5.15, r: 0.55 };             // the shop door on the street
 const FILCH_FAR = { z: 11.4, x0: -12, x1: 12 };
 const QUEST_LINE = 'אחרי המשימה נצא לרחוב הוגסמיד 🏘️';
-const SIDECAR = 'hm_street_01.json';
+const SIDECAR = 'hm_street_02.json';   // (models.json names the sidecar; this is only the default)
 const NEAR_Z = 5.05;
 // (M2) the named shops: tapping one (free play, the street) walks Harry to its door spot and a kind bubble names it. No interiors.
 const SHOPS = { broomsticks: 'זה פונדק שלושת המטאטאים!', zonko: 'זו חנות התעלולים של זונקו!', hogshead: 'זה הפונדק ראש החזיר.' };
@@ -109,7 +109,7 @@ async function buildStreet(mode, src) {
   // dressing
   const sky = buildSky(); g.add(sky.g); S.sky = sky;
   const glows = buildGlows(side, mode); g.add(glows.glows, glows.pools); S.glows = glows;
-  const smoke = buildSmoke(side, mode === 'window' ? 6 : 10); g.add(smoke.mesh); S.smoke = smoke;
+  const smoke = buildSmoke(side, mode === 'window' ? 6 : 8);   // (M2) the list's first entries only, as in milestone 1 (the v2 sidecar appends a few that are not real chimneys): at most 8 g.add(smoke.mesh); S.smoke = smoke;
   const low = tier() === 'low';
   const hi = tier() === 'high' ? SNOW_HIGH : 1;
   const nSnow = low ? 0 : Math.round((mode === 'window' ? 90 : (tier() === 'medium' ? 140 : 220)) * hi);
