@@ -111,6 +111,7 @@ async function buildStreet(mode, src) {
   const signs = buildSigns(side); g.add(signs.g); S.signs = signs;
   if (mode === 'window') {
     if (body) body.visible = false;
+    if (bow) bow.visible = false;   // (art, 27 Nov) from inside, the bow's jar shelves hid the street: the shop's own window frame is enough
     for (const k of ['honeydukes_fascia', 'honeydukes_hanging']) if (signs.out[k]) signs.out[k].visible = false;
     tint(mats, 0xb0c0ea);   // blue-cold outside against the warm shop (windows stay warm: emissive)
   } else {
