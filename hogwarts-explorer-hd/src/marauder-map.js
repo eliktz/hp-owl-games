@@ -273,7 +273,7 @@ function draw() {
       if (big) {
         const room = roomFor(f.place), n = S.feet.filter(q => roomFor(q.place) === room).length, k = (seen[room] = (seen[room] || 0) + 1) - 1;
         const y1 = R[1] + 36 + 14 * FB(), rowH = 30 + 16 * FB(), rows = (y1 + rowH + 14 + 8 * FB() < R[1] + R[3]) && n > 2 ? 2 : 1, cols = Math.ceil(n / rows);
-        p[0] = R[0] + R[2] * ((k % cols) + 0.5) / cols; p[1] = Math.min(y1, R[1] + R[3] - 16 - 8 * FB()) + Math.floor(k / cols) * rowH; maxW = Math.min(96, R[2] / cols - 6);
+        p[0] = R[0] + R[2] * ((k % cols) + 0.5) / cols; p[1] = Math.min(y1, R[1] + R[3] - 25 - 8 * FB()) + Math.floor(k / cols) * rowH; maxW = Math.min(96, R[2] / cols - 6);
       }
       const clash = (a) => placed.some(q => Math.abs(q[0] - a[0]) < 52 && Math.abs(q[1] - a[1]) < 26);
       if (!big && clash(p)) { for (const [u, v] of SLOTS) { const a = [R[0] + R[2] * u, R[1] + R[3] * v]; if (!clash(a)) { p[0] = a[0]; p[1] = a[1]; break; } } }
