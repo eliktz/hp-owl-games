@@ -20,6 +20,7 @@ export const DESTS = [
   { id: 'pitch',     kind: 'spot',     ico: '🧹', label: 'מגרש הקווידיץ׳' },
   { id: 'b3bus',     kind: 'bus',      ico: '🚌', label: 'אוטונוס הלילה' },   // a free ride on the Knight Bus (adventure-b3-bus.js)
   { id: 'b3lake',    kind: 'lake',     ico: '🦌', label: 'האגם בערב' },        // book 3: chase grey shadows with the Patronus (adventure-b3-patronus.js)
+  { id: 'b3hogsmeade', kind: 'hogsmeade', ico: '🏘️', label: 'הוגסמיד' },       // the snowy High Street (hogsmeade-street.js), free play
 ];
 
 // Build the overlay once and return { toggle, open, close }. onTravel(id, kind) is called

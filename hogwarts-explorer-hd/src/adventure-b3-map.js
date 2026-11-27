@@ -15,6 +15,7 @@ import { Vector3, Matrix4 } from 'three';
 import { BUILDERS, FLOOR_Y } from './rooms.js';
 import { buildTable, buildStatue, buildHoney, roomLight, drawCount, triCount, TABLE, STATUE, HSPAWN, TRAP, HIDE, WIN, FILCH_Z, SWEET_SPOTS } from './adventure-b3-map-build.js';
 import { openParchment, setPhase, setOpts, close as closeParchment, glowHint, sayLine, MM } from './marauder-map.js';
+import { attachHoneyStreet } from './hogsmeade-street.js';   // Hogsmeade milestone 1: the 3D street behind the window + the north door
 
 const RON = { ico: '👦', name: 'רון' };
 const RON_WHO = '👦 רון', FILCH_WHO = '🏮 פילץ\'';
@@ -121,6 +122,7 @@ BUILDERS.b3honey = () => {
     update(dt) { try { honeyTick(B, dt); } catch (e) { if (!HS.err++) console.warn('[b3-map] honey tick failed -', e && e.message || e); } },
   };
   HS.room = room; HS.visits++;
+  try { attachHoneyStreet(room, B); } catch (e) { console.warn('[b3-map] Hogsmeade street skipped -', e && e.message || e); }
   if (!HS.quest) freeSweets(B);
   B.tris = triCount(g);
   return room;

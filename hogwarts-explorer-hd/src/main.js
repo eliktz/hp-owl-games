@@ -131,6 +131,7 @@ async function boot() {
       audio.resume();
       if (kind === 'bus') { import('./adventure-b3-bus.js').then(m => m.startFreeRide()).catch(e => console.warn('[bus ride] failed -', e && e.message || e)); return; }   // the Knight Bus free ride
       if (kind === 'lake') { import('./adventure-b3-patronus.js').then(m => m.startFreeLake()).catch(e => console.warn('[lake] failed -', e && e.message || e)); return; }   // book 3: the dusk lake (adventure-b3-patronus.js)
+      if (kind === 'hogsmeade') { import('./hogsmeade-street.js').then(m => m.startStreet()).catch(e => console.warn('[hogsmeade] failed -', e && e.message || e)); return; }   // the High Street (hogsmeade-street.js)
       if (kind === 'interior') interiors.enter(id);
       else { if (interiors.active) interiors.exit(); const sp = SPOTS[id] || PLACES[id]; if (sp) player.teleport(sp.x, sp.z); }
     },
@@ -415,6 +416,7 @@ async function boot() {
     get roam() { return roam ? roam.api : null; },   // roam.js: state() fast(k) where(id) hold(on) seed(n) clock(id,t) plan(id) cooldown(id) cat()
     get buckbeak() { return buckbeak ? buckbeak.api : null; },   // buckbeak-free.js: state() fly() bow() nuzzle() hold(on) ctx() headScreen()
     get dog() { return dog ? dog.api : null; },   // dog-free.js: state() tap() ball() come() hold(on) spots() headScreen() bodyScreen() fast(k) goSpot(i)
+    get hogsmeade() { return window.__hmApi || null; },   // hogsmeade-street.js: state() doorW() shopDoorW() farW() start() home() side()
     get timeturner() { return timeturner ? timeturner.api : null; },   // timeturner-free.js: state() spin() hold(on) path()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},
@@ -486,7 +488,7 @@ async function boot() {
 
 function labelOf(id) {
   return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות המשתנות', library: 'הספרייה', commonroom: 'חדר המועדון',
-    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל האסטרונומיה', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', b3street: 'רחוב קטן בלונדון', b3honey: 'הדובשנרייה', b3lake: 'האגם בערב', ...SECRET_LABELS }[id] || id;
+    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל האסטרונומיה', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', b3street: 'רחוב קטן בלונדון', b3honey: 'הדובשנרייה', b3lake: 'האגם בערב', b3hogsmeade: 'הוגסמיד', ...SECRET_LABELS }[id] || id;
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 
