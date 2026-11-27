@@ -19,8 +19,8 @@ import { fallbackStreet, buildSky, buildGlows, buildSmoke, buildSnow, buildSigns
 
 export const HM_DOOR = { x: 2.4, z: -4.5 };                 // the door in the Honeydukes north wall (room frame)
 const DOOR_SPOT = { x: 2.4, z: -3.95, r: 0.6 };             // where walking into it takes Harry out
-export const HM_IN = { x: 2.4, z: -2.9, yaw: 0 };           // back inside the shop, by the north door, facing the counter / window
-export const HM_OUT = { x: 3.6, z: 5.9, yaw: 0 };           // on the pavement in front of the shop door, facing the street (+z)
+export const HM_IN = { x: 2.4, z: -2.6, yaw: 0 };           // back inside the shop, by the north door, facing the counter / window
+export const HM_OUT = { x: 3.6, z: 5.9, yaw: 0.7 };         // on the pavement in front of the shop door, facing the street (+z) and down it (+x)
 const SHOP_SPOT = { x: 3.6, z: 5.15, r: 0.55 };             // the shop door on the street
 const FILCH_FAR = { z: 11.4, x0: -12, x1: 12 };
 const QUEST_LINE = 'אחרי המשימה נצא לרחוב הוגסמיד 🏘️';
@@ -116,15 +116,20 @@ async function buildStreet(mode, src) {
     if (body) body.visible = true;
     tint(mats, 0xffffff);
     // colliders: building footprints, street ends, the walk box
-    const cols = side.colliders.map(c => ({ type: 'box', x: c.x, z: c.z, hw: c.hw, hd: c.hd, angle: c.angle || 0 }));
+    // a house footprint never reaches into the street (contract): a big box that would (a bad sidecar entry) is skipped, so it
+    // can never trap Harry on the pavement; the walk box below still keeps him out of every house
     const w = side.walk;
+    const okCol = (c) => { const into = Math.min(c.z + c.hd, w.z1) - Math.max(c.z - c.hd, w.z0); return !(into > 0.3 && c.hw > 1 && c.hd > 0.5) && isFinite(c.x + c.z + c.hw + c.hd); };
+    const good = side.colliders.filter(okCol); S.dropped = side.colliders.length - good.length;
+    if (S.dropped) console.warn('[hogsmeade] skipped', S.dropped, 'street colliders that reach into the street');
+    const cols = good.map(c => ({ type: 'box', x: c.x, z: c.z, hw: c.hw, hd: c.hd, angle: c.angle || 0 }));
     cols.push({ type: 'box', x: w.x0 - 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 }, { type: 'box', x: w.x1 + 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 });
     cols.push({ type: 'box', x: (w.x0 + w.x1) / 2, z: w.z0 - 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 }, { type: 'box', x: (w.x0 + w.x1) / 2, z: w.z1 + 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 });
     S.cols = cols;
     // the camera's spring arm stops on simple invisible boxes (not on the merged 70k-triangle street)
     const blk = new Group(); blk.name = 'hm-cam-blockers';
     const bm = new MeshBasicMaterial();
-    for (const c of side.colliders) { const b = new Mesh(new BoxGeometry(c.hw * 2, 9, c.hd * 2), bm); b.position.set(c.x, 4.5, c.z); b.visible = false; blk.add(b); }
+    for (const c of good) { const b = new Mesh(new BoxGeometry(c.hw * 2, 9, c.hd * 2), bm); b.position.set(c.x, 4.5, c.z); b.visible = false; blk.add(b); }
     // and two long walls just behind both rows of house fronts (from the walk box), so the lens never slips into a house
     const L = (w.x1 - w.x0) + 12;
     for (const [z, d] of [[w.z0 - 1.5, 3], [w.z1 + 1.5, 3]]) { const b = new Mesh(new BoxGeometry(L, 12, d), bm); b.position.set((w.x0 + w.x1) / 2, 6, z); b.visible = false; blk.add(b); }
@@ -192,7 +197,7 @@ function goStreet(from) {
 }
 function goShop() {
   if (ST.going) return false; ST.going = true; setTimeout(() => { ST.going = false; }, 2500);
-  fadeIn(); try { G().interiors.enter('b3honey', { ...HM_IN }); } catch (e) { warn('enter shop', e); return false; }
+  fadeIn(); ST.inShop = true; try { G().interiors.enter('b3honey', { ...HM_IN }); } catch (e) { warn('enter shop', e); return false; }
   return true;
 }
 function goHome() {
@@ -248,6 +253,7 @@ function roomY() { try { const r = G().interiors.room; return r && r.group ? r.g
 function bubble(text) { ST.bubbles++; try { const p = G().player.pos; window.HPFun.say(_w.set(p.x, p.y + 2.2, p.z), text, 3.5); } catch { /* ok */ } }
 function honeyTick(H, dt) {
   if (H.S) tickStreet(H.S, dt, H.room.group);
+  if (ST.inShop) { ST.inShop = false; try { const C = G().player.cam; C.yaw = -2.03; C.pitch = 0.3; C.dist = 3.6; C.userControlled = false; } catch { /* ok */ } }   // (behind Harry is the north wall)
   const p = G().player.pos, d = Math.hypot(p.x - DOOR_SPOT.x, p.z - DOOR_SPOT.z);
   if (d > DOOR_SPOT.r + 1.2) H.armed = true;
   if (H.armed && d < DOOR_SPOT.r) {
@@ -277,7 +283,8 @@ BUILDERS.b3hogsmeade = async () => {
 function streetTick(R, dt) {
   R.L.apply();
   const g = G(), room = g.interiors.room; if (!room) return;
-  if (!R.framed) { R.framed = true; try { const p = g.player, C = p.cam, ph = innerWidth / innerHeight < 0.8; C.yaw = p.yaw + Math.PI + (ph ? 0.25 : 0.5); C.pitch = ph ? 0.16 : 0.2; C.dist = ph ? 4.6 : 5.2; C.userControlled = false; } catch { /* ok */ } }
+  // the lens beside Harry on the street side (behind him would be inside the shop front, 1 m away): the shop door, the street ahead
+  if (!R.framed) { R.framed = true; try { const C = g.player.cam, ph = innerWidth / innerHeight < 0.8; C.yaw = -1.33; C.pitch = ph ? 0.18 : 0.2; C.dist = ph ? 4.2 : 4.8; C.userControlled = false; } catch { /* ok */ } }
   tickStreet(R.S, dt, room.group);
   const busy = freeBusy() || questOn();
   if (!busy && !R.btn) makeButton(R); else if (busy && R.btn) dropButton(R);
@@ -333,7 +340,7 @@ export const HM_API = {
       draws: S ? drawCount(S.g) : 0, tris: S ? triCount(S.g) : 0,
       lanterns: S ? S.side.lanterns.length : 0, windows: S ? S.side.windows.length : 0, chimneys: S ? S.smoke.list.length : 0,
       snow: S ? (S.snow.mesh.visible ? S.snow.n : 0) : 0, smoke: S ? S.smoke.mesh.visible : false, filch: S && S.F ? { x: +S.fx.toFixed(2), z: FILCH_FAR.z, visible: S.F.g.visible } : null,
-      colliders: S && S.cols ? S.cols.length : 0, from: ST.from, visits: ST.visits, bubbles: ST.bubbles, busy: freeBusy(), quest: questOn(),
+      colliders: S && S.cols ? S.cols.length : 0, dropped: S ? S.dropped || 0 : 0, from: ST.from, visits: ST.visits, bubbles: ST.bubbles, busy: freeBusy(), quest: questOn(),
       door: ST.door ? { on: !!ST.door.door && !!ST.door.door.parent, armed: ST.door.armed } : null, button: !!document.getElementById('hmBack'),
       errors: ST.errors, lastErr: ST.lastErr,
     };
