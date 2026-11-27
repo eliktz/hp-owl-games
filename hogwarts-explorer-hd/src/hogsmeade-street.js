@@ -16,6 +16,8 @@ import { BUILDERS, FLOOR_Y } from './rooms.js';
 import { loadModel, modelInfo, MODELS_BASE } from './models.js';
 import { roomLight, buildFilch, triCount, drawCount, place, paint, merge, softTex, FONT } from './adventure-b3-map-build.js';
 import { fallbackStreet, buildSky, buildGlows, buildSmoke, buildSnow, buildSigns, canvasTex, quiet, PUFFS } from './hogsmeade-street-build.js';
+import { buildShopSigns } from './hogsmeade-signs.js';                  // (M2) the three named shops' Hebrew signs (one atlas, one mesh)
+import { HONEY_INT_API } from './honeydukes-interior.js';               // (M2) the interior model's state, for state()
 
 export const HM_DOOR = { x: 2.4, z: -4.5 };                 // the door in the Honeydukes north wall (room frame)
 const DOOR_SPOT = { x: 2.4, z: -3.95, r: 0.6 };             // where walking into it takes Harry out
@@ -26,8 +28,12 @@ const FILCH_FAR = { z: 11.4, x0: -12, x1: 12 };
 const QUEST_LINE = 'אחרי המשימה נצא לרחוב הוגסמיד 🏘️';
 const SIDECAR = 'hm_street_01.json';
 const NEAR_Z = 5.05;
+// (M2) the named shops: tapping one (free play, the street) walks Harry to its door spot and a kind bubble names it. No interiors.
+const SHOPS = { broomsticks: 'זה פונדק שלושת המטאטאים!', zonko: 'זו חנות התעלולים של זונקו!', hogshead: 'זה הפונדק ראש החזיר.' };
+const FAR_FRONT = 12.3, NEAR_FRONT = 4.8, TAP_HW = 1.6, TAP_H = 3.0, TAP_PAD = 22;
+const SNOW_HIGH = 1.6;   // falling snow on the HIGH tier, x the milestone 1 count
 
-const ST = { promise: null, loaded: false, fallback: false, failed: null, mode: null, cur: null, errors: 0, lastErr: '', from: null, tap: false, emi: null, mats: [], visits: 0, door: null, bubbles: 0, going: false };
+const ST = { promise: null, loaded: false, fallback: false, failed: null, mode: null, cur: null, errors: 0, lastErr: '', from: null, tap: false, emi: null, mats: [], visits: 0, door: null, bubbles: 0, going: false, lastBubble: '', shopTaps: 0, lastShop: null, walk: null };
 const _v = new Vector3(), _w = new Vector3(), _m = new Matrix4(), _q = new Quaternion(), _s = new Vector3(), _c = new Color();
 const warn = (what, e) => { ST.errors++; ST.lastErr = what + ': ' + String(e && e.message || e); if (ST.errors < 5) console.warn('[hogsmeade]', what, '-', String(e && e.message || e)); };
 function freeBusy() {
@@ -102,13 +108,16 @@ async function buildStreet(mode, src) {
   const S = { g, root, side, kind, mode, body, bow, mats, T: 0 };
   // dressing
   const sky = buildSky(); g.add(sky.g); S.sky = sky;
-  const glows = buildGlows(side); g.add(glows.glows, glows.pools); S.glows = glows;
+  const glows = buildGlows(side, mode); g.add(glows.glows, glows.pools); S.glows = glows;
   const smoke = buildSmoke(side, mode === 'window' ? 6 : 10); g.add(smoke.mesh); S.smoke = smoke;
   const low = tier() === 'low';
-  const nSnow = low ? 0 : mode === 'window' ? 90 : (tier() === 'medium' ? 140 : 220);
+  const hi = tier() === 'high' ? SNOW_HIGH : 1;
+  const nSnow = low ? 0 : Math.round((mode === 'window' ? 90 : (tier() === 'medium' ? 140 : 220)) * hi);
   const snow = buildSnow(nSnow); snow.mesh.visible = nSnow > 0; g.add(snow.mesh); S.snow = snow;
   if (low) smoke.mesh.visible = false;
   const signs = buildSigns(side); g.add(signs.g); S.signs = signs;
+  try { const sh = buildShopSigns(side); if (sh.mesh) g.add(sh.mesh); S.shopSigns = sh; } catch (e) { warn('shop signs', e); S.shopSigns = { mesh: null, keys: [] }; }
+  S.doors = shopDoors(side);
   if (mode === 'window') {
     if (body) body.visible = false;
     if (bow) bow.visible = false;   // (art, 27 Nov) from inside, the bow's jar shelves hid the street: the shop's own window frame is enough
@@ -255,7 +264,7 @@ function addDoor(room, H) {
 const doorW = (out = new Vector3()) => out.set(HM_DOOR.x, roomY() + 1.2, HM_DOOR.z + 0.1);
 const shopW = (out = new Vector3()) => out.set(SHOP_SPOT.x, roomY() + 1.2, 4.85);
 function roomY() { try { const r = G().interiors.room; return r && r.group ? r.group.position.y : FLOOR_Y; } catch { return FLOOR_Y; } }
-function bubble(text) { ST.bubbles++; try { const p = G().player.pos; window.HPFun.say(_w.set(p.x, p.y + 2.2, p.z), text, 3.5); } catch { /* ok */ } }
+function bubble(text) { ST.bubbles++; ST.lastBubble = text; try { const p = G().player.pos; window.HPFun.say(_w.set(p.x, p.y + 2.2, p.z), text, 3.5); } catch { /* ok */ } }
 function honeyTick(H, dt) {
   if (H.S) tickStreet(H.S, dt, H.room.group);
   if (ST.inShop) { ST.inShop = false; try { const C = G().player.cam; C.yaw = -2.03; C.pitch = 0.3; C.dist = 3.6; C.userControlled = false; } catch { /* ok */ } }   // (behind Harry is the north wall)
@@ -276,7 +285,7 @@ BUILDERS.b3hogsmeade = async () => {
   const L = roomLight(g, { amb: 0.95, ambC: 0xdce4ff, hemi: 1.1, sky: 0xd0dcf8, ground: 0xa0a6bc, fogC: 0x9ea8cc, fogD: 0.009, bg: 0x8a96c0 });
   const R = { S, L, armed: false, btn: null, css: null };
   const marker = g.children.find(o => o.name === 'b3-light');
-  if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { try { r0 && r0(); } finally { dropButton(R); document.body.classList.remove('hmStreetOn'); if (ST.cur === S) { ST.cur = null; ST.mode = null; } } }; }
+  if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { try { r0 && r0(); } finally { dropButton(R); stopWalk(false); document.body.classList.remove('hmStreetOn'); if (ST.cur === S) { ST.cur = null; ST.mode = null; } } }; }
   document.body.classList.add('hmStreetOn');
   ST.cur = S; ST.mode = 'street'; ST.visits++;
   installTap();
@@ -293,9 +302,10 @@ function streetTick(R, dt) {
   tickStreet(R.S, dt, room.group);
   const busy = freeBusy() || questOn();
   if (!busy && !R.btn) makeButton(R); else if (busy && R.btn) dropButton(R);
+  if (ST.walk) walkTick(ST.walk, dt, busy);
   const p = g.player.pos, d = Math.hypot(p.x - SHOP_SPOT.x, p.z - SHOP_SPOT.z);
   if (d > SHOP_SPOT.r + 1.2) R.armed = true;
-  if (R.armed && d < SHOP_SPOT.r && !busy) { R.armed = false; goShop(); }
+  if (R.armed && d < SHOP_SPOT.r && !busy && !ST.walk) { R.armed = false; goShop(); }   // (not while Harry walks himself to a named shop past it)
 }
 function makeButton(R) {
   const back = document.createElement('button'); back.id = 'hmBack'; back.textContent = '🏠 חזרה'; back.setAttribute('aria-label', 'חזרה');
@@ -315,7 +325,7 @@ const tapR = () => Math.max(46, Math.min(innerWidth, innerHeight) * 0.08) * 1.6;
 function installTap() {
   if (ST.tap) return; const view = document.getElementById('view'); if (!view) return;
   ST.tap = true; let down = null;
-  view.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; }, { passive: true });
+  view.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; if (ST.walk) stopWalk(false); }, { passive: true });   // (a new touch = the child steers again)
   view.addEventListener('pointerup', (e) => {
     const d0 = down; down = null;
     try {
@@ -327,11 +337,73 @@ function installTap() {
         if (questOn()) bubble(QUEST_LINE); else if (!freeBusy()) goStreet({ room: 'b3honey', x: HM_IN.x, z: HM_IN.z, yaw: HM_IN.yaw });
       } else if (act === 'b3hogsmeade') {
         if (freeBusy() || questOn()) return;
-        const s = c.screen(shopW(_v)); if (!s.on || Math.hypot(s.x - e.clientX, s.y - e.clientY) > tapR() || Math.hypot(p.x - SHOP_SPOT.x, p.z - SHOP_SPOT.z) > 9) return;
-        goShop();
+        const s = c.screen(shopW(_v));
+        if (s.on && Math.hypot(s.x - e.clientX, s.y - e.clientY) <= tapR() && Math.hypot(p.x - SHOP_SPOT.x, p.z - SHOP_SPOT.z) <= 9) { stopWalk(false); goShop(); return; }
+        const k = shopAt(e.clientX, e.clientY); if (k) startWalk(k);
       }
     } catch { /* never break the game's own taps */ }
   }, { passive: true });
+}
+
+// ---------------- (M2) the named shops' doors ----------------
+// door spots from the sidecar `doors` (v2); a sidecar without them (milestone 1) falls back to its reserved `plots`
+function shopDoors(side) {
+  const out = {}, D = side.doors || {}, P = (side.signs && side.signs.plots) || {}, w = side.walk;
+  const z0 = Math.max(w.z0, NEAR_Z) + 0.35, z1 = w.z1 - 0.35;
+  for (const k of Object.keys(SHOPS)) {
+    let d = D[k], from = 'doors';
+    if (!d && P[k]) { d = { x: P[k].x, z: P[k].z > 8.5 ? 11.5 : 5.6 }; from = 'plots'; }
+    if (!d || !isFinite(d.x) || !isFinite(d.z)) continue;
+    const far = d.z > (w.z0 + w.z1) / 2;
+    out[k] = { x: Math.max(w.x0 + 0.5, Math.min(w.x1 - 0.5, d.x)), z: Math.max(z0, Math.min(z1, d.z)), far, from };
+  }
+  return out;
+}
+// the generous invisible tap box of a shop: 3.2 m wide, 3 m high, from the door spot back to the house front (screen rect + a pad)
+const _box = new Vector3();
+function shopRect(k) {
+  const S = ST.cur, d = S && S.doors && S.doors[k]; if (!d) return null;
+  const cam = G().camera, y0 = roomY(), zf = d.far ? FAR_FRONT : NEAR_FRONT; cam.updateMatrixWorld();
+  let x0 = 1e9, x1 = -1e9, ya = 1e9, yb = -1e9;
+  for (const dx of [-TAP_HW, TAP_HW]) for (const y of [0, TAP_H]) for (const z of [d.z, zf]) {
+    _box.set(d.x + dx, y0 + y, z).project(cam); if (_box.z > 1 || _box.z < -1) return null;   // (a corner behind the lens: no box)
+    const sx = (_box.x * 0.5 + 0.5) * innerWidth, sy = (-_box.y * 0.5 + 0.5) * innerHeight;
+    x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); ya = Math.min(ya, sy); yb = Math.max(yb, sy);
+  }
+  if (x1 < 0 || x0 > innerWidth || yb < 0 || ya > innerHeight) return null;
+  return { x0: x0 - TAP_PAD, x1: x1 + TAP_PAD, y0: ya - TAP_PAD, y1: yb + TAP_PAD, cx: (x0 + x1) / 2, cy: (ya + yb) / 2 };
+}
+function shopAt(x, y) {
+  const S = ST.cur; if (!S || S.mode !== 'street' || !S.doors) return null;
+  const p = G().player.pos; let best = null, bd = 1e9;
+  for (const k of Object.keys(S.doors)) {
+    const d = S.doors[k]; if (Math.hypot(p.x - d.x, p.z - d.z) > 28) continue;
+    const r = shopRect(k); if (!r || x < r.x0 || x > r.x1 || y < r.y0 || y > r.y1) continue;
+    const dd = Math.hypot(x - r.cx, y - r.cy); if (dd < bd) { bd = dd; best = k; }
+  }
+  return best;
+}
+function startWalk(k) {
+  const S = ST.cur, d = S && S.doors && S.doors[k]; if (!d) return false;
+  ST.shopTaps++; stopWalk(false);
+  ST.walk = { k, x: d.x, z: d.z, far: d.far, t: 0, best: 1e9, still: 0 };
+  return true;
+}
+function stopWalk(arrived) {
+  const W = ST.walk; if (!W) return; ST.walk = null;
+  try { G().walk(0, 0); } catch { /* ok */ }
+  if (arrived) { try { G().player.yaw = W.far ? 0 : Math.PI; } catch { /* ok */ } ST.lastShop = W.k; bubble(SHOPS[W.k]); }
+}
+// Harry walks himself (the same joystick the child uses, so colliders hold); arrives, or stops if stuck, and the shop is named
+function walkTick(W, dt, busy) {
+  if (busy) { stopWalk(false); return; }
+  const g = G(), p = g.player.pos, dx = W.x - p.x, dz = W.z - p.z, d = Math.hypot(dx, dz);
+  W.t += dt;
+  if (d < W.best - 0.05) { W.best = d; W.still = 0; } else W.still += dt;
+  if (d < 0.45 || W.still > 1.6 || W.t > 14) { stopWalk(true); return; }
+  const cy = g.player.cam.yaw, nx = dx / d, nz = dz / d, k = Math.min(1, 0.35 + d / 2.2);
+  const fx = -Math.sin(cy), fz = -Math.cos(cy), rx = Math.cos(cy), rz = -Math.sin(cy);
+  g.walk((nx * rx + nz * rz) * k, (nx * fx + nz * fz) * k);
 }
 
 // ---------------- debug ----------------
@@ -347,6 +419,10 @@ export const HM_API = {
       snow: S ? (S.snow.mesh.visible ? S.snow.n : 0) : 0, smoke: S ? S.smoke.mesh.visible : false, filch: S && S.F ? { x: +S.fx.toFixed(2), z: FILCH_FAR.z, visible: S.F.g.visible } : null,
       colliders: S && S.cols ? S.cols.length : 0, dropped: S ? S.dropped || 0 : 0, from: ST.from, visits: ST.visits, bubbles: ST.bubbles, busy: freeBusy(), quest: questOn(),
       door: ST.door ? { on: !!ST.door.door && !!ST.door.door.parent, armed: ST.door.armed } : null, button: !!document.getElementById('hmBack'),
+      shopSigns: S && S.shopSigns ? { mesh: !!S.shopSigns.mesh && !!S.shopSigns.mesh.parent, keys: S.shopSigns.keys.slice() } : null,
+      doors: S && S.doors ? JSON.parse(JSON.stringify(S.doors)) : null, walking: ST.walk ? ST.walk.k : null, shopTaps: ST.shopTaps, lastShop: ST.lastShop, lastBubble: ST.lastBubble,
+      pools: S && S.glows && S.glows.pools ? { n: S.glows.pools.userData.n, opacity: S.glows.pools.material.opacity, visible: S.glows.pools.visible } : null,
+      interior: (() => { try { return HONEY_INT_API.state(); } catch { return null; } })(),
       errors: ST.errors, lastErr: ST.lastErr,
     };
   },
@@ -359,6 +435,8 @@ export const HM_API = {
   start: () => startStreet(),
   home: () => { goHome(); return true; },
   side: () => (ST.cur ? ST.cur.side : null),
+  shopRect: (k) => shopRect(k),                                                     // (M2) a named shop's tap box on screen, or null
+  shopTapW: (k) => { const d = ST.cur && ST.cur.doors && ST.cur.doors[k]; return d ? new Vector3(d.x, roomY() + 1.4, (d.z + (d.far ? FAR_FRONT : NEAR_FRONT)) / 2) : null; },
   bow: (on) => { const S = ST.cur; if (S && S.bow) S.bow.visible = !!on; return !!(S && S.bow); },   // (review: the bow display seen from inside)
 };
 window.__hmApi = HM_API;   // (main.js: window.__game.hogsmeade)

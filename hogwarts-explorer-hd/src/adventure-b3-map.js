@@ -15,7 +15,8 @@ import { Vector3, Matrix4 } from 'three';
 import { BUILDERS, FLOOR_Y } from './rooms.js';
 import { buildTable, buildStatue, buildHoney, roomLight, drawCount, triCount, TABLE, STATUE, HSPAWN, TRAP, HIDE, WIN, FILCH_Z, SWEET_SPOTS } from './adventure-b3-map-build.js';
 import { openParchment, setPhase, setOpts, close as closeParchment, glowHint, sayLine, MM } from './marauder-map.js';
-import { attachHoneyStreet } from './hogsmeade-street.js';   // Hogsmeade milestone 1: the 3D street behind the window + the north door
+import { attachHoneyStreet } from './hogsmeade-street.js';
+import { attachHoneyInterior } from './honeydukes-interior.js';   // Hogsmeade milestone 2: the interior model hm_honey_int   // Hogsmeade milestone 1: the 3D street behind the window + the north door
 
 const RON = { ico: '👦', name: 'רון' };
 const RON_WHO = '👦 רון', FILCH_WHO = '🏮 פילץ\'';
@@ -110,7 +111,7 @@ const stW = (out, y = 1.2) => out.set(STATUE.x + HS.slide * STATUE.slide * 0, ro
 // ---------------- Honeydukes (always registered) ----------------
 BUILDERS.b3honey = () => {
   const B = buildHoney(); const g = B.g; g.position.y = FLOOR_Y; g.userData.honey = B;
-  const L = roomLight(g, { amb: 0.82, ambC: 0xfff0e0, hemi: 0.7, sky: 0xfff4fa, ground: 0x9a7a6a, fogC: 0xf0d8e0, fogD: 0.004, bg: 0xe8c8d0 });
+  const L = roomLight(g, { amb: 0.82, ambC: 0xffead2, hemi: 0.7, sky: 0xfff2e0, ground: 0x9a7a5e, fogC: 0xf2e6d0, fogD: 0.004, bg: 0xeee0c8 });   // (Hogsmeade M2) polish3's strength, a warmer light; warm cream fog / background (was pink)
   const marker = g.children.find(o => o.name === 'b3-light'); if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { r0(); document.body.classList.remove('b3honeyOn'); HS.leftHoney = performance.now(); if (HS.room === room) HS.room = null; }; }
   // on a phone the helper bubble sits high, just under the tracker, so Filch's window stays in view
   if (!document.getElementById('b3honeyHintCss')) { const st = document.createElement('style'); st.id = 'b3honeyHintCss'; st.textContent = '@media (max-width:700px){body.b3honeyOn #advHint{top:calc(96px + env(safe-area-inset-top));font-size:16px;padding-top:6px;padding-bottom:6px}}'; document.head.appendChild(st); }
@@ -123,6 +124,7 @@ BUILDERS.b3honey = () => {
   };
   HS.room = room; HS.visits++;
   try { attachHoneyStreet(room, B); } catch (e) { console.warn('[b3-map] Hogsmeade street skipped -', e && e.message || e); }
+  try { attachHoneyInterior(room, B); } catch (e) { console.warn('[b3-map] Honeydukes interior model skipped -', e && e.message || e); }   // Hogsmeade M2: the real shop interior (code-built shop = fallback)
   if (!HS.quest) freeSweets(B);
   B.tris = triCount(g);
   return room;

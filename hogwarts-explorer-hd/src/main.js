@@ -416,7 +416,8 @@ async function boot() {
     get roam() { return roam ? roam.api : null; },   // roam.js: state() fast(k) where(id) hold(on) seed(n) clock(id,t) plan(id) cooldown(id) cat()
     get buckbeak() { return buckbeak ? buckbeak.api : null; },   // buckbeak-free.js: state() fly() bow() nuzzle() hold(on) ctx() headScreen()
     get dog() { return dog ? dog.api : null; },   // dog-free.js: state() tap() ball() come() hold(on) spots() headScreen() bodyScreen() fast(k) goSpot(i)
-    get hogsmeade() { return window.__hmApi || null; },   // hogsmeade-street.js: state() doorW() shopDoorW() farW() start() home() side()
+    get hogsmeade() { return window.__hmApi || null; },
+    get honeyInt() { return window.__honeyIntApi || null; },   // honeydukes-interior.js: state() -> { interior: 'model' | 'fallback' | 'loading', tris, draws, shellShown }   // hogsmeade-street.js: state() doorW() shopDoorW() farW() start() home() side()
     get timeturner() { return timeturner ? timeturner.api : null; },   // timeturner-free.js: state() spin() hold(on) path()
     get nature() { return nature; },   // grounds-nature.js: .stats() (trees per kind, draw calls, colliders, tri budget), .keepOuts, .counts, .jetty
     give(type, n) { quests.bonus(n || 1); }, cheer() {},

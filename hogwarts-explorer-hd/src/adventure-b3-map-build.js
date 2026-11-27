@@ -7,8 +7,9 @@
 import {
   Group, Mesh, BoxGeometry, SphereGeometry, CylinderGeometry, ConeGeometry, TorusGeometry, PlaneGeometry, InstancedMesh, Object3D,
   Vector3, Matrix4, Quaternion, Euler, Color, BufferAttribute, MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, SRGBColorSpace,
-  AdditiveBlending, RepeatWrapping, DoubleSide,
+  AdditiveBlending, RepeatWrapping, DoubleSide, MeshStandardNodeMaterial, Float32BufferAttribute,
 } from 'three';
+import { attribute, mix, materialEmissive, vec3 } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const FONT = "'Rubik','Arial Hebrew','Noto Sans Hebrew','Heebo',Arial,sans-serif";
@@ -17,8 +18,9 @@ export function place(geo, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, 
 export function paint(geo, hex) { const n = geo.attributes.position.count, a = new Float32Array(n * 3); _c.setHex(hex); for (let i = 0; i < n; i++) { a[i * 3] = _c.r; a[i * 3 + 1] = _c.g; a[i * 3 + 2] = _c.b; } geo.setAttribute('color', new BufferAttribute(a, 3)); return geo; }
 const strip = (g) => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'color'].includes(k)) n.deleteAttribute(k); return n; };
 export const merge = (list) => mergeGeometries(list.map(strip), false);
-export const triCount = (o) => { let n = 0; o.traverse(m => { if (m.isMesh && m.visible !== false) { const g = m.geometry, per = (g.index ? g.index.count : g.attributes.position.count) / 3; n += m.isInstancedMesh ? per * m.count : per; } }); return Math.round(n); };
-export const drawCount = (o) => { let n = 0; o.traverse(m => { if (m.isMesh && m.visible !== false) { let p = m.parent, vis = true; while (p) { if (p.visible === false) { vis = false; break; } p = p.parent; } if (vis && (!m.isInstancedMesh || m.count > 0)) n++; } }); return n; };
+const matOn = (m) => { const a = m.material; return !a || (Array.isArray(a) ? a.some(x => x && x.visible !== false) : a.visible !== false); };   // (a material switched off draws nothing)
+export const triCount = (o) => { let n = 0; o.traverse(m => { if (m.isMesh && m.visible !== false && matOn(m)) { const g = m.geometry, per = (g.index ? g.index.count : g.attributes.position.count) / 3; n += m.isInstancedMesh ? per * m.count : per; } }); return Math.round(n); };
+export const drawCount = (o) => { let n = 0; o.traverse(m => { if (m.isMesh && m.visible !== false) { let p = m.parent, vis = true; while (p) { if (p.visible === false) { vis = false; break; } p = p.parent; } if (vis && matOn(m) && (!m.isInstancedMesh || m.count > 0)) n++; } }); return n; };
 const vmat = (rough = 0.75) => new MeshStandardMaterial({ vertexColors: true, roughness: rough });
 const quiet = (o) => { o.frustumCulled = false; o.raycast = () => {}; return o; };
 function canvasTex(w, h, fn) { const c = document.createElement('canvas'); c.width = w; c.height = h; fn(c.getContext('2d'), w, h); const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; return t; }
@@ -101,6 +103,33 @@ export const FILCH_Z = 5.5;
 // ten places for sweets (room-local x, y, z): shelves, the counter, the barrel lid
 export const SWEET_SPOTS = [[-5.2, 1.02, -1.4], [-5.2, 1.62, 0.6], [-5.2, 2.22, 2.4], [-5.2, 1.02, 2.6], [3.4, 1.12, -0.6], [3.4, 1.12, 0.7], [3.1, 1.12, 1.9],
   [-3.4, 1.62, 4.22], [3.6, 1.62, 4.22], [-1.7, 1.01, -0.9]];
+// (Hogsmeade M2) the collectable sweet: a striped gift box with a cream ribbon and a bow, <= 120 triangles. Same footprint as
+// the old box (0.34 x 0.24 x 0.26, standing on y 0). The per-instance colour tints the box (light and deep stripes of the same
+// colour); the ribbon carries an attribute 'ribbon' = 1 and glows a steady cream through the emissive slot (which the instance
+// colour never tints), so it reads cream on every colour of box. The body keeps the old pulsing warm glow (emissiveIntensity).
+export function sweetBoxGeo() {
+  const parts = [];
+  const tag = (g, rib, colFn) => {
+    g = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+    const p = g.attributes.position, n = p.count, col = new Float32Array(n * 3), rb = new Float32Array(n);
+    for (let t = 0; t < n; t += 3) { const cx = (p.getX(t) + p.getX(t + 1) + p.getX(t + 2)) / 3, v = colFn(cx, t); for (let k = t; k < t + 3; k++) { col[k * 3] = col[k * 3 + 1] = col[k * 3 + 2] = v; rb[k] = rib; } }
+    g.setAttribute('color', new Float32BufferAttribute(col, 3)); g.setAttribute('ribbon', new Float32BufferAttribute(rb, 1)); parts.push(g);
+  };
+  // the box: 6 stripes across x on the front, back, top and bottom (52 triangles)
+  tag(new BoxGeometry(0.34, 0.24, 0.26, 6, 1, 1).translate(0, 0.12, 0), 0, (cx) => (Math.floor((cx + 0.17) / 0.34 * 6 + 1e-4) % 2 ? 0.44 : 0.96));
+  // the ribbon round it both ways (24)
+  tag(new BoxGeometry(0.352, 0.252, 0.06).translate(0, 0.122, 0), 1, () => 0.3);
+  tag(new BoxGeometry(0.06, 0.256, 0.272).translate(0, 0.124, 0), 1, () => 0.3);
+  // the bow: two loops (4-sided cones, apex at the knot) tilted up a little, and the knot (28)
+  for (const sd of [1, -1]) tag(new ConeGeometry(0.05, 0.1, 4, 1).translate(0, -0.05, 0).rotateZ(sd * (Math.PI / 2 + 0.35)).translate(0, 0.262, 0), 1, () => 0.3);
+  tag(new BoxGeometry(0.045, 0.04, 0.045).translate(0, 0.262, 0), 1, () => 0.3);
+  return mergeGeometries(parts, false);
+}
+export function sweetBoxMat() {
+  const m = new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.5, emissive: 0xffe0a0, emissiveIntensity: 0.25 });
+  m.emissiveNode = mix(materialEmissive, vec3(0.62, 0.56, 0.44), attribute('ribbon', 'float'));
+  return m;
+}
 const PASTEL = [0xe87aa8, 0x7ad8b8, 0xe8d06a, 0x7ab0e8, 0xb88ae0, 0xe89a5a, 0x8ae07a];
 export function buildHoney() {
   const { W, D, H } = HONEY, g = new Group(); g.name = 'b3honey';
@@ -152,9 +181,8 @@ export function buildHoney() {
   jarSpots.forEach((p, i) => { _m.makeTranslation(p[0], p[1], p[2]); jars.setMatrixAt(i, _m); jars.setColorAt(i, _c.setHex(PASTEL[(i * 3) % PASTEL.length])); });
   g.add(jars);
   // the sweets to collect: striped boxes (one instanced mesh; a collected box scales to 0)
-  const boxGeo = merge([paint(new BoxGeometry(0.34, 0.24, 0.26).translate(0, 0.12, 0), 0xd6d6d6), paint(new BoxGeometry(0.36, 0.26, 0.07).translate(0, 0.12, 0), 0xf8f8f8), paint(new BoxGeometry(0.07, 0.26, 0.28).translate(0, 0.12, 0), 0xf8f8f8),
-    paint(new SphereGeometry(0.06, 8, 5).translate(0, 0.27, 0), 0xf8f8f8)]);
-  const sweetMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.5, emissive: 0xffe0a0, emissiveIntensity: 0.25 });
+  const boxGeo = sweetBoxGeo();
+  const sweetMat = sweetBoxMat();
   const sweets = quiet(new InstancedMesh(boxGeo, sweetMat, SWEET_SPOTS.length)); sweets.name = 'honey-sweets';
   SWEET_SPOTS.forEach((p, i) => sweets.setColorAt(i, _c.setHex(PASTEL[i % PASTEL.length])));
   g.add(sweets);

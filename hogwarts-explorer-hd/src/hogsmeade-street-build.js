@@ -10,6 +10,7 @@ import {
   Vector3, Matrix4, Quaternion, Euler, Color, BufferAttribute, MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, SRGBColorSpace,
   AdditiveBlending, BackSide, DoubleSide,
 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { place, paint, merge, softTex, FONT } from './adventure-b3-map-build.js';
 
 const _m = new Matrix4(), _q = new Quaternion(), _e = new Euler(), _v = new Vector3(), _s = new Vector3(), _c = new Color();
@@ -23,6 +24,8 @@ function roof(w, d, x, y0, z, rh, hex, ry = 0) {
   g.scale(1, (2 * rh) / d, 1); g.translate(0, y0, 0); g.rotateY(ry); g.translate(x, 0, z);
   return paint(g, hex);
 }
+// the milestone 1 sidecar's reserved plots (hm_street_01.json signs.plots), the same for the fallback street
+export const PLOTS = { hogshead: { x: -21.4, y: 3.2, z: 12.4, w: 2.4, h: 0.6, ry: Math.PI }, broomsticks: { x: 18.0, y: 3.2, z: 12.5, w: 2.4, h: 0.6, ry: Math.PI }, zonko: { x: 10.8, y: 3.2, z: 4.85, w: 2.4, h: 0.6, ry: 0 } };
 const WALLS = [0x9a8a78, 0x8a7a6a, 0xb0a08a, 0x7a6e66, 0xa89a86, 0x8e8070];
 export function fallbackStreet() {
   const S = [], E = [], H = [], HE = [], B = [], BE = [];   // street solid / emissive, Honeydukes body solid / emissive, bow solid / emissive
@@ -105,7 +108,15 @@ export function fallbackStreet() {
   root.add(node('Hm_Street', S, E), node('Hm_Honeydukes_Body', H, HE), node('Hm_Honeydukes_Bow', B, BE));
   const side = {
     colliders: cols, lanterns, windows, chimneys,
-    signs: { honeydukes_fascia: { x: 0, y: 3.35, z: 4.98, w: 6.0, h: 0.8, ry: 0 }, honeydukes_hanging: { x: -3.4, y: 3.0, z: 5.6, w: 0.9, h: 0.9, ry: Math.PI / 2 } },
+    signs: {
+      honeydukes_fascia: { x: 0, y: 3.35, z: 4.98, w: 6.0, h: 0.8, ry: 0 }, honeydukes_hanging: { x: -3.4, y: 3.0, z: 5.6, w: 0.9, h: 0.9, ry: Math.PI / 2 },
+      plots: { ...PLOTS },
+      // (M2) the three named shops' signs at the milestone 1 plots (x, and the house front), low enough to clear the upper windows
+      broomsticks_fascia: { x: PLOTS.broomsticks.x, y: 2.55, z: 12.15, w: 2.6, h: 0.42, ry: Math.PI },
+      zonko_fascia: { x: PLOTS.zonko.x, y: 2.55, z: 4.86, w: 2.6, h: 0.46, ry: 0 },
+      hogshead_hanging: { x: PLOTS.hogshead.x, y: 2.7, z: 12.1, w: 0.9, h: 0.9, ry: Math.PI },
+    },
+    doors: { broomsticks: { x: PLOTS.broomsticks.x, z: 11.5 }, zonko: { x: PLOTS.zonko.x, z: 5.6 }, hogshead: { x: PLOTS.hogshead.x, z: 11.5 } },
     door: { x: 3.6, z: 4.8 }, walk: { x0: -30, x1: 30, z0: 4.8, z1: 12.2 }, fallback: true,
   };
   return { root, side };
@@ -135,7 +146,7 @@ export function buildSky() {
   return { g, sky, hills };
 }
 // glow cards (lanterns + a few windows: one InstancedMesh, faced to the camera each frame) and light pools on the snow (one)
-export function buildGlows(side) {
+export function buildGlows(side, mode = 'street') {
   const soft = softTex(), pts = [];
   for (const p of side.lanterns || []) pts.push({ p, s: 1.5, c: 0xffc870 });
   for (const p of side.windows || []) pts.push({ p, s: 1.1, c: 0xffb860 });
@@ -143,12 +154,20 @@ export function buildGlows(side) {
   const glows = quiet(new InstancedMesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false }), n));
   glows.name = 'hm-glows'; glows.count = pts.length;
   pts.forEach((o, i) => glows.setColorAt(i, _c.setHex(o.c).multiplyScalar(0.75)));
-  const L = side.lanterns || [];
-  const pools = quiet(new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: soft, color: 0xffc070, transparent: true, opacity: 0.55, depthWrite: false, blending: AdditiveBlending }), Math.max(1, L.length)));
-  pools.name = 'hm-light-pools'; pools.count = L.length;
-  L.forEach((p, i) => { _m.compose(_v.set(p[0], 0.03, p[2]), _q.identity(), _s.set(4.2, 1, 4.2)); pools.setMatrixAt(i, _m); });
-  pools.instanceMatrix.needsUpdate = true;
+  const pools = buildPools(side, mode, soft);
   return { glows, pools, pts };
+}
+// (M2) the warm light pools: one soft round ground card (radius POOL_R) under every lantern, all merged into ONE additive mesh
+// (1 draw). Lifted 5 cm with a polygon offset and no depth write, so it never fights the road, the pavement or the kerbs; a drift
+// or a step higher than that simply covers it. A little stronger in the walkable dusk street than behind the shop window.
+export const POOL_R = 2.2;
+export function buildPools(side, mode = 'street', soft = softTex()) {
+  const L = side.lanterns || [], parts = [];
+  for (const p of L) parts.push(new PlaneGeometry(POOL_R * 2, POOL_R * 2).rotateX(-Math.PI / 2).translate(p[0], 0.05, p[2]));
+  const geo = parts.length ? mergeGeometries(parts, false) : new PlaneGeometry(0.01, 0.01).rotateX(-Math.PI / 2).translate(0, -50, 0);
+  const mat = new MeshBasicMaterial({ map: soft, color: 0xffbe6a, transparent: true, opacity: mode === 'street' ? 0.72 : 0.5, depthWrite: false, blending: AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const pools = quiet(new Mesh(geo, mat)); pools.name = 'hm-light-pools'; pools.visible = parts.length > 0; pools.renderOrder = 1; pools.userData.n = parts.length;
+  return pools;
 }
 // chimney smoke: 3 soft puffs per chimney rising, growing and thinning out (one InstancedMesh)
 export const PUFFS = 3;
