@@ -198,7 +198,8 @@ export function tapAt(x, y) {
     const d = Math.hypot(s.x - x, s.y - y) / (t.r || 1); if (d < bd) { bd = d; best = t; }
   }
   if (!best || bd > tapR()) return null;
-  const t = best, go = t.frame === false ? t.fn : () => { try { ST.framed = frameThing((t.fw || t.w)(new Vector3())); } catch (e) { warn('frame', e); } t.fn(); };
+  const t = best, fr = () => { try { if (ST.cur === R && !R.walk) ST.framed = frameThing((t.fw || t.w)(new Vector3())); } catch (e) { warn('frame', e); } };
+  const go = t.frame === false ? t.fn : () => { fr(); setTimeout(fr, 600); t.fn(); };   // (again once Harry has come to rest)
   if (t.spot) walkTo(R, t.spot, go); else go();
   return best.id;
 }
