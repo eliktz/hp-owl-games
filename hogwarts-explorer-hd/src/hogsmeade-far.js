@@ -138,3 +138,12 @@ export function farState(cam) {
 }
 // (look-dev) move a far node live: __game.hogsmeade.farSet('shack', {x: 90})
 export function farSet(k, o) { const P = FAR[k], n = FS[k]; if (!P) return null; Object.assign(P, o || {}); if (n) put(n, P); return { ...P }; }
+
+// (M3 review) the shack's one warm window as a soft warm dot in the street's glow cards (0 extra draws): the delivered model's
+// window at (-4.52, 17.23, -0.59) in the node, placed by FAR.shack; shown only with the real model (the stand-in has its own window)
+const SHACK_WIN = [-4.52, 17.23, -0.59];
+export function farGlows() {
+  const P = FAR.shack, c = Math.cos(P.ry), s = Math.sin(P.ry), [lx, ly, lz] = SHACK_WIN.map(v => v * P.scale);
+  const p = [P.x + lx * c + lz * s, P.y + ly, P.z - lx * s + lz * c];
+  return [{ p, s: 2.2, c: 0xffc870, k: 0.8, gate: () => (FS.kind === 'glb' && FS.shack && FS.shack.visible ? 1 : 0) }];
+}

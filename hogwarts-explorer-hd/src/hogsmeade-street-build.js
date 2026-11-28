@@ -141,14 +141,15 @@ export function buildSky() {
   return { g, sky, hills };
 }
 // glow cards (lanterns + a few windows: one InstancedMesh, faced to the camera each frame) and light pools on the snow (one)
-export function buildGlows(side, mode = 'street') {
+export function buildGlows(side, mode = 'street', extra = []) {
   const soft = softTex(), pts = [];
   for (const p of side.lanterns || []) pts.push({ p, s: 1.5, c: 0xffc870 });
   for (const p of side.windows || []) pts.push({ p, s: 1.1, c: 0xffb860 });
+  for (const o of extra) pts.push(o);   // (M3) far warm dots ({p, s, c, k, gate}: gate() 0 hides one)
   const n = Math.max(1, pts.length);
   const glows = quiet(new InstancedMesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false }), n));
   glows.name = 'hm-glows'; glows.count = pts.length;
-  pts.forEach((o, i) => glows.setColorAt(i, _c.setHex(o.c).multiplyScalar(0.75)));
+  pts.forEach((o, i) => glows.setColorAt(i, _c.setHex(o.c).multiplyScalar(o.k ?? 0.75)));
   const pools = buildPools(side, mode, soft);
   return { glows, pools, pts };
 }

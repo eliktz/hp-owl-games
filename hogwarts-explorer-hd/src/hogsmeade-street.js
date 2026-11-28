@@ -18,7 +18,7 @@ import { roomLight, buildFilch, triCount, drawCount, place, paint, merge, softTe
 import { fallbackStreet, buildSky, buildGlows, buildSmoke, buildSnow, buildSigns, canvasTex, quiet, PUFFS } from './hogsmeade-street-build.js';
 import { buildShopSigns, signAtlas, POST } from './hogsmeade-signs.js';                  // (M2) the three named shops' Hebrew signs (one atlas, one mesh)
 import { HONEY_INT_API } from './honeydukes-interior.js';               // (M2) the interior model's state, for state()
-import { attachFar, farState, farSet } from './hogsmeade-far.js';
+import { attachFar, farState, farSet, farGlows } from './hogsmeade-far.js';
 import { buildStars, buildMist, tickMist } from './hogsmeade-dusk.js';      // (M3) stars + mist (street, not on LOW)         // (M3) the Shrieking Shack + the castle far away
 
 export const HM_DOOR = { x: 2.4, z: -4.5 };                 // the door in the Honeydukes north wall (room frame)
@@ -114,7 +114,7 @@ async function buildStreet(mode, src) {
   const S = { g, root, side, kind, mode, body, bow, mats, T: 0 };
   // dressing
   const sky = buildSky(); g.add(sky.g); S.sky = sky;
-  const glows = buildGlows(side, mode); g.add(glows.glows, glows.pools); S.glows = glows;
+  const glows = buildGlows(side, mode, mode === 'street' ? farGlows() : []); g.add(glows.glows, glows.pools); S.glows = glows;
   // (M2) smoke from the list's first entries only, as in milestone 1 (the v2 sidecar appends a few that are not real chimneys): at most 8
   const smoke = buildSmoke(side, mode === 'window' ? 6 : 8); g.add(smoke.mesh); S.smoke = smoke;
   const low = tier() === 'low';
@@ -172,7 +172,7 @@ function tickStreet(S, dt, roomGroup) {
   const ox = roomGroup.position.x, oy = roomGroup.position.y, oz = roomGroup.position.z;
   const cx = cam.position.x - ox, cy = cam.position.y - oy, cz = cam.position.z - oz;
   const Gl = S.glows, gm = Gl.glows;
-  for (let i = 0; i < Gl.pts.length; i++) { const o = Gl.pts[i], dc = Math.hypot(o.p[0] - cx, o.p[1] - cy, o.p[2] - cz), near = Math.min(1, Math.max(0, (dc - 1.2) / 2.3)), k = o.s * (1 + Math.sin(T * 5 + i * 1.7) * 0.05) * near * near * (3 - 2 * near) + 1e-4; _m.compose(_v.set(o.p[0], o.p[1], o.p[2]), cam.quaternion, _s.set(k, k, k)); gm.setMatrixAt(i, _m); }
+  for (let i = 0; i < Gl.pts.length; i++) { const o = Gl.pts[i], dc = Math.hypot(o.p[0] - cx, o.p[1] - cy, o.p[2] - cz), near = Math.min(1, Math.max(0, (dc - 1.2) / 2.3)) * (o.gate ? o.gate() : 1), k = o.s * (1 + Math.sin(T * 5 + i * 1.7) * 0.05) * near * near * (3 - 2 * near) + 1e-4; _m.compose(_v.set(o.p[0], o.p[1], o.p[2]), cam.quaternion, _s.set(k, k, k)); gm.setMatrixAt(i, _m); }
   gm.instanceMatrix.needsUpdate = true;
   if (S.mist) tickMist(S.mist, cx, cy, cz);
   const Sm = S.smoke;
