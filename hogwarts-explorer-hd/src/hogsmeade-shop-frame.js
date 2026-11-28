@@ -9,7 +9,7 @@ let _cam = null;
 // the wanted screen box for a thing (fractions of the viewport)
 export function thingBox() {
   const W = innerWidth, H = innerHeight, phone = W / H < 0.8;
-  return phone ? { x0: 56, x1: Math.min(270, W - 120), y0: 150, y1: 450, ix: 0.42 * W, iy: 0.3 * H } : { x0: 0.18 * W, x1: 0.8 * W, y0: 0.14 * H, y1: 0.55 * H, ix: 0.5 * W, iy: 0.33 * H };
+  return phone ? { x0: 56, x1: Math.min(260, W - 130), y0: 170, y1: 410, ix: 0.42 * W, iy: 0.3 * H } : { x0: 0.18 * W, x1: 0.8 * W, y0: 0.14 * H, y1: 0.55 * H, ix: 0.5 * W, iy: 0.33 * H };
 }
 function project(cam, v) { _t.copy(v).project(cam); return { x: (_t.x * 0.5 + 0.5) * innerWidth, y: (-_t.y * 0.5 + 0.5) * innerHeight, on: _t.z > -1 && _t.z < 1 }; }
 // thing: world point; returns the chosen { yaw, pitch, dist, x, y } (also applied to the lens) or null
