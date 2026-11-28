@@ -171,3 +171,4 @@ export function buildShopSigns(side, opts = {}) {
   mesh.name = 'hm-shop-signs'; mesh.frustumCulled = false; mesh.raycast = () => {};
   return { mesh, keys, faces, post };
 }
+export { board as signBoard, text as signText, star as signStar, fan as signFan };   // (M4) the shop interiors paint their own signs in the same hand

@@ -20,6 +20,9 @@ import { buildShopSigns, signAtlas, POST } from './hogsmeade-signs.js';         
 import { HONEY_INT_API } from './honeydukes-interior.js';               // (M2) the interior model's state, for state()
 import { attachFar, farState, farSet, farGlows } from './hogsmeade-far.js';
 import { buildStars, buildMist, tickMist } from './hogsmeade-dusk.js';      // (M3) stars + mist (street, not on LOW)         // (M3) the Shrieking Shack + the castle far away
+import { enterShop, SHOP_API } from './hogsmeade-shop.js';   // (M4) the enterable shops: Zonko's and the Three Broomsticks
+import './hogsmeade-zonko.js';
+import './hogsmeade-broom.js';
 
 export const HM_DOOR = { x: 2.4, z: -4.5 };                 // the door in the Honeydukes north wall (room frame)
 const DOOR_SPOT = { x: 2.4, z: -3.95, r: 0.6 };             // where walking into it takes Harry out
@@ -31,6 +34,7 @@ const QUEST_LINE = 'אחרי המשימה נצא לרחוב הוגסמיד 🏘�
 const SIDECAR = 'hm_street_02.json';   // (models.json names the sidecar; this is only the default)
 const NEAR_Z = 5.05;
 // (M2) the named shops: tapping one (free play, the street) walks Harry to its door spot and a kind bubble names it. No interiors.
+const ENTER = { zonko: true, broomsticks: true };   // (M4) after the bubble, these doors lead inside
 const SHOPS = { broomsticks: 'זה פונדק שלושת המטאטאים!', zonko: 'זו חנות התעלולים של זונקו!', hogshead: 'זה הפונדק ראש החזיר.', fingerpost: 'זה הצריף המצווח. הוא רחוק על הגבעה, אז רק מציצים עליו מכאן.' };
 // (M3) the fingerpost: walk-to spot, tap box round the post (x, z0..z1, half width), Harry then faces the post
 const POST_TAP = { x: 27.6, z: 10.3, bx: POST.x + POST.shift / 2, bz0: POST.z - 0.5, bz1: POST.z + 0.4, hw: 1.0, yaw: Math.atan2(POST.x - 27.6, POST.z - 10.3) };
@@ -309,7 +313,7 @@ function streetTick(R, dt) {
   R.L.apply();
   const g = G(), room = g.interiors.room; if (!room) return;
   // the lens beside Harry on the street side (behind him would be inside the shop front, 1 m away): the shop door, the street ahead
-  if (!R.framed) { R.framed = true; try { const C = g.player.cam, ph = innerWidth / innerHeight < 0.8; C.yaw = -1.33; C.pitch = ph ? 0.18 : 0.2; C.dist = ph ? 4.2 : 4.8; C.userControlled = false; } catch { /* ok */ } }
+  if (!R.framed) { R.framed = true; try { const C = g.player.cam, ph = innerWidth / innerHeight < 0.8, P = g.player.pos, back = Math.hypot(P.x - HM_OUT.x, P.z - HM_OUT.z) > 2; C.yaw = back ? g.player.yaw + Math.PI * 1.5 : -1.33; C.pitch = ph ? 0.18 : 0.2; C.dist = ph ? 4.2 : 4.8; C.userControlled = false; } catch { /* ok */ } }
   tickStreet(R.S, dt, room.group);
   const busy = freeBusy() || questOn();
   if (!busy && !R.btn) makeButton(R); else if (busy && R.btn) dropButton(R);
@@ -405,7 +409,13 @@ function startWalk(k) {
 function stopWalk(arrived) {
   const W = ST.walk; if (!W) return; ST.walk = null;
   try { G().walk(0, 0); } catch { /* ok */ }
-  if (arrived) { try { G().player.yaw = W.yaw ?? (W.far ? 0 : Math.PI); } catch { /* ok */ } ST.lastShop = W.k; bubble(SHOPS[W.k]); }
+  if (arrived) { try { G().player.yaw = W.yaw ?? (W.far ? 0 : Math.PI); } catch { /* ok */ } ST.lastShop = W.k; bubble(SHOPS[W.k]); if (ENTER[W.k]) goInside(W); }
+}
+// (M4) about 1 s after the bubble Harry goes in (still on the street, still free play, still by the door)
+function goInside(W) {
+  const d = ST.cur && ST.cur.doors && ST.cur.doors[W.k]; if (!d) return;
+  const go = () => { try { if (ST.hold) { setTimeout(go, 300); return; } const g = G(), p = g.player.pos; if (g.interiors.active !== 'b3hogsmeade' || freeBusy() || questOn() || ST.walk || Math.hypot(p.x - d.x, p.z - d.z) > 1.5) return; ST.shopIn = (ST.shopIn || 0) + 1; enterShop(W.k, { x: d.x, z: d.z }); } catch (e) { warn('enter shop', e); } };
+  setTimeout(go, 1100);
 }
 // Harry walks himself (the same joystick the child uses, so colliders hold); arrives, or stops if stuck, and the shop is named
 function walkTick(W, dt, busy) {
@@ -454,6 +464,9 @@ export const HM_API = {
   shopTapW: (k) => { const d = ST.cur && ST.cur.doors && ST.cur.doors[k]; if (d && d.bx !== undefined) return new Vector3(d.bx, roomY() + 1.6, (d.bz0 + d.bz1) / 2); return d ? new Vector3(d.x, roomY() + 1.4, (d.z + (d.far ? FAR_FRONT : NEAR_FRONT)) / 2) : null; },
   far: () => farState(G().camera),                                                  // (M3) the far views: loaded, kind, screen boxes, draws, tris
   farSet: (k, o) => farSet(k, o),
+  shop: () => SHOP_API.state(),                                                   // (M4) the shop interiors: { room, interior, draws, tris, toys / drink }
+  shopApi: SHOP_API,
+  holdShop: (on) => { ST.hold = !!on; return ST.hold; },                          // (test) keep Harry on the street after a shop bubble until released
   bow: (on) => { const S = ST.cur; if (S && S.bow) S.bow.visible = !!on; return !!(S && S.bow); },   // (review: the bow display seen from inside)
 };
 window.__hmApi = HM_API;   // (main.js: window.__game.hogsmeade)

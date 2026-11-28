@@ -489,7 +489,7 @@ async function boot() {
 
 function labelOf(id) {
   return { entrancehall: 'אולם הכניסה', greathall: 'האולם הגדול', staircase: 'המדרגות המשתנות', library: 'הספרייה', commonroom: 'חדר המועדון',
-    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל האסטרונומיה', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', b3street: 'רחוב קטן בלונדון', b3honey: 'הדובשנרייה', b3lake: 'האגם בערב', b3hogsmeade: 'הוגסמיד', ...SECRET_LABELS }[id] || id;
+    dungeon: 'מרתף השיקויים', classrooms: 'כיתות הלימוד', tower: 'מגדל האסטרונומיה', showers: 'הַמִּקְלָחוֹת שֶׁל הוֹגְווֹרְטְס', chambers: 'החדרים הסודיים', b2sky: 'השמיים מעל אנגליה', b2chamber: 'חדר הסודות', b3street: 'רחוב קטן בלונדון', b3honey: 'הדובשנרייה', b3lake: 'האגם בערב', b3hogsmeade: 'הוגסמיד', b3zonko: 'חנות התעלולים של זונקו', b3broom: 'שלושת המטאטאים', ...SECRET_LABELS }[id] || id;
 }
 function setExit(on) { const b = document.getElementById('exitBtn'); if (b) b.style.display = on ? 'flex' : 'none'; }
 
