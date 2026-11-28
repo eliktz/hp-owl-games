@@ -14,7 +14,7 @@ import { signBoard, signText } from './hogsmeade-signs.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const DOORS = { zonko: { x: 12.7, z: 5.35 }, broomsticks: { x: 18.0, z: 10.6 } };   // (the v2 sidecar's door spots: only a default)
-const LAMP_MAX = 1.1, LOAD_MS = 30000;
+const LAMP_MAX = 1.1, LOAD_MS = 30000, BACK_OUT = 0.5;   // back on the street 0.5 m out from the door spot (at the spot itself the house front pushed Harry 1 m along)
 const MIN_DIST = 1.3;   // the lens may come this close inside the small shops (camera.js: 2.2, which pushed it through the walls; Harry fades from MIN_DIST + 1.2)
 const ST = { defs: {}, cur: null, tap: false, going: false, paid: {}, back: {}, errors: 0, lastErr: '', enters: 0, leaves: 0, last: '' };
 const _v = new Vector3();
@@ -167,14 +167,14 @@ function fadeIn() {
 export function enterShop(key, spot) {
   const def = ST.defs[key]; if (!def || ST.going || shopBusy()) return false;
   ST.going = true; setTimeout(() => { ST.going = false; }, 2500);
-  const d = spot || DOORS[key]; ST.back[key] = { x: d.x, z: d.z, yaw: d.z > 8.5 ? Math.PI : 0 };
+  const d = spot || DOORS[key], far = d.z > 8.5; ST.back[key] = { x: d.x, z: d.z + (far ? -BACK_OUT : BACK_OUT), yaw: far ? Math.PI : 0 };
   fadeIn(); try { G().interiors.enter(def.id, null); } catch (e) { warn('enter shop', e); return false; }
   return true;
 }
 export function leave() {
   const R = ST.cur; if (!R || ST.going) return false; const key = R.def.key;
   ST.going = true; setTimeout(() => { ST.going = false; }, 2500); ST.leaves++;
-  const b = ST.back[key] || { ...DOORS[key], yaw: DOORS[key].z > 8.5 ? Math.PI : 0 };
+  const D = DOORS[key], b = ST.back[key] || { x: D.x, z: D.z + (D.z > 8.5 ? -BACK_OUT : BACK_OUT), yaw: D.z > 8.5 ? Math.PI : 0 };
   fadeIn(); try { G().interiors.enter('b3hogsmeade', { x: b.x, z: b.z, yaw: b.yaw }); } catch (e) { warn('leave shop', e); return false; }
   return true;
 }

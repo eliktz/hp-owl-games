@@ -89,12 +89,14 @@ export function buildRosmerta() {
   const fig = buildChibi({ robe: 0x2f6a3e, trim: 0x24502e, skin: 0xeec4a0, hair: 0xa4562a, house: 0xe8dcc0, scale: 1.12 });
   const rig = fig.userData.rig, hair = 0xa4562a;
   const curls = []; for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; curls.push(paint(place(new SphereGeometry(0.085, 8, 6), Math.sin(a) * 0.31, -0.05 + Math.abs(Math.cos(a)) * 0.12 + (i % 2) * 0.05, Math.cos(a) * 0.28 - 0.06), hair)); }
+  for (let i = 0; i < 5; i++) curls.push(paint(place(new SphereGeometry(0.075, 8, 6), (i - 2) * 0.1, 0.22 - Math.abs(i - 2) * 0.02, 0.2 - Math.abs(i - 2) * 0.03), hair));   // curls along the brow
   curls.push(paint(place(new TorusGeometry(0.06, 0.012, 5, 10, Math.PI), 0, -0.12, 0.285, 0, 0, Math.PI), 0xa83a3a));   // the smile
   for (const sx of [-1, 1]) curls.push(paint(place(new SphereGeometry(0.05, 8, 6), sx * 0.17, -0.07, 0.24, 0, 0, 0, 1, 0.6, 0.4), 0xe8a090));   // rosy cheeks
   const apron = [paint(place(new CylinderGeometry(0.31, 0.47, 0.5, 16, 1, true, -0.9, 1.8), 0, 0.81, 0.012), CREAM), paint(place(new BoxGeometry(0.34, 0.3, 0.04), 0, 1.12, 0.24), CREAM)];
   const node = (parent, extra) => {
     const list = parent.children.filter(o => o.isMesh), P = [];
-    for (const o of list) { o.updateMatrix(); const geo = o.geometry.clone().applyMatrix4(o.matrix); P.push(paint(geo, o.material.color.getHex())); parent.remove(o); }
+    for (const o of list) { if (parent === rig.head && o.geometry.type === 'BoxGeometry') { parent.remove(o); continue; }   // (the boys' straight fringe: curls instead)
+      o.updateMatrix(); const geo = o.geometry.clone().applyMatrix4(o.matrix); P.push(paint(geo, o.material.color.getHex())); parent.remove(o); }
     for (const e of extra || []) P.push(e);
     if (P.length) { const m = new Mesh(merge(P), new MeshStandardMaterial({ vertexColors: true, roughness: 0.75 })); m.raycast = () => {}; m.frustumCulled = false; parent.add(m); }
   };
