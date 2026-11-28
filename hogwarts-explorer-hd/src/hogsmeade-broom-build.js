@@ -50,7 +50,7 @@ export function buildRoom(g) {
   for (const y of [1.22, 1.72, 2.22]) for (let px = -1.8; px < 5.0; px += 0.32 + R() * 0.12) { if (R() < 0.55) mugAt(P, px, y, 4.05); else { const c = [0x3a6a3a, 0xa8742a, 0x6a3a6a, 0x2a4a7a][(R() * 4) | 0]; cyl(P, 0.045, 0.045, 0.2, px, y + 0.1, 4.05, c, 8); cyl(P, 0.015, 0.02, 0.08, px, y + 0.24, 4.05, c, 6); } }
   for (const [bx, bz] of [[-1.55, 3.85], [4.85, 3.85], [4.85, 3.35]]) { cyl(P, 0.3, 0.3, 0.75, bx, 0.375, bz, 0x7a5434, 14); for (const y of [0.15, 0.6]) cyl(P, 0.31, 0.31, 0.04, bx, y, bz, 0x3a3030, 14); }
   // round tables with three stools each
-  for (const [tx, tz] of [[-2.6, -1.6], [0.4, -2.4], [-3.2, 2.4], [1.6, 0.0]]) { cyl(P, 0.55, 0.55, 0.05, tx, 0.735, tz, OAK_L, 18); cyl(P, 0.06, 0.08, 0.72, tx, 0.36, tz, OAK, 8); cyl(P, 0.28, 0.32, 0.04, tx, 0.02, tz, OAK, 12);
+  for (const [tx, tz] of [[-2.6, -1.95], [0.4, -2.4], [-3.2, 2.4], [1.6, 0.0]]) { cyl(P, 0.55, 0.55, 0.05, tx, 0.735, tz, OAK_L, 18); cyl(P, 0.06, 0.08, 0.72, tx, 0.36, tz, OAK, 8); cyl(P, 0.28, 0.32, 0.04, tx, 0.02, tz, OAK, 12);
     for (let k = 0; k < 3; k++) { const a = k * 2.094 + tx, sx = tx + Math.cos(a) * 0.78, sz = tz + Math.sin(a) * 0.78; cyl(P, 0.17, 0.17, 0.05, sx, 0.45, sz, OAK_L, 10); cyl(P, 0.04, 0.05, 0.43, sx, 0.215, sz, OAK, 6); } }
   // the settle facing the fire, the rug, coat pegs, a notice board without writing, a broom rack
   box(P, 0.5, 0.08, 1.9, -5.45, 0.45, -2.7, OAK_L); box(P, 0.1, 1.45, 2.0, -5.83, 0.73, -2.7, OAK); for (const sz of [-3.65, -1.75]) box(P, 0.6, 0.95, 0.08, -5.55, 0.47, sz, OAK);   // (art director, 28 Nov) the settle by the west wall, south of the fire

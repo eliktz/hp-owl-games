@@ -4,14 +4,14 @@
 import { Group, Mesh, BoxGeometry, CylinderGeometry, SphereGeometry, ConeGeometry, TorusGeometry, LatheGeometry, ExtrudeGeometry, Shape, PlaneGeometry,
   InstancedMesh, MeshStandardMaterial, MeshBasicMaterial, DoubleSide, Vector2, Vector3, Object3D, Color, BufferAttribute } from 'three';
 import { place, paint, merge } from './adventure-b3-map-build.js';
-import { say, sayHarry, fx, sfx, reward, roomY, headAt } from './hogsmeade-shop.js';
+import { sayLow, sayHarry, fx, sfx, reward, roomY, headAt } from './hogsmeade-shop.js';
 
 const TOYS = {
-  box: { name: 'קופסת הפתעות', p: [-1.9, 0.75, 1.3], spot: { x: -1.9, z: 0.15, yaw: 0 }, say: 'בּוֹינְג! כוכב קופץ!', dur: 3.2, h: 0.35 },
+  box: { name: 'קופסת הפתעות', p: [-1.9, 0.75, 1.3], spot: { x: -1.0, z: 0.55, yaw: -0.876 }, say: 'בּוֹינְג! כוכב קופץ!', dur: 3.2, h: 0.35 },
   ball: { name: 'כדור קופצני', p: [0.4, 0, -0.2], spot: { x: 0.4, z: -1.55, yaw: 0 }, say: 'הכדור קופץ עד התקרה!', dur: 4.4, h: 0.2 },
   top: { name: 'סביבון קסום', p: [3.3, 1.05, 0.4], spot: { x: 2.05, z: 0.4, yaw: Math.PI / 2 }, say: 'סביבון, סוב סוב סוב!', dur: 4.0, h: 0.15 },
-  popper: { name: 'זיקוק קונפטי', p: [-0.3, 0.9, -0.9], spot: { x: -0.3, z: -1.9, yaw: 0 }, say: 'הידד! מסיבה!', dur: 3.6, h: 0.2 },
-  wand: { name: 'שרביט תעלולים', p: [1.0, 0.75, 1.6], spot: { x: 1.0, z: 0.45, yaw: 0 }, say: 'פּוּף! השרביט הפך לפרחים!', dur: 3.6, h: 0.12 },
+  popper: { name: 'זיקוק קונפטי', p: [-0.3, 0.9, -0.9], spot: { x: 0.55, z: -1.5, yaw: -0.956 }, say: 'הידד! מסיבה!', dur: 3.6, h: 0.2 },
+  wand: { name: 'שרביט תעלולים', p: [1.0, 0.75, 1.6], spot: { x: 1.95, z: 1.0, yaw: -1.007 }, say: 'פּוּף! השרביט הפך לפרחים!', dur: 3.6, h: 0.12 },
 };
 export const ALL_FIVE = 'ניסית את כל התעלולים!';
 const HAT_S = 12, CONF_N = 80, CEIL = 3.4, BALL_R = 0.17;
@@ -91,9 +91,9 @@ export function toyTaps(R) {
 export function play(R, k) {
   const T = R.toys, o = T.list[k]; if (!o || o.playing) return false;
   o.playing = true; o.t = 0; o.tries++; T.tried.add(k); sfx('tink', 2);
-  const t = TOYS[k]; setTimeout(() => { if (!R.torn) say(_v.set(t.p[0], roomY() + t.p[1] + 1.0, t.p[2]), t.say, 3.2); }, k === 'wand' ? 700 : 350);
+  const t = TOYS[k]; setTimeout(() => { if (!R.torn) sayLow(t.say, 3.2); }, k === 'wand' ? 700 : 350);
   if (k === 'popper') popConfetti(R);
-  if (T.tried.size === 5 && !T.allSaid) { T.allSaid = true; setTimeout(() => { if (R.torn) return; sayHarry(ALL_FIVE, 3.6); T.paid = reward('zonko'); try { window.HPFun.confetti(['⭐', '🎉', '✨'], 14); } catch { /* ok */ } }, 3600); }
+  if (T.tried.size === 5 && !T.allSaid) { T.allSaid = true; setTimeout(() => { if (R.torn) return; sayLow(ALL_FIVE, 3.6); T.paid = reward('zonko'); try { window.HPFun.confetti(['⭐', '🎉', '✨'], 14); } catch { /* ok */ } }, 3600); }
   return true;
 }
 function popConfetti(R) {

@@ -11,6 +11,7 @@ import { BUILDERS, FLOOR_Y } from './rooms.js';
 import { loadModel, modelInfo } from './models.js';
 import { roomLight, triCount, drawCount, place, FONT } from './adventure-b3-map-build.js';
 import { signBoard, signText } from './hogsmeade-signs.js';
+import { frameThing } from './hogsmeade-shop-frame.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const DOORS = { zonko: { x: 12.7, z: 5.35 }, broomsticks: { x: 18.0, z: 10.6 } };   // (the v2 sidecar's door spots: only a default)
@@ -28,6 +29,7 @@ export function shopBusy() {
 }
 export const roomY = () => { try { const r = G().interiors.room; return r && r.group ? r.group.position.y : FLOOR_Y; } catch { return FLOOR_Y; } };
 export function say(pos, text, sec = 3.2) { ST.last = text; try { window.HPFun.say(pos, text, sec); } catch { /* ok */ } }
+export function sayLow(text, sec = 3.2) { const p = G().player.pos; say(_v.set(p.x, p.y + 0.85, p.z), text, sec); }   // (by Harry's middle: clear of the thing above / beside him)
 export function sayHarry(text, sec = 3.2) { const p = G().player.pos; say(_v.set(p.x, p.y + 2.2, p.z), text, sec); }
 export const fx = (k, ...a) => { try { const fi = G().freecast && G().freecast._internal; if (fi && fi[k]) fi[k](...a); } catch { /* ok */ } };
 export const sfx = (k, ...a) => { try { const s = window.HPFun && window.HPFun.sfx; if (s && s[k]) s[k](...a); } catch { /* no audio */ } };
@@ -182,7 +184,7 @@ export function leave() {
 // ---------------- taps (free play): the exit door + the shop's own tappables; Harry walks next to it first ----------------
 export const tapR = () => Math.max(46, Math.min(innerWidth, innerHeight) * 0.08) * 1.6;
 function tappables(R) {
-  const F = R.def.frame, list = [{ id: 'door', w: (o) => o.set(R.def.door.x, roomY() + 1.2, F.z0 + 0.1), spot: null, fn: () => leave() }];
+  const F = R.def.frame, list = [{ id: 'door', frame: false, w: (o) => o.set(R.def.door.x, roomY() + 1.2, F.z0 + 0.1), spot: null, fn: () => leave() }];
   try { for (const t of R.def.taps(R)) list.push(t); } catch (e) { warn('taps', e); }
   return list;
 }
@@ -196,7 +198,8 @@ export function tapAt(x, y) {
     const d = Math.hypot(s.x - x, s.y - y) / (t.r || 1); if (d < bd) { bd = d; best = t; }
   }
   if (!best || bd > tapR()) return null;
-  if (best.spot) walkTo(R, best.spot, best.fn); else best.fn();
+  const t = best, go = t.frame === false ? t.fn : () => { try { ST.framed = frameThing(t.w(new Vector3())); } catch (e) { warn('frame', e); } t.fn(); };
+  if (t.spot) walkTo(R, t.spot, go); else go();
   return best.id;
 }
 function installTap() {
@@ -219,13 +222,14 @@ export const SHOP_API = {
     const R = ST.cur, g = G(), on = !!(R && g && g.interiors.active === R.def.id);
     const out = { room: g && g.interiors ? g.interiors.active : null, shop: on ? R.def.key : null, interior: on ? R.state : null, reason: R ? R.reason || '' : '',
       draws: on ? drawCount(R.g) : 0, tris: on ? triCount(R.g) : 0, modelTris: R ? R.tris : 0, modelDraws: R ? R.draws : 0,
-      walking: !!(R && R.walk), enters: ST.enters, leaves: ST.leaves, paid: { ...ST.paid }, lastBubble: ST.last, lastTap: ST.lastTap || null, busy: shopBusy(), errors: ST.errors, lastErr: ST.lastErr };
+      walking: !!(R && R.walk), enters: ST.enters, leaves: ST.leaves, paid: { ...ST.paid }, lastBubble: ST.last, lastTap: ST.lastTap || null, framed: ST.framed ? { x: Math.round(ST.framed.x), y: Math.round(ST.framed.y), inBox: ST.framed.inBox, clear: Math.round(ST.framed.clear) } : null, busy: shopBusy(), errors: ST.errors, lastErr: ST.lastErr };
     try { if (on && R.def.state) Object.assign(out, R.def.state(R)); } catch (e) { out.stateErr = String(e && e.message || e); }
     return out;
   },
   enter: (key) => enterShop(key, null),
   leave: () => leave(),
   tapW: (id) => { const R = ST.cur; if (!R) return null; const t = tappables(R).find(q => q.id === id); return t ? t.w(new Vector3()) : null; },
+  frame: (id) => { const R = ST.cur; if (!R) return null; const t = tappables(R).find(q => q.id === id); if (!t) return null; ST.framed = frameThing(t.w(new Vector3())); return ST.framed; },   // (test) the lens as a play frames it
   ids: () => (ST.cur ? tappables(ST.cur).map(t => t.id) : []),
   cur: () => ST.cur,
 };
