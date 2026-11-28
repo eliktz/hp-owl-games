@@ -10,11 +10,11 @@ import { place, paint, merge, triCount, drawCount } from './adventure-b3-map-bui
 
 // placement in the street (room) frame: base centre (x, y, z), turn about +Y, uniform scale (tuned from the brief's first values)
 export const FAR = {
-  shack: { x: 100, y: -1, z: 4, ry: 0, scale: 0.72 },     // (tuned from the brief's (84, -1, 10) x 1.0: 50-90 px high from street_look on iPad)
-  castle: { x: -150, y: 7, z: 22, ry: Math.PI / 2, scale: 0.22 },   // authored front (+z) turned to face the street (+x)
+  shack: { x: 100, y: -1, z: 4, ry: 0, scale: 0.6 },     // (tuned from the brief's (84, -1, 10) x 1.0: 50-90 px high from street_look on iPad)
+  castle: { x: -150, y: 7, z: 22, ry: Math.PI, scale: 0.22 },   // delivered facing -x: turned 180 degrees to face the street (+x)
 };
 const LOAD_MS = 30000;
-const HOUSE_H = 12.5;   // the top of the shack node that is the house (for its screen box)
+const HOUSE_H = 16.8;   // the top of the shack node that is the house (for its screen box): chimney top 27 -> from y 10.2 (house base 9.7)
 const FS = { kind: null, failed: null, root: null, shack: null, castle: null, houseBox: null, castleBox: null, low: false };
 let _mat = null;
 const farMat = () => _mat || (_mat = Object.assign(new MeshBasicMaterial({ vertexColors: true, fog: true }), { name: 'MAT_Hm_Far' }));
@@ -54,7 +54,8 @@ function standinShack() {
     for (const r of [0.75, -0.75]) H.push(paint(place(new BoxGeometry(0.12, 1.7, 0.2), -3.58, y, z, r, 0, 0), BOARD));
   }
   H.push(paint(place(new PlaneGeometry(0.9, 1.0), -3.56, 5.8, 0, 0, -Math.PI / 2, 0), WARM));   // the one warm window (somebody left a light on)
-  for (const g of H) place(g, 2, 12.3, 0, 0, 0, -0.07);   // on the hill top, leaning 4 degrees
+  for (const g of P) place(g, 0, 0, 0, 0, 0, 0, 22 / 30, 10 / 13, 17 / 22);   // (the delivered model's hill: 44 x 34 x 10)
+  for (const g of H) place(g, -0.5, 9.7, 0, 0, 0, -0.07, 1.25);   // on the hill top (base y 9.7, ridge ~24.7), leaning 4 degrees
   const m = quiet(new Mesh(merge([...P, ...H]), farMat())); m.name = 'Hm_Far_Shack';
   return m;
 }
@@ -67,7 +68,7 @@ function standinCastle() {
   }
   P.push(paint(place(new BoxGeometry(30, 3, 4), 40, 7, 14), STONE));                           // a bit of viaduct
   for (let k = 0; k < 14; k++) P.push(paint(place(new PlaneGeometry(0.8, 1.2), -36 + k * 5.5, 14 + (k % 3) * 5, 20.05 - (k % 2 ? 12.9 : 0)), WARM));
-  const m = quiet(new Mesh(merge(P), farMat())); m.name = 'Hm_Far_Castle';
+  const m = quiet(new Mesh(merge(P).rotateY(-Math.PI / 2), farMat())); m.name = 'Hm_Far_Castle';   // as delivered: the 90 m side along z, facing -x
   return m;
 }
 
