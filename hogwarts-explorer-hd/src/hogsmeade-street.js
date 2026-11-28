@@ -16,8 +16,10 @@ import { BUILDERS, FLOOR_Y } from './rooms.js';
 import { loadModel, modelInfo, MODELS_BASE } from './models.js';
 import { roomLight, buildFilch, triCount, drawCount, place, paint, merge, softTex, FONT } from './adventure-b3-map-build.js';
 import { fallbackStreet, buildSky, buildGlows, buildSmoke, buildSnow, buildSigns, canvasTex, quiet, PUFFS } from './hogsmeade-street-build.js';
-import { buildShopSigns, signAtlas } from './hogsmeade-signs.js';                  // (M2) the three named shops' Hebrew signs (one atlas, one mesh)
+import { buildShopSigns, signAtlas, POST } from './hogsmeade-signs.js';                  // (M2) the three named shops' Hebrew signs (one atlas, one mesh)
 import { HONEY_INT_API } from './honeydukes-interior.js';               // (M2) the interior model's state, for state()
+import { attachFar, farState, farSet } from './hogsmeade-far.js';
+import { buildStars, buildMist, tickMist } from './hogsmeade-dusk.js';      // (M3) stars + mist (street, not on LOW)         // (M3) the Shrieking Shack + the castle far away
 
 export const HM_DOOR = { x: 2.4, z: -4.5 };                 // the door in the Honeydukes north wall (room frame)
 const DOOR_SPOT = { x: 2.4, z: -3.95, r: 0.6 };             // where walking into it takes Harry out
@@ -29,7 +31,9 @@ const QUEST_LINE = 'אחרי המשימה נצא לרחוב הוגסמיד 🏘�
 const SIDECAR = 'hm_street_02.json';   // (models.json names the sidecar; this is only the default)
 const NEAR_Z = 5.05;
 // (M2) the named shops: tapping one (free play, the street) walks Harry to its door spot and a kind bubble names it. No interiors.
-const SHOPS = { broomsticks: 'זה פונדק שלושת המטאטאים!', zonko: 'זו חנות התעלולים של זונקו!', hogshead: 'זה הפונדק ראש החזיר.' };
+const SHOPS = { broomsticks: 'זה פונדק שלושת המטאטאים!', zonko: 'זו חנות התעלולים של זונקו!', hogshead: 'זה הפונדק ראש החזיר.', fingerpost: 'זה הצריף המצווח. הוא רחוק על הגבעה, אז רק מציצים עליו מכאן.' };
+// (M3) the fingerpost: walk-to spot, tap box round the post (x, z0..z1, half width), Harry then faces the post
+const POST_TAP = { x: 27.6, z: 10.3, bx: POST.x + POST.shift / 2, bz0: POST.z - 0.5, bz1: POST.z + 0.4, hw: 1.0, yaw: Math.atan2(POST.x - 27.6, POST.z - 10.3) };
 const FAR_FRONT = 12.3, NEAR_FRONT = 4.8, TAP_HW = 1.6, TAP_H = 3.0, TAP_PAD = 22;
 const SNOW_HIGH = 1.6;   // falling snow on the HIGH tier, x the milestone 1 count
 
@@ -50,13 +54,15 @@ function withTimeout(p, ms) { let t; return Promise.race([p, new Promise((_, rej
 export function loadStreet() {
   if (ST.promise) return ST.promise;
   ST.promise = (async () => {
-    let info = null; try { info = await modelInfo('hm_street'); } catch { info = null; }
+    ST.model = tier() === 'low' ? 'hm_street_low' : 'hm_street';   // (M3) LOW: the same street with 512 px textures (same sidecar)
+    let info = null; try { info = await modelInfo(ST.model); } catch { info = null; }
+    if ((!info || !info.file) && ST.model !== 'hm_street') { ST.model = 'hm_street'; try { info = await modelInfo(ST.model); } catch { info = null; } }
     if (info && info.file) {
       try {
         const v = info.v ? '?v=' + encodeURIComponent(info.v) : '';
         const [side, model] = await Promise.all([
           fetch(MODELS_BASE + (info.sidecar || SIDECAR) + v, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : Promise.reject(new Error('sidecar HTTP ' + r.status)))),
-          loadModel('hm_street'),
+          loadModel(ST.model),
         ]);
         if (!model) throw new Error('the model did not load (see __game.models())');
         prepare(model);
@@ -95,7 +101,7 @@ async function buildStreet(mode, src) {
   let root = null, side = null, kind = src.kind;
   if (kind === 'glb') {
     try {
-      root = await loadModel('hm_street'); side = src.side;
+      root = await loadModel(ST.model || 'hm_street'); side = src.side;
       if (!root) throw new Error('clone failed');
       root.traverse(o => { if (o.isMesh) { o.userData.sharedGeo = true; o.raycast = () => {}; } });   // shared with the models.js cache: never disposed
     } catch (e) { warn('street clone failed', e); root = null; kind = 'fallback'; }
@@ -117,7 +123,7 @@ async function buildStreet(mode, src) {
   const snow = buildSnow(nSnow); snow.mesh.visible = nSnow > 0; g.add(snow.mesh); S.snow = snow;
   if (low) smoke.mesh.visible = false;
   const signs = buildSigns(side); g.add(signs.g); S.signs = signs;
-  try { const sh = buildShopSigns(side); if (sh.mesh) g.add(sh.mesh); S.shopSigns = sh; } catch (e) { warn('shop signs', e); S.shopSigns = { mesh: null, keys: [] }; }
+  try { const sh = buildShopSigns(side, { post: mode === 'street' }); if (sh.mesh) g.add(sh.mesh); S.shopSigns = sh; } catch (e) { warn('shop signs', e); S.shopSigns = { mesh: null, keys: [] }; }
   S.doors = shopDoors(side);
   if (mode === 'window') {
     if (body) body.visible = false;
@@ -127,6 +133,8 @@ async function buildStreet(mode, src) {
   } else {
     if (body) body.visible = true;
     tint(mats, 0xffffff);
+    try { S.far = attachFar(g, tier()); } catch (e) { warn('far views', e); }   // (M3) async, never fatal
+    if (!low) { try { S.stars = buildStars(); S.mist = buildMist(); g.add(S.stars, S.mist); } catch (e) { warn('stars / mist', e); } }
     // colliders: building footprints, street ends, the walk box
     // a house footprint never reaches into the street (contract): a big box that would (a bad sidecar entry) is skipped, so it
     // can never trap Harry on the pavement; the walk box below still keeps him out of every house
@@ -138,6 +146,7 @@ async function buildStreet(mode, src) {
     cols.push({ type: 'box', x: w.x0 - 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 }, { type: 'box', x: w.x1 + 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 });
     const zn = Math.max(w.z0, NEAR_Z);   // the near-side snow drifts stand within z 4.8..5.0: Harry walks from z 5.05
     cols.push({ type: 'box', x: (w.x0 + w.x1) / 2, z: zn - 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 }, { type: 'box', x: (w.x0 + w.x1) / 2, z: w.z1 + 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 });
+    cols.push({ type: 'circle', x: POST.x, z: POST.z, r: 0.2 });   // (M3) the fingerpost
     S.cols = cols;
     // one thin pane of glass in the bow (the model has none): a faint cool sheen, cheap (1 draw)
     if (kind === 'glb' && bow) { const gl = quiet(new Mesh(new PlaneGeometry(4.1, 1.66), new MeshBasicMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.12, depthWrite: false }))); gl.name = 'hm-bow-glass'; gl.position.set(0, 1.8, 5.2); g.add(gl); }
@@ -165,6 +174,7 @@ function tickStreet(S, dt, roomGroup) {
   const Gl = S.glows, gm = Gl.glows;
   for (let i = 0; i < Gl.pts.length; i++) { const o = Gl.pts[i], dc = Math.hypot(o.p[0] - cx, o.p[1] - cy, o.p[2] - cz), near = Math.min(1, Math.max(0, (dc - 1.2) / 2.3)), k = o.s * (1 + Math.sin(T * 5 + i * 1.7) * 0.05) * near * near * (3 - 2 * near) + 1e-4; _m.compose(_v.set(o.p[0], o.p[1], o.p[2]), cam.quaternion, _s.set(k, k, k)); gm.setMatrixAt(i, _m); }
   gm.instanceMatrix.needsUpdate = true;
+  if (S.mist) tickMist(S.mist, cx, cy, cz);
   const Sm = S.smoke;
   if (Sm.mesh.visible) {
     for (let i = 0; i < Sm.list.length; i++) for (let j = 0; j < PUFFS; j++) {
@@ -283,7 +293,7 @@ BUILDERS.b3hogsmeade = async () => {
   let src; try { src = await withTimeout(loadStreet(), 40000); } catch (e) { warn('street load', e); src = { kind: 'fallback' }; }
   let S; try { S = await buildStreet('street', src); } catch (e) { warn('street build, using the code-built street', e); S = await buildStreet('street', { kind: 'fallback' }); }
   const g = new Group(); g.name = 'b3hogsmeade'; g.position.y = FLOOR_Y; g.add(S.g);
-  const L = roomLight(g, { amb: 0.95, ambC: 0xdce4ff, hemi: 1.1, sky: 0xd0dcf8, ground: 0xa0a6bc, fogC: 0x9ea8cc, fogD: 0.009, bg: 0x8a96c0 });
+  const L = roomLight(g, { amb: 0.9, ambC: 0xd6defe, hemi: 1.04, sky: 0xc8d6f8, ground: 0x9ca2bc, fogC: 0x9ca4ca, fogD: 0.009, bg: 0x8692be });   // (M3) a touch cooler and deeper
   const R = { S, L, armed: false, btn: null, css: null };
   const marker = g.children.find(o => o.name === 'b3-light');
   if (marker) { const r0 = marker.userData.onTeardown; marker.userData.onTeardown = () => { try { r0 && r0(); } finally { dropButton(R); stopWalk(false); document.body.classList.remove('hmStreetOn'); if (ST.cur === S) { ST.cur = null; ST.mode = null; } } }; }
@@ -358,6 +368,7 @@ function shopDoors(side) {
     const far = d.z > (w.z0 + w.z1) / 2;
     out[k] = { x: Math.max(w.x0 + 0.5, Math.min(w.x1 - 0.5, d.x)), z: Math.max(z0, Math.min(z1, d.z)), far, from };
   }
+  if (side.walk && w.x1 > POST.x) out.fingerpost = { ...POST_TAP, far: true, from: 'm3' };   // (M3) the fingerpost (walkable street only: its doors are only used there)
   return out;
 }
 // the generous invisible tap box of a shop: 3.2 m wide, 3 m high, from the door spot back to the house front (screen rect + a pad)
@@ -366,8 +377,9 @@ function shopRect(k) {
   const S = ST.cur, d = S && S.doors && S.doors[k]; if (!d) return null;
   const cam = G().camera, y0 = roomY(), zf = d.far ? FAR_FRONT : NEAR_FRONT; cam.updateMatrixWorld();
   let x0 = 1e9, x1 = -1e9, ya = 1e9, yb = -1e9;
-  for (const dx of [-TAP_HW, TAP_HW]) for (const y of [0, TAP_H]) for (const z of [d.z, zf]) {
-    _box.set(d.x + dx, y0 + y, z).project(cam); if (_box.z > 1 || _box.z < -1) return null;   // (a corner behind the lens: no box)
+  const bx = d.bx ?? d.x, hw = d.hw ?? TAP_HW, zs = d.bz0 !== undefined ? [d.bz0, d.bz1] : [d.z, zf];   // (M3) the fingerpost's own box
+  for (const dx of [-hw, hw]) for (const y of [0, TAP_H]) for (const z of zs) {
+    _box.set(bx + dx, y0 + y, z).project(cam); if (_box.z > 1 || _box.z < -1) return null;   // (a corner behind the lens: no box)
     const sx = (_box.x * 0.5 + 0.5) * innerWidth, sy = (-_box.y * 0.5 + 0.5) * innerHeight;
     x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); ya = Math.min(ya, sy); yb = Math.max(yb, sy);
   }
@@ -387,13 +399,13 @@ function shopAt(x, y) {
 function startWalk(k) {
   const S = ST.cur, d = S && S.doors && S.doors[k]; if (!d) return false;
   ST.shopTaps++; stopWalk(false);
-  ST.walk = { k, x: d.x, z: d.z, far: d.far, t: 0, best: 1e9, still: 0 };
+  ST.walk = { k, x: d.x, z: d.z, far: d.far, yaw: d.yaw, t: 0, best: 1e9, still: 0 };
   return true;
 }
 function stopWalk(arrived) {
   const W = ST.walk; if (!W) return; ST.walk = null;
   try { G().walk(0, 0); } catch { /* ok */ }
-  if (arrived) { try { G().player.yaw = W.far ? 0 : Math.PI; } catch { /* ok */ } ST.lastShop = W.k; bubble(SHOPS[W.k]); }
+  if (arrived) { try { G().player.yaw = W.yaw ?? (W.far ? 0 : Math.PI); } catch { /* ok */ } ST.lastShop = W.k; bubble(SHOPS[W.k]); }
 }
 // Harry walks himself (the same joystick the child uses, so colliders hold); arrives, or stops if stuck, and the shop is named
 function walkTick(W, dt, busy) {
@@ -420,10 +432,11 @@ export const HM_API = {
       snow: S ? (S.snow.mesh.visible ? S.snow.n : 0) : 0, smoke: S ? S.smoke.mesh.visible : false, filch: S && S.F ? { x: +S.fx.toFixed(2), z: FILCH_FAR.z, visible: S.F.g.visible } : null,
       colliders: S && S.cols ? S.cols.length : 0, dropped: S ? S.dropped || 0 : 0, from: ST.from, visits: ST.visits, bubbles: ST.bubbles, busy: freeBusy(), quest: questOn(),
       door: ST.door ? { on: !!ST.door.door && !!ST.door.door.parent, armed: ST.door.armed } : null, button: !!document.getElementById('hmBack'),
-      shopSigns: S && S.shopSigns ? { mesh: !!S.shopSigns.mesh && !!S.shopSigns.mesh.parent, keys: S.shopSigns.keys.slice(), faces: S.shopSigns.faces || {} } : null,
+      shopSigns: S && S.shopSigns ? { mesh: !!S.shopSigns.mesh && !!S.shopSigns.mesh.parent, keys: S.shopSigns.keys.slice(), faces: S.shopSigns.faces || {}, post: S.shopSigns.post || null } : null,
       doors: S && S.doors ? JSON.parse(JSON.stringify(S.doors)) : null, walking: ST.walk ? ST.walk.k : null, shopTaps: ST.shopTaps, lastShop: ST.lastShop, lastBubble: ST.lastBubble,
       pools: S && S.glows && S.glows.pools ? { n: S.glows.pools.userData.n, opacity: S.glows.pools.material.opacity, visible: S.glows.pools.visible } : null,
       interior: (() => { try { return HONEY_INT_API.state(); } catch { return null; } })(),
+      model: ST.model || null, tier: tier(), stars: S && S.stars ? S.stars.userData.n : 0, mist: !!(S && S.mist && S.mist.parent), castle: (() => { try { const f = farState(null); return !!(f.castle && f.castle.visible); } catch { return false; } })(),
       errors: ST.errors, lastErr: ST.lastErr,
     };
   },
@@ -438,7 +451,9 @@ export const HM_API = {
   side: () => (ST.cur ? ST.cur.side : null),
   signAtlasPng: () => signAtlas().image.toDataURL('image/png'),                    // (M2 review) the sign atlas as a PNG data URL
   shopRect: (k) => shopRect(k),                                                     // (M2) a named shop's tap box on screen, or null
-  shopTapW: (k) => { const d = ST.cur && ST.cur.doors && ST.cur.doors[k]; return d ? new Vector3(d.x, roomY() + 1.4, (d.z + (d.far ? FAR_FRONT : NEAR_FRONT)) / 2) : null; },
+  shopTapW: (k) => { const d = ST.cur && ST.cur.doors && ST.cur.doors[k]; if (d && d.bx !== undefined) return new Vector3(d.bx, roomY() + 1.6, (d.bz0 + d.bz1) / 2); return d ? new Vector3(d.x, roomY() + 1.4, (d.z + (d.far ? FAR_FRONT : NEAR_FRONT)) / 2) : null; },
+  far: () => farState(G().camera),                                                  // (M3) the far views: loaded, kind, screen boxes, draws, tris
+  farSet: (k, o) => farSet(k, o),
   bow: (on) => { const S = ST.cur; if (S && S.bow) S.bow.visible = !!on; return !!(S && S.bow); },   // (review: the bow display seen from inside)
 };
 window.__hmApi = HM_API;   // (main.js: window.__game.hogsmeade)

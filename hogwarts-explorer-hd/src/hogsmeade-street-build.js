@@ -12,6 +12,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { place, paint, merge, softTex, FONT } from './adventure-b3-map-build.js';
+import { buildHills, skyColours } from './hogsmeade-dusk.js';   // (M3) the softer distance
 
 const _m = new Matrix4(), _q = new Quaternion(), _e = new Euler(), _v = new Vector3(), _s = new Vector3(), _c = new Color();
 const quiet = (o) => { o.frustumCulled = false; o.raycast = () => {}; return o; };
@@ -130,19 +131,13 @@ function gradSky(geo, stops) {
   geo.setAttribute('color', new BufferAttribute(a, 3)); return geo;
 }
 const SNOWTOP = new Color(0xc8cede);
-// a dusk sky: pale rose-lilac at the horizon, soft periwinkle, a deeper (never dark) blue overhead; snowy far hills all round
+// a dusk sky: pale rose-lilac at the horizon, soft periwinkle, a deeper (never dark) blue overhead, (M3) a warm afterglow low in the
+// west; snowy rolling hills all round
 export function buildSky() {
   const g = new Group(); g.name = 'hm-sky';
-  const sky = quiet(new Mesh(gradSky(new SphereGeometry(150, 24, 12), [[-1, 0x8a90b0], [0.0, 0xd4bccc], [0.08, 0xb8b4d4], [0.3, 0x8a9acc], [1, 0x5a6aa8]]), new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false })));
+  const sky = quiet(new Mesh(skyColours(new SphereGeometry(150, 24, 12), [[-1, 0x8a90b0], [0.0, 0xd4bccc], [0.08, 0xb8b4d4], [0.3, 0x8a9acc], [1, 0x5a6aa8]]), new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false })));
   sky.name = 'hm-sky-dome'; sky.renderOrder = -2; sky.position.set(0, 0, 8); g.add(sky);
-  const HP = [];
-  for (let i = 0; i < 30; i++) {
-    const a = (i / 30) * Math.PI * 2, r = 78 + (i % 3) * 9, hgt = 14 + ((i * 7) % 5) * 4;
-    const c = new ConeGeometry(20 + (i % 4) * 5, hgt, 7); const p = c.attributes.position, col = new Float32Array(p.count * 3);
-    for (let k = 0; k < p.count; k++) { const t = (p.getY(k) + hgt / 2) / hgt; _c.setHex(i % 2 ? 0x6e7898 : 0x7a84a2).lerp(SNOWTOP, Math.max(0, (t - 0.55) / 0.45)); col[k * 3] = _c.r; col[k * 3 + 1] = _c.g; col[k * 3 + 2] = _c.b; }
-    c.setAttribute('color', new BufferAttribute(col, 3)); HP.push(place(c, Math.sin(a) * r, hgt / 2 - 2, 8 + Math.cos(a) * r));
-  }
-  const hills = quiet(new Mesh(merge(HP), new MeshBasicMaterial({ vertexColors: true, fog: false }))); hills.name = 'hm-hills'; g.add(hills);
+  const hills = buildHills(); g.add(hills);   // (M3) two rolling ridge rings with fir bands and saddles towards +x / -x (one draw)
   return { g, sky, hills };
 }
 // glow cards (lanterns + a few windows: one InstancedMesh, faced to the camera each frame) and light pools on the snow (one)
@@ -165,7 +160,7 @@ export function buildPools(side, mode = 'street', soft = softTex()) {
   const L = side.lanterns || [], parts = [];
   for (const p of L) parts.push(new PlaneGeometry(POOL_R * 2, POOL_R * 2).rotateX(-Math.PI / 2).translate(p[0], 0.05, p[2]));
   const geo = parts.length ? mergeGeometries(parts, false) : new PlaneGeometry(0.01, 0.01).rotateX(-Math.PI / 2).translate(0, -50, 0);
-  const mat = new MeshBasicMaterial({ map: soft, color: 0xffbe6a, transparent: true, opacity: mode === 'street' ? 0.72 : 0.5, depthWrite: false, blending: AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const mat = new MeshBasicMaterial({ map: soft, color: 0xffbe6a, transparent: true, opacity: mode === 'street' ? 0.8 : 0.5,   /* (M3) a little stronger in the deeper dusk */ depthWrite: false, blending: AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const pools = quiet(new Mesh(geo, mat)); pools.name = 'hm-light-pools'; pools.visible = parts.length > 0; pools.renderOrder = 1; pools.userData.n = parts.length;
   return pools;
 }
@@ -184,6 +179,7 @@ export function buildSnow(n) {
   const mesh = quiet(new InstancedMesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: tex, color: 0xeef2ff, transparent: true, depthWrite: false, fog: false }), Math.max(1, n)));
   mesh.name = 'hm-snow'; mesh.count = n; mesh.renderOrder = 5;
   const flakes = []; for (let i = 0; i < n; i++) flakes.push({ x: Math.random(), y: Math.random(), z: Math.random(), ph: Math.random() * 6.3, s: 0.045 + Math.random() * 0.04, v: 0.55 + Math.random() * 0.35 });
+  for (let i = 0; i < n; i += 8) { flakes[i].s = 0.11 + Math.random() * 0.05; flakes[i].v = 0.3 + Math.random() * 0.12; }   // (M3) two sizes: every 8th flake big and slow
   return { mesh, flakes, n };
 }
 // the Hebrew signs: the fascia board "הדובשנרייה" with a sweet emblem, and a round hanging sign with a lollipop

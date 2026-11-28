@@ -11,19 +11,23 @@
 // not mirrored). Painted-wood look: a dark board with a faint grain, a thin gold border, cream / gold lettering; every colour
 // <= 0.84 (sRGB 214), so only real light sources bloom. Unlit MeshBasicMaterial with the default tone mapping, exactly like the
 // Honeydukes street signs (hogsmeade-street-build.js buildSigns).
-import { Mesh, PlaneGeometry, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, Matrix4, Vector3, Quaternion, Euler } from 'three';
+import { Mesh, PlaneGeometry, BoxGeometry, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, Matrix4, Vector3, Quaternion, Euler } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FONT } from './adventure-b3-map-build.js';
 
 export const SHOP_SIGN_KEYS = ['broomsticks_hanging', 'broomsticks_fascia', 'zonko_fascia', 'zonko_hanging', 'hogshead_hanging'];
-const AW = 1024, AH = 704;
+const AW = 1024, AH = 880;   // (M3) + the fingerpost board and a plain wood patch below the M2 boards
 const RECT = {
   broomsticks_fascia: { x: 0, y: 0, w: 1024, h: 160 },
   zonko_fascia: { x: 0, y: 168, w: 1024, h: 180 },
   broomsticks_hanging: { x: 0, y: 356, w: 340, h: 340 },
   zonko_hanging: { x: 342, y: 356, w: 340, h: 340 },
   hogshead_hanging: { x: 684, y: 356, w: 340, h: 340 },
+  fingerpost: { x: 0, y: 704, w: 720, h: 170 },   // (M3) "הצריף המצווח" + an arrow pointing to the viewer's left (east, seen from the street)
+  wood: { x: 728, y: 704, w: 296, h: 170 },       // (M3) plain weathered wood for the post and the board's edges
 };
+// (M3) the fingerpost at the east end of the far pavement (street frame): post base (x, z), board top y, board size; faces the street (-z)
+export const POST = { x: 28.6, z: 11.3, top: 2.3, bw: 1.5, bh: 0.38, bd: 0.06, shift: 0.32 };
 const HANGING = (k) => /_hanging$/.test(k);
 export const HANG_FRONT = 0.009, HANG_BACK = 0.061;   // hanging-board faces: in front of / behind the sidecar point (metres): 1 cm outside the v2 board's two faces (-0.051 and -0.001)
 const CREAM = '#d4c69e', GOLD = '#c8a04e', GOLD_D = '#8a6a36', INK = '#1a0e08';
@@ -112,6 +116,12 @@ export function signAtlas() {
   r = RECT.hogshead_hanging; board(x, r, '#36241a', '#24160e', 11);
   boar(x, r.x + r.w / 2, r.y + 142, 84);
   text(x, 'ראש החזיר', r.x + r.w / 2, r.y + 288, r.w - 60, 52);
+  r = RECT.wood; { const R = rnd(13); const g = x.createLinearGradient(r.x, r.y, r.x + r.w, r.y); g.addColorStop(0, '#5a4636'); g.addColorStop(1, '#4a3828'); x.fillStyle = g; x.fillRect(r.x, r.y, r.w, r.h);
+    x.lineWidth = 2; for (let i = 0; i < 40; i++) { const yy = r.y + R() * r.h; x.strokeStyle = R() < 0.5 ? 'rgba(0,0,0,.2)' : 'rgba(170,140,110,.12)'; x.beginPath(); x.moveTo(r.x, yy); x.lineTo(r.x + r.w, yy + (R() - 0.5) * 6); x.stroke(); } }
+  r = RECT.fingerpost; board(x, r, '#5a4434', '#46342a', 15);
+  x.fillStyle = GOLD; x.strokeStyle = 'rgba(30,16,10,.7)'; x.lineWidth = 3; x.beginPath();   // the arrow: to the left (east, as seen from the street)
+  const ay = r.y + r.h / 2; x.moveTo(r.x + 30, ay); x.lineTo(r.x + 104, ay - 50); x.lineTo(r.x + 104, ay - 20); x.lineTo(r.x + 168, ay - 20); x.lineTo(r.x + 168, ay + 20); x.lineTo(r.x + 104, ay + 20); x.lineTo(r.x + 104, ay + 50); x.closePath(); x.fill(); x.stroke();
+  text(x, 'הצריף המצווח', r.x + 180 + (r.w - 200) / 2, ay + 4, r.w - 230, 92);
   const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.anisotropy = 4;
   _atlas = t; return t;
 }
@@ -129,8 +139,19 @@ function quad(key, w, h, cx, cy, cz, ry, off) {
 // direction of the painting: from the viewer's left to right when it is not mirrored)
 const r3 = (v) => Math.round(v * 1000) / 1000;
 function face(s, ry, off, w) { const nx = Math.sin(ry), nz = Math.cos(ry); return { x: r3(s.x + nx * off), y: r3(s.y), z: r3(s.z + nz * off), n: [r3(nx), r3(nz)], u: [r3(Math.cos(ry)), r3(-Math.sin(ry))], w: r3(w) }; }
-// side.signs -> { mesh (or null), keys, faces }
-export function buildShopSigns(side) {
+// a box whose every face shows one atlas patch
+function patched(g, key) { const r = RECT[key], uv = g.attributes.uv, u0 = (r.x + 4) / AW, u1 = (r.x + r.w - 4) / AW, v0 = 1 - (r.y + r.h - 4) / AH, v1 = 1 - (r.y + 4) / AH; for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0)); return g; }
+// (M3) the fingerpost: post, board, lettered face (all in the sign mesh: 0 extra draws)
+function postParts(parts) {
+  const P = POST, bx = P.x + P.shift, by = P.top - P.bh / 2;
+  _q.identity();
+  parts.push(patched(new BoxGeometry(0.14, P.top + 0.18, 0.14), 'wood').applyMatrix4(_m.compose(_v.set(P.x, (P.top + 0.18) / 2, P.z), _q, _s)));
+  parts.push(patched(new BoxGeometry(P.bw, P.bh, P.bd), 'wood').applyMatrix4(_m.compose(_v.set(bx, by, P.z), _q, _s)));
+  parts.push(quad('fingerpost', P.bw * 0.97, P.bh * 0.92, bx, by, P.z, Math.PI, P.bd / 2 + 0.006));
+  return face({ x: bx, y: by, z: P.z }, Math.PI, P.bd / 2 + 0.006, P.bw * 0.97);
+}
+// side.signs -> { mesh (or null), keys, faces, post }; opts.post (M3, the walkable street only): the fingerpost too
+export function buildShopSigns(side, opts = {}) {
   const S = (side && side.signs) || {}, parts = [], keys = [], faces = {};
   for (const k of SHOP_SIGN_KEYS) {
     const s = S[k]; if (!s || ![s.x, s.y, s.z, s.w, s.h].every(Number.isFinite)) continue;
@@ -144,8 +165,9 @@ export function buildShopSigns(side) {
     } else { parts.push(quad(k, s.w * 0.98, s.h * 0.94, s.x, s.y, s.z, ry, 0.012)); faces[k] = [face(s, ry, 0.012, s.w * 0.98)]; }
     keys.push(k);
   }
-  if (!parts.length) return { mesh: null, keys, faces };
+  const post = opts.post ? postParts(parts) : null;
+  if (!parts.length) return { mesh: null, keys, faces, post };
   const mesh = new Mesh(mergeGeometries(parts, false), new MeshBasicMaterial({ map: signAtlas() }));
   mesh.name = 'hm-shop-signs'; mesh.frustumCulled = false; mesh.raycast = () => {};
-  return { mesh, keys, faces };
+  return { mesh, keys, faces, post };
 }
