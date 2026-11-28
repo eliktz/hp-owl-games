@@ -33,6 +33,6 @@ export function frameThing(thing) {
     if (!best || score > best.score) best = { yaw, pitch, dist: L, x: s.x, y: s.y, inBox, clear, score };
   }
   if (!best) return null;
-  C.yaw = best.yaw; C.pitch = best.pitch; C.dist = best.dist; C.curDist = Math.min(C.curDist, best.dist); C.userControlled = true; C.idle = 0;
+  C.yaw = best.yaw; C.pitch = best.pitch; C.dist = best.dist; C.curDist = best.dist; C.userControlled = true; C.idle = 0;
   return best;
 }
