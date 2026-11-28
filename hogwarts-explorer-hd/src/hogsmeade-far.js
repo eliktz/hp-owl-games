@@ -10,7 +10,7 @@ import { place, paint, merge, triCount, drawCount } from './adventure-b3-map-bui
 
 // placement in the street (room) frame: base centre (x, y, z), turn about +Y, uniform scale (tuned from the brief's first values)
 export const FAR = {
-  shack: { x: 100, y: -1, z: 4, ry: 0, scale: 0.6 },     // (tuned from the brief's (84, -1, 10) x 1.0: 50-90 px high from street_look on iPad)
+  shack: { x: 100, y: -1, z: 0, ry: 0, scale: 0.6 },     // (tuned from the brief's (84, -1, 10) x 1.0: 50-90 px high from street_look on iPad)
   castle: { x: -150, y: 7, z: 22, ry: Math.PI, scale: 0.22 },   // delivered facing -x: turned 180 degrees to face the street (+x)
 };
 const LOAD_MS = 30000;

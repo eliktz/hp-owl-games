@@ -145,7 +145,7 @@ function patched(g, key) { const r = RECT[key], uv = g.attributes.uv, u0 = (r.x 
 function postParts(parts) {
   const P = POST, bx = P.x + P.shift, by = P.top - P.bh / 2;
   _q.identity();
-  parts.push(patched(new BoxGeometry(0.14, P.top + 0.18, 0.14), 'wood').applyMatrix4(_m.compose(_v.set(P.x, (P.top + 0.18) / 2, P.z), _q, _s)));
+  parts.push(patched(new BoxGeometry(0.14, P.top + 0.18, 0.14), 'wood').applyMatrix4(_m.compose(_v.set(P.x, (P.top + 0.18) / 2, P.z + P.bd / 2 + 0.07), _q, _s)));   // the post BEHIND the board (never across the lettering)
   parts.push(patched(new BoxGeometry(P.bw, P.bh, P.bd), 'wood').applyMatrix4(_m.compose(_v.set(bx, by, P.z), _q, _s)));
   parts.push(quad('fingerpost', P.bw * 0.97, P.bh * 0.92, bx, by, P.z, Math.PI, P.bd / 2 + 0.006));
   return face({ x: bx, y: by, z: P.z }, Math.PI, P.bd / 2 + 0.006, P.bw * 0.97);

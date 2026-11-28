@@ -146,7 +146,7 @@ async function buildStreet(mode, src) {
     cols.push({ type: 'box', x: w.x0 - 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 }, { type: 'box', x: w.x1 + 0.5, z: (w.z0 + w.z1) / 2, hw: 0.5, hd: (w.z1 - w.z0) / 2 + 1, angle: 0 });
     const zn = Math.max(w.z0, NEAR_Z);   // the near-side snow drifts stand within z 4.8..5.0: Harry walks from z 5.05
     cols.push({ type: 'box', x: (w.x0 + w.x1) / 2, z: zn - 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 }, { type: 'box', x: (w.x0 + w.x1) / 2, z: w.z1 + 0.5, hw: (w.x1 - w.x0) / 2 + 1, hd: 0.5, angle: 0 });
-    cols.push({ type: 'circle', x: POST.x, z: POST.z, r: 0.2 });   // (M3) the fingerpost
+    cols.push({ type: 'circle', x: POST.x, z: POST.z + 0.1, r: 0.2 });   // (M3) the fingerpost
     S.cols = cols;
     // one thin pane of glass in the bow (the model has none): a faint cool sheen, cheap (1 draw)
     if (kind === 'glb' && bow) { const gl = quiet(new Mesh(new PlaneGeometry(4.1, 1.66), new MeshBasicMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.12, depthWrite: false }))); gl.name = 'hm-bow-glass'; gl.position.set(0, 1.8, 5.2); g.add(gl); }
