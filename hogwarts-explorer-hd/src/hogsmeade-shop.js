@@ -198,7 +198,7 @@ export function tapAt(x, y) {
     const d = Math.hypot(s.x - x, s.y - y) / (t.r || 1); if (d < bd) { bd = d; best = t; }
   }
   if (!best || bd > tapR()) return null;
-  const t = best, go = t.frame === false ? t.fn : () => { try { ST.framed = frameThing(t.w(new Vector3())); } catch (e) { warn('frame', e); } t.fn(); };
+  const t = best, go = t.frame === false ? t.fn : () => { try { ST.framed = frameThing((t.fw || t.w)(new Vector3())); } catch (e) { warn('frame', e); } t.fn(); };
   if (t.spot) walkTo(R, t.spot, go); else go();
   return best.id;
 }
@@ -229,7 +229,8 @@ export const SHOP_API = {
   enter: (key) => enterShop(key, null),
   leave: () => leave(),
   tapW: (id) => { const R = ST.cur; if (!R) return null; const t = tappables(R).find(q => q.id === id); return t ? t.w(new Vector3()) : null; },
-  frame: (id) => { const R = ST.cur; if (!R) return null; const t = tappables(R).find(q => q.id === id); if (!t) return null; ST.framed = frameThing(t.w(new Vector3())); return ST.framed; },   // (test) the lens as a play frames it
+  frame: (id) => { const R = ST.cur; if (!R) return null; const t = tappables(R).find(q => q.id === id); if (!t) return null; ST.framed = frameThing((t.fw || t.w)(new Vector3())); return ST.framed; },
+  thingW: (id) => { const R = ST.cur; if (!R) return null; const t = tappables(R).find(q => q.id === id); return t ? (t.fw || t.w)(new Vector3()) : null; },   // (test) the lens as a play frames it
   ids: () => (ST.cur ? tappables(ST.cur).map(t => t.id) : []),
   cur: () => ST.cur,
 };

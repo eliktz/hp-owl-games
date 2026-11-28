@@ -8,7 +8,7 @@ import { sayLow, sayHarry, fx, sfx, reward, roomY, headAt } from './hogsmeade-sh
 
 const TOYS = {
   box: { name: 'קופסת הפתעות', p: [-1.9, 0.75, 1.3], spot: { x: -1.0, z: 0.55, yaw: -0.876 }, say: 'בּוֹינְג! כוכב קופץ!', dur: 3.2, h: 0.35 },
-  ball: { name: 'כדור קופצני', p: [0.4, 0, -0.2], spot: { x: 0.4, z: -1.55, yaw: 0 }, say: 'הכדור קופץ עד התקרה!', dur: 4.4, h: 0.2 },
+  ball: { name: 'כדור קופצני', p: [0.4, 0, -0.2], spot: { x: 0.6, z: -1.95, yaw: -0.114 }, say: 'הכדור קופץ עד התקרה!', dur: 4.4, h: 0.2 },
   top: { name: 'סביבון קסום', p: [3.3, 1.05, 0.4], spot: { x: 2.05, z: 0.4, yaw: Math.PI / 2 }, say: 'סביבון, סוב סוב סוב!', dur: 4.0, h: 0.15 },
   popper: { name: 'זיקוק קונפטי', p: [-0.3, 0.9, -0.9], spot: { x: 0.55, z: -1.5, yaw: -0.956 }, say: 'הידד! מסיבה!', dur: 3.6, h: 0.2 },
   wand: { name: 'שרביט תעלולים', p: [1.0, 0.75, 1.6], spot: { x: 1.95, z: 1.0, yaw: -1.007 }, say: 'פּוּף! השרביט הפך לפרחים!', dur: 3.6, h: 0.12 },
@@ -86,7 +86,7 @@ export function attachToys(R) {
 export function dropToys(R) { if (R.toys) R.toys.hatT = 0; }
 export function toyTaps(R) {
   const T = R.toys; if (!T) return [];
-  return Object.keys(TOYS).map(k => ({ id: k, on: () => !T.list[k].playing, w: (o) => o.set(TOYS[k].p[0], roomY() + TOYS[k].p[1] + TOYS[k].h, TOYS[k].p[2]), spot: TOYS[k].spot, fn: () => play(R, k) }));
+  return Object.keys(TOYS).map(k => ({ id: k, on: () => !T.list[k].playing, w: (o) => o.set(TOYS[k].p[0], roomY() + TOYS[k].p[1] + TOYS[k].h, TOYS[k].p[2]), spot: TOYS[k].spot, fn: () => play(R, k), fw: k === 'ball' ? (o) => o.set(TOYS.ball.p[0], roomY() + 1.3, TOYS.ball.p[2]) : null }));   // (the ball is framed at the middle of its bounce)
 }
 export function play(R, k) {
   const T = R.toys, o = T.list[k]; if (!o || o.playing) return false;

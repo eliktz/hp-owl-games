@@ -91,7 +91,8 @@ registerShop({
   cam: { yaw: -1.9, pitch: 0.3, dist: 3.0 },
   codeBuilt: ['broom-room', 'broom-glow'],
   fallback: (g) => buildRoom(g),
-  signs: [{ text: BROOM_NAME, w: 3.0, h: 0.66, x: 1.6, y: 3.05, z: F.z1 - 0.06, ry: Math.PI, px: 90, pad: 120 },
+  signs: [{ text: BROOM_NAME, w: 2.8, h: 0.6, x: 1.6, y: 3.22, z: F.z1 - 0.06,   // (on the back wall above the shelves, y 2.92..3.52: seen from the room the flags over the bar at z 2.95 stay below it)
+       ry: Math.PI, px: 90, pad: 120 },
     { text: BUTTERBEER + ' חמה', kind: 'chalk', w: 0.62, h: 0.38, x: -0.9, y: 1.32, z: 2.62, ry: Math.PI, px: 96 }],
   attach: (R) => { attach(R); R.mo = { f: 0.17, y: -0.02 }; },
   onModel: (R) => { R.flameY = 0.38; R.fire.glow.position.y = 0.85; },   // (the model's hearth floor is raised: flames from y 0.38, its flame box)
